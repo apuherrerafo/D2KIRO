@@ -6,6 +6,8 @@ export const BUTTON_PRIMARY = `rounded-md bg-accent-primary px-4 py-2 text-capti
 
 export const BUTTON_SECONDARY = `rounded-md border border-surface-border px-4 py-2 text-caption text-content-secondary hover:border-accent-primary hover:text-content-primary ${INTERACTIVE_BASE}`;
 
+export const BUTTON_COMPACT = `rounded-md border border-surface-border px-2 py-1 text-caption text-content-secondary hover:border-accent-primary hover:text-content-primary ${INTERACTIVE_BASE}`;
+
 export const BUTTON_GHOST = `self-start text-caption text-accent-primary hover:text-accent-primary-hover ${INTERACTIVE_BASE}`;
 
 // Badge, no un simple text-caption -- el usuario reportó que el "(Tú)" original pasaba

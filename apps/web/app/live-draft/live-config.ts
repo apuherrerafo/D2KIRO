@@ -1,3 +1,6 @@
+// TSK-219: desde que Dota GSI llega al sitio desplegado, /live-draft funciona en Railway sin este flag.
+// El flag gobierna sólo la captura LOCAL de desarrollo (motor + capturador en la misma PC, `dev:live`):
+// apagado ("false", obligatorio en Railway por scripts/start-railway.sh) se ignora `?session=`.
 export function isDraftLiveEnabled(value: string | undefined = process.env.DRAFT_LIVE_ENABLED): boolean {
   return value !== "false";
 }

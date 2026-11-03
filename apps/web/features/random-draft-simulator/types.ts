@@ -37,8 +37,11 @@ export interface DraftConfig {
   /** 8 chars A-Z0-9 */
   draftSeed: string;
   userSide: TeamSide;
-  /** Posición que el usuario jugará (1 carry ... 5 hard support). */
-  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  /**
+   * AP Ranked Roles V1: posición PERSONAL del Player (1 carry ... 5 hard support). Requerida.
+   * Identifica cuál de sus 5 roles es el suyo; nunca decide cuándo se pica ese héroe.
+   */
+  playerPosition: 1 | 2 | 3 | 4 | 5;
   personalBanList: HeroId[];
   patch: string;
   // R1 S7 (Blocker 2): tamaño de la party declarada al ProtocolSession -- 4 nunca es una opción
@@ -46,7 +49,28 @@ export interface DraftConfig {
   // (party-context.ts, autoridad real). Default 5 (comportamiento idéntico al de antes de esta
   // fase para cualquier config ya persistida).
   partySize: 1 | 2 | 3 | 5;
+  /** Posiciones asignadas a la party del jugador (deben ser exactamente partySize). */
+  partyPositions?: (1 | 2 | 3 | 4 | 5)[];
+  /** Preset de equipo opcional para Party 5. */
+  teamGroupId?: number | null;
+  /**
+   * Quién juega dónde en ESTA partida: `{ "<id del miembro>": 1..5 }`. Es el panorama completo (quien no figura no tiene
+   * posición, y por tanto no se le aplica ningún pool). Nunca se persiste ni modifica el equipo guardado.
+   */
+  teamAssignment?: Record<string, 1 | 2 | 3 | 4 | 5>;
 }
+
+// ---------------------------------------------------------------------------
+// Modo de sesión (MVP P0.1 -- Live Companion)
+// ---------------------------------------------------------------------------
+
+/**
+ * SIMULATION: comportamiento actual, sin cambios -- el motor conduce al Enemy Bot vía auto-drive.
+ * LIVE_COMPANION: sin Enemy Bot. El Player es el único observador de un draft REAL y reporta a
+ * mano los bans y los picks (propios Y rivales) a medida que los ve en su cliente de Dota 2.
+ * Los dos modos comparten el mismo kernel de protocolo -- nunca lo duplican (spec de la tarea).
+ */
+export type SessionMode = "simulation" | "live_companion";
 
 // ---------------------------------------------------------------------------
 // Fase de draft (Zustand store)
@@ -55,6 +79,9 @@ export interface DraftConfig {
 export interface DraftSummary {
   draftSeed: string;
   userSide: TeamSide;
+  playerPosition: 1 | 2 | 3 | 4 | 5;
+  partySize: 1 | 2 | 3 | 5;
+  partyPositions: (1 | 2 | 3 | 4 | 5)[];
   personalBanList: HeroId[];
   resolvedBans: HeroId[];
   picksByRound: PicksByRound[];
@@ -62,14 +89,37 @@ export interface DraftSummary {
 
 export type DraftPhase =
   | { type: "idle" }
+  // Fail closed: la resolución de bans falló -> NO se entra a Round 1; se puede reintentar.
+  | { type: "ban_failed"; message: string }
   | { type: "ban_phase_complete"; resolvedBans: HeroId[] }
   | {
       type: "blind_round";
       round: 1 | 2 | 3;
+      /** Tiempo base que queda (ms). Al llegar a 0 NO se asigna ningún héroe: sólo empieza la penalización. */
       timerRemainingMs: number;
+      timerDurationMs: number;
+      /** Héroes ya sellados por el Player en este intento de la ronda. */
       pendingUserPicks: HeroId[];
+      /** PD-026/PD-027: identidad sellada por POSICIÓN humana controlada, nunca por asiento
+       * cronológico -- Pos2 puede sellarse en Ronda 1, Pos5 en Ronda 3. */
+      lockedUserPicks: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId>>;
+      /** TODAS las posiciones humanas controladas que siguen sin sellar (no sólo las "de esta ronda" -- position != pick chronology). */
+      attemptPositions: (1 | 2 | 3 | 4 | 5)[];
+      /** attemptPositions menos las ya bloqueadas en este intento -- lo que el timer sigue penalizando. */
+      pendingPositions: (1 | 2 | 3 | 4 | 5)[];
+      /** Oro perdido por asiento (0..4), base del servidor -- bookkeeping interno, nunca re-indexado por posición (P0). */
+      goldPenaltyBySlot: number[];
+      penaltyRatePerSecond: number;
+      /** Ms transcurridos desde el vencimiento (sólo visual; el servidor es la fuente de verdad). */
+      penaltyElapsedMs: number;
       conflictBans: HeroId[];
       conflictCount: number;
+      /** Se incrementa en cada intento (ronda inicial y cada repick por colisión): remonta el timer visual. */
+      attemptId: number;
+      /** Aviso visible de colisión / rechazo (nunca un estado silencioso). */
+      notice: string | null;
+      /** PD-026 ALLY BOT SCHEDULING: puede ceder la capacidad restante de la ronda al Ally Bot ahora mismo. */
+      canYield: boolean;
     }
   | {
       type: "round_revealed";
@@ -78,6 +128,24 @@ export type DraftPhase =
       botPicks: HeroId[];
       conflictBans: HeroId[];
     }
+  // LIVE_COMPANION -- el Player reporta a mano los bans observados en el draft REAL antes de
+  // que el kernel abra la Ronda 1. Ningún timer, ninguna resolución simulada: exactamente los
+  // héroes que el Player escribió, ni uno más.
+  | { type: "live_ban_entry"; observedBans: HeroId[]; error: string | null }
+  // LIVE_COMPANION -- esperando que el Player reporte el próximo hecho observado (un pick propio
+  // o rival de los asientos hoy abiertos). `openSlots` viene tal cual de legalActions del motor
+  // (ya incluye AMBOS lados en un adapterKind "manual") -- esta pantalla nunca decide por su
+  // cuenta qué asiento está abierto.
+  | {
+      type: "live_pending";
+      round: 1 | 2 | 3;
+      openSlots: { side: TeamSide; slotIndex: number }[];
+      notice: string | null;
+    }
+  // Colisión de 3er orden dentro de la misma ronda: el kernel exige una autoridad externa
+  // (APPLY_AUTHORITATIVE_COLLISION_RESOLUTION) que este MVP todavía no expone -- caso raro, fuera
+  // de alcance de P0.1 (documentado). Nunca queda en silencio: se explica y no se puede avanzar.
+  | { type: "live_collision_unsupported" }
   | { type: "complete"; summary: DraftSummary };
 
 // ---------------------------------------------------------------------------

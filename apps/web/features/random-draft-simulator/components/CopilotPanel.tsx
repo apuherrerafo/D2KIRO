@@ -8,7 +8,12 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
+import { currentDecisionHeroIds, type CoachOutput, type CurrentDecisionOutput } from "../coach-client";
+import { playerFacingDegradation, playerFacingRisk } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
+import { CoachPanel } from "./CoachPanel";
+import { CurrentDecisionPanel } from "./CurrentDecisionPanel";
+import { SIMULATOR_POSITION_LABELS } from "../roster";
 
 // R1 S5 (independent architecture review, blockers 1 + 8) -- this panel is the ONE human-facing
 // Copilot for the R1 ProtocolSession-backed simulator. It renders RecommendationSet/v2 ONLY:
@@ -45,16 +50,21 @@ function PreviewStatusNotice({ previewStatus, hasRecommendations, onRetry }: Pre
 }
 
 interface DegradationsNoticeProps {
-  degradations: RecommendationSetV2["degradations"];
+  degradations: readonly { reason: string; detail: string }[];
 }
 
 function DegradationsNotice({ degradations }: DegradationsNoticeProps) {
-  if (degradations.length === 0) return null;
+  const notices = new Map<string, string>();
+  for (const degradation of degradations) {
+    const text = playerFacingDegradation(degradation);
+    if (text) notices.set(text, text);
+  }
+  if (notices.size === 0) return null;
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3">
-      {degradations.map((degradation) => (
-        <span key={`${degradation.reason}:${degradation.detail}`} className="text-caption text-signal-warning">
-          {degradation.detail}
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3" data-testid="copilot-degradations">
+      {[...notices.values()].map((text) => (
+        <span key={text} className="text-caption text-signal-warning">
+          {text}
         </span>
       ))}
     </div>
@@ -84,12 +94,6 @@ const POSITION_LABELS: Record<RecommendationPosition, string> = {
   5: "Hard support",
 };
 
-const RISK_LABELS: Record<string, string> = {
-  low_evidence: "Evidencia limitada",
-  unresolved_role: "Rol aún no resuelto",
-  degraded_meta: "Meta desactualizado",
-};
-
 /** Posición sugerida para el héroe de una recomendación de un solo héroe -- lee `roleImpact`
  * (S4, ya calculado por el motor) verbatim, nunca reinfiere el rol acá. Compuesta (2+ héroes) ya
  * muestra su propia posición por héroe en `CompoundRecommendationCard`. */
@@ -107,7 +111,7 @@ function RecommendationRisksNotice({ risks }: { risks: RecommendationV2["risks"]
     <div className="flex flex-col gap-1 rounded-md border border-signal-warning/50 bg-signal-warning/10 p-2">
       {risks.map((risk) => (
         <span key={`${risk.kind}:${risk.detail}`} className="text-caption text-signal-warning">
-          {RISK_LABELS[risk.kind] ?? risk.kind}: {risk.detail}
+          {playerFacingRisk(risk)}
         </span>
       ))}
     </div>
@@ -219,6 +223,123 @@ interface RecommendationListProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+export interface RoundPickState {
+  round: 1 | 2 | 3;
+  /** PD-026/PD-027 COACH TARGET POSITIONS -- posiciones humanas ya selladas en este intento; nunca un índice de slot. */
+  lockedPositions: RecommendationPosition[];
+  lockedHeroesByPosition?: Partial<Record<RecommendationPosition, HeroId>>;
+}
+
+interface RoundRecommendationColumnProps {
+  position: RecommendationPosition;
+  source: RecommendationSetV2 | null;
+  heroCatalog: Map<number, HeroMeta>;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+  state: "initial" | "locked" | "recomputed";
+  lockedHeroId?: HeroId;
+}
+
+/** PD-026/PD-027 COPILOT UI -- columns represent unfilled human-controlled positions, exactly as
+ * the engine tagged them (`humanOpenPositions`), never a round-slot mapping computed here. */
+function RoundRecommendationColumn({
+  position,
+  source,
+  heroCatalog,
+  playerPosition,
+  partyPositions,
+  state,
+  lockedHeroId,
+}: RoundRecommendationColumnProps) {
+  const isPersonal = position === playerPosition;
+  const isParty = partyPositions?.includes(position) ?? true;
+  const controllerLabel = isPersonal
+    ? "YOU · Vista personal / Hero Pool"
+    : `${isParty ? "PARTY" : "ALLY BOT"} · Recomendación por rol · sin Hero Pool personal`;
+  const actions = (source?.recommendations ?? []).flatMap((recommendation, packageIndex) => {
+    const action = recommendation.actions.find((candidate) => candidate.slot.position === position);
+    return action ? [{ action, packageIndex }] : [];
+  });
+  const isLocked = state === "locked";
+  const isRecomputed = state === "recomputed";
+  const stateClass = isLocked ? "opacity-75" : "";
+  const lockedHero = lockedHeroId === undefined ? undefined : heroCatalog.get(lockedHeroId);
+  return (
+    <div className={`flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3 ${stateClass}`} data-testid={`recommendation-column-position-${position}`}>
+      <span className="text-body font-semibold text-content-primary">Pos{position} {SIMULATOR_POSITION_LABELS[position]}</span>
+      <span className="text-caption text-content-muted">{controllerLabel}</span>
+      {isLocked && <span className="text-caption font-semibold text-signal-positive">Héroe y posición bloqueados</span>}
+      {isLocked && lockedHeroId !== undefined && (
+        <div className="flex items-center gap-2 text-caption font-semibold text-content-primary">
+          <HeroIcon imgUrl={lockedHero?.imgUrl ?? ""} alt={lockedHero?.localizedName ?? `Héroe ${lockedHeroId}`} size={40} />
+          <span>{lockedHero?.localizedName ?? `Héroe ${lockedHeroId}`}</span>
+        </div>
+      )}
+      {isRecomputed && <span className="text-caption font-semibold text-signal-warning">Recomendaciones iniciales sustituidas · recálculo actual</span>}
+      <ol className="flex flex-col gap-2">
+        {actions.map(({ action, packageIndex }) => {
+          const hero = heroCatalog.get(action.hero);
+          return (
+            <li key={`${packageIndex}-${action.hero}`} className="flex items-center gap-2 text-caption text-content-primary">
+              <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${action.hero}`} size={40} />
+              <span className="text-content-muted">Paquete {packageIndex + 1}</span>
+              <span className="font-semibold">{hero?.localizedName ?? `Héroe ${action.hero}`}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+interface RoundRecommendationColumnsProps {
+  current: RecommendationSetV2;
+  heroCatalog: Map<number, HeroMeta>;
+  roundPickState: RoundPickState;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+}
+
+/** Distinct, ascending positions the current recommendation set actually tagged -- exactly the
+ * engine's `humanOpenPositions`-derived columns, never a fixed round-slot count. */
+function activeTargetPositions(recommendationSet: RecommendationSetV2): RecommendationPosition[] {
+  const positions = new Set<RecommendationPosition>();
+  for (const slot of recommendationSet.decision.controlledSlots) {
+    if (slot.position !== undefined && slot.position !== null) positions.add(slot.position);
+  }
+  return [...positions].sort((a, b) => a - b);
+}
+
+function RoundRecommendationColumns({ current, heroCatalog, roundPickState, playerPosition, partyPositions }: RoundRecommendationColumnsProps) {
+  const active = activeTargetPositions(current);
+  const allPositions = [...new Set([...active, ...roundPickState.lockedPositions])].sort((a, b) => a - b);
+  return (
+    <div className="flex flex-col gap-2" data-testid="round-recommendation-columns">
+      <span className="text-body font-semibold text-accent-primary">{allPositions.length} posiciones en juego en esta ronda</span>
+      <span className="text-caption font-semibold text-content-secondary">Paquetes V2 de ronda</span>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {allPositions.map((position) => {
+          const locked = roundPickState.lockedPositions.includes(position);
+          const state = locked ? "locked" : roundPickState.lockedPositions.length > 0 ? "recomputed" : "initial";
+          const source = locked ? null : current;
+          return (
+            <RoundRecommendationColumn
+              key={position}
+              position={position}
+              source={source}
+              heroCatalog={heroCatalog}
+              playerPosition={playerPosition}
+              partyPositions={partyPositions}
+              state={state}
+              lockedHeroId={roundPickState.lockedHeroesByPosition?.[position]}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RecommendationList({ recommendationSet, heroCatalog }: RecommendationListProps) {
   if (!recommendationSet) return null;
   const { recommendations } = recommendationSet;
@@ -232,7 +353,14 @@ function RecommendationList({ recommendationSet, heroCatalog }: RecommendationLi
     return (
       <div className="grid grid-cols-2 gap-2">
         {singleActionSuggestions.map((suggestion) => (
-          <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={suggestion.rank === 1} compact />
+          <SuggestionCard
+            key={suggestion.hero}
+            suggestion={suggestion}
+            heroMeta={heroCatalog.get(suggestion.hero)}
+            isPrimary={suggestion.rank === 1}
+            compact
+            sessionId={recommendationSet.sessionId}
+          />
         ))}
       </div>
     );
@@ -254,10 +382,22 @@ function RecommendationList({ recommendationSet, heroCatalog }: RecommendationLi
 
 export interface CopilotPanelProps {
   recommendations: RecommendationSetV2 | null;
+  /** AP Ranked Roles V1 / Wave 2: Coach output plus the V2 package/round recommendations. */
+  coach?: CoachOutput | null;
   heroCatalog: Map<number, HeroMeta>;
   previewStatus?: PreviewStatus;
   onRetryPreview?: () => void;
   onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
+  onAssignOwnPosition?: (heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null) => void;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+  roundPickState?: RoundPickState;
+  /**
+   * Product Semantics Recovery WP3 -- the V4 CurrentHumanDecision. When present it is the ONLY
+   * current-action content of this panel: the V3 Coach body, the legacy V2 body and the V2
+   * degradation banner are not rendered next to it (COHERENCE-001/010/012).
+   */
+  currentDecision?: CurrentDecisionOutput | null;
 }
 
 function noop() {
@@ -265,37 +405,117 @@ function noop() {
   // onRetryPreview) -- botón inerte en vez de un handler faltante.
 }
 
-export function CopilotPanel({ recommendations, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange }: CopilotPanelProps) {
-  const suggestedHeroKey = recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)).join(",") ?? "";
+/** Heroes the Copilot currently points at: the V4 decision's candidates, else the Coach shortlist, else the V2 list. */
+function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: CoachOutput | null, currentDecision: CurrentDecisionOutput | null = null): HeroId[] {
+  if (currentDecision) return currentDecisionHeroIds(currentDecision);
+  if (coach) return coach.shortlist.map((card) => card.heroId);
+  return recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
+}
+
+// El V2 sigue visible con o sin Coach. En rondas 2-pick se proyecta por slot; en una ronda
+// single-pick conserva la lista compacta anterior.
+interface LegacyRecommendationBodyProps {
+  recommendations: RecommendationSetV2;
+  heroCatalog: Map<number, HeroMeta>;
+  roundPickState?: RoundPickState;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+}
+
+function LegacyRecommendationBody({
+  recommendations,
+  heroCatalog,
+  roundPickState,
+  playerPosition,
+  partyPositions,
+}: LegacyRecommendationBodyProps) {
+  if (recommendations.recommendations.length === 0) return null;
+  const activePositions = activeTargetPositions(recommendations);
+  const allPositions = new Set([...activePositions, ...(roundPickState?.lockedPositions ?? [])]);
+  // PD-026/PD-027 COPILOT UI -- multi-column view whenever 2+ distinct human-controlled positions
+  // are in play this attempt, never a fixed "round 1/2 = 2 columns" assumption.
+  const showMultiColumns = roundPickState !== undefined && allPositions.size >= 2;
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <RoleImpactNotice recommendation={recommendations.recommendations[0]} />
+        <RecommendationRisksNotice risks={recommendations.recommendations[0].risks} />
+        <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />
+      </div>
+      {showMultiColumns && (
+        <RoundRecommendationColumns
+          current={recommendations}
+          heroCatalog={heroCatalog}
+          roundPickState={roundPickState}
+          playerPosition={playerPosition}
+          partyPositions={partyPositions}
+        />
+      )}
+      {!showMultiColumns && <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />}
+    </>
+  );
+}
+
+export function CopilotPanel({
+  recommendations,
+  coach = null,
+  heroCatalog,
+  previewStatus = "idle",
+  onRetryPreview = noop,
+  onSuggestedHeroIdsChange,
+  onAssignOwnPosition,
+  playerPosition,
+  partyPositions,
+  roundPickState,
+  currentDecision = null,
+}: CopilotPanelProps) {
+  const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach, currentDecision).join(",");
 
   // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
   // ya usaba la variante Pro-Drafter de este panel antes de esta migración.
   useEffect(() => {
     if (!onSuggestedHeroIdsChange) return;
-    const heroIds = recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
-    onSuggestedHeroIdsChange(new Set(heroIds));
+    onSuggestedHeroIdsChange(new Set(suggestedHeroIdsOf(recommendations, coach, currentDecision)));
     // suggestedHeroKey estabiliza el conjunto derivado y evita un efecto infinito.
   }, [onSuggestedHeroIdsChange, suggestedHeroKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasRecommendations = (recommendations?.recommendations.length ?? 0) > 0;
+  if (currentDecision) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
+        <span className="text-heading text-content-primary">Copilot</span>
+        <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations onRetry={onRetryPreview} />
+        <CurrentDecisionPanel output={currentDecision} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
+      </div>
+    );
+  }
+
+  const hasRecommendations = coach !== null || (recommendations?.recommendations.length ?? 0) > 0;
+  const decisionContext = coach?.meta.decisionContext ?? recommendations?.decisionContext ?? "no_action";
+
+  const allDegradations = [
+    ...(recommendations?.degradations ?? []),
+    ...(coach?.meta.degradations ?? []),
+  ];
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
       <span className="text-heading text-content-primary">Copilot</span>
       <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations} onRetry={onRetryPreview} />
-      {recommendations && <DegradationsNotice degradations={recommendations.degradations} />}
-      {recommendations && <DecisionContextNotice decisionContext={recommendations.decisionContext} />}
+      {allDegradations.length > 0 && <DegradationsNotice degradations={allDegradations} />}
+      {(recommendations || coach) && <DecisionContextNotice decisionContext={decisionContext} />}
       {recommendations && !hasRecommendations && previewStatus === "ready" && (
         <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
       )}
-      {recommendations && hasRecommendations && (
-        <div className="flex flex-col gap-2">
-          <RoleImpactNotice recommendation={recommendations.recommendations[0]} />
-          <RecommendationRisksNotice risks={recommendations.recommendations[0].risks} />
-          <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />
-        </div>
+      {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} suppressDegradations />}
+      {recommendations && (
+        <LegacyRecommendationBody
+          recommendations={recommendations}
+          heroCatalog={heroCatalog}
+          roundPickState={roundPickState}
+          playerPosition={playerPosition}
+          partyPositions={partyPositions}
+        />
       )}
-      <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />
     </div>
   );
 }

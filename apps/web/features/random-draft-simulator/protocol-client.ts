@@ -37,9 +37,82 @@ export type ProtocolLegalAction =
   | { type: "CM_BAN_SKIPPED"; step: number; actor: RelativeSide; absoluteSide: TeamSide }
   | { type: "CM_AUTO_PICK"; step: number; actor: RelativeSide; absoluteSide: TeamSide; eligibleHeroIds: HeroId[] };
 
+// AP Ranked Roles V1 -- Simulator-layer timer/gold-penalty projection (engine simulator/timer.ts).
+// Espejo a mano: sólo lo que la UI lee. Todo relativo al momento de la respuesta -- el cliente
+// nunca recibe un timestamp absoluto en el que deba confiar.
+export interface SimulatorTimerView {
+  round: 1 | 2 | 3;
+  durationMs: number;
+  remainingMs: number;
+  penaltyActive: boolean;
+  /** Roster seats (0..4) del Player que siguen sin elegir. */
+  pendingSeats: number[];
+  /** Oro perdido por asiento (0..4). */
+  goldPenaltyBySlot: number[];
+  penaltyRatePerSecond: number;
+}
+
+/**
+ * PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only. Espejo a mano
+ * de OwnAssignedPositionProjection (engine, server/protocol-session.ts). `heroId` lo une el servidor
+ * contra el estado autoritativo del kernel por (round, slotIndex): este cliente nunca lo deduce de
+ * la cronología de picks, del orden del array ni de la aritmética de asientos.
+ */
+export interface OwnAssignedPositionBinding {
+  round: 1 | 2 | 3;
+  slotIndex: number;
+  assignedPosition: 1 | 2 | 3 | 4 | 5;
+  heroId: HeroId;
+}
+
+/**
+ * Product Semantics Recovery WP1 -- espejo a mano de HumanActionability (engine,
+ * recommendation/human-actionability.ts): posiciones humanas elegibles SEPARADAS de cuántos picks
+ * caben en la ronda actual. Verdad del servidor: la web nunca la re-deriva.
+ */
+export interface HumanActionability {
+  eligiblePositions: (1 | 2 | 3 | 4 | 5)[];
+  roundCapacity: number;
+  hasHumanAction: boolean;
+  noActionReason: "YIELDED" | "ROUND_COMPLETE" | "DRAFT_COMPLETE" | null;
+}
+
 export interface ProtocolSnapshot {
   view: ProtocolPerspectiveView;
   legalActions: ProtocolLegalAction[];
+  /** null fuera de una sesión AP Simulator o antes de que la primera ronda se entregue al Player. */
+  simulator: SimulatorTimerView | null;
+  /** PD-026/PD-027: binding sesión-capa de Own Team, `[]` si la sesión no tiene ninguno todavía. */
+  ownAssignedPositions: OwnAssignedPositionBinding[];
+  /**
+   * P0-3 (INV-YIELD-001) -- la MISMA precondición que `POST /yield` evalúa (ProtocolSessionStore.
+   * canYield, protocol-session.ts), servida en cada snapshot para que este cliente nunca tenga que
+   * aproximarla por su cuenta. `false` fuera de una sesión AP Simulator.
+   */
+  canYield: boolean;
+  /** WP1 -- null/ausente fuera de una sesión AP Simulator con controlledPositions (o en una respuesta previa a este campo). */
+  humanActionability?: HumanActionability | null;
+  /** Sólo en la respuesta de un comando: el kernel lo aceptó o lo rechazó (motivo). */
+  accepted?: boolean;
+  rejected?: string;
+}
+
+/**
+ * P0-3 (INV-YIELD-002) -- lanzado por readSnapshot() para una respuesta HTTP no-ok CUYO cuerpo
+ * trae un código de error de dominio (p. ej. 409 `ally_bot_cannot_absorb_capacity`). Distinguible
+ * de una falla de red/motor inalcanzable: un llamador que necesita reaccionar distinto ante un
+ * rechazo de dominio (nunca "engineStatus: unreachable" para esto) puede usar `instanceof`.
+ */
+export class ProtocolRequestError extends Error {
+  readonly status: number;
+  readonly errorCode: string | null;
+
+  constructor(status: number, errorCode: string | null) {
+    super(`protocol request failed (${status}${errorCode ? `: ${errorCode}` : ""})`);
+    this.name = "ProtocolRequestError";
+    this.status = status;
+    this.errorCode = errorCode;
+  }
 }
 
 type ProtocolCommand =
@@ -75,6 +148,59 @@ function isValidCaptainsModeView(value: unknown): boolean {
   return sideOk && typeof value.currentStep === "number";
 }
 
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number" && Number.isFinite(entry));
+}
+
+function parseSimulatorTimer(value: unknown): SimulatorTimerView | null {
+  if (!isRecord(value)) return null;
+  const round = value.round;
+  if (round !== 1 && round !== 2 && round !== 3) return null;
+  if (typeof value.durationMs !== "number" || typeof value.remainingMs !== "number") return null;
+  if (typeof value.penaltyActive !== "boolean" || typeof value.penaltyRatePerSecond !== "number") return null;
+  if (!isNumberArray(value.pendingSeats) || !isNumberArray(value.goldPenaltyBySlot)) return null;
+  return {
+    round,
+    durationMs: value.durationMs,
+    remainingMs: value.remainingMs,
+    penaltyActive: value.penaltyActive,
+    pendingSeats: value.pendingSeats,
+    goldPenaltyBySlot: value.goldPenaltyBySlot,
+    penaltyRatePerSecond: value.penaltyRatePerSecond,
+  };
+}
+
+function isDotaPosition(value: unknown): value is 1 | 2 | 3 | 4 | 5 {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
+}
+
+function isOwnAssignedPositionBinding(value: unknown): value is OwnAssignedPositionBinding {
+  if (!isRecord(value)) return false;
+  const slotIndexOk = typeof value.slotIndex === "number" && Number.isInteger(value.slotIndex) && value.slotIndex >= 0;
+  return (value.round === 1 || value.round === 2 || value.round === 3) && slotIndexOk && isDotaPosition(value.assignedPosition) && isHeroId(value.heroId);
+}
+
+/**
+ * Las bindings son hechos del roster propio: una lista con un elemento malformado, o con una
+ * posición/héroe repetido, se descarta ENTERA (`[]`) en vez de confiar en parte de ella.
+ */
+function parseOwnAssignedPositions(value: unknown): OwnAssignedPositionBinding[] {
+  if (!Array.isArray(value) || !value.every(isOwnAssignedPositionBinding)) return [];
+  const positions = new Set(value.map((binding) => binding.assignedPosition));
+  const heroes = new Set(value.map((binding) => binding.heroId));
+  if (positions.size !== value.length || heroes.size !== value.length) return [];
+  return value.map((binding) => ({ round: binding.round, slotIndex: binding.slotIndex, assignedPosition: binding.assignedPosition, heroId: binding.heroId }));
+}
+
+function parseHumanActionability(value: unknown): HumanActionability | null {
+  if (!isRecord(value) || !Array.isArray(value.eligiblePositions) || !value.eligiblePositions.every(isDotaPosition)) return null;
+  if (typeof value.roundCapacity !== "number" || !Number.isInteger(value.roundCapacity) || value.roundCapacity < 0) return null;
+  if (typeof value.hasHumanAction !== "boolean") return null;
+  const reasonOk = value.noActionReason === null || value.noActionReason === "YIELDED" || value.noActionReason === "ROUND_COMPLETE" || value.noActionReason === "DRAFT_COMPLETE";
+  if (!reasonOk || value.hasHumanAction !== (value.noActionReason === null)) return null;
+  return { eligiblePositions: [...value.eligiblePositions], roundCapacity: value.roundCapacity, hasHumanAction: value.hasHumanAction, noActionReason: value.noActionReason as HumanActionability["noActionReason"] };
+}
+
 function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   if (!isRecord(value) || !isRecord(value.view) || !Array.isArray(value.legalActions)) return null;
   const view = value.view;
@@ -89,11 +215,25 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   const captainsModeOk = view.captainsMode === undefined || view.captainsMode === null || isValidCaptainsModeView(view.captainsMode);
   if (!rankedApOk || !captainsModeOk) return null;
   if (view.rankedAp === null && (view.captainsMode === undefined || view.captainsMode === null)) return null;
-  return value as unknown as ProtocolSnapshot;
+  const ownAssignedPositions = parseOwnAssignedPositions(value.ownAssignedPositions);
+  // P0-3 (INV-YIELD-001): absent (non-AP-Simulator / legacy session, or a response shape from
+  // before this field existed) degrades to `false` -- never manufactures Yield eligibility.
+  const canYield = value.canYield === true;
+  const snapshot = value as unknown as ProtocolSnapshot;
+  const accepted = typeof value.accepted === "boolean" ? { accepted: value.accepted } : {};
+  const rejected = typeof value.rejected === "string" ? { rejected: value.rejected } : {};
+  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ownAssignedPositions, canYield, humanActionability: parseHumanActionability(value.humanActionability), ...accepted, ...rejected };
 }
 
 async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
-  if (!response.ok) throw new Error(`protocol request failed (${response.status})`);
+  if (!response.ok) {
+    // P0-3 (INV-YIELD-002) -- preserve the JSON body's `error` field (a domain-level rejection code,
+    // e.g. `ally_bot_cannot_absorb_capacity`) instead of discarding it: a caller needs it to tell a
+    // domain rejection apart from a real network/engine failure.
+    const body: unknown = await response.json().catch(() => null);
+    const errorCode = isRecord(body) && typeof body.error === "string" ? body.error : null;
+    throw new ProtocolRequestError(response.status, errorCode);
+  }
   const parsed = parseSnapshot(await response.json());
   if (!parsed) throw new Error("invalid protocol response");
   return parsed;
@@ -101,17 +241,35 @@ async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
 
 export interface CreateSimulatorSessionOptions {
   rulesetId?: RulesetId;
-  /**
-   * R1 S7 (Blocker 2) -- the human operator still submits every local-side sealed selection
-   * itself (the simulator's whole premise: coach your team's picks), so `controlledSlots` here is
-   * NOT "how many slots the browser is allowed to submit for" -- isCommandAuthorized never checked
-   * that (protocol-session.ts). It is purely the declared party-size metadata S4's role-belief
-   * system (role_gate) reads to size how much of the side is "known" vs a random teammate. Party 4
-   * is never offered here -- createPartyContext (engine, authoritative) rejects it with
-   * INVALID_PARTY_SIZE; the engine stays the one source of truth for that rule, never duplicated
-   * here (web.md/invariantes.md: "no reimplementes reglas en frontend").
-   */
+  /** AP Ranked Roles V1 controla los 5 asientos propios: partySize 5 (default). */
   partySize?: PartySize;
+  /** Posición personal declarada del Player (1..5). Identifica su rol; nunca decide cuándo se pica. */
+  humanPosition?: 1 | 2 | 3 | 4 | 5;
+  /** Posiciones que controla la party del jugador. */
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+  simulatorSeed?: string;
+  /**
+   * MVP P0.1 -- default "simulator" (byte-identical to every call site before this field existed).
+   * "manual" is Live Companion: no Enemy Bot, no seeded ban policy -- the Player reports both
+   * sides' sealed selections and the observed bans by hand (see protocol-session.ts, engine side).
+   */
+  adapterKind?: "manual" | "simulator";
+  teamGroupId?: number | null;
+  /** Quién juega dónde en esta partida (ver DraftConfig.teamAssignment); el motor resuelve los pools desde el equipo guardado. */
+  teamAssignment?: Record<string, 1 | 2 | 3 | 4 | 5>;
+}
+
+/**
+ * PD-026/PD-027 -- computes `controlledPositions` (Own Team's human-controlled positions), the
+ * session's real control truth. `partyContext.controlledSlots` is sent EMPTY: chronological roster
+ * seats are structural/inert for AP, never position/control truth.
+ */
+/** Exported so roster.ts's `controlledPositionsForConfig` derives the SAME set from a DraftConfig -- two independent copies of this fallback previously risked drifting apart (see PD-026/PD-027 redteam finding). */
+export function resolveControlledPositions(partySize: PartySize, options: CreateSimulatorSessionOptions): (1 | 2 | 3 | 4 | 5)[] {
+  if (options.partyPositions && options.partyPositions.length === partySize) return [...options.partyPositions];
+  if (partySize === 5) return [1, 2, 3, 4, 5];
+  if (partySize === 1 && options.humanPosition) return [options.humanPosition];
+  return [1, 2, 3, 4, 5].slice(0, partySize) as (1 | 2 | 3 | 4 | 5)[];
 }
 
 export async function createSimulatorProtocolSession(
@@ -121,7 +279,7 @@ export async function createSimulatorProtocolSession(
   options: CreateSimulatorSessionOptions = {},
 ): Promise<string> {
   const partySize = options.partySize ?? 5;
-  const controlledSlotCount = Math.min(partySize, 5);
+  const controlledPositions = resolveControlledPositions(partySize, options);
   const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -129,16 +287,13 @@ export async function createSimulatorProtocolSession(
       rulesetId: options.rulesetId ?? "dota2/ranked-all-pick",
       patch,
       localSide,
-      adapterKind: "simulator",
-      partyContext: {
-        partySize,
-        side: localSide,
-        controlledSlots: Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
-          side: localSide,
-          slotIndex,
-          controllerId: `simulator-local-${slotIndex}`,
-        })),
-      },
+      adapterKind: options.adapterKind ?? "simulator",
+      partyContext: { partySize, side: localSide, controlledSlots: [] },
+      controlledPositions,
+      humanPosition: options.humanPosition,
+      simulatorSeed: options.simulatorSeed,
+      teamGroupId: options.teamGroupId,
+      teamAssignment: options.teamAssignment,
     }),
   });
   if (!response.ok) throw new Error(`protocol session creation failed (${response.status})`);
@@ -147,15 +302,41 @@ export async function createSimulatorProtocolSession(
   return body.sessionId;
 }
 
+/**
+ * MVP P0.1 (Live Companion) -- reads the current snapshot without submitting any command. Used
+ * once, right after creating a "manual" adapterKind session, to seed the board before the Player
+ * has reported anything: the ban-resolution simulator route (which returns a snapshot as a side
+ * effect) is never called in this mode, so nothing else primes `draftState` otherwise.
+ */
+export async function getProtocolSession(sessionId: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}`);
+  return readSnapshot(response);
+}
+
+/**
+ * PD-026/PD-027 -- `assignedPosition` travels as a SIBLING field to `command`, never inside it (the
+ * kernel command shape never changes). Only meaningful for an Own Team `SUBMIT_SEALED_SELECTION` on
+ * an AP Simulator session with `controlledPositions`; omitted for every other command.
+ */
 export function submitProtocolCommand(
   sessionId: string,
   command: ProtocolCommand,
   fetchImpl: typeof fetch = fetch,
+  assignedPosition?: 1 | 2 | 3 | 4 | 5,
 ): Promise<ProtocolSnapshot> {
   return fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/command`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ command }),
+    body: JSON.stringify(assignedPosition === undefined ? { command } : { command, assignedPosition }),
+  }).then(readSnapshot);
+}
+
+/** PD-026 ALLY BOT SCHEDULING -- yields the round's remaining Own Team capacity to the Ally Bot. */
+export function requestYield(sessionId: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {
+  return fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/yield`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
   }).then(readSnapshot);
 }
 
@@ -165,6 +346,73 @@ export function requestBotSelection(sessionId: string, fetchImpl: typeof fetch =
     headers: { "content-type": "application/json" },
     body: JSON.stringify({}),
   }).then(readSnapshot);
+}
+
+export type AutoDriveStopReason = "round_revealed" | "human_input" | "complete";
+
+export interface AutoDriveResult extends ProtocolSnapshot {
+  stopReason: AutoDriveStopReason;
+  completedRound: 1 | 2 | 3 | null;
+}
+
+export async function requestEnemyAutoDrive(
+  sessionId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AutoDriveResult> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/auto-drive`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) throw new Error(`auto-drive request failed (${response.status})`);
+  const body: unknown = await response.json();
+  const snapshot = parseSnapshot(body);
+  if (!snapshot || !isRecord(body)) throw new Error("invalid auto-drive response");
+  if (body.stopReason !== "round_revealed" && body.stopReason !== "human_input" && body.stopReason !== "complete") {
+    throw new Error("invalid auto-drive stop reason");
+  }
+  const completedRound = body.completedRound;
+  if (completedRound !== null && completedRound !== 1 && completedRound !== 2 && completedRound !== 3) {
+    throw new Error("invalid completed round");
+  }
+  return { ...snapshot, stopReason: body.stopReason, completedRound };
+}
+
+export type BanResolutionOutcome =
+  | { ok: true; resolvedBans: HeroId[]; snapshot: ProtocolSnapshot }
+  | { ok: false; retryable: boolean; error: string };
+
+/**
+ * AP Ranked Roles V1 -- ban resolution happens in the engine (BanResolutionPolicy, deterministic by
+ * seed). FAIL CLOSED: any failure returns `ok: false`; the caller must NOT start Round 1 and must
+ * offer a retry -- never fabricate or reduce the ban set client-side.
+ */
+export async function resolveSimulatorBans(
+  sessionId: string,
+  playerBanPreferences: (HeroId | null)[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<BanResolutionOutcome> {
+  let response: Response;
+  try {
+    response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/resolve-bans`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerBanPreferences }),
+    });
+  } catch {
+    return { ok: false, retryable: true, error: "engine_unreachable" };
+  }
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = isRecord(body) && typeof body.error === "string" ? body.error : `http_${response.status}`;
+    const retryable = isRecord(body) && body.retryable === true;
+    return { ok: false, retryable, error };
+  }
+  const snapshot = parseSnapshot(body);
+  if (!snapshot || !isRecord(body) || !Array.isArray(body.resolvedBans) || !body.resolvedBans.every(isHeroId)) {
+    return { ok: false, retryable: true, error: "invalid_ban_resolution_response" };
+  }
+  return { ok: true, resolvedBans: body.resolvedBans, snapshot };
 }
 
 export function resolveSimulatorAuthority(sessionId: string, seed: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {
@@ -190,6 +438,7 @@ export type RecommendationPosition = 1 | 2 | 3 | 4 | 5;
 export interface RecommendationSlotV2 {
   side: TeamSide;
   slotIndex: number;
+  position?: RecommendationPosition | null;
 }
 
 export interface RecommendationActionV2 {
@@ -295,7 +544,8 @@ function isSignalContribution(value: unknown): value is SignalContribution {
 }
 
 function isRecommendationSlot(value: unknown): value is RecommendationSlotV2 {
-  return isRecord(value) && (value.side === "radiant" || value.side === "dire") && typeof value.slotIndex === "number";
+  return isRecord(value) && (value.side === "radiant" || value.side === "dire") && typeof value.slotIndex === "number"
+    && (value.position === undefined || value.position === null || isRecommendationPosition(value.position));
 }
 
 function isRoleImpact(value: unknown): value is RecommendationRoleImpactV2 {
@@ -389,7 +639,7 @@ function isDeferredFields(value: unknown): value is RecommendationDeferredFields
   return okOpponent && okSteal && okLookahead;
 }
 
-function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
+export function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
   if (!isRecord(value)) return null;
   if (value.schema !== "recommendation-set/v2") return null;
   if (typeof value.sessionId !== "string") return null;

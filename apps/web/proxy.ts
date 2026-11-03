@@ -1,9 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { mintAccountToken } from "./lib/account-token";
+import { getCanonicalOrigin } from "./lib/canonical-origin";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
 
+// TSK-219: Dota's Game State Integration has no session cookie -- its ingest path is public here and
+// authenticated by the link token in the engine (app/api/live/gsi/[liveId]/route.ts). Exactly this
+// prefix: `/api/live/gsi-config` (the cfg download) still needs a session.
+const GSI_INGEST_PREFIX = "/api/live/gsi/";
+// Local visual capture (the Player's PC derives hero ids from the Dota window): same public door, same link
+// credential, checked by the engine. Facts only -- never a frame.
+const VISUAL_INGEST_PREFIX = "/api/live/visual/";
+// D2KIRO Companion heartbeat: same public door, same link credential, checked by the engine. Exactly this prefix:
+// `/api/live/companion-installer` (the personal download) still needs a session.
+const COMPANION_INGEST_PREFIX = "/api/live/companion/";
+
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/healthz" || pathname.startsWith("/api/auth/");
+  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {
@@ -17,8 +29,10 @@ function cookieStoreFor(request: NextRequest, response: NextResponse): SessionCo
   };
 }
 
-function loginRedirect(request: NextRequest): NextResponse {
-  return NextResponse.redirect(new URL("/login", request.url));
+function loginRedirect(): NextResponse {
+  const origin = getCanonicalOrigin();
+  if (origin === null) return new NextResponse("Authentication unavailable", { status: 503 });
+  return NextResponse.redirect(new URL("/login", origin));
 }
 
 export async function proxy(request: NextRequest) {
@@ -32,7 +46,7 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   const session = await getSession(cookieStoreFor(request, response));
-  if (!await renewSessionIfNeeded(session)) return loginRedirect(request);
+  if (!await renewSessionIfNeeded(session)) return loginRedirect();
 
   if (!isEngineRewrite(request.nextUrl.pathname)) return response;
 

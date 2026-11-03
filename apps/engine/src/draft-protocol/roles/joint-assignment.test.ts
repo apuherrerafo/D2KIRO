@@ -116,4 +116,39 @@ describe("computeJointRoleAssignment -- S4.3", () => {
     const result = computeJointRoleAssignment(heroes);
     expect(result.candidates).toHaveLength(120);
   });
+
+  test("dos héroes con distribución exclusiva a la misma posición (sin confirmar explícita) se rechazan como asignación imposible", () => {
+    const heroPositionsA: HeroPositions = { 20: [{ position: 2, matches: 1000 }] };
+    const heroPositionsB: HeroPositions = { 21: [{ position: 2, matches: 1000 }] };
+    const beliefA = computeRoleBelief({ heroId: 20, heroPositions: heroPositionsA });
+    const beliefB = computeRoleBelief({ heroId: 21, heroPositions: heroPositionsB });
+    const result = computeJointRoleAssignment([
+      { heroId: 20, belief: beliefA },
+      { heroId: 21, belief: beliefB },
+    ]);
+    expect(result.rejected).toBe("IMPOSSIBLE_ASSIGNMENT");
+    expect(result.candidates).toHaveLength(0);
+    expect(result.conflicts).toEqual([{ position: 2, heroIds: [20, 21] }]);
+  });
+
+  test("tres héroes que sólo juegan posiciones 4 y 5 se rechazan con conflicto en posiciones 4 y 5", () => {
+    const posSupport: HeroPositions = {
+      30: [{ position: 4, matches: 500 }, { position: 5, matches: 500 }],
+      31: [{ position: 4, matches: 600 }, { position: 5, matches: 400 }],
+      32: [{ position: 4, matches: 400 }, { position: 5, matches: 600 }],
+    };
+    const b30 = computeRoleBelief({ heroId: 30, heroPositions: posSupport });
+    const b31 = computeRoleBelief({ heroId: 31, heroPositions: posSupport });
+    const b32 = computeRoleBelief({ heroId: 32, heroPositions: posSupport });
+    const result = computeJointRoleAssignment([
+      { heroId: 30, belief: b30 },
+      { heroId: 31, belief: b31 },
+      { heroId: 32, belief: b32 },
+    ]);
+    expect(result.rejected).toBe("IMPOSSIBLE_ASSIGNMENT");
+    expect(result.conflicts).toEqual([
+      { position: 4, heroIds: [30, 31, 32] },
+      { position: 5, heroIds: [30, 31, 32] },
+    ]);
+  });
 });

@@ -83,6 +83,9 @@ function isValidPayload(value: unknown): value is DraftEvent {
     case "hero_banned":
       return typeof value.hero === "number" && (isTeamSide(value.side) || value.side === "unknown");
     case "hero_picked":
+      // Live capture: an OPTIONAL own-team position (the game's roster role). Additive -- the legacy
+      // reducer ignores it; anything other than 1..5 makes the whole envelope invalid.
+      return typeof value.hero === "number" && isTeamSide(value.side) && (value.position === undefined || [1, 2, 3, 4, 5].includes(value.position as number));
     case "pick_reverted":
       return typeof value.hero === "number" && isTeamSide(value.side);
     case "session_ended":

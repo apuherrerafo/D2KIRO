@@ -5,95 +5,17 @@ import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { useHeroCatalog, type HeroMeta } from "@/features/draft/use-hero-catalog";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
-import type { TeamSide } from "@/features/draft/types";
 import { addHeroToBanList, removeHeroFromBanList } from "../ban-list";
 import { SEED_PATTERN } from "../constants";
 import { generateDraftSeed } from "../seeded-rng";
 import { useConfigPersistence } from "../use-config-persistence";
-import type { HeroId } from "../types";
+import { useGetTeamGroupsQuery } from "@/lib/engine-api";
+import type { HeroId, SessionMode, TeamSide } from "../types";
+import { countActivePools, useMatchPositions } from "../use-match-positions";
 import type { StartDraftConfig } from "../use-random-draft-session";
+import { MatchPositionsField } from "./MatchPositionsField";
 
 const MAX_BAN_LIST = 4;
-
-function sideButtonClassName(current: TeamSide, target: TeamSide): string {
-  if (current === target) return BUTTON_PRIMARY;
-  return BUTTON_SECONDARY;
-}
-
-interface SideSelectorProps {
-  userSide: TeamSide;
-  onSelect: (side: TeamSide) => void;
-}
-
-const POSITION_OPTIONS: { value: 1 | 2 | 3 | 4 | 5; label: string }[] = [
-  { value: 1, label: "1 — Carry" },
-  { value: 2, label: "2 — Midlane" },
-  { value: 3, label: "3 — Offlane" },
-  { value: 4, label: "4 — Support" },
-  { value: 5, label: "5 — Hard support" },
-];
-
-// R1 S7 (Blocker 2): tamaño de party real de Ranked All Pick -- 4 no es una cola válida en Dota
-// (party-context.ts, VALID_PARTY_SIZES) y por eso nunca aparece como opción acá. El motor sigue
-// siendo la única fuente de verdad de esa regla (web.md: "no reimplementes reglas en frontend");
-// esta lista no la reimplementa, sólo no ofrece un valor que el motor de todos modos rechazaría.
-const PARTY_SIZE_OPTIONS: { value: 1 | 2 | 3 | 5; label: string }[] = [
-  { value: 1, label: "Solo" },
-  { value: 2, label: "Party de 2" },
-  { value: 3, label: "Party de 3" },
-  { value: 5, label: "Party de 5 (stack completo)" },
-];
-
-interface PartySizeFieldProps {
-  partySize: 1 | 2 | 3 | 5;
-  onSelect: (partySize: 1 | 2 | 3 | 5) => void;
-}
-
-function PartySizeField({ partySize, onSelect }: PartySizeFieldProps) {
-  function handleChange(event: ChangeEvent<HTMLSelectElement>) {
-    const value = Number(event.target.value) as 1 | 2 | 3 | 5;
-    if (value === 1 || value === 2 || value === 3 || value === 5) onSelect(value);
-  }
-  return (
-    <label className="flex flex-col gap-1" htmlFor="party-size">
-      <span className="text-caption text-content-secondary">Tamaño de tu party</span>
-      <select
-        id="party-size"
-        value={partySize}
-        onChange={handleChange}
-        className="w-fit rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary"
-      >
-        {PARTY_SIZE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function SideSelector({ userSide, onSelect }: SideSelectorProps) {
-  function selectRadiant() {
-    onSelect("radiant");
-  }
-  function selectDire() {
-    onSelect("dire");
-  }
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-caption text-content-secondary">Tu lado</span>
-      <div className="flex gap-2">
-        <button type="button" onClick={selectRadiant} className={sideButtonClassName(userSide, "radiant")}>
-          Radiant
-        </button>
-        <button type="button" onClick={selectDire} className={sideButtonClassName(userSide, "dire")}>
-          Dire
-        </button>
-      </div>
-    </div>
-  );
-}
 
 interface SeedFieldProps {
   draftSeed: string;
@@ -187,7 +109,7 @@ function HeroPickerModal({ heroCatalog, unavailableHeroIds, onSelect, onClose }:
     >
       <div className="flex max-h-[85vh] w-full max-w-4xl flex-col gap-4 overflow-y-auto rounded-lg border border-surface-border bg-surface-raised p-6 shadow-xl">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-heading text-content-primary">Elegí un héroe para tu Personal_Ban_List</span>
+          <span className="text-heading text-content-primary">Elige un héroe para tu Personal_Ban_List</span>
           <button type="button" onClick={onClose} className={BUTTON_GHOST}>
             Cerrar
           </button>
@@ -228,7 +150,7 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
         Tu Personal_Ban_List ({personalBanList.length}/{MAX_BAN_LIST})
       </span>
       <span className="text-caption text-content-muted">
-        Cada héroe de esta lista tiene 50% de probabilidad de ser baneado al arrancar el draft.
+        Nomina hasta 4 héroes. Se resuelven junto con las nominaciones de los otros 9 jugadores: si llenas los 4 lugares, al menos uno se banea.
       </span>
       <div className="flex flex-wrap gap-2">
         {personalBanList.map((heroId) => (
@@ -260,42 +182,367 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
 }
 
 export interface ConfigPanelProps {
-  onStart: (config: StartDraftConfig) => void;
+  onStart: (config: StartDraftConfig, mode: SessionMode) => void;
 }
 
-// <Dominio><Cosa>: pantalla de configuración previa al Random_Draft_Simulator (fase idle) --
-// lado, draftSeed (reproducible, Req. 8.1/8.4) y Personal_Ban_List (Req. 1.1-1.4). userSide y
-// personalBanList persisten en localStorage entre sesiones (Req. 1.5); draftSeed no persiste --
-// una nueva sesión siempre propone una semilla nueva.
+const MODE_OPTIONS: { value: SessionMode; label: string; description: string }[] = [
+  { value: "simulation", label: "Simulación", description: "Draft de práctica: el Enemy Bot elige por el rival, automático." },
+  {
+    value: "live_companion",
+    label: "Live Companion",
+    description: "Para usar junto a un draft REAL de Dota 2. Sin bot: reportas a mano cada ban/pick que ves en tu cliente.",
+  },
+];
+
+interface ModeFieldProps {
+  mode: SessionMode;
+  onChange: (mode: SessionMode) => void;
+}
+
+// MVP P0.1 -- decisión explícita, sin valor por defecto silencioso distinto al ya existente:
+// "simulation" es la primera opción y la que ya persistía antes de que este selector existiera,
+// así que el comportamiento de quien nunca toca este control queda exactamente igual.
+function ModeField({ mode, onChange }: ModeFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Modo de sesión">
+      <span className="text-caption text-content-secondary">Modo</span>
+      <div className="flex flex-wrap gap-2">
+        {MODE_OPTIONS.map((option) => (
+          <ChoiceButton key={option.value} value={option.value} label={option.label} selected={mode === option.value} onSelectValue={onChange} />
+        ))}
+      </div>
+      <span className="text-caption text-content-muted">{MODE_OPTIONS.find((option) => option.value === mode)?.description}</span>
+    </div>
+  );
+}
+
+type PlayerPosition = 1 | 2 | 3 | 4 | 5;
+type PartySize = 1 | 2 | 3 | 5;
+
+const SIDE_OPTIONS: { value: TeamSide; label: string }[] = [
+  { value: "radiant", label: "Radiant" },
+  { value: "dire", label: "Dire" },
+];
+
+const PARTY_SIZE_OPTIONS: { value: PartySize; label: string; description: string }[] = [
+  { value: 1, label: "Solo (1)", description: "Controlas 1 posición; tus 4 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 2, label: "Party 2", description: "Controlas 2 posiciones; tus 3 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 3, label: "Party 3", description: "Controlas 3 posiciones; tus 2 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 5, label: "Party 5", description: "Controlas las 5 posiciones de tu equipo; los 5 rivales son simulados automáticamente." },
+];
+
+// Terminología consistente con el resto del producto: nunca "pos 3" a secas sin el nombre al lado.
+const POSITION_OPTIONS: { value: PlayerPosition; label: string }[] = [
+  { value: 1, label: "Posición 1 — Carry" },
+  { value: 2, label: "Posición 2 — Midlane" },
+  { value: 3, label: "Posición 3 — Offlane" },
+  { value: 4, label: "Posición 4 — Support" },
+  { value: 5, label: "Posición 5 — Hard support" },
+];
+
+interface ChoiceButtonProps<T extends string | number> {
+  value: T;
+  label: string;
+  selected: boolean;
+  onSelectValue: (value: T) => void;
+}
+
+function ChoiceButton<T extends string | number>({ value, label, selected, onSelectValue }: ChoiceButtonProps<T>) {
+  function handleClick() {
+    onSelectValue(value);
+  }
+  const className = selected ? BUTTON_PRIMARY : BUTTON_SECONDARY;
+  return (
+    <button type="button" onClick={handleClick} aria-pressed={selected} className={className}>
+      {label}
+    </button>
+  );
+}
+
+interface PartySizeFieldProps {
+  partySize: PartySize;
+  onChange: (size: PartySize) => void;
+}
+
+function PartySizeField({ partySize, onChange }: PartySizeFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Tamaño de party">
+      <span className="text-caption text-content-secondary">Tamaño de party</span>
+      <div className="flex flex-wrap gap-2">
+        {PARTY_SIZE_OPTIONS.map((option) => (
+          <ChoiceButton
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            selected={partySize === option.value}
+            onSelectValue={onChange}
+          />
+        ))}
+      </div>
+      <span className="text-caption text-content-muted">
+        {PARTY_SIZE_OPTIONS.find((option) => option.value === partySize)?.description}
+      </span>
+    </div>
+  );
+}
+
+interface PartyPositionsFieldProps {
+  partySize: 2 | 3;
+  selectedPositions: PlayerPosition[];
+  onTogglePosition: (pos: PlayerPosition) => void;
+}
+
+function PartyPositionsField({ partySize, selectedPositions, onTogglePosition }: PartyPositionsFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Posiciones de tu party">
+      <div className="flex items-center justify-between">
+        <span className="text-caption text-content-secondary">
+          Posiciones que controla tu party (elige exactamente {partySize})
+        </span>
+        <span className={`text-caption ${selectedPositions.length === partySize ? "text-signal-positive" : "text-signal-warning"}`}>
+          {selectedPositions.length} de {partySize} seleccionadas
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {POSITION_OPTIONS.map((option) => {
+          const isSelected = selectedPositions.includes(option.value);
+          return (
+            <ChoiceButton
+              key={option.value}
+              value={option.value}
+              label={option.label}
+              selected={isSelected}
+              onSelectValue={onTogglePosition}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+interface TeamPresetFieldProps {
+  groups: { id: number; name: string; partySize: number; members: { slot: number; position?: number | null; name: string; heroPool: number[] }[] }[];
+  selectedId: number | null;
+  /** Positions that will really get a team pool in this match (see countActivePools). */
+  activePoolCount: number;
+  onChange: (id: number | null) => void;
+}
+
+function TeamPresetField({ groups, selectedId, activePoolCount, onChange }: TeamPresetFieldProps) {
+  function handleChange(event: ChangeEvent<HTMLSelectElement>) {
+    const val = event.target.value;
+    onChange(val === "" ? null : Number(val));
+  }
+
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Preset de equipo (Party 5)">
+      <div className="flex items-center justify-between">
+        <span className="text-caption text-content-secondary">Preset de equipo (/team-groups)</span>
+        {selectedId !== null && activePoolCount > 0 && (
+          <span className="text-caption text-signal-positive">Pools de posiciones activos</span>
+        )}
+        {selectedId !== null && activePoolCount === 0 && (
+          <span className="text-caption text-signal-warning" data-testid="team-preset-no-pools">Sin posiciones confirmadas: no se aplica ningún pool</span>
+        )}
+      </div>
+      <select
+        id="team-preset-select"
+        aria-label="Preset de equipo"
+        value={selectedId === null ? "" : String(selectedId)}
+        onChange={handleChange}
+        className="rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+      >
+        <option value="">Sin preset (héroes sin restricción de pool)</option>
+        {groups.map((group) => (
+          <option key={group.id} value={group.id}>
+            {group.name} ({group.members.filter((member) => member.position != null).length} de {group.members.length} posiciones confirmadas)
+          </option>
+        ))}
+      </select>
+      <span className="text-caption text-content-muted">
+        Carga el pool de héroes de cada jugador según la posición que juega. Puedes cambiar quién juega dónde antes de empezar.
+      </span>
+    </div>
+  );
+}
+
+interface SideFieldProps {
+  side: TeamSide | null;
+  onChange: (side: TeamSide) => void;
+}
+
+function SideField({ side, onChange }: SideFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Tu lado">
+      <span className="text-caption text-content-secondary">Tu lado (obligatorio)</span>
+      <div className="flex flex-wrap gap-2">
+        {SIDE_OPTIONS.map((option) => (
+          <ChoiceButton key={option.value} value={option.value} label={option.label} selected={side === option.value} onSelectValue={onChange} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface PositionFieldProps {
+  position: PlayerPosition | null;
+  allowedPositions?: PlayerPosition[];
+  onChange: (position: PlayerPosition) => void;
+}
+
+function PositionField({ position, allowedPositions, onChange }: PositionFieldProps) {
+  const options = allowedPositions
+    ? POSITION_OPTIONS.filter((opt) => allowedPositions.includes(opt.value))
+    : POSITION_OPTIONS;
+
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Tu posición personal">
+      <span className="text-caption text-content-secondary">Tu posición personal (obligatoria)</span>
+      <span className="text-caption text-content-muted">
+        Indica cuál de los roles de tu party es el tuyo (determina tu Personal View en el Coach).
+      </span>
+      {options.length === 0 ? (
+        <span className="text-caption text-signal-warning">
+          Primero selecciona las posiciones de tu party arriba.
+        </span>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {options.map((option) => (
+            <ChoiceButton key={option.value} value={option.value} label={option.label} selected={position === option.value} onSelectValue={onChange} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// AP Ranked Roles V1: lado y posición personal son elecciones del Player, obligatorias y sin
+// valor por defecto -- ni Radiant ni Midlane están cableados.
 export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const { config, setConfig } = useConfigPersistence();
   const { heroes: heroCatalog } = useHeroCatalog();
+  const { data: teamGroups = [] } = useGetTeamGroupsQuery();
+  const party5Groups = teamGroups.filter((g) => g.partySize === 5);
   const [draftSeed, setDraftSeed] = useState<string>(generateDraftSeed);
   const [banListError, setBanListError] = useState<string | null>(null);
+  const [chosenSide, setChosenSide] = useState<TeamSide | null>(null);
+  const [chosenPosition, setChosenPosition] = useState<PlayerPosition | null>(null);
+  const [chosenPartySize, setChosenPartySize] = useState<PartySize | null>(null);
+  const [chosenPartyPositions, setChosenPartyPositions] = useState<PlayerPosition[] | null>(null);
+  const [chosenTeamGroupId, setChosenTeamGroupId] = useState<number | null>(null);
+  const [mode, setMode] = useState<SessionMode>("simulation");
 
-  const userSide = config?.userSide ?? "radiant";
-  const playerPosition = config?.playerPosition;
-  const personalBanList = config?.personalBanList ?? [];
-  const partySize = config?.partySize ?? 5;
+  // Nominations live in local state first: they must work BEFORE side/position are chosen (persistence only
+  // happens once both are known), otherwise an early nomination would be silently dropped.
+  const [chosenBans, setChosenBans] = useState<HeroId[] | null>(null);
+  const personalBanList = chosenBans ?? config?.personalBanList ?? [];
+  const side = chosenSide ?? config?.userSide ?? null;
+  const position = chosenPosition ?? config?.playerPosition ?? null;
+  const partySize = chosenPartySize ?? config?.partySize ?? 5;
+  const rawPartyPositions = chosenPartyPositions ?? config?.partyPositions ?? null;
+  const teamGroupId = chosenTeamGroupId !== null ? chosenTeamGroupId : (config?.teamGroupId ?? null);
+  const selectedGroup = partySize === 5 && teamGroupId !== null ? party5Groups.find((group) => group.id === teamGroupId) : undefined;
+  const matchPositions = useMatchPositions(selectedGroup);
+
+  const partyPositions: PlayerPosition[] =
+    partySize === 5
+      ? [1, 2, 3, 4, 5]
+      : partySize === 1
+        ? (position !== null ? [position] : [])
+        : (rawPartyPositions ?? []);
+
   const isSeedValid = SEED_PATTERN.test(draftSeed);
+  const isPartyConfigValid =
+    mode === "live_companion" ||
+    (partySize === 5 && position !== null) ||
+    (partySize === 1 && position !== null) ||
+    ((partySize === 2 || partySize === 3) &&
+      partyPositions.length === partySize &&
+      new Set(partyPositions).size === partySize &&
+      position !== null &&
+      partyPositions.includes(position));
 
-  function selectSide(side: TeamSide) {
-    if (playerPosition === undefined) return;
-    setConfig({ userSide: side, playerPosition, personalBanList, partySize });
-  }
+  const canStart = isSeedValid && side !== null && position !== null && isPartyConfigValid;
 
-  function selectPosition(event: ChangeEvent<HTMLSelectElement>) {
-    const position = Number(event.target.value) as 1 | 2 | 3 | 4 | 5;
-    if ([1, 2, 3, 4, 5].includes(position)) setConfig({ userSide, playerPosition: position, personalBanList, partySize });
-  }
-
-  function selectPartySize(nextPartySize: 1 | 2 | 3 | 5) {
-    if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList, partySize: nextPartySize });
+  function persist(next: {
+    userSide?: TeamSide | null;
+    playerPosition?: PlayerPosition | null;
+    personalBanList?: HeroId[];
+    partySize?: PartySize;
+    partyPositions?: PlayerPosition[];
+    teamGroupId?: number | null;
+  }) {
+    const nextSide = next.userSide === undefined ? side : next.userSide;
+    const nextPosition = next.playerPosition === undefined ? position : next.playerPosition;
+    const nextPartySize = next.partySize === undefined ? partySize : next.partySize;
+    const nextPartyPositions = next.partyPositions === undefined ? partyPositions : next.partyPositions;
+    const nextTeamGroupId = next.teamGroupId === undefined ? teamGroupId : next.teamGroupId;
+    if (nextSide === null || nextPosition === null) return;
+    setConfig({
+      userSide: nextSide,
+      playerPosition: nextPosition,
+      personalBanList: next.personalBanList ?? personalBanList,
+      partySize: nextPartySize,
+      partyPositions: nextPartyPositions,
+      teamGroupId: nextTeamGroupId,
+    });
   }
 
   function regenerateSeed() {
     setDraftSeed(generateDraftSeed());
+  }
+
+  function changePartySize(nextSize: PartySize) {
+    setChosenPartySize(nextSize);
+    if (nextSize === 5) {
+      setChosenPartyPositions([1, 2, 3, 4, 5]);
+      persist({ partySize: 5, partyPositions: [1, 2, 3, 4, 5] });
+    } else if (nextSize === 1) {
+      const nextP: PlayerPosition[] = position !== null ? [position] : [];
+      setChosenPartyPositions(nextP);
+      persist({ partySize: 1, partyPositions: nextP });
+    } else {
+      let initial: PlayerPosition[] = [];
+      if (position !== null) initial = [position];
+      setChosenPartyPositions(initial);
+      persist({ partySize: nextSize, partyPositions: initial });
+    }
+  }
+
+  function togglePartyPosition(pos: PlayerPosition) {
+    let next: PlayerPosition[];
+    if (partyPositions.includes(pos)) {
+      next = partyPositions.filter((p) => p !== pos);
+      if (position === pos) {
+        setChosenPosition(null);
+      }
+    } else {
+      if (partyPositions.length >= partySize) {
+        return;
+      }
+      next = [...partyPositions, pos];
+      if (position === null) {
+        setChosenPosition(pos);
+      }
+    }
+    setChosenPartyPositions(next);
+    persist({ partyPositions: next });
+  }
+
+  function changeSide(nextSide: TeamSide) {
+    setChosenSide(nextSide);
+    persist({ userSide: nextSide });
+  }
+
+  function changePosition(nextPosition: PlayerPosition) {
+    setChosenPosition(nextPosition);
+    if (partySize === 1) {
+      setChosenPartyPositions([nextPosition]);
+      persist({ playerPosition: nextPosition, partyPositions: [nextPosition] });
+    } else {
+      persist({ playerPosition: nextPosition });
+    }
   }
 
   function addBanHero(heroId: HeroId) {
@@ -305,43 +552,112 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       return;
     }
     setBanListError(null);
-    if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList: result.list, partySize });
+    setChosenBans(result.list);
+    persist({ personalBanList: result.list });
   }
 
   function removeBanHero(heroId: HeroId) {
     setBanListError(null);
-    if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList: removeHeroFromBanList(personalBanList, heroId), partySize });
+    const remaining = removeHeroFromBanList(personalBanList, heroId);
+    setChosenBans(remaining);
+    persist({ personalBanList: remaining });
+  }
+
+  function handleTeamGroupChange(nextId: number | null) {
+    setChosenTeamGroupId(nextId);
+    persist({ teamGroupId: nextId });
   }
 
   function handleStart() {
-    if (!isSeedValid) return;
-    if (playerPosition === undefined) return;
-    onStart({ draftSeed, userSide, playerPosition, personalBanList, partySize });
+    if (!canStart || side === null || position === null) return;
+    const resolvedPositions: (1 | 2 | 3 | 4 | 5)[] =
+      partySize === 5
+        ? [1, 2, 3, 4, 5]
+        : partySize === 1
+          ? [position]
+          : partyPositions;
+
+    onStart(
+      {
+        draftSeed,
+        userSide: side,
+        playerPosition: position,
+        personalBanList,
+        partySize,
+        partyPositions: resolvedPositions,
+        teamGroupId: partySize === 5 ? teamGroupId : null,
+        // Pools never travel from here: the engine loads the saved team and applies THIS assignment (or the usual
+        // positions). `slot` is display order and is never read as a position.
+        teamAssignment: matchPositions.assignment,
+      },
+      mode,
+    );
   }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4">
-      <span className="text-heading text-content-primary">Configurar Random Draft</span>
-      <SideSelector userSide={userSide} onSelect={selectSide} />
-      <label className="flex flex-col gap-1" htmlFor="player-position">
-        <span className="text-caption text-content-secondary">La posición que vas a jugar</span>
-        <select id="player-position" value={playerPosition ?? ""} onChange={selectPosition} className="w-fit rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary">
-          <option value="" disabled>Selecciona una posición</option>
-          {POSITION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </label>
-      <PartySizeField partySize={partySize} onSelect={selectPartySize} />
-      <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
-      <PersonalBanListField
-        personalBanList={personalBanList}
-        heroCatalog={heroCatalog}
-        error={banListError}
-        onAdd={addBanHero}
-        onRemove={removeBanHero}
+      <span className="text-heading text-content-primary">Ranked All Pick — Ranked Roles</span>
+      <ModeField mode={mode} onChange={setMode} />
+      <SideField side={side} onChange={changeSide} />
+      {mode === "simulation" && (
+        <>
+          <PartySizeField partySize={partySize} onChange={changePartySize} />
+          {partySize === 5 && (
+            <TeamPresetField
+              groups={party5Groups}
+              selectedId={teamGroupId}
+              activePoolCount={countActivePools(selectedGroup, matchPositions.players, position)}
+              onChange={handleTeamGroupChange}
+            />
+          )}
+          {partySize === 5 && selectedGroup && (
+            <MatchPositionsField teamName={selectedGroup.name} match={matchPositions} ownerSeat={position} />
+          )}
+          {(partySize === 2 || partySize === 3) && (
+            <PartyPositionsField
+              partySize={partySize}
+              selectedPositions={partyPositions}
+              onTogglePosition={togglePartyPosition}
+            />
+          )}
+        </>
+      )}
+      <PositionField
+        position={position}
+        allowedPositions={mode === "simulation" && (partySize === 2 || partySize === 3) ? partyPositions : undefined}
+        onChange={changePosition}
       />
-      <button type="button" onClick={handleStart} disabled={!isSeedValid || playerPosition === undefined} className={`self-start ${BUTTON_PRIMARY}`}>
+      {mode === "simulation" && (
+        <>
+          <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
+          <PersonalBanListField
+            personalBanList={personalBanList}
+            heroCatalog={heroCatalog}
+            error={banListError}
+            onAdd={addBanHero}
+            onRemove={removeBanHero}
+          />
+        </>
+      )}
+      {mode === "live_companion" && (
+        <span className="text-caption text-content-muted">
+          En Live Companion vas a reportar los bans y picks reales a mano, apenas empiece el draft -- no hace falta seed ni nominaciones acá.
+        </span>
+      )}
+      {!canStart && (
+        <span className="text-caption text-signal-warning">
+          {side === null
+            ? "Elige tu lado para continuar."
+            : (partySize === 2 || partySize === 3) && partyPositions.length !== partySize
+              ? `Elige exactamente ${partySize} posiciones para tu party (${partyPositions.length} seleccionadas).`
+              : position === null
+                ? "Elige cuál de las posiciones es tu posición personal."
+                : !isSeedValid
+                  ? "Verifica la semilla del draft."
+                  : "Completa la configuración para iniciar el draft."}
+        </span>
+      )}
+      <button type="button" onClick={handleStart} disabled={!canStart} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft
       </button>
     </div>

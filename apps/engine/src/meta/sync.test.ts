@@ -93,6 +93,37 @@ test("syncMeta escribe heroes, patch stats y matchups desde fixtures, sin red re
   expect(result.rowsWritten).toBe(3 + 2 * 8 + 2);
 });
 
+// AP Solo Mid data/signal repair (Dota Judge root cause 3, matchup ingestion): reproduce el bug
+// real confirmado contra `dota2coach.sqlite` -- exactamente un `meta_sync` histórico, terminado en
+// 671ms (imposible para el pacing de 1600ms/héroe de `syncMatchups`), `status=ok`, `hero_matchups`
+// en 0 filas. La causa: los dos llamadores reales (bootstrap.ts, routes/meta.ts) calculaban
+// `heroIdsForMatchups` consultando `heroes` ANTES de invocar `runMetaSync`; en una base vacía (la
+// PRIMERA sincronización de todas) eso da `[]`, así que `syncMatchups` nunca iteraba nada, aunque
+// `syncHeroes` -- dentro de esa misma llamada -- recién estuviera poblando la tabla. Este test NO
+// pasa `heroIdsForMatchups` (como los dos llamadores reales tras el fix) contra una base
+// completamente vacía -- el escenario exacto que producía 0 filas.
+test("syncMeta con heroIdsForMatchups omitido y base vacía SÍ escribe matchups (candado del bug de bootstrap)", async () => {
+  const db = createTestDb();
+  const client = new OpenDotaClient({
+    fetchImpl: fixtureFetch({
+      "https://api.opendota.com/api/heroes/6/matchups": () => new Response(JSON.stringify(matchups1Fixture), { status: 200 }),
+      "https://api.opendota.com/api/heroes/25/matchups": () => new Response(JSON.stringify(matchups1Fixture), { status: 200 }),
+    }),
+    sleepImpl: async () => {},
+  });
+
+  // Sin heroIdsForMatchups -- exactamente como bootstrap.ts/routes/meta.ts lo llaman tras el fix.
+  // matchupDelayMs: 0 sólo para no pagar el pacing real de 1600ms/héroe en la prueba -- el pacing
+  // en sí ya tiene su propio test dedicado ("separa los pedidos seriales...", abajo).
+  const result = await syncMeta(db, client, { patch: "7.36", matchupDelayMs: 0 });
+
+  expect(result.status).toBe("ok");
+  const matchups = db.select().from(heroMatchups).all();
+  // 3 héroes en el fixture (1, 6, 25), cada uno con 2 filas en matchups-1.json.
+  expect(matchups.length).toBeGreaterThan(0);
+  expect(new Set(matchups.map((row) => row.heroId))).toEqual(new Set([1, 6, 25]));
+});
+
 test("syncMeta separa los pedidos seriales de matchups con un margen conservador", async () => {
   const db = createTestDb();
   const sleeps: number[] = [];

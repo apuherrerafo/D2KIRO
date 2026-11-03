@@ -1,0 +1,181 @@
+/* DS V1.1 · Canonical primitives — skins + interaction grammar.
+   Contract (CanonicalMaster.test.tsx): no color literal, no token declaration (those live only in
+   canonical/tokens.css), durations only through var(--m-*), the only infinite animation is the busy
+   track under [aria-busy="true"], and every state has a reduced-motion equivalent at the bottom.
+   Forced specimen states (`data-state`) always share the selector of the real pseudo-class. */
+
+.cx-sr { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+
+/* ───────── focus: one form for every canonical control ─────────
+   Specificity (0,4,0) on purpose: the lab rule `.r3-page :is(button,[tabindex]):focus-visible`
+   (0,3,0, round-3a-labs.css:65) used to win, drawing the ring outside a clip-path that then cut it
+   away — real keyboard focus on the old Primary was invisible (Council C, measured). */
+.cx-focusable { position: relative; }
+:is(html, .r3-page) .cx-focusable.cx-focusable:is(:focus-visible, [data-state="focus"]) { outline: 2px solid var(--r3-focus); outline-offset: 3px; }
+.cx-focus { inset: -9px; opacity: 0; pointer-events: none; position: absolute; transition: opacity var(--m-fast) var(--m-ease-out); }
+.cx-focus i { border-color: var(--r3-focus); border-style: solid; border-width: 0; height: 7px; position: absolute; transition: translate var(--m-spring-snappy-duration) var(--m-spring-snappy); width: 7px; }
+.cx-focus i:nth-child(1) { border-left-width: 1.5px; border-top-width: 1.5px; left: 0; top: 0; translate: -4px -4px; }
+.cx-focus i:nth-child(2) { border-right-width: 1.5px; border-top-width: 1.5px; right: 0; top: 0; translate: 4px -4px; }
+.cx-focus i:nth-child(3) { border-bottom-width: 1.5px; border-right-width: 1.5px; bottom: 0; right: 0; translate: 4px 4px; }
+.cx-focus i:nth-child(4) { border-bottom-width: 1.5px; border-left-width: 1.5px; bottom: 0; left: 0; translate: -4px 4px; }
+.cx-focus b { background: var(--r3-spec-cyan); height: 4px; left: -2px; position: absolute; top: -2px; width: 4px; }
+.cx-focusable:is(:focus-visible, [data-state="focus"]) > .cx-focus { opacity: 1; }
+.cx-focusable:is(:focus-visible, [data-state="focus"]) > .cx-focus i { translate: 0 0; }
+
+/* ───────── ActionPrimary ─────────
+   The host is never clipped (focus ring + brackets live on it); the skin lives on .cx-action-face. */
+.cx-action {
+  -webkit-tap-highlight-color: transparent; align-items: center; background: transparent; border: 0; border-radius: var(--cx-action-radius);
+  color: var(--r3-on-spec); cursor: pointer; display: inline-flex; font: 700 14px/1 var(--f-syne); height: var(--cx-action-height);
+  isolation: isolate; justify-content: center; letter-spacing: -.005em; min-width: 156px; padding: 0 18px; touch-action: manipulation; white-space: nowrap;
+}
+.cx-action-face {
+  background: var(--r3-spec-fill) 0 0 / 200% 100%; border-radius: var(--cx-action-radius); inset: 0; overflow: hidden; position: absolute; z-index: -1;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-on-spec) 10%, transparent);
+  transition: background-position var(--m-medium) var(--m-ease-out), border-radius var(--m-spring-snappy-duration) var(--m-spring-snappy), box-shadow var(--m-spring-snappy-duration) var(--m-spring-snappy), clip-path var(--m-spring-snappy-duration) var(--m-spring-snappy);
+}
+/* Contact: the whole pink → cyan → lime condenses into the face (opacity layer, compositor-only). */
+.cx-action-spectrum { background: var(--r3-spec-fill); inset: 0; opacity: 0; position: absolute; transition: opacity var(--m-spring-snappy-duration) var(--m-spring-snappy); }
+.cx-action-label { align-items: center; display: inline-flex; gap: 8px; position: relative; transition: transform var(--m-spring-snappy-duration) var(--m-spring-snappy); }
+.cx-action .d2i { --d2i-accent: var(--r3-on-spec); }
+@media (hover: hover) { .cx-action:hover:not(:disabled, [aria-busy="true"]) .cx-action-face { background-position: 100% 0; } }
+.cx-action[data-state="hover"]:not(:disabled) .cx-action-face { background-position: 100% 0; }
+.cx-action:is(:active, [data-commit="true"], [data-state="pressed"]):not(:disabled, [aria-busy="true"]) .cx-action-face {
+  border-radius: calc(var(--cx-action-radius) - 3px); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--r3-on-spec) 22%, transparent);
+  transition-duration: var(--m-instant); transition-timing-function: var(--m-ease-out);
+}
+.cx-action:is(:active, [data-commit="true"], [data-state="pressed"]):not(:disabled, [aria-busy="true"]) .cx-action-spectrum { opacity: 1; transition-duration: var(--m-instant); transition-timing-function: var(--m-ease-out); }
+.cx-action:is(:active, [data-commit="true"], [data-state="pressed"]):not(:disabled, [aria-busy="true"]) .cx-action-label { transform: translateY(1px); transition-duration: var(--m-instant); transition-timing-function: var(--m-ease-out); }
+.cx-action[aria-busy="true"] { cursor: progress; }
+.cx-action[aria-busy="true"] .cx-action-label { opacity: .82; }
+.cx-action[aria-busy="true"] .cx-action-busy { animation: cx-busy 1100ms var(--m-ease-in-out) infinite; background: var(--r3-on-spec); bottom: 0; height: 2px; left: 0; opacity: .7; position: absolute; width: 38%; }
+@keyframes cx-busy { from { transform: translateX(-100%); } to { transform: translateX(270%); } }
+.cx-action:disabled { color: var(--r3-muted); cursor: not-allowed; }
+.cx-action:disabled .cx-action-face { background: var(--r3-raise); box-shadow: inset 0 0 0 1px var(--r3-line-strong); }
+/* Geometry B — the 3B corner cut, kept so either answer from Julio works. The cut is on the face only. */
+.cx-action[data-geometry="cut"] { --cx-action-radius: 3px; --cx-action-height: 34px; font-size: 13px; min-width: 0; padding: 0 16px 0 14px; }
+.cx-action[data-geometry="cut"] .cx-action-face { clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cx-action-cut)), calc(100% - var(--cx-action-cut)) 100%, 0 100%); }
+.cx-action[data-geometry="cut"]:is(:active, [data-commit="true"], [data-state="pressed"]):not(:disabled, [aria-busy="true"]) .cx-action-face { clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cx-action-cut) - 4px), calc(100% - var(--cx-action-cut) - 4px) 100%, 0 100%); }
+.cx-action[data-geometry="cut"]:is(:active, [data-commit="true"], [data-state="pressed"]):not(:disabled, [aria-busy="true"]) .cx-action-label { transform: translate(.5px, 1px); }
+/* Touch: 44 px hit area without changing the look. */
+@media (pointer: coarse) { .cx-action::after, .cx-quiet::after { content: ""; inset: -7px -2px; position: absolute; } }
+
+/* ───────── ActionQuiet ───────── */
+.cx-quiet {
+  -webkit-tap-highlight-color: transparent; align-items: center; background: transparent; border: 0; border-bottom: 1px solid var(--r3-line-strong); color: var(--r3-ink);
+  cursor: pointer; display: inline-flex; font: 600 12px/1 var(--f-plex); gap: 7px; min-height: 30px; padding: 0 4px 0 2px; touch-action: manipulation;
+  transition: border-color var(--m-fast) var(--m-ease-out);
+}
+.cx-quiet::before { background: var(--r3-spec-fill); bottom: -1px; content: ""; height: 1.5px; left: 0; position: absolute; right: 0; transform: scaleX(0); transform-origin: left; transition: transform var(--m-medium) var(--m-ease-out); }
+@media (hover: hover) { .cx-quiet:hover:not(:disabled) { border-bottom-color: var(--r3-ink); } }
+.cx-quiet[data-state="hover"]:not(:disabled) { border-bottom-color: var(--r3-ink); }
+.cx-quiet:is(:active, [data-commit="true"], [data-state="pressed"]):not(:disabled)::before { transform: scaleX(1); }
+.cx-quiet[aria-pressed="true"] { border-bottom: 1.5px solid var(--r3-spec-cyan); }
+.cx-quiet:is([data-state], [aria-pressed="true"], :focus-visible):not(:disabled) .d2i { --d2i-accent: var(--r3-spec-cyan); }
+.cx-quiet:disabled { border-bottom-style: dotted; color: var(--r3-muted); cursor: not-allowed; }
+
+/* ───────── ActionSecondary (real Skin B) — only the focus ring is normalised ───────── */
+:is(html, .r3-page) .cx-secondary .r3b-skin.r3b-skin:is(:focus-visible, [data-forced="focus-visible"]) { outline: 2px solid var(--r3-focus); outline-offset: 3px; }
+
+/* ───────── Glass ───────── */
+.cx-glass { border-radius: 6px; position: relative; }
+.cx-glass[data-glass-level="b"] {
+  -webkit-backdrop-filter: blur(var(--cx-glass-blur)) saturate(var(--cx-glass-sat)); backdrop-filter: blur(var(--cx-glass-blur)) saturate(var(--cx-glass-sat));
+  background: var(--cx-glass-reflect), var(--cx-glass-tint);
+  box-shadow: inset 0 1px 0 var(--cx-glass-hi), inset 0 0 0 1px var(--cx-glass-line), var(--cx-glass-shade), var(--cx-glass-shadow);
+}
+.cx-glass[data-glass-level="b"]::after {
+  -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0); -webkit-mask-composite: xor;
+  background: var(--cx-glass-spec); border-radius: inherit; content: ""; inset: 0; mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0);
+  padding: 1px; pointer-events: none; position: absolute;
+}
+.cx-glass[data-glass-level="c"] {
+  -webkit-backdrop-filter: blur(var(--cx-glass-over-blur)) saturate(var(--cx-glass-over-sat)); backdrop-filter: blur(var(--cx-glass-over-blur)) saturate(var(--cx-glass-over-sat));
+  background: var(--cx-glass-over-fill), var(--cx-glass-over-tint); border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--cx-glass-over-hi), inset 0 0 0 1px var(--cx-glass-over-hi), inset 0 -10px 24px color-mix(in srgb, var(--r3-spec-cyan) 18%, transparent), 0 0 32px -6px color-mix(in srgb, var(--r3-spec-cyan) 40%, transparent);
+}
+.cx-glass--edge::before {
+  -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0); -webkit-mask-composite: xor;
+  background: linear-gradient(115deg, var(--r3-spec-pink), var(--r3-spec-cyan) 38%, transparent 64%, var(--r3-spec-lime) 100%);
+  border-radius: inherit; content: ""; inset: 0; mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0);
+  padding: 1px; pointer-events: none; position: absolute; z-index: 1;
+}
+.cx-glass[data-glass-level="b"].cx-glass--edge { box-shadow: inset 0 1px 0 var(--cx-glass-hi), inset 0 0 0 1px var(--cx-glass-line), var(--cx-glass-shade), var(--cx-glass-shadow), 0 0 24px -8px color-mix(in srgb, var(--r3-spec-cyan) 28%, transparent); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cx-glass:is([data-glass-level="b"], [data-glass-level="c"]) { background: var(--cx-glass-solid); } }
+@media (prefers-reduced-transparency: reduce) { .cx-glass:is([data-glass-level="b"], [data-glass-level="c"]) { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--cx-glass-solid); } }
+
+/* ───────── Metric · Delta · RankMove ───────── */
+.cx-metric { align-items: end; display: grid; gap: 4px 12px; grid-template-columns: auto minmax(0, 1fr); justify-items: start; }
+.cx-metric-value { font: 600 30px/1 var(--f-plex); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.cx-metric-delta { align-self: center; }
+.cx-metric-label { color: var(--r3-muted); font: 500 12px/1.25 var(--f-plex); grid-column: 1 / -1; }
+.cx-metric[data-register="expressive"] .cx-metric-value { font: 700 64px/.86 var(--f-syne); font-feature-settings: "tnum" 1, "lnum" 1; letter-spacing: -.05em; }
+.cx-delta { align-items: baseline; border-left: 1px solid var(--r3-line); display: inline-flex; font: 600 13px/1 var(--f-plex); font-variant-numeric: tabular-nums; gap: 4px; padding-left: 8px; white-space: nowrap; }
+.cx-delta[data-dir="up"] { color: var(--r3-up); }
+.cx-delta[data-dir="down"] { color: var(--r3-down); }
+.cx-delta[data-dir="flat"] { color: var(--r3-muted); }
+.cx-delta-unit { color: var(--r3-muted); font: 500 11px/1 var(--f-plex); }
+.cx-rank { align-items: center; display: inline-flex; font: 600 12px/1 var(--f-plex); gap: 4px; }
+.cx-rank[data-dir="up"] { color: var(--r3-up); }
+.cx-rank[data-dir="down"] { color: var(--r3-down); }
+.cx-rank-mark { background: currentColor; clip-path: polygon(50% 0, 100% 100%, 0 100%); display: block; height: 5px; width: 6px; }
+.cx-rank[data-dir="down"] .cx-rank-mark { clip-path: polygon(0 0, 100% 0, 50% 100%); }
+
+/* ───────── State grammar (StateTarget) — one channel per state ─────────
+   hover = ink brackets · focus = canonical form · selected = spectral segment (bottom) · active = spectral
+   cue (left, vertical) · recommended = notch + 1 px spectral edge · confirmed = closed ink perimeter (no lock glyph) ·
+   processing = neutral track · success = confirm glyph · warning = attention glyph (hue NEEDS JULIO) ·
+   uncertain = dashed neutral · disabled = drained, dotted. */
+.cx-target { color: var(--r3-ink); display: grid; gap: 3px; min-height: 64px; padding: 12px 14px 12px 16px; position: relative; }
+.cx-target-ticks { inset: 0; pointer-events: none; position: absolute; }
+.cx-target-ticks i { border-color: var(--r3-line-strong); border-style: solid; border-width: 0; height: 7px; position: absolute; transition: border-color var(--m-fast) var(--m-ease-out), translate var(--m-spring-snappy-duration) var(--m-spring-snappy); width: 7px; }
+.cx-target-ticks i:nth-child(1) { border-left-width: 1.5px; border-top-width: 1.5px; left: 0; top: 0; }
+.cx-target-ticks i:nth-child(2) { border-right-width: 1.5px; border-top-width: 1.5px; right: 0; top: 0; }
+.cx-target-ticks i:nth-child(3) { border-bottom-width: 1.5px; border-right-width: 1.5px; bottom: 0; right: 0; }
+.cx-target-ticks i:nth-child(4) { border-bottom-width: 1.5px; border-left-width: 1.5px; bottom: 0; left: 0; }
+.cx-target-title { font: 600 13px/1.2 var(--f-plex); }
+.cx-target-value { font: 600 20px/1 var(--f-plex); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.cx-target-note { align-items: center; color: var(--r3-muted); display: inline-flex; font: 500 12px/1.2 var(--f-plex); gap: 6px; }
+.cx-target-seg { background: var(--r3-spec-fill); bottom: -1px; height: 2px; left: 19%; opacity: 0; position: absolute; transform: scaleX(.4); transition: opacity var(--m-medium) var(--m-ease-out), transform var(--m-spring-snappy-duration) var(--m-spring-snappy); width: 62%; }
+.cx-target-cue { background: var(--r3-spec-fill-v); bottom: 10px; left: 0; opacity: 0; position: absolute; top: 10px; transition: opacity var(--m-medium) var(--m-ease-out); width: 2px; }
+.cx-target-track { background: var(--r3-ink); bottom: 0; height: 2px; left: 0; opacity: .7; position: absolute; width: 38%; }
+@media (hover: hover) { .cx-target[data-interactive="true"]:hover .cx-target-ticks i { border-color: var(--r3-ink); } }
+.cx-target[data-state="hover"] .cx-target-ticks i { border-color: var(--r3-ink); }
+.cx-target[data-state="selected"] .cx-target-seg { opacity: 1; transform: scaleX(1); }
+.cx-target[data-state="active"] .cx-target-cue { opacity: 1; }
+.cx-target[data-state="recommended"]::before {
+  -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0); -webkit-mask-composite: xor;
+  background: linear-gradient(115deg, var(--r3-spec-pink), var(--r3-spec-cyan) 38%, transparent 64%, var(--r3-spec-lime) 100%);
+  border-radius: 3px; content: ""; inset: 0; mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); padding: 1px; pointer-events: none; position: absolute;
+}
+.cx-target[data-state="recommended"] .cx-target-ticks, .cx-target[data-state="confirmed"] .cx-target-ticks, .cx-target[data-state="uncertain"] .cx-target-ticks { opacity: 0; }
+.cx-target-notch { background: var(--r3-panel); box-shadow: inset 0 0 0 1px var(--r3-line-strong); clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%); font: 600 11px/1 var(--f-plex); left: 0; padding: 5px 12px 5px 8px; position: absolute; top: -22px; }
+.cx-target[data-state="confirmed"] { box-shadow: inset 0 0 0 1.5px var(--r3-ink); }
+.cx-target[data-state="uncertain"] { border: 1px dashed var(--r3-neutral); color: var(--r3-muted); }
+.cx-target[data-state="uncertain"] .cx-target-value { color: var(--r3-muted); }
+.cx-target[data-state="disabled"] { color: var(--r3-muted); }
+.cx-target[data-state="disabled"] .cx-target-ticks i { border-style: dotted; }
+.cx-target[aria-busy="true"] .cx-target-track { animation: cx-busy 1100ms var(--m-ease-in-out) infinite; }
+
+/* ───────── recovered 3B modules in canonical mode (`data-canon`) ─────────
+   Same anatomy (LIVE_STATE_SKIN, COMPACT_DATA_MODULE); V1.1 type roles: numbers, deltas and labels in
+   IBM Plex Sans (Mono was carrying them — the AI/dev-tool register Julio circled); a brighter but
+   bounded ghost numeral so glass level B has something to refract. */
+[data-canon="true"] :is(.r3b-live-value, .r3b-cdm-data b) { font-family: var(--f-plex); font-weight: 600; letter-spacing: -.02em; }
+[data-canon="true"] :is(.r3b-live-meta, .r3b-cdm-meta) { font: 500 12px/1.35 var(--f-plex); }
+[data-canon="true"] :is(.r3b-live-delta, .r3b-cdm-delta) { font-family: var(--f-plex); font-weight: 600; }
+[data-canon="true"] .r3b-ghost { color: color-mix(in srgb, var(--r3-ink) var(--cx-ghost), transparent); }
+[data-canon="true"] :is(.r3b-pl-value, .r3b-pl-delta, .r3b-pl-big, .r3b-vs td, .r3b-vs th) { font-family: var(--f-plex); font-weight: 600; }
+[data-canon="true"] :is(.r3b-pl-meta, .r3b-pl-rival, .r3b-pl-rival small, .r3b-ops-foot) { font: 500 12px/1.3 var(--f-plex); }
+
+/* ───────── reduced motion: every state still changes, nothing travels ───────── */
+[data-motion="reduced"] :is(.cx-focus, .cx-focus i, .cx-action-face, .cx-action-spectrum, .cx-action-label, .cx-quiet, .cx-quiet::before, .cx-target-ticks i, .cx-target-seg, .cx-target-cue) { transition-duration: 0ms !important; }
+[data-motion="reduced"] .cx-focus i { translate: 0 0; }
+[data-motion="reduced"] :is(.cx-action[aria-busy="true"] .cx-action-busy, .cx-target[aria-busy="true"] .cx-target-track) {
+  animation: none; background: conic-gradient(currentColor 25%, transparent 0 50%, currentColor 0 75%, transparent 0) 0 0 / 4px 4px; opacity: .55; width: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.cx-focus, .cx-focus i, .cx-action-face, .cx-action-spectrum, .cx-action-label, .cx-quiet, .cx-quiet::before, .cx-target-ticks i, .cx-target-seg, .cx-target-cue) { transition-duration: 0ms !important; }
+  .cx-focus i { translate: 0 0; }
+  :is(.cx-action[aria-busy="true"] .cx-action-busy, .cx-target[aria-busy="true"] .cx-target-track) { animation: none; background: conic-gradient(currentColor 25%, transparent 0 50%, currentColor 0 75%, transparent 0) 0 0 / 4px 4px; opacity: .55; width: 100%; }
+}

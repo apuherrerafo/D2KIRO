@@ -3,11 +3,13 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { accountLabel, buildNavLinks, profileLabel } from "./NavBar";
 
-// TSK-187 (Fase 8B, SPEC.md §14.8): el nav pasa de 7 a 4 links.
+// TSK-187 (Fase 8B, SPEC.md §14.8): el nav pasa de 7 a 4 links. TSK-219: "Draft en vivo" vuelve (5) --
+// el draft en vivo funciona en el sitio desplegado vía Dota GSI, ya no exige un motor local.
 describe("buildNavLinks", () => {
-  test("expone exactamente 4 links: Simulador, Mi pool, Meta, Configuración", () => {
+  test("expone exactamente 5 links: Simulador, Draft en vivo, Mi pool, Meta, Configuración", () => {
     expect(buildNavLinks()).toEqual([
       { href: "/simulator", label: "Simulador de Draft" },
+      { href: "/live-draft", label: "Draft en vivo" },
       { href: "/hero-pool", label: "Mi pool" },
       { href: "/meta", label: "Meta" },
       { href: "/settings", label: "Configuración" },
@@ -17,7 +19,7 @@ describe("buildNavLinks", () => {
   test("no expone las rutas ocultas en 8B ni las ambiguas anteriores", () => {
     const hrefs = buildNavLinks().map((link) => link.href);
 
-    for (const hidden of ["/live-draft", "/team-groups", "/heroes", "/draft", "/random-draft"]) {
+    for (const hidden of ["/team-groups", "/heroes", "/draft", "/random-draft"]) {
       expect(hrefs).not.toContain(hidden);
     }
   });

@@ -1,0 +1,769 @@
+import type { HeroId, TeamSide } from "../draft-protocol/types";
+import type { Position } from "../draft-protocol/roles/role-belief";
+import type { DraftEventEnvelope } from "../draft/reducer";
+import type { ProtocolSessionStore } from "../server/protocol-session";
+import type { HeroPositions } from "../signals/hero-positions";
+import { draftFactCount, observationsFromGsi, type GsiDraftCapabilities, type GsiPhase, type GsiUpdate } from "./gsi-normalize";
+import { draftObservationFromEvent, liveObservationFromDraft } from "./draft-observation";
+import { applyLiveObservation, emptyLiveFacts, MAX_LIVE_PICKS_PER_SIDE, observationFromDraftEvent, replayLiveFacts, type LiveBanKnowledge, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
+export type { LiveBanKnowledge } from "./live-capture";
+
+// Live Dota capture sessions: the bridge between observed facts (Dota GSI through the link-authenticated
+// `/api/live/gsi/<liveId>` (TSK-219), the local Overwolf capturer through the token-authenticated
+// `/ingest/draft-event`, or the Player's manual fallback) and the canonical protocol session the Team
+// Coach Board reads.
+//
+//   observation -> LiveFacts (dedupe, pure) -> replayLiveFacts (kernel, pure) -> store.installLiveState
+//
+// There is ONE draft state per live session: the protocol session. This registry only keeps the facts
+// it is derived from plus capture health for the status line -- never a second draft state. In-memory,
+// like the session stores; no hero, side or account ever goes to a log from here.
+
+export const LIVE_RULESET_ID = "dota2/ranked-all-pick" as const;
+/** Party5 is the critical path of live capture: the five own positions are human-controlled. */
+export const LIVE_CONTROLLED_POSITIONS: Position[] = [1, 2, 3, 4, 5];
+/** No capture event (heartbeats included) for this long -> the capturer is considered gone. */
+export const LIVE_STALE_AFTER_MS = 15_000;
+const MAX_REMEMBERED_EVENT_IDS = 4_096;
+
+export type LiveCaptureHealth = "unknown" | "ok" | "degraded" | "lost";
+export type LiveObservationSource = "gsi" | "overwolf" | "manual" | "ocr";
+/** Partial GSI draft capture: the client sends no draft block (only our side / our hero). */
+export const GSI_DRAFT_PARTIAL = "GSI_DRAFT_PARTIAL";
+/** The visual capturer's word for "the screen shows locked heroes I could not read". */
+export const VISUAL_SLOTS_UNREAD = "VISUAL_SLOTS_UNREAD";
+
+export interface LiveDetectedPick {
+  side: TeamSide;
+  heroId: HeroId;
+  position: Position | null;
+  source: LiveObservationSource;
+  at: string;
+}
+
+/** Match telemetry label (diagnostics): the inventory changed between two GSI updates. */
+export const GSI_ITEM_CHANGES = "item_changes";
+
+/** What the player's own Dota client actually reports (capability discovery, never values). */
+interface LiveGsiObserved {
+  gameState: string | null;
+  phase: GsiPhase;
+  /** Accumulated over the current draft: did the client EVER send each draft field? */
+  draft: GsiDraftCapabilities;
+  /** This draft: an update stated MORE draft facts (bans + picks + own hero) than an earlier one. */
+  draftProgression: boolean;
+  /** Match telemetry capability labels observed so far (presence only). */
+  telemetry: string[];
+  /** Structural labels (gsi-normalize `GSI_STRUCTURE_LABELS`) observed so far: which sections / roster shapes Dota ever sent. */
+  structure: string[];
+}
+
+/** What the local visual capturer last reported (presence/health only, never a frame). */
+export interface LiveVisualStatus {
+  /** A visual capture event (facts or heartbeat) arrived within LIVE_STALE_AFTER_MS. */
+  active: boolean;
+  health: "ok" | "degraded" | "lost";
+  /** Machine-readable code from the capturer (VISUAL_OK, VISUAL_CAPTURE_LOST, ...), or null. */
+  detail: string | null;
+  /** Server clock: ms since the last visual event. */
+  lastEventAgeMs: number;
+  /**
+   * The helper's last word WHILE a draft was open. `health`/`detail` above are its current word, and outside a
+   * draft the helper says VISUAL_OK every second -- which would otherwise erase that a draft was read badly.
+   * Stays until the next draft starts; null before any draft was observed.
+   */
+  draft: { health: "ok" | "degraded" | "lost"; detail: string | null } | null;
+}
+
+/** What D2KIRO Companion (the Player's local background app) reports in its heartbeat. Never identity. */
+export const LIVE_COMPANION_DOTA_STATES = ["connected", "waiting", "not_running"] as const;
+export const LIVE_COMPANION_PHASES = ["MENU", "LOADING", "HERO_SELECTION", "STRATEGY_TIME", "MATCH", "POST_GAME", "OTHER"] as const;
+/** The visual helper as the Companion supervises it on the Player's PC. Closed vocabulary. */
+export const LIVE_COMPANION_VISUAL_STATES = ["absent", "downloading", "failed", "restarting", "running"] as const;
+export type LiveCompanionVisual = (typeof LIVE_COMPANION_VISUAL_STATES)[number];
+export type LiveCompanionDota = (typeof LIVE_COMPANION_DOTA_STATES)[number];
+export type LiveCompanionPhase = (typeof LIVE_COMPANION_PHASES)[number];
+/** The Companion beats every 15 s (plus on every change): three missed beats = gone. */
+export const LIVE_COMPANION_STALE_AFTER_MS = 45_000;
+
+export interface LiveCompanionHeartbeat {
+  version: string;
+  /** Dota as the Companion sees it on the Player's PC: GSI arriving / process open but silent / closed. */
+  dota: LiveCompanionDota;
+  /** Lifecycle phase from the local GSI; null while Dota is not connected. */
+  phase: LiveCompanionPhase | null;
+  /** The Companion (re)wrote Dota's cfg while Dota was open: one Dota restart needed. */
+  restartNeeded: boolean;
+  /** The visual helper's state on that PC; null when the Companion is too old to say. */
+  visual: LiveCompanionVisual | null;
+  /** Which visual runtime build the Companion supervises (its pinned version, e.g. "0.1.1"); null when too old to say. */
+  visualVersion: string | null;
+}
+
+export interface LiveCompanionStatus extends LiveCompanionHeartbeat {
+  /** A heartbeat arrived within LIVE_COMPANION_STALE_AFTER_MS (server clock). */
+  active: boolean;
+  lastSeenAgeMs: number;
+}
+
+/** Only these payloads are facts a visual capturer may state; the lifecycle and our side belong to GSI. */
+const VISUAL_FACT_PAYLOADS = new Set(["hero_picked", "pick_reverted", "hero_banned", "capture_health"]);
+
+export interface LiveGsiStatus extends LiveGsiObserved {
+  /** Server clock: ms since the last GSI update (the browser's clock is never trusted for this). */
+  lastPacketAgeMs: number;
+  /**
+   * A GSI update arrived within LIVE_STALE_AFTER_MS. GSI updates only ever reach the registry through the
+   * link-authenticated `/api/live/gsi/<liveId>`, whose cfg URI is always https (lib/gsi-config.ts) --
+   * so `active` IS "remote GSI over HTTPS is live".
+   */
+  active: boolean;
+}
+
+/**
+ * How much of the draft's PICKS the system knows. Not capture health: a healthy pipeline can know none yet.
+ * NONE: no pick observed. PARTIAL: some, not all ten. PICKS_COMPLETE: five on each side.
+ */
+export type LiveDraftCompleteness = "NONE" | "PARTIAL" | "PICKS_COMPLETE";
+
+/**
+ * Why the draft cannot be recommended on right now. CAPTURE_PARTIAL: the game reports only part of the draft and
+ * nothing else fills the gap. SLOTS_UNREAD: the screen shows heroes the capturer could not read. FACTS_UNRESOLVED:
+ * observed picks do not add up -- a pick lies beyond the round structure (so a pick of an earlier round was never
+ * read) or the kernel refused a fact. A KNOWN rival lock inside the open round is never one of them: in Ranked All
+ * Pick a visible enemy may lock before our side finishes the round. Unknown beats wrong.
+ */
+export type LiveRecommendationBlock = "CAPTURE_PARTIAL" | "SLOTS_UNREAD" | "FACTS_UNRESOLVED";
+
+export interface LiveRecommendationReadiness {
+  available: boolean;
+  /** null when available. */
+  reason: LiveRecommendationBlock | null;
+}
+
+export interface LiveCaptureStatus {
+  schema: "live-capture-status/v1";
+  sessionId: string;
+  /** Is the capturer talking to the engine (any event, heartbeats included, recently)? */
+  connection: "waiting" | "connected" | "stale";
+  lastEventAt: string | null;
+  captureHealth: LiveCaptureHealth;
+  /** Machine-readable capture problem, e.g. DOTA_CAPTURE_NOT_ENABLED. */
+  captureDetail: string | null;
+  draftPhase: "waiting" | "hero_selection" | "ended";
+  localSide: TeamSide | null;
+  /** Last OWN-team pick (captured or manual) -- the "TEAM PICK DETECTED" notice. */
+  lastDetectedPick: LiveDetectedPick | null;
+  bans: number;
+  /**
+   * Positive ban evidence known: UNKNOWN when no ban event was observed this draft (even if picks are underway);
+   * PARTIAL when one or more heroes are proven banned. Step 2B never certifies completeness.
+   */
+  banKnowledge: LiveBanKnowledge;
+  /** Picks observed -- exactly the heroes the draft board renders for both teams. */
+  picks: number;
+  /** Moves on every change to the observed facts (a swap at equal counts included): the cue to re-read the board. */
+  factsRevision: number;
+  /** Draft completeness (picks known), independent of capture health. */
+  completeness: LiveDraftCompleteness;
+  /** Whether the Team Coach may recommend on this draft right now; the engine enforces it at its routes. */
+  recommendation: LiveRecommendationReadiness;
+  /** Picks the kernel has no open slot for yet (diagnostics only: the board shows them anyway). */
+  deferredPicks: number;
+  rejectedFacts: number;
+  /** Present once Dota GSI has spoken to this session. */
+  gsi: LiveGsiStatus | null;
+  /** Present once the local visual capturer has spoken to this session. */
+  visual: LiveVisualStatus | null;
+  /** Present once D2KIRO Companion has sent a heartbeat to this session. */
+  companion: LiveCompanionStatus | null;
+  /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
+  teamContext: LiveTeamContextStatus;
+  /** The Player's own seat: what they declared and whether GSI's local hero is bound to it. */
+  localPlayer: LiveLocalPlayerStatus;
+}
+
+/**
+ * What the visual capturer learns from each of its own POSTs: the draft lifecycle as GSI decided it. The helper
+ * never sees GSI (Dota sends it to the server), so this is how it knows when to (re-)arm on a fresh hero-selection
+ * screen. `draftEpoch` counts drafts started on this live session: a new value = a new draft = a new baseline.
+ * Phase and a counter only -- never a hero, side, match or account.
+ */
+export interface LiveVisualAck {
+  schema: "live-visual-ack/v1";
+  draftPhase: LiveCaptureStatus["draftPhase"];
+  draftEpoch: number;
+}
+
+/**
+ * The Player's own seat in this draft. `bound` is true only when the declared position AND the hero GSI says is the
+ * Player's are both known and that hero is one of our sealed picks -- the one case of an exact LOCAL_PLAYER binding.
+ * `heroId` is a public draft fact (the Player's own pick), never an account identifier.
+ */
+export interface LiveLocalPlayerStatus {
+  /** What the Player declared, or null. */
+  position: Position | null;
+  /** GSI's local hero right now, or null. */
+  heroId: HeroId | null;
+  bound: boolean;
+}
+
+export interface LiveTeamContextStatus {
+  /** The account's own preset applied to this session, or null (no preset / missing / not applied). */
+  teamGroupId: number | null;
+  /** Which of the five positions carry a configured player pool. */
+  positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
+}
+
+/** The part of a live session's capture record the recommendation gate reads (pure input of liveRecommendationReadiness). */
+export interface LiveReadinessFacts {
+  captureHealth: LiveCaptureHealth;
+  captureDetail: string | null;
+  visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
+  /** Picks the kernel has no slot for (a side is past the round boundary). */
+  deferredPicks: number;
+  /** Facts the kernel refused. */
+  rejectedFacts: number;
+}
+
+interface LiveEntry {
+  facts: LiveFacts;
+  eventIds: Set<string>;
+  eventOrder: string[];
+  lastEventAt: number | null;
+  captureHealth: LiveCaptureHealth;
+  captureDetail: string | null;
+  ended: boolean;
+  lastDetectedPick: LiveDetectedPick | null;
+  deferredPicks: number;
+  /** Bumped whenever the observed facts change. */
+  factsRevision: number;
+  rejectedFacts: number;
+  gsi: LiveGsiObserved | null;
+  visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
+  /** The visual helper's last health while this draft was open (see LiveVisualStatus.draft). A new draft starts without it. */
+  visualDraft: { health: "ok" | "degraded" | "lost"; detail: string | null } | null;
+  companion: (LiveCompanionHeartbeat & { lastAt: number }) | null;
+  /** Last GSI update (any phase, heartbeats included). Survives a draft restart: it is the connection. */
+  lastGsiAt: number | null;
+  /** Draft facts the last draft-phase GSI update stated; null before the first one of this draft. */
+  gsiDraftFacts: number | null;
+  /** Hash of the last inventory GSI reported (gsi-normalize `itemsKey`). */
+  gsiItemsKey: string | null;
+  /** Hash of the match the current facts belong to (GSI `map.matchid`, one-way). */
+  matchKey: string | null;
+  /** Drafts started on this live session (survives a restart): the visual capturer re-arms when it changes. */
+  draftEpoch: number;
+  /**
+   * Facts the Player removed by hand in THIS draft (`ban:<hero>`, `pick:<side>:<hero>`). GSI repeats the
+   * whole state on every update, so without this a correction would be undone by the next update.
+   */
+  suppressed: Set<string>;
+}
+
+function factKey(observation: LiveObservation): string | null {
+  switch (observation.type) {
+    case "ban":
+    case "unban":
+      return `ban:${observation.heroId}`;
+    case "pick":
+    case "revert":
+      return `pick:${observation.side}:${observation.heroId}`;
+    default:
+      return null;
+  }
+}
+
+export interface LiveCaptureRegistryDeps {
+  store: ProtocolSessionStore;
+  defaultPatch: string;
+  now?: () => number;
+  /**
+   * Curated role data. It no longer feeds identity: the resolver binds a hero to a position only from a stated
+   * position or the Player's own seat (live-position-resolver.ts). Kept so existing wiring keeps compiling.
+   */
+  heroPositions?: HeroPositions;
+}
+
+export type LiveIngestResult =
+  | { accepted: true; changed: boolean; ignored?: LiveIgnoredReason | "duplicate_event" | "visual_not_allowed" | "draft_ended" | "draft_not_started"; status: LiveCaptureStatus }
+  | { accepted: false; reason: "session_unavailable" | "not_live_capture"; status: LiveCaptureStatus | null };
+
+export class LiveCaptureRegistry {
+  private readonly entries = new Map<string, LiveEntry>();
+  private readonly now: () => number;
+
+  constructor(private readonly deps: LiveCaptureRegistryDeps) {
+    this.now = deps.now ?? Date.now;
+  }
+
+  /**
+   * The live protocol session for `sessionId`, created on first use (by the capturer or by the
+   * Player's browser, whichever arrives first). `ownerAccountId` claims an unowned session; returns
+   * false when the session exists but is not a live capture session or belongs to someone else.
+   */
+  ensureSession(sessionId: string, ownerAccountId: number | null = null): boolean {
+    const metadata = this.deps.store.metadata(sessionId);
+    if (metadata && metadata.liveCapture !== true) return false;
+    if (!metadata) {
+      const created = this.deps.store.create({
+        sessionId,
+        rulesetId: LIVE_RULESET_ID,
+        patch: this.deps.defaultPatch,
+        ownerAccountId,
+        localSide: "radiant",
+        adapterKind: "manual",
+        liveCapture: true,
+        partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+        controlledPositions: [...LIVE_CONTROLLED_POSITIONS],
+      }, this.now());
+      if (!created.ok) return false;
+      // A store eviction (TTL) forgot the old draft: the facts go with it -- and so do those of every
+      // other session the store already evicted (bounded memory, swept only when a session is created).
+      for (const known of this.entries.keys()) if (!this.deps.store.metadata(known)) this.entries.delete(known);
+      this.entries.set(sessionId, this.freshEntry());
+    }
+    if (!this.entries.has(sessionId)) {
+      // The store kept a live session whose capture history was forgotten: its old picks must not outlive their facts.
+      const fresh = this.freshEntry();
+      this.entries.set(sessionId, fresh);
+      this.rebuild(sessionId, fresh);
+    }
+    return ownerAccountId === null ? true : this.deps.store.claimOwner(sessionId, ownerAccountId);
+  }
+
+  /**
+   * Apply (or clear, with null) the account's Party 5 preset to its live session. The pools come from the
+   * caller's server-side load of the account's OWN team group -- never from a client body. false when the
+   * session is not a live session owned by `accountId`.
+   */
+  setTeamContext(sessionId: string, accountId: number, team: { teamGroupId: number; playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> } | null): boolean {
+    if (!this.isLive(sessionId)) return false;
+    const applied = this.deps.store.setLiveTeamContext(sessionId, accountId, { teamGroupId: team?.teamGroupId ?? null, playerPoolsByPosition: team?.playerPoolsByPosition ?? null });
+    // The pools are position evidence for our own picks: a new preset re-resolves who plays what.
+    const entry = this.entries.get(sessionId);
+    if (applied && entry) this.rebuild(sessionId, entry);
+    return applied;
+  }
+
+  /**
+   * The Player's declared seat ("I am Pos N"; null clears it) for their live session. Paired with GSI's local hero it
+   * is the only non-stated source of an exact hero -> position binding, so it re-resolves who plays what at once:
+   * changing or clearing it invalidates the binding it made. false when the session is not a live session owned by
+   * `accountId`.
+   */
+  setHumanPosition(sessionId: string, accountId: number, position: Position | null): boolean {
+    if (!this.isLive(sessionId)) return false;
+    const applied = this.deps.store.setLiveHumanPosition(sessionId, accountId, position);
+    const entry = this.entries.get(sessionId);
+    if (applied && entry) this.rebuild(sessionId, entry);
+    return applied;
+  }
+
+  /** A rotated or revoked Dota link: its capture history is dropped at once (the session itself ages out). */
+  forget(sessionId: string): void {
+    this.entries.delete(sessionId);
+  }
+
+  isLive(sessionId: string): boolean {
+    return this.deps.store.metadata(sessionId)?.liveCapture === true;
+  }
+
+  /** A draft-event/v1 envelope from the token-authenticated capturer. Idempotent per eventId. */
+  ingestEnvelope(envelope: DraftEventEnvelope & { payload: { position?: unknown } }): LiveIngestResult {
+    if (!this.ensureSession(envelope.sessionId)) {
+      return { accepted: false, reason: this.deps.store.metadata(envelope.sessionId) ? "not_live_capture" : "session_unavailable", status: this.status(envelope.sessionId) };
+    }
+    const entry = this.entries.get(envelope.sessionId)!;
+    entry.lastEventAt = this.now();
+    if (entry.eventIds.has(envelope.eventId)) return { accepted: true, changed: false, ignored: "duplicate_event", status: this.status(envelope.sessionId)! };
+    this.rememberEventId(entry, envelope.eventId);
+
+    const payload = envelope.payload;
+    if (envelope.source === "ocr") return this.ingestVisual(envelope, entry);
+    if (payload.type === "capture_health") {
+      entry.captureHealth = payload.status;
+      entry.captureDetail = payload.detail ?? null;
+      return { accepted: true, changed: false, status: this.status(envelope.sessionId)! };
+    }
+    if (payload.type === "session_ended") {
+      entry.ended = true;
+      return { accepted: true, changed: false, status: this.status(envelope.sessionId)! };
+    }
+    const observation = observationFromDraftEvent(payload);
+    if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(envelope.sessionId)! };
+    return this.applyObservation(envelope.sessionId, observation, "overwolf");
+  }
+
+  /**
+   * A fact from the local visual capturer (source "ocr"). It states picks / bans / its own health and
+   * nothing else: the draft lifecycle, our side and the match phase stay GSI's. Facts before the draft started
+   * (a helper left running in the lobby / menu / loading screen) and after it ended (the in-match top bar) are
+   * dropped: neither screen is a draft, and a fact accepted there would surface in the next draft. Same fact
+   * model as every other source, so a hero GSI already reported is simply "already_picked" -- never a second pick.
+   */
+  private ingestVisual(envelope: DraftEventEnvelope & { payload: { position?: unknown } }, entry: LiveEntry): LiveIngestResult {
+    const sessionId = envelope.sessionId;
+    const payload = envelope.payload;
+    if (!VISUAL_FACT_PAYLOADS.has(payload.type)) return { accepted: true, changed: false, ignored: "visual_not_allowed", status: this.status(sessionId)! };
+    if (payload.type === "capture_health") {
+      entry.visual = { health: payload.status, detail: payload.detail ?? null, lastAt: this.now() };
+      if (entry.facts.started && !entry.ended) entry.visualDraft = { health: payload.status, detail: payload.detail ?? null };
+      return { accepted: true, changed: false, status: this.status(sessionId)! };
+    }
+    entry.visual = { health: entry.visual?.health ?? "ok", detail: entry.visual?.detail ?? null, lastAt: this.now() };
+    if (!entry.facts.started) return { accepted: true, changed: false, ignored: "draft_not_started", status: this.status(sessionId)! };
+    if (entry.ended) return { accepted: true, changed: false, ignored: "draft_ended", status: this.status(sessionId)! };
+    const stated = draftObservationFromEvent("ocr", payload, envelope.confidence, envelope.emittedAt);
+    // A visual fact never carries a position: the screen slot is not a Dota position.
+    const observation = stated === null ? null : liveObservationFromDraft(stated);
+    if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
+    const key = factKey(observation);
+    if (key !== null && entry.suppressed.has(key)) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
+    return this.applyObservation(sessionId, observation, "ocr");
+  }
+
+  /** The Player's manual fallback (validated at the route). Same facts, same rebuild as the capturer. */
+  observe(sessionId: string, observation: LiveObservation): LiveIngestResult {
+    if (!this.isLive(sessionId) || !this.ensureSession(sessionId)) return { accepted: false, reason: "not_live_capture", status: this.status(sessionId) };
+    const result = this.applyObservation(sessionId, observation, "manual");
+    // The Player's word wins over the capture for the rest of this draft: a removal sticks, and stating
+    // the fact again by hand lifts it.
+    const key = factKey(observation);
+    const entry = this.entries.get(sessionId);
+    if (result.accepted && key !== null && entry) {
+      if (observation.type === "unban" || observation.type === "revert") {
+        if (result.changed) entry.suppressed.add(key);
+      } else {
+        entry.suppressed.delete(key);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * One Dota GSI update (already authenticated and normalized). GSI sends the whole state every time,
+   * so the same update twice is a no-op, and a reconnect simply resumes. One kernel rebuild per update.
+   */
+  ingestGsi(sessionId: string, update: GsiUpdate): LiveIngestResult {
+    if (!this.isLive(sessionId) || !this.entries.has(sessionId)) return { accepted: false, reason: "not_live_capture", status: this.status(sessionId) };
+    let entry = this.entries.get(sessionId)!;
+    // A different match (re-queue, next game) while the previous draft's facts are still here: start over.
+    const newMatch = update.phase === "draft" && update.matchKey !== null && entry.matchKey !== null && update.matchKey !== entry.matchKey;
+    if (newMatch || (update.phase === "draft" && entry.ended)) entry = this.restart(sessionId, entry);
+    entry.lastEventAt = this.now();
+    entry.lastGsiAt = entry.lastEventAt;
+    // A heartbeat keeps the live session alive (protocol store TTL) while Dota sits in the menu.
+    this.deps.store.get(sessionId, entry.lastEventAt);
+    if (update.phase === "draft" && update.matchKey !== null) entry.matchKey = update.matchKey;
+    // Leaving hero selection (into the match, or back to the menu after an abandoned draft) ends this draft.
+    if ((update.phase === "match" || update.phase === "idle") && entry.facts.started) entry.ended = true;
+    // Diagnostics only (presence, never values): did the draft advance / the inventory change between updates?
+    const factCount = update.phase === "draft" ? draftFactCount(update) : null;
+    const progressed = factCount !== null && entry.gsiDraftFacts !== null && factCount > entry.gsiDraftFacts;
+    if (factCount !== null) entry.gsiDraftFacts = Math.max(factCount, entry.gsiDraftFacts ?? 0);
+    const itemsChanged = update.itemsKey !== null && entry.gsiItemsKey !== null && update.itemsKey !== entry.gsiItemsKey;
+    if (update.itemsKey !== null) entry.gsiItemsKey = update.itemsKey;
+    const gsi = mergeGsiStatus(entry.gsi, update, progressed, itemsChanged);
+    entry.gsi = gsi;
+    if (update.phase === "draft") {
+      // Honest capture state: without a draft block the game only told us our side and our hero.
+      const partial = !gsi.draft.draftBlock;
+      entry.captureHealth = partial ? "degraded" : "ok";
+      entry.captureDetail = partial ? GSI_DRAFT_PARTIAL : null;
+    } else if (entry.captureDetail === GSI_DRAFT_PARTIAL || entry.captureHealth === "unknown") {
+      entry.captureHealth = "ok";
+      entry.captureDetail = null;
+    }
+    let changed = false;
+    for (const observation of observationsFromGsi(update, this.deps.defaultPatch)) {
+      const current = this.entries.get(sessionId)!;
+      // GSI repeats "hero selection" in every update. A new draft was already decided above (match key /
+      // ended), so a repeat never restarts -- not even once the kernel state reached COMPLETE.
+      if (observation.type === "draft_started" && current.facts.started) continue;
+      const key = factKey(observation);
+      if (key !== null && current.suppressed.has(key)) continue;
+      changed = this.applyFact(sessionId, current, observation, "gsi").changed || changed;
+    }
+    if (changed) this.rebuild(sessionId, this.entries.get(sessionId)!);
+    return { accepted: true, changed, status: this.status(sessionId)! };
+  }
+
+  /**
+   * The recommendation gate of a live session (see liveRecommendationReadiness); null for a session that is not a live capture.
+   * A live session whose capture history was forgotten (link rotated or revoked) still holds its old kernel state:
+   * it is NOT recommendable until a fresh capture starts rebuilding it.
+   */
+  recommendationGate(sessionId: string): (LiveRecommendationReadiness & { completeness: LiveDraftCompleteness }) | null {
+    if (!this.isLive(sessionId)) return null;
+    const entry = this.entries.get(sessionId);
+    if (!entry) return { available: false, reason: "FACTS_UNRESOLVED", completeness: "NONE" };
+    return { ...liveRecommendationReadiness(entry, this.now()), completeness: completenessOf(entry.facts) };
+  }
+
+  /** The visual capturer's view of the draft lifecycle (see LiveVisualAck); null when not a live session. */
+  visualAck(sessionId: string): LiveVisualAck | null {
+    const status = this.status(sessionId);
+    const entry = this.entries.get(sessionId);
+    if (!status || !entry) return null;
+    return { schema: "live-visual-ack/v1", draftPhase: status.draftPhase, draftEpoch: entry.draftEpoch };
+  }
+
+  /**
+   * A D2KIRO Companion heartbeat (link-authenticated by the route). Presence only: it never touches the draft
+   * facts nor the GSI connection -- "Dota conectado" stays GSI's own word. false when not a live session.
+   */
+  noteCompanion(sessionId: string, heartbeat: LiveCompanionHeartbeat): boolean {
+    const entry = this.entries.get(sessionId);
+    if (!entry || !this.isLive(sessionId)) return false;
+    entry.companion = { ...heartbeat, lastAt: this.now() };
+    return true;
+  }
+
+  status(sessionId: string): LiveCaptureStatus | null {
+    const entry = this.entries.get(sessionId);
+    if (!entry || !this.isLive(sessionId)) return null;
+    const now = this.now();
+    const connection = entry.lastEventAt === null ? "waiting" : now - entry.lastEventAt <= LIVE_STALE_AFTER_MS ? "connected" : "stale";
+    return {
+      schema: "live-capture-status/v1",
+      sessionId,
+      connection,
+      lastEventAt: entry.lastEventAt === null ? null : new Date(entry.lastEventAt).toISOString(),
+      ...captureOf(entry, now),
+      draftPhase: entry.ended ? "ended" : entry.facts.started ? "hero_selection" : "waiting",
+      localSide: entry.facts.localSide,
+      lastDetectedPick: entry.lastDetectedPick,
+      bans: entry.facts.bans.length,
+      banKnowledge: entry.facts.banKnowledge,
+      picks: entry.facts.picks.length,
+      factsRevision: entry.factsRevision,
+      completeness: completenessOf(entry.facts),
+      recommendation: liveRecommendationReadiness(entry, now),
+      deferredPicks: entry.deferredPicks,
+      rejectedFacts: entry.rejectedFacts,
+      gsi: gsiStatusOf(entry, now),
+      visual: visualStatusOf(entry, now),
+      companion: companionStatusOf(entry, now),
+      teamContext: this.teamContextOf(sessionId),
+      localPlayer: this.localPlayerOf(sessionId, entry),
+    };
+  }
+
+  private localPlayerOf(sessionId: string, entry: LiveEntry): LiveLocalPlayerStatus {
+    const position = this.deps.store.metadata(sessionId)?.humanPosition ?? null;
+    const heroId = entry.facts.localHeroId;
+    const bound = this.deps.store.liveLocalPlayerBound(sessionId);
+    return { position, heroId, bound };
+  }
+
+  private teamContextOf(sessionId: string): LiveTeamContextStatus {
+    const metadata = this.deps.store.metadata(sessionId);
+    const pools = metadata?.playerPoolsByPosition ?? null;
+    const has = (position: Position): boolean => (pools?.[position]?.length ?? 0) > 0;
+    return {
+      teamGroupId: pools === null ? null : (metadata?.teamGroupId ?? null),
+      positions: { "1": has(1), "2": has(2), "3": has(3), "4": has(4), "5": has(5) },
+    };
+  }
+
+  private applyObservation(sessionId: string, observation: LiveObservation, source: LiveObservationSource): LiveIngestResult {
+    const outcome = this.applyFact(sessionId, this.entries.get(sessionId)!, observation, source);
+    if (!outcome.changed) return { accepted: true, changed: false, ignored: outcome.ignored, status: this.status(sessionId)! };
+    this.rebuild(sessionId, this.entries.get(sessionId)!);
+    return { accepted: true, changed: true, status: this.status(sessionId)! };
+  }
+
+  /** Updates the facts only; the caller rebuilds the kernel state (once per batch). */
+  private applyFact(sessionId: string, current: LiveEntry, observation: LiveObservation, source: LiveObservationSource): { changed: boolean; ignored?: LiveIgnoredReason } {
+    let entry = current;
+    // A new match on the same live session: the previous draft finished (or the capturer said it ended), start over.
+    if (observation.type === "draft_started" && (entry.ended || this.deps.store.get(sessionId)?.status === "COMPLETE")) entry = this.restart(sessionId, entry);
+    const wasStarted = entry.facts.started;
+    const outcome = applyLiveObservation(entry.facts, observation);
+    if (!outcome.changed) return { changed: false, ignored: outcome.ignored };
+    entry.facts = outcome.facts;
+    entry.factsRevision += 1;
+    if (observation.type === "draft_started") {
+      entry.ended = false;
+      if (!wasStarted) entry.draftEpoch += 1;
+    }
+    // "TEAM PICK DETECTED" is about OUR team: an enemy reveal never replaces the last own pick notice.
+    const ownPick = outcome.detectedPick && (entry.facts.localSide === null || outcome.detectedPick.side === entry.facts.localSide);
+    if (outcome.detectedPick && ownPick) entry.lastDetectedPick = { ...outcome.detectedPick, source, at: new Date(this.now()).toISOString() };
+    return { changed: true };
+  }
+
+  /** Same live session, fresh draft: keeps the connection, dedupe memory and capture health. */
+  private restart(sessionId: string, entry: LiveEntry): LiveEntry {
+    const restarted = this.freshEntry();
+    restarted.lastEventAt = entry.lastEventAt;
+    restarted.eventIds = entry.eventIds;
+    restarted.eventOrder = entry.eventOrder;
+    restarted.captureHealth = entry.captureHealth;
+    restarted.captureDetail = entry.captureDetail;
+    restarted.visual = entry.visual;
+    restarted.companion = entry.companion;
+    restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
+    restarted.lastGsiAt = entry.lastGsiAt;
+    restarted.draftEpoch = entry.draftEpoch;
+    // A new match's first inventory is never compared with the previous match's (that is not an item change).
+    restarted.gsiItemsKey = null;
+    // The Player's declared seat belonged to the previous match: the new one starts undeclared (no LOCAL_PLAYER binding
+    // until they say again). The rebuild that follows the new draft's first fact re-resolves with no seat.
+    this.deps.store.resetLiveHumanPosition(sessionId);
+    this.entries.set(sessionId, restarted);
+    return restarted;
+  }
+
+  private rebuild(sessionId: string, entry: LiveEntry): void {
+    const state = this.deps.store.get(sessionId);
+    const metadata = this.deps.store.metadata(sessionId);
+    if (!state || !metadata) return;
+    const party = metadata.partyContext;
+    const replay = replayLiveFacts(entry.facts, {
+      sessionId,
+      rulesetId: state.ruleset.id,
+      partyContext: party ? { partySize: party.partySize, side: party.side, controlledSlots: party.controlledSlots } : null,
+      defaultSide: metadata.localSide,
+      humanPosition: metadata.humanPosition,
+    });
+    if (!replay) return;
+    this.deps.store.installLiveState(sessionId, {
+      state: replay.state,
+      localSide: replay.localSide,
+      patch: entry.facts.patch,
+      ownBindings: replay.ownBindings,
+      ownPositions: replay.ownPositions,
+      visiblePicks: entry.facts.picks.map((pick) => ({ side: pick.side, heroId: pick.heroId })),
+    }, this.now());
+    entry.deferredPicks = replay.deferred.length;
+    entry.rejectedFacts = replay.rejected.length;
+  }
+
+  private rememberEventId(entry: LiveEntry, eventId: string): void {
+    entry.eventIds.add(eventId);
+    entry.eventOrder.push(eventId);
+    if (entry.eventOrder.length > MAX_REMEMBERED_EVENT_IDS) entry.eventIds.delete(entry.eventOrder.shift()!);
+  }
+
+  private freshEntry(): LiveEntry {
+    return {
+      facts: emptyLiveFacts(this.deps.defaultPatch),
+      eventIds: new Set(),
+      eventOrder: [],
+      lastEventAt: null,
+      captureHealth: "unknown",
+      captureDetail: null,
+      ended: false,
+      lastDetectedPick: null,
+      deferredPicks: 0,
+      factsRevision: 0,
+      rejectedFacts: 0,
+      gsi: null,
+      visual: null,
+      visualDraft: null,
+      companion: null,
+      lastGsiAt: null,
+      gsiDraftFacts: null,
+      gsiItemsKey: null,
+      matchKey: null,
+      draftEpoch: 0,
+      suppressed: new Set(),
+    };
+  }
+}
+
+function noDraftCapabilities(): GsiDraftCapabilities {
+  return { draftBlock: false, side: false, ownHero: false, bans: false, allyPicks: false, enemyPicks: false };
+}
+
+/**
+ * GSI says "partial" because Dota's own client never states the other picks. While the visual capturer is
+ * alive and healthy it supplies exactly those, so the capture is no longer partial; the moment it stops,
+ * the honest GSI state comes back.
+ */
+function captureOf(entry: LiveReadinessFacts, now: number): { captureHealth: LiveCaptureHealth; captureDetail: string | null } {
+  const visualOk = entry.visual !== null && entry.visual.health === "ok" && now - entry.visual.lastAt <= LIVE_STALE_AFTER_MS;
+  if (visualOk && (entry.captureDetail === GSI_DRAFT_PARTIAL || entry.captureHealth === "unknown")) return { captureHealth: "ok", captureDetail: null };
+  return { captureHealth: entry.captureHealth, captureDetail: entry.captureDetail };
+}
+
+function completenessOf(facts: LiveFacts): LiveDraftCompleteness {
+  if (facts.picks.length === 0) return "NONE";
+  const perSide = (side: TeamSide) => facts.picks.filter((pick) => pick.side === side).length;
+  return perSide("radiant") >= MAX_LIVE_PICKS_PER_SIDE && perSide("dire") >= MAX_LIVE_PICKS_PER_SIDE ? "PICKS_COMPLETE" : "PARTIAL";
+}
+
+/**
+ * Is the draft known well enough to recommend on? The ONE rule behind the status line, the Team Coach panel and
+ * the engine's recommendation routes. It says nothing about how many picks exist (an early draft is fine): only
+ * that what the game shows is what we know.
+ *
+ * KNOWN facts are draft information, whatever order they arrived in: an enemy that locks before our side completes
+ * the round is ordinary Ranked All Pick, so a rival pick the kernel still holds sealed proves NOTHING is missing.
+ * What does prove it: the screen holding heroes the capturer could not read (VISUAL_SLOTS_UNREAD), a pick the
+ * kernel has no slot for (`deferredPicks`: one side is past the round boundary, so a lock of the round it closed was
+ * never read -- the rounds are 2/2/1 a side and neither side can enter the next one early), and a fact the kernel
+ * refused (`rejectedFacts`).
+ */
+export function liveRecommendationReadiness(entry: LiveReadinessFacts, now: number): LiveRecommendationReadiness {
+  // A visible lock the capturer could not read is a capture failure on its own, whatever else reports the draft.
+  if (entry.visual?.health === "degraded" && entry.visual.detail === VISUAL_SLOTS_UNREAD) return { available: false, reason: "SLOTS_UNREAD" };
+  const capture = captureOf(entry, now);
+  if (capture.captureHealth === "degraded" && capture.captureDetail === GSI_DRAFT_PARTIAL) return { available: false, reason: "CAPTURE_PARTIAL" };
+  if (entry.deferredPicks > 0 || entry.rejectedFacts > 0) return { available: false, reason: "FACTS_UNRESOLVED" };
+  return { available: true, reason: null };
+}
+
+function visualStatusOf(entry: LiveEntry, now: number): LiveVisualStatus | null {
+  if (entry.visual === null) return null;
+  const lastEventAgeMs = Math.max(0, now - entry.visual.lastAt);
+  return { active: lastEventAgeMs <= LIVE_STALE_AFTER_MS, health: entry.visual.health, detail: entry.visual.detail, lastEventAgeMs, draft: entry.visualDraft };
+}
+
+function companionStatusOf(entry: LiveEntry, now: number): LiveCompanionStatus | null {
+  if (entry.companion === null) return null;
+  const { lastAt, ...heartbeat } = entry.companion;
+  const lastSeenAgeMs = Math.max(0, now - lastAt);
+  return { ...heartbeat, active: lastSeenAgeMs <= LIVE_COMPANION_STALE_AFTER_MS, lastSeenAgeMs };
+}
+
+function gsiStatusOf(entry: LiveEntry, now: number): LiveGsiStatus | null {
+  if (entry.gsi === null || entry.lastGsiAt === null) return null;
+  const lastPacketAgeMs = Math.max(0, now - entry.lastGsiAt);
+  return {
+    ...entry.gsi,
+    draft: { ...entry.gsi.draft },
+    telemetry: [...entry.gsi.telemetry],
+    structure: [...entry.gsi.structure],
+    lastPacketAgeMs,
+    active: lastPacketAgeMs <= LIVE_STALE_AFTER_MS,
+  };
+}
+
+function mergeGsiStatus(previous: LiveGsiObserved | null, update: GsiUpdate, progressed: boolean, itemsChanged: boolean): LiveGsiObserved {
+  const draft = previous?.draft ?? noDraftCapabilities();
+  // Draft capabilities only count while drafting; match telemetry accumulates across the match.
+  const seen = update.phase === "draft" ? update.capabilities : noDraftCapabilities();
+  const telemetry = new Set(previous?.telemetry ?? []);
+  for (const label of update.telemetry) telemetry.add(label);
+  if (itemsChanged) telemetry.add(GSI_ITEM_CHANGES);
+  const structure = new Set(previous?.structure ?? []);
+  for (const label of update.structure) structure.add(label);
+  return {
+    gameState: update.gameState,
+    phase: update.phase,
+    draft: {
+      draftBlock: draft.draftBlock || seen.draftBlock,
+      side: draft.side || seen.side,
+      ownHero: draft.ownHero || seen.ownHero,
+      bans: draft.bans || seen.bans,
+      allyPicks: draft.allyPicks || seen.allyPicks,
+      enemyPicks: draft.enemyPicks || seen.enemyPicks,
+    },
+    draftProgression: (previous?.draftProgression ?? false) || progressed,
+    telemetry: [...telemetry].sort(),
+    structure: [...structure].sort(),
+  };
+}

@@ -65,6 +65,36 @@ describe("PerspectiveDraftView — invariante de héroe oculto", () => {
   });
 });
 
+// design.md §7 caso 5 (Wave 5 Task 31): `hidden()` devuelve un objeto NUEVO en cada llamada, nunca un
+// singleton compartido -- una mutación accidental de un slot oculto no puede contaminar a otro.
+describe("PerspectiveDraftView — hidden() no es un singleton compartido (design.md §7-5)", () => {
+  function twoHiddenSlotsState(): DraftProtocolState {
+    return apply(createState("dota2/ranked-all-pick"), [
+      { type: "BAN_RESOLUTION_COMPLETE" },
+      { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 42 },
+      { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 43 },
+    ]);
+  }
+
+  test("dos slots ocultos de la misma vista son objetos distintos", () => {
+    const view = project(twoHiddenSlotsState(), "radiant");
+    expect(view.enemyPicks).toEqual([{ visibility: "HIDDEN" }, { visibility: "HIDDEN" }]);
+    expect(view.enemyPicks[0]).not.toBe(view.enemyPicks[1]);
+  });
+
+  test("dos proyecciones del mismo estado no comparten referencias de slots ocultos, y son inmutables", () => {
+    const state = twoHiddenSlotsState();
+    const first = project(state, "radiant");
+    const second = project(state, "radiant");
+    expect(first.enemyPicks[0]).not.toBe(second.enemyPicks[0]);
+    // The projected view is deep-frozen (stricter than the design's "fresh object"): mutation cannot even happen.
+    expect(Object.isFrozen(first.enemyPicks[0])).toBe(true);
+    expect(() => { (first.enemyPicks[0] as { visibility: string }).visibility = "MUTATED"; }).toThrow();
+    expect(second.enemyPicks[0]).toEqual({ visibility: "HIDDEN" });
+    expect(project(state, "radiant").enemyPicks[0]).toEqual({ visibility: "HIDDEN" });
+  });
+});
+
 // Criterio 5: propiedad de gemelos ocultos (hidden twin).
 describe("PerspectiveDraftView — propiedad de gemelos ocultos (hidden twin)", () => {
   test("dos estados idénticos salvo el héroe oculto del rival producen vista/hash/legalActions idénticos", () => {

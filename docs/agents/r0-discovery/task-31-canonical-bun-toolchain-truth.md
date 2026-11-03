@@ -1,5 +1,7 @@
 # R0.1 — Task 31: Canonical Bun Toolchain Truth — evidencia de ejecución
 
+> **SUPERADO en parte (2026-11-02, PR #98):** la decisión "web de producción sigue en `package-lock.json` + `npm ci`" ya no rige. `apps/web/package-lock.json` se eliminó y el Dockerfile instala `apps/web` con `bun install --frozen-lockfile` / `bun run build`; `bun.lock` es el único lockfile. Motivo medido: 38 paquetes con versión distinta entre ambos lockfiles (producción desplegaba un árbol que CI no probaba). El resto de este informe es evidencia histórica de Task 31.
+
 - **Spec:** `.kiro/specs/r0-engineering-baseline-recovery/` (R0 — Engineering Baseline Recovery)
 - **Task:** 31 — `[R0.1] Canonical Bun Toolchain Truth — pin exacto local/CI/Docker y revalidación`
 - **Requisitos:** 1.1, 4.1, T.1, T.2 · **Owner ejecutable de** `TOOLCHAIN_VERSION_DRIFT`

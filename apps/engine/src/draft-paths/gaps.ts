@@ -1,4 +1,4 @@
-import type { DraftState, HeroId } from "../draft/reducer";
+import { MAX_PICKS_PER_SIDE, type DraftState, type HeroId } from "../draft/reducer";
 import type { CapabilityLevel, DamageType, DraftCapabilityGap, HeroCapabilities } from "./types";
 
 const LEVEL_SCORE: Record<CapabilityLevel, number> = { low: 0, medium: 1, high: 2 };
@@ -35,8 +35,10 @@ function hasDamageMixGap(damageTypes: DamageType[]): boolean {
 }
 
 export function detectDraftGaps(state: DraftState, capabilities: HeroCapabilities[]): DraftCapabilityGap[] {
-  const own = ownCapabilities(state, capabilities);
+  return gapsOfCapabilities(ownCapabilities(state, capabilities));
+}
 
+function gapsOfCapabilities(own: HeroCapabilities[]): DraftCapabilityGap[] {
   const gaps: DraftCapabilityGap[] = [];
   if (own.filter((entry) => entry.hasInitiation).length === 0) gaps.push("initiation");
   if (own.filter((entry) => entry.hasCatch).length === 0) gaps.push("catch");
@@ -66,4 +68,52 @@ export function filledGaps(candidate: HeroCapabilities, gaps: DraftCapabilityGap
     if (candidate.damageType === "mixed") return true;
     return !ownDamageTypes.includes(candidate.damageType);
   });
+}
+
+// ---- Hueco crítico: qué le falta al equipo y si ya no se puede esperar a llenarlo ----------------------------------------------------
+// (rescatado de TSK-253/254 de la cadena F1, SÓLO la parte que no toca el scoring: aquí nada puntúa, reordena ni filtra a nadie).
+//
+// `detectDraftGaps` dice QUÉ no tiene el equipo; no dice si importa todavía. Dos criterios:
+//   - cobertura del equipo: lo que aportan los picks propios CURADOS. Un pick propio sin capacidades curadas (Ringmaster, Kez, Largo)
+//     es dato desconocido, no carencia (mismo criterio que `team_synergy`): con uno, el equipo no puede declarar un hueco como crítico.
+//   - importancia: con pocos picks casi todo "falta"; en los últimos picks, lo que sigue abierto ya no se puede esperar a llenar después.
+// "Crítico" = no poder iniciar ni atrapar, o un solo tipo de daño, cuando quedan CLOSING_WINDOW_PICKS o menos picks propios.
+
+export const CRITICAL_GAP_KINDS: readonly DraftCapabilityGap[] = ["initiation", "catch", "damage_mix"];
+export const CLOSING_WINDOW_PICKS = 2;
+
+export interface CompositionNeeds {
+  /** Todo hueco abierto -- exactamente `detectDraftGaps`. */
+  open: DraftCapabilityGap[];
+  /** Los huecos críticos que ya no se pueden esperar a llenar; vacío fuera de la ventana de cierre o si un pick propio no está curado. */
+  critical: DraftCapabilityGap[];
+  /** Tipos de daño de los picks propios curados: lo que `filledGaps` necesita para saber si un candidato diversifica. */
+  ownDamageTypes: DamageType[];
+  /** Picks propios que faltan, contando el que se está decidiendo (5 - ya elegidos). */
+  ownPicksRemaining: number;
+}
+
+export function ownPicksRemainingFor(ownHeroes: readonly HeroId[]): number {
+  return Math.max(MAX_PICKS_PER_SIDE - ownHeroes.length, 0);
+}
+
+/** La evaluación desde los ids de héroes propios, para quien tiene una vista de perspectiva y no un DraftState (el Coach). */
+export function assessCompositionNeedsOf(ownHeroes: readonly HeroId[], capabilities: HeroCapabilities[], ownPicksRemaining: number): CompositionNeeds {
+  const byHero = capabilitiesByHero(capabilities);
+  const own = ownHeroes.map((hero) => byHero.get(hero)).filter((entry): entry is HeroCapabilities => entry !== undefined);
+  const open = gapsOfCapabilities(own);
+  const coverageIsKnown = ownHeroes.length === own.length;
+  const inClosingWindow = ownPicksRemaining >= 1 && ownPicksRemaining <= CLOSING_WINDOW_PICKS;
+  const critical = coverageIsKnown && inClosingWindow ? open.filter((gap) => CRITICAL_GAP_KINDS.includes(gap)) : [];
+  return { open, critical, ownDamageTypes: own.map((entry) => entry.damageType), ownPicksRemaining };
+}
+
+/**
+ * Los huecos críticos que este candidato NO llena. Un candidato sin capacidades curadas devuelve [] : no sabemos qué aporta, y
+ * desconocido no es carencia (nunca se le atribuye el hueco).
+ */
+export function unfilledCriticalGaps(candidate: HeroCapabilities | undefined, needs: CompositionNeeds): DraftCapabilityGap[] {
+  if (candidate === undefined) return [];
+  const filled = new Set(filledGaps(candidate, needs.critical, needs.ownDamageTypes));
+  return needs.critical.filter((gap) => !filled.has(gap));
 }

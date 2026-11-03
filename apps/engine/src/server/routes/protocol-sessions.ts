@@ -1,19 +1,43 @@
+import type { HeroCapabilities } from "../../draft-paths/types";
 import { resolveSimulatorCollisionAuthority } from "../../draft-protocol/adapters/simulator-authority";
 import { lowestEligibleHeroIdStrategy } from "../../draft-protocol/adapters/cm-simulator";
 import { perspectiveToLegacyDraftState } from "../../draft-protocol/adapters/suggestion-bridge";
 import {
   isValidBotSelectionBody,
   isValidCreateProtocolSessionBody,
+  isValidResolveBansBody,
   isValidSimulatorAuthorityBody,
   isValidSubmitProtocolCommandBody,
   isTeamSide,
 } from "../../draft-protocol/validation";
 import { isTrustedServerOnlyCommand, legalActions, loadTrustedEligibilityArtifact } from "../../draft-protocol";
+import type { PerspectiveDraftView, TeamSide } from "../../draft-protocol";
 import type { DraftPathArchetype } from "../../draft-paths/types";
 import type { DraftState } from "../../draft/reducer";
 import type { SuggestionSet } from "../../signals/mix";
-import { buildRecommendationSetV2, translateRecommendationSetToLegacySuggestionSet } from "../../recommendation";
+import {
+  AP_RECOMMENDATION_OUTPUT_LIMIT,
+  buildRecommendationSetV2,
+  translateRecommendationSetToLegacySuggestionSet,
+  type RecommendationSetV2,
+} from "../../recommendation";
+import type { RecommendationOutputV3 } from "../../coach";
+import type { CuratedCounter } from "../../signals/hero-counters";
+import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
+import { rosterSlotForRoundSlot, type DotaPosition } from "../../simulator/ap-simulator-policy";
+import {
+  defaultBanResolutionPolicy,
+  resolveSimulatorBans,
+  type BanResolutionPolicy,
+  type HeroUniverse,
+} from "../../simulator/ban-resolution";
+import { chooseAllyBotHero } from "../../simulator/ally-bot";
+import { deriveAllyPositionOrder } from "../../simulator/ally-bot-roles";
+import { chooseEnemyBotHero, createEnemyBotConfig } from "../../simulator/enemy-bot";
+import { isApSimulatorMetadata } from "../../simulator/session-config";
+import { assignmentBelongsToTeam, parseTeamAssignment, poolsByConfirmedPosition } from "../../recommendation/team-positions";
 import { ProtocolSessionStore } from "../protocol-session";
+import { createCoachRecommendations } from "./coach-recommendations";
 
 // R1 S2/S3 -- HTTP surface for kernel-backed draft sessions: the flow the frozen contract for
 // this wave mandates end to end --
@@ -30,7 +54,7 @@ import { ProtocolSessionStore } from "../protocol-session";
 
 export type ComputeSuggestionsForDraftState = (
   state: DraftState,
-  accountId: null,
+  accountId: number | null,
   // R1 S5: widened to include teamOpening/diversitySeed -- app.ts's real
   // computeSuggestionsForState already accepts both (it forwards options straight into
   // buildSuggestions); this type only used to advertise archetypeIntent because bot-selection was
@@ -39,6 +63,7 @@ export type ComputeSuggestionsForDraftState = (
   options?: {
     archetypeIntent?: DraftPathArchetype;
     teamOpening?: boolean;
+    targetPosition?: 1 | 2 | 3 | 4 | 5;
     diversitySeed?: string;
     // R1 S5 (blocker 3): the kernel's own certified legal hero universe, when the caller has one
     // (recommendation/build.ts, for Captain's Mode) -- forwarded verbatim into buildSuggestions.
@@ -46,9 +71,22 @@ export type ComputeSuggestionsForDraftState = (
   },
 ) => Promise<SuggestionSet>;
 
+/** A live capture session whose draft is not known well enough to recommend on (null/absent for every other session). */
+export interface LiveRecommendationGate {
+  available: boolean;
+  reason: string | null;
+  completeness: string;
+}
+
 export interface ProtocolSessionRouteDeps {
   store: ProtocolSessionStore;
   computeSuggestions: ComputeSuggestionsForDraftState;
+  /**
+   * FAIL-CLOSED boundary for live Dota sessions: asked before ANY recommendation is computed. A live draft the
+   * system knows it only half-read gets an explicit "incomplete" answer, never a ranking. The web hiding the Team
+   * Coach is a courtesy; this is the guarantee. Absent (tests, simulator-only deployments) -> no live gate.
+   */
+  liveRecommendationGate?: (sessionId: string) => LiveRecommendationGate | null;
   /**
    * SERVER-SIDE source of the approved CM eligibility artifact -- the deployment-bootstrap hook.
    * Called once per Captain's Mode session creation; `null`/absent leaves the session with no
@@ -69,6 +107,33 @@ export interface ProtocolSessionRouteDeps {
    * only `index.e2e.ts` (never wired to any production start path) hardcodes it to `true`.
    */
   allowClientForcedBotSelection?: boolean;
+  /**
+   * AP Simulator ban resolution needs the hero universe (every hero + how likely each is to be
+   * banned). Server-side source, never client-supplied. Absent -> resolve-bans fails closed with
+   * 503 and the session stays in ban configuration. Injectable so tests use a fixture (S2).
+   */
+  heroUniverse?: () => Promise<HeroUniverse>;
+  /** Injectable ban policy (defaults to the product policy) -- lets tests prove the fail-closed path. */
+  banResolutionPolicy?: BanResolutionPolicy;
+  /** Curated position evidence for the Enemy Bot's seat-constrained candidate universe (S10). Never the real file in tests. */
+  heroPositions?: HeroPositions;
+  /** Curated counter relationships for the Coach's Safe Core opportunity (Wave 4A). Never the real file in tests. */
+  heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
+  /** Curated capabilities for the Coach's CRITICAL_GAP card notice (S9). Never the real file in tests. */
+  heroCapabilities?: readonly HeroCapabilities[];
+  /**
+   * TEST-ONLY construction-time seam (same pattern as allowClientForcedBotSelection). When true,
+   * POST /:id/test-advance-clock can push the Simulator TIMER clock of a session forward so an
+   * acceptance test crosses a round deadline without real waiting. Absent/false -- every production
+   * path, unconditionally -- makes that route answer 404. Only index.e2e.ts ever sets it.
+   */
+  allowTestClockControl?: boolean;
+  /** Loads a team group by ID (optionally scoped to accountId). */
+  loadTeamGroup?: (id: number, accountId: number | null) => Promise<{
+    id: number;
+    partySize: number;
+    members: readonly { id?: number; slot: number; position?: number | null; heroPool: readonly number[] }[];
+  } | null>;
 }
 
 function badRequest(error: string): Response {
@@ -79,22 +144,129 @@ function notFound(): Response {
   return Response.json({ error: "not_found" }, { status: 404 });
 }
 
+function oppositeSide(side: TeamSide): TeamSide {
+  return side === "radiant" ? "dire" : "radiant";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseDotaPosition(value: unknown): DotaPosition | null {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 ? value : null;
+}
+
+/** Array of unique DotaPositions, non-empty. `null` for anything malformed -- never throws. */
+function parseControlledPositions(value: unknown): DotaPosition[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const seen = new Set<DotaPosition>();
+  for (const entry of value) {
+    const position = parseDotaPosition(entry);
+    if (position === null || seen.has(position)) return null;
+    seen.add(position);
+  }
+  return [...seen];
+}
+
+/**
+ * A seeded Simulator session is an AP Ranked Roles V1 session: Ranked All Pick, the Player controls
+ * all five seats of their own side. Any side and any personal position are supported.
+ *
+ * PD-026/PD-027 (governance) -- AP Ranked Roles Simulator session policy:
+ * Supported controlled party sizes: 1, 2, 3, 5 (party 4 is explicitly unsupported).
+ * Own Team truth is `controlledPositions` (a Position set), never chronological roster seats:
+ * `partyContext.controlledSlots` is structural/inert for AP and MUST arrive empty.
+ * `controlledPositions.length` must equal `partySize`. If `humanPosition` is provided, it must be
+ * one of the controlled positions.
+ */
+function isSupportedApSimulatorBody(body: {
+  rulesetId: string;
+  localSide: TeamSide;
+  humanPosition?: DotaPosition;
+  partyContext: { partySize: number; controlledSlots: { side: TeamSide; slotIndex: number }[] };
+  controlledPositions: DotaPosition[] | null;
+}): boolean {
+  if (body.rulesetId !== "dota2/ranked-all-pick") return false;
+  const partySize = body.partyContext.partySize;
+  if (partySize !== 1 && partySize !== 2 && partySize !== 3 && partySize !== 5) return false;
+  if (body.partyContext.controlledSlots.length !== 0) return false;
+  const positions = body.controlledPositions;
+  if (!positions || positions.length !== partySize) return false;
+  if (body.humanPosition !== undefined && !positions.includes(body.humanPosition)) return false;
+  return true;
+}
+
 export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
-  async function post(request: Request): Promise<Response> {
+  async function post(request: Request, ownerAccountId: number | null = null): Promise<Response> {
     // Same opportunistic-cleanup discipline as SessionStore/simulator-sessions.ts -- no scheduler
     // of its own, just a cheap sweep on the path that creates new sessions.
     deps.store.evictStale();
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidCreateProtocolSessionBody(body)) return badRequest("invalid_body");
+    const rawBody: unknown = await request.json().catch(() => null);
+    if (!isValidCreateProtocolSessionBody(rawBody)) return badRequest("invalid_body");
+    const body = rawBody;
+    // PD-026/PD-027: `controlledPositions` is a sibling field the generic draft-protocol validator
+    // does not know about (draft-protocol/validation.ts stays untouched) -- read and validated here,
+    // at the route/session boundary, from the same raw JSON body.
+    const controlledPositions = parseControlledPositions(isRecord(rawBody) ? rawBody.controlledPositions : undefined);
+    if (body.rulesetId === "dota2/ranked-all-pick" && (body.adapterKind === "simulator" || body.humanPosition !== undefined)) {
+      if (!isSupportedApSimulatorBody({ ...body, controlledPositions })) {
+        return Response.json({ error: "unsupported_simulator_policy" }, { status: 422 });
+      }
+    }
+
+    const teamGroupId = isRecord(rawBody) && typeof rawBody.teamGroupId === "number" ? rawBody.teamGroupId : null;
+    let playerPoolsByPosition: Partial<Record<DotaPosition, readonly number[]>> | undefined = undefined;
+
+    // This match's player -> position assignment (a swap the user made before starting). Malformed = refused, never
+    // half-applied; it only ever names members of the account's OWN saved team and is never written back to it.
+    const teamAssignment = parseTeamAssignment(isRecord(rawBody) ? rawBody.teamAssignment : undefined);
+    if (teamAssignment === null) return badRequest("invalid_team_assignment");
+
+    let savedTeamLoaded = false;
+    if (teamGroupId !== null && deps.loadTeamGroup) {
+      try {
+        const group = await deps.loadTeamGroup(teamGroupId, ownerAccountId);
+        if (group && group.members) {
+          savedTeamLoaded = true;
+          if (teamAssignment && !assignmentBelongsToTeam(teamAssignment, group.members)) return badRequest("invalid_team_assignment");
+          // Pools follow the CONFIRMED position of each person (or this match's assignment), never their `slot`.
+          playerPoolsByPosition = poolsByConfirmedPosition(group.members, teamAssignment);
+          if (Object.keys(playerPoolsByPosition).length === 0) playerPoolsByPosition = undefined;
+        }
+      } catch {
+        // Fallback gracefully if load fails
+      }
+    }
+
+    // A saved team that loaded is the only source of pools: a client-built map (older clients derived it from `slot`)
+    // never fills in for positions the team left unconfirmed.
+    if (!savedTeamLoaded && !playerPoolsByPosition && isRecord(rawBody) && isRecord(rawBody.playerPoolsByPosition)) {
+      const parsedPools: Partial<Record<DotaPosition, readonly number[]>> = {};
+      for (const [key, val] of Object.entries(rawBody.playerPoolsByPosition)) {
+        const pos = parseDotaPosition(Number(key));
+        if (pos !== null && Array.isArray(val)) {
+          parsedPools[pos] = val.filter((h): h is number => typeof h === "number");
+        }
+      }
+      if (Object.keys(parsedPools).length > 0) {
+        playerPoolsByPosition = parsedPools;
+      }
+    }
 
     const sessionId = crypto.randomUUID();
     const created = deps.store.create({
       sessionId,
       rulesetId: body.rulesetId,
       patch: body.patch,
+      ownerAccountId,
       partyContext: body.partyContext,
       localSide: body.localSide,
       adapterKind: body.adapterKind,
+      humanPosition: body.humanPosition,
+      simulatorSeed: body.simulatorSeed,
+      controlledPositions: controlledPositions ?? undefined,
+      teamGroupId,
+      playerPoolsByPosition,
     });
     if (!created.ok) return Response.json({ error: created.reason, detail: "detail" in created ? created.detail : undefined }, { status: 422 });
 
@@ -114,6 +286,31 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       { sessionId: created.sessionId, ruleset: created.state.ruleset, status: created.state.status, eligibilityCertified },
       { status: 201 },
     );
+  }
+
+  /**
+   * The one response shape every session route returns: the Player's perspective view, the actions
+   * the Player may take, and -- for AP Simulator sessions once a round has been handed over -- the
+   * Simulator-layer timer/gold-penalty projection (never kernel state, never a hidden hero).
+   */
+  function snapshotBody(sessionId: string) {
+    return {
+      view: deps.store.view(sessionId),
+      legalActions: deps.store.authorizedLegalActions(sessionId),
+      simulator: deps.store.simulatorTimerView(sessionId),
+      // PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only, never
+      // Enemy Bot's private role permutation. `[]` for a session with no bindings yet. Each entry
+      // carries the heroId the server joined from kernel state on (round, slotIndex), so the web
+      // never infers hero-by-position from pick chronology.
+      ownAssignedPositions: deps.store.ownAssignedPositionProjection(sessionId),
+      // P0-3 (INV-YIELD-001) -- the SAME precondition `POST /yield` enforces, exposed so the web
+      // never has to approximate it on its own. `false` for a non-AP-Simulator session (the store
+      // returns `false` there too -- `yieldPrecondition`'s `not_ap_simulator` branch).
+      canYield: deps.store.canYield(sessionId),
+      // WP1 -- eligible human positions vs. current round capacity vs. yield, server-derived. `null`
+      // for a session without controlledPositions. The web reads this instead of re-deriving it.
+      humanActionability: deps.store.humanActionability(sessionId),
+    };
   }
 
   function parseSessionSubpath(pathname: string, suffix: string): string | null {
@@ -136,17 +333,22 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (sideParam !== null && sideParam !== metadata.localSide) {
       return Response.json({ error: "perspective_forbidden" }, { status: 403 });
     }
-    const view = deps.store.view(sessionId);
-    return Response.json({ view, legalActions: deps.store.authorizedLegalActions(sessionId) });
+    return Response.json(snapshotBody(sessionId));
   }
 
   async function postCommand(request: Request, sessionId: string): Promise<Response> {
     if (!deps.store.get(sessionId)) return notFound();
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidSubmitProtocolCommandBody(body)) return badRequest("invalid_body");
+    const rawBody: unknown = await request.json().catch(() => null);
+    if (!isValidSubmitProtocolCommandBody(rawBody)) return badRequest("invalid_body");
+    const body = rawBody;
     const metadata = deps.store.metadata(sessionId)!;
     if (body.viewerSide !== undefined && body.viewerSide !== null && body.viewerSide !== metadata.localSide) {
       return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    // A live capture session's state is rebuilt from observed facts on every change: a raw command would
+    // be silently lost on the next rebuild. Facts go through POST .../live-observation instead.
+    if (metadata.liveCapture === true) {
+      return Response.json({ error: "live_capture_uses_observations" }, { status: 409 });
     }
     // R1 S3 (final trust-boundary repair). TRUSTED_SERVER_ONLY commands are refused here on the
     // basis of WHERE THEY ARRIVED, before any consideration of how well-formed they are -- a
@@ -161,16 +363,46 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
         { status: 403 },
       );
     }
+
+    // PD-026/PD-027 ATOMIC OWN PICK OPERATION -- an AP Simulator Own Team submission binds a
+    // human-controlled position to the sealed selection atomically with the kernel command.
+    // `assignedPosition` travels as a SIBLING field to `command` (never inside it -- the kernel
+    // command shape is unchanged, draft-protocol/** stays position-agnostic) and is validated HERE,
+    // at the route/session boundary, never by the generic draft-protocol validator.
+    if (body.command.type === "SUBMIT_SEALED_SELECTION" && isApSimulatorMetadata(metadata) && metadata.controlledPositions && body.command.side === metadata.localSide) {
+      const assignedPosition = parseDotaPosition(isRecord(rawBody) ? rawBody.assignedPosition : undefined);
+      if (assignedPosition === null) return badRequest("invalid_assigned_position");
+      const outcome = deps.store.applyApSimulatorOwnSelection(sessionId, body.command, assignedPosition);
+      if (outcome.ok) return Response.json({ accepted: true, rejected: undefined, ...snapshotBody(sessionId) }, { status: 202 });
+      if (outcome.reason === "kernel_rejected") {
+        return Response.json({ accepted: false, rejected: outcome.rejected, ...snapshotBody(sessionId) }, { status: 202 });
+      }
+      if (outcome.reason === "session_not_found") return notFound();
+      return Response.json({ error: outcome.reason }, { status: 409 });
+    }
+
     if (!deps.store.isCommandAuthorized(sessionId, body.command)) {
       return Response.json({ error: "action_forbidden" }, { status: 403 });
     }
 
     const result = deps.store.apply(sessionId, body.command);
     if (!result) return notFound();
-    return Response.json(
-      { accepted: !result.rejected, rejected: result.rejected, view: deps.store.view(sessionId), legalActions: deps.store.authorizedLegalActions(sessionId) },
-      { status: 202 },
-    );
+    return Response.json({ accepted: !result.rejected, rejected: result.rejected, ...snapshotBody(sessionId) }, { status: 202 });
+  }
+
+  /**
+   * PD-026/PD-027 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own
+   * Team capacity to the Ally Bot. Rejected with 409 (never silently accepted) when the Ally Bot
+   * cannot legally absorb that capacity.
+   */
+  async function postYield(sessionId: string): Promise<Response> {
+    if (!deps.store.get(sessionId)) return notFound();
+    const outcome = deps.store.yieldRound(sessionId);
+    if (!outcome.ok) {
+      const status = outcome.reason === "session_not_found" ? 404 : 409;
+      return Response.json({ error: outcome.reason }, { status });
+    }
+    return Response.json(snapshotBody(sessionId));
   }
 
   /**
@@ -185,8 +417,14 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const body: unknown = await request.json().catch(() => null);
     if (!isValidSimulatorAuthorityBody(body)) return badRequest("invalid_body");
 
-    const resolution = resolveSimulatorCollisionAuthority(state, body.seed);
-    if (!resolution) return Response.json({ applied: false, reason: "no_pending_collision" }, { status: 409 });
+    // body.seed is accepted for API compatibility and IGNORED: the winner is decided only by the
+    // session registration ledger (first accepted registration wins), never by a seed.
+    const pending = state.rankedAp?.round?.pendingCollision;
+    if (!pending) return Response.json({ applied: false, reason: "no_pending_collision" }, { status: 409 });
+    const resolution = resolveSimulatorCollisionAuthority(pending, deps.store.registrationEvidence(sessionId)!);
+    if (!resolution.ok) {
+      return Response.json({ applied: false, error: "collision_authority_unavailable", reason: resolution.reason }, { status: 409 });
+    }
 
     const result = deps.store.apply(sessionId, resolution.command);
     return Response.json({ applied: !result?.rejected, rejected: result?.rejected, policy: resolution.policy, view: deps.store.view(sessionId), legalActions: deps.store.authorizedLegalActions(sessionId) });
@@ -273,6 +511,244 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     });
   }
 
+  async function postTestAdvanceClock(request: Request, sessionId: string): Promise<Response> {
+    if (deps.allowTestClockControl !== true) return notFound();
+    const body: unknown = await request.json().catch(() => null);
+    const ms = typeof body === "object" && body !== null ? (body as { ms?: unknown }).ms : undefined;
+    if (typeof ms !== "number" || !Number.isInteger(ms) || ms <= 0 || ms > 600_000) return badRequest("invalid_body");
+    if (!deps.store.advanceTestClock(sessionId, ms)) return notFound();
+    return Response.json({ advancedMs: ms, simulator: deps.store.simulatorTimerView(sessionId) });
+  }
+
+  /**
+   * AP Simulator ban resolution: BAN_CONFIGURATION -> BAN_RESOLUTION -> PICK_ROUND_1.
+   *
+   * The Player's nominations arrive here; the other nine participants are simulated from the
+   * session seed; BanResolutionPolicy produces the resolved set; ONLY that final set is recorded in
+   * the kernel. FAIL CLOSED: if the policy throws or returns something invalid, nothing is recorded,
+   * Round 1 is not entered, and the very same request can be retried (`retryable: true`). An empty
+   * or reduced ban set is never fabricated. The two kernel commands are applied atomically.
+   */
+  async function postResolveBans(request: Request, sessionId: string): Promise<Response> {
+    const state = deps.store.get(sessionId);
+    const metadata = deps.store.metadata(sessionId);
+    if (!state || !metadata) return notFound();
+    if (!state.rankedAp || !isApSimulatorMetadata(metadata)) {
+      return Response.json({ error: "ap_simulator_required" }, { status: 403 });
+    }
+    if (state.rankedAp.phase !== "BAN_RESOLUTION" || state.rankedAp.banResolutionComplete) {
+      return Response.json({ error: "bans_already_resolved" }, { status: 409 });
+    }
+    const body: unknown = await request.json().catch(() => null);
+    if (!isValidResolveBansBody(body)) return badRequest("invalid_body");
+
+    if (!deps.heroUniverse) {
+      return Response.json({ error: "ban_resolution_failed", reason: "hero_universe_unavailable", retryable: true }, { status: 503 });
+    }
+    let universe: HeroUniverse;
+    try {
+      universe = await deps.heroUniverse();
+    } catch {
+      return Response.json({ error: "ban_resolution_failed", reason: "hero_universe_unavailable", retryable: true }, { status: 503 });
+    }
+
+    const resolution = resolveSimulatorBans({
+      playerPreferences: body.playerBanPreferences as (number | null)[],
+      universe,
+      seed: metadata.simulatorSeed!,
+      policy: deps.banResolutionPolicy ?? defaultBanResolutionPolicy,
+    });
+    if (!resolution.ok) {
+      if (resolution.reason === "invalid_player_preferences") {
+        return Response.json({ error: "invalid_ban_preferences", detail: resolution.detail }, { status: 400 });
+      }
+      return Response.json({ error: "ban_resolution_failed", reason: resolution.reason, retryable: true }, { status: 422 });
+    }
+
+    const applied = deps.store.applyAtomically(sessionId, [
+      { type: "RECORD_RESOLVED_BANS", heroes: resolution.bans },
+      { type: "BAN_RESOLUTION_COMPLETE" },
+    ]);
+    if (!applied || !applied.ok) {
+      return Response.json({ error: "ban_resolution_failed", reason: "kernel_rejected", retryable: true }, { status: 422 });
+    }
+    return Response.json({ resolvedBans: resolution.bans, ...snapshotBody(sessionId) });
+  }
+
+  /**
+   * AP Simulator driver for the ENEMY side. Advances only Enemy Bot seats and pauses at the
+   * boundaries the Player can observe: the Player's own seats becoming legal ("human_input"), a
+   * round having been revealed ("round_revealed"), or the draft being complete.
+   *
+   * Every enemy decision is built from `project(state, enemySide)` -- the enemy's own perspective,
+   * in which the Player's sealed picks are HIDDEN -- and is constrained to heroes playable at that
+   * seat's INTERNAL position (chooseEnemyBotHero). That assignment is Simulator truth and is never
+   * placed in any response.
+   */
+  async function postAutoDrive(sessionId: string): Promise<Response> {
+    let state = deps.store.get(sessionId);
+    const metadata = deps.store.metadata(sessionId);
+    if (!state || !metadata) return notFound();
+    if (!state.rankedAp || !isApSimulatorMetadata(metadata)) {
+      return Response.json({ error: "ap_simulator_required" }, { status: 403 });
+    }
+    const humanSide = metadata.localSide;
+    const botConfig = createEnemyBotConfig(metadata.simulatorSeed!, oppositeSide(humanSide));
+    const heroPositions = deps.heroPositions ?? MODULE_HERO_POSITIONS;
+    const initialRound = state.rankedAp.round?.round ?? null;
+
+    for (let guard = 0; guard < 64; guard += 1) {
+      state = deps.store.get(sessionId)!;
+      const ranked = state.rankedAp!;
+      const currentRound = ranked.round?.round ?? null;
+      if (initialRound !== null && currentRound !== initialRound) {
+        return Response.json({ ...snapshotBody(sessionId), stopReason: "round_revealed", completedRound: initialRound });
+      }
+      if (state.status === "COMPLETE") {
+        return Response.json({
+          ...snapshotBody(sessionId),
+          stopReason: initialRound === null ? "complete" : "round_revealed",
+          completedRound: initialRound,
+        });
+      }
+      if (state.status === "WAITING_FOR_COLLISION_AUTHORITY") {
+        // First-registration-wins from the ledger. Missing/ambiguous evidence FAILS CLOSED: the
+        // draft stays paused in WAITING_FOR_COLLISION_AUTHORITY and no winner is invented.
+        const pending = ranked.round?.pendingCollision;
+        const evidence = deps.store.registrationEvidence(sessionId);
+        if (!pending || !evidence) return Response.json({ error: "collision_resolution_unavailable" }, { status: 409 });
+        const resolution = resolveSimulatorCollisionAuthority(pending, evidence);
+        if (!resolution.ok) {
+          return Response.json({ error: "collision_authority_unavailable", reason: resolution.reason }, { status: 409 });
+        }
+        deps.store.apply(sessionId, resolution.command);
+        continue;
+      }
+      if (currentRound === null) {
+        return Response.json({ error: "no_open_round" }, { status: 409 });
+      }
+
+      const openActions = legalActions(state).filter(
+        (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> => action.type === "SUBMIT_SEALED_SELECTION",
+      );
+      // Enemy seats first: after a collision the enemy re-picks (knowing the newly banned hero)
+      // before the Player is handed the reopened seat back.
+      const enemyAction = openActions.find((action) => action.side === botConfig.side);
+      if (enemyAction) {
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, enemyAction.slotIndex);
+        if (rosterSlot === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
+        const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0) + ranked.bannedHeroes.length;
+        const decision = await chooseEnemyBotHero({
+          config: botConfig,
+          state,
+          slotIndex: enemyAction.slotIndex,
+          rosterSlot,
+          decisionIndex,
+          patch: metadata.patch,
+          computeSuggestions: deps.computeSuggestions,
+          heroPositions,
+        });
+        if (!decision) return Response.json({ error: "enemy_bot_no_valid_candidate" }, { status: 409 });
+        const result = deps.store.apply(sessionId, { ...enemyAction, heroId: decision.heroId });
+        if (!result || result.rejected) {
+          return Response.json({ error: "external_pick_rejected", rejected: result?.rejected }, { status: 409 });
+        }
+        continue;
+      }
+
+      const ownOpenActions = openActions.filter((action) => action.side === humanSide);
+
+      // PD-026/PD-027 ALLY BOT SCHEDULING -- session creation (isSupportedApSimulatorBody) requires
+      // `controlledPositions` for every AP Simulator session, so this is the only own-side policy
+      // an AP Simulator session reaches here with. HUMAN-FIRST: while a human-controlled position
+      // remains open and the human has not explicitly yielded, auto-drive stops here (never fills a
+      // human-controlled position with the Ally Bot). Only once there is no such position left, or
+      // the human yielded, does the Ally Bot fill the round's remaining Own Team capacity, from its
+      // own deterministic order (ally-bot-roles.ts) -- never from roster seat/round/pickOrdinal.
+      if (!metadata.controlledPositions) return Response.json({ error: "ap_simulator_requires_controlled_positions" }, { status: 409 });
+
+      if (ownOpenActions.length > 0) {
+        const humanOpen = deps.store.humanOpenPositions(sessionId) ?? [];
+        const yielded = deps.store.hasYieldedCurrentRound(sessionId);
+        if (humanOpen.length > 0 && !yielded) {
+          deps.store.ensureSimulatorTimer(sessionId);
+          return Response.json({ ...snapshotBody(sessionId), stopReason: "human_input", completedRound: null });
+        }
+
+        const allyPositions = deps.store.allyBotPositions(sessionId) ?? [];
+        const order = deriveAllyPositionOrder(metadata.simulatorSeed!, humanSide, allyPositions);
+        const filled = new Set((deps.store.ownAssignedPositions(sessionId) ?? []).map((binding) => binding.assignedPosition));
+        const nextPosition = order.find((position) => !filled.has(position));
+        if (nextPosition === undefined) return Response.json({ error: "ally_bot_positions_exhausted" }, { status: 409 });
+
+        const action = ownOpenActions[0]!;
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, action.slotIndex) ?? -1;
+        const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0) + ranked.bannedHeroes.length;
+        const decision = await chooseAllyBotHero({
+          seed: metadata.simulatorSeed!,
+          side: humanSide,
+          state,
+          slotIndex: action.slotIndex,
+          rosterSlot,
+          position: nextPosition,
+          decisionIndex,
+          patch: metadata.patch,
+          computeSuggestions: deps.computeSuggestions,
+          heroPositions,
+        });
+        if (!decision) return Response.json({ error: "ally_bot_no_valid_candidate" }, { status: 409 });
+        const outcome = deps.store.applyAllyBotSelection(sessionId, { ...action, heroId: decision.heroId }, nextPosition);
+        if (!outcome.ok) {
+          return Response.json({ error: "external_pick_rejected", rejected: outcome.reason === "kernel_rejected" ? outcome.rejected : undefined }, { status: 409 });
+        }
+        continue;
+      }
+
+      if (openActions.length === 0) continue;
+      return Response.json({ error: "no_open_action" }, { status: 409 });
+    }
+    return Response.json({ error: "auto_drive_guard_exhausted" }, { status: 409 });
+  }
+
+  /**
+   * The V2 set for one session/view -- the ONE place recommendation inputs are assembled (used by the
+   * plain V2 response and, injected, by the Coach). It reads the authoritative session; nothing
+   * downstream of the Coach ever does.
+   */
+  async function buildV2ForSession(sessionId: string, view: PerspectiveDraftView): Promise<RecommendationSetV2> {
+    const state = deps.store.get(sessionId)!;
+    const metadata = deps.store.metadata(sessionId)!;
+    return buildRecommendationSetV2({
+      state,
+      view,
+      actor: metadata.localSide,
+      patch: metadata.patch,
+      computeSuggestions: deps.computeSuggestions,
+      seed: metadata.simulatorSeed ?? undefined,
+      // AP Ranked Roles V1 / Wave 1: the Player controls all five own seats, so there is no
+      // single-participant `targetPosition` and no per-seat filter here. Personal-position
+      // intelligence (scoping, "YOUR POSITION NOW", hero pool) belongs to later waves.
+      outputLimit: isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined,
+      isSimulator: metadata.adapterKind === "simulator",
+      // PD-026/PD-027 COACH TARGET POSITIONS -- undefined (not null) for a session created without
+      // controlledPositions, so decision.ts falls back to its pre-existing controlledRosterSlots/
+      // partyContext behavior byte-for-byte (Manual/Captain's Mode, legacy AP sessions).
+      controlledPositions: metadata.controlledPositions ?? undefined,
+      humanOpenPositions: deps.store.humanOpenPositions(sessionId) ?? undefined,
+      humanActionability: deps.store.humanActionability(sessionId),
+    });
+  }
+
+  // Coach path: built ONLY from a perspective-safe context (see coach-recommendations.ts). The store is
+  // handed over through a narrow interface that cannot reach authoritative state.
+  const coachRecommendations = createCoachRecommendations({
+    source: deps.store,
+    computeSuggestions: deps.computeSuggestions,
+    heroPositions: deps.heroPositions,
+    heroCounters: deps.heroCounters,
+    heroCapabilities: deps.heroCapabilities,
+  });
+
   /**
    * R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
    * Follows the exact same perspective-forbidden guard as `get()` above -- a caller can request
@@ -281,7 +757,14 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
    * (translate-v1.ts) for a caller that only understands `suggestions/v1` -- it is still V2
    * underneath; nothing is rescored for that query param.
    */
-  async function getRecommendations(sessionId: string, url: URL): Promise<Response> {
+  /** 409 when a live session's draft is incomplete or inconsistent; null when recommending is safe (or not a live session). */
+  function liveDraftIncomplete(sessionId: string): Response | null {
+    const gate = deps.liveRecommendationGate?.(sessionId) ?? null;
+    if (gate === null || gate.available) return null;
+    return Response.json({ error: "live_draft_incomplete", reason: gate.reason, completeness: gate.completeness }, { status: 409 });
+  }
+
+  async function getRecommendations(sessionId: string, url: URL, accountId: number | null = null): Promise<Response> {
     const sideParam = url.searchParams.get("side");
     if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
     const state = deps.store.get(sessionId);
@@ -292,15 +775,52 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     }
     const view = deps.store.view(sessionId);
     if (!view) return notFound();
+    const incomplete = liveDraftIncomplete(sessionId);
+    if (incomplete) return incomplete;
 
     const startedAt = Date.now();
-    const recommendationSet = await buildRecommendationSetV2({
-      state,
-      view,
-      actor: metadata.localSide,
-      patch: metadata.patch,
-      computeSuggestions: deps.computeSuggestions,
-    });
+    // Product Semantics Recovery WP2 -- `?format=v4`: the ONE authoritative CurrentHumanDecision
+    // (RecommendationOutputV4). Only the output travels: the web renders nothing else for the current
+    // human action, so no second recommendation set is put on the wire next to it.
+    if (url.searchParams.get("format") === "v4") {
+      if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+      // Optional selector navigation. External input: validated here, before any recommendation logic.
+      const targetParam = url.searchParams.get("target");
+      const requestedTarget = targetParam === null ? null : parseDotaPosition(Number(targetParam));
+      if (targetParam !== null && (requestedTarget === null || !/^[1-5]$/.test(targetParam))) return badRequest("invalid_target");
+      const current = await coachRecommendations.recommendCurrentDecision(sessionId, metadata.humanPosition, accountId, requestedTarget);
+      if (current === undefined) return notFound();
+      if (current === null) return Response.json({ error: "current_decision_requires_controlled_positions" }, { status: 422 });
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event: "current_decision_computed",
+        sessionId,
+        stateIdentity: current.output.meta.basedOn.stateIdentity,
+        protocolStatus: view.status,
+        decisionKind: current.output.decision.kind,
+        targetBasis: current.output.decision.kind === "ACTIONABLE" ? current.output.decision.targetBasis : null,
+        candidateState: current.output.decision.kind === "ACTIONABLE" ? current.output.decision.candidates.state : null,
+        degradations: current.sourceSet.degradations.map((degradation) => degradation.reason),
+        computedInMs: Date.now() - startedAt,
+      }));
+      return Response.json({ output: current.output });
+    }
+    // AP Ranked Roles V1 / Wave 2 -- `?format=v3` asks the Coach: a RecommendationOutputV3 plus the V2-shaped
+    // set it was built on. That set comes from the PERSPECTIVE-SAFE builder (never from authoritative
+    // state, so it is not identical to the legacy V2 body: no one-ply lookahead, no simulator seed). The
+    // plain and `?format=legacy` responses below are the legacy V2 path, unchanged.
+    const wantsCoach = url.searchParams.get("format") === "v3";
+    if (wantsCoach && !view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+    let recommendationSet: RecommendationSetV2;
+    let coachOutput: RecommendationOutputV3 | null = null;
+    if (wantsCoach) {
+      const recomputation = await coachRecommendations.recommend(sessionId, metadata.humanPosition, accountId);
+      if (!recomputation) return notFound();
+      recommendationSet = recomputation.recommendationSet;
+      coachOutput = recomputation.output;
+    } else {
+      recommendationSet = await buildV2ForSession(sessionId, view);
+    }
 
     // R1 S7 (safe telemetry) -- diagnóstico mínimo para el MVP: ningún héroe, ni propio ni rival,
     // ni ningún dato de personas. Sólo identidad/estado agregados, ya redactados por basedOn
@@ -322,17 +842,92 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (url.searchParams.get("format") === "legacy") {
       return Response.json(translateRecommendationSetToLegacySuggestionSet(recommendationSet));
     }
+    if (wantsCoach) return Response.json({ output: coachOutput, recommendationSet });
     return Response.json(recommendationSet);
+  }
+
+  /**
+   * Team Coach Board -- one projection of every human-controlled position, ranked against ONE
+   * perspective snapshot of this session (coach/team-coach-board.ts). Read-only: it never applies a
+   * command, so asking for the board cannot change the draft. Same perspective guard as every other
+   * read route of this family.
+   */
+  async function getTeamRecommendations(sessionId: string, url: URL, accountId: number | null = null): Promise<Response> {
+    const sideParam = url.searchParams.get("side");
+    if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
+    const metadata = deps.store.metadata(sessionId);
+    const view = deps.store.view(sessionId);
+    if (!metadata || !view) return notFound();
+    if (sideParam !== null && sideParam !== metadata.localSide) {
+      return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+    const incomplete = liveDraftIncomplete(sessionId);
+    if (incomplete) return incomplete;
+    const startedAt = Date.now();
+    const board = await coachRecommendations.recommendTeamBoard(sessionId, metadata.humanPosition, accountId);
+    if (board === undefined) return notFound();
+    if (board === null) return Response.json({ error: "team_board_requires_controlled_positions" }, { status: 422 });
+    // Same safe-telemetry rule as getRecommendations: no hero, no person -- only aggregated state.
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      event: "team_board_computed",
+      sessionId,
+      stateIdentity: board.stateIdentity,
+      protocolStatus: view.status,
+      rankedPositions: board.positions.filter((column) => column.state === "RANKED").length,
+      computedInMs: Date.now() - startedAt,
+    }));
+    return Response.json(board);
+  }
+
+  async function postPositionAssignment(request: Request, sessionId: string, accountId: number | null = null): Promise<Response> {
+    const metadata = deps.store.metadata(sessionId);
+    if (!metadata) return notFound();
+    const body: unknown = await request.json().catch(() => null);
+    if (typeof body !== "object" || body === null) return badRequest("invalid_body");
+    const value = body as Record<string, unknown>;
+    const heroId = value.heroId;
+    const position = value.position;
+    if (typeof heroId !== "number" || !Number.isInteger(heroId) || heroId <= 0) return badRequest("invalid_body");
+    if (position !== null && position !== 1 && position !== 2 && position !== 3 && position !== 4 && position !== 5) return badRequest("invalid_body");
+    const view = deps.store.view(sessionId);
+    const isOwnVisibleHero = view?.ownPicks.some((slot) => slot.visibility !== "HIDDEN" && slot.heroId === heroId) ?? false;
+    if (!isOwnVisibleHero) return Response.json({ error: "own_team_assignment_only" }, { status: 403 });
+    // PD-026/PD-027 MANUAL POSITION ASSIGNMENT -- an AP Simulator hero whose position is already
+    // queue-bound (sealed through applyApSimulatorOwnSelection) is structural truth; a manual
+    // assignment to a DIFFERENT position must not overwrite it.
+    if (isApSimulatorMetadata(metadata) && metadata.controlledPositions) {
+      const queuePosition = deps.store.ownAssignedPositionForHero(sessionId, heroId);
+      if (queuePosition !== null && position !== null && position !== queuePosition) {
+        return Response.json({ error: "position_bound_by_queue", queuePosition }, { status: 409 });
+      }
+    }
+    // Checked after every await above: a rebuild while the body was read must not slip a stale verdict through.
+    const incomplete = liveDraftIncomplete(sessionId);
+    if (incomplete) return incomplete;
+    const recomputation = await coachRecommendations.assignPosition(sessionId, metadata.humanPosition, accountId, heroId, position);
+    if (!recomputation) return notFound();
+    return Response.json({ output: recomputation.output, recommendationSet: recomputation.recommendationSet }, { status: 202 });
   }
 
   return {
     post,
     get,
     postCommand,
+    postYield,
     postSimulatorAuthority,
+    postResolveBans,
+    postTestAdvanceClock,
     postBotSelection,
+    postAutoDrive,
+    postPositionAssignment,
     getRecommendations,
+    getTeamRecommendations,
+    isOwnedBy: deps.store.isOwnedBy.bind(deps.store),
     parseSessionId,
     parseSessionSubpath,
   };
 }
+
+const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();

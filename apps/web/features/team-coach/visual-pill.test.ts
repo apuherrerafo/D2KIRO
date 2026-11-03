@@ -1,0 +1,118 @@
+import { describe, expect, test } from "bun:test";
+import { visualPill } from "./components/LiveCaptureStatusBar";
+import type { LiveCaptureStatus, LiveCompanionVisual } from "./types";
+
+function status(overrides: Partial<LiveCaptureStatus>): LiveCaptureStatus {
+  return { schema: "live-capture-status/v1", sessionId: "s", connection: "connected", lastEventAt: null, captureHealth: "ok", captureDetail: null, draftPhase: "waiting", localSide: null, lastDetectedPick: null, bans: 0, picks: 0, deferredPicks: 0, rejectedFacts: 0, ...overrides };
+}
+
+const OK = { active: true, health: "ok" as const, detail: "VISUAL_OK", lastEventAgeMs: 100 };
+const UNREAD = { active: true, health: "degraded" as const, detail: "VISUAL_SLOTS_UNREAD", lastEventAgeMs: 100 };
+const UNVERIFIED = { active: true, health: "degraded" as const, detail: "VISUAL_LAYOUT_UNVERIFIED", lastEventAgeMs: 100 };
+
+const DRAFT_READ_BADLY = { ...OK, draft: { health: "degraded" as const, detail: "VISUAL_SLOTS_UNREAD" } };
+
+function companion(visual: LiveCompanionVisual | null, active = true) {
+  return { version: "0.1.0", dota: "not_running" as const, phase: null, restartNeeded: false, visual, active, lastSeenAgeMs: 1000 };
+}
+
+describe("visualPill after the draft", () => {
+  test("a draft the helper read badly is not turned into a healthy-looking state once the helper says VISUAL_OK again", () => {
+    expect(visualPill(status({ draftPhase: "ended", visual: DRAFT_READ_BADLY })).text).toBe("● Draft terminado · lectura incompleta");
+    // Even when the helper has stopped reporting altogether.
+    expect(visualPill(status({ draftPhase: "ended", visual: { ...DRAFT_READ_BADLY, active: false } })).text).toBe("● Draft terminado · lectura incompleta");
+  });
+
+  test("a draft that was read fine, or no draft health at all (older engine), is just 'Draft terminado'", () => {
+    expect(visualPill(status({ draftPhase: "ended", visual: { ...OK, draft: { health: "ok", detail: "VISUAL_OK" } } })).text).toBe("● Draft terminado");
+    expect(visualPill(status({ draftPhase: "ended", visual: OK })).text).toBe("● Draft terminado");
+  });
+
+  test("the warning belongs to the finished draft: before the next one it is gone", () => {
+    expect(visualPill(status({ draftPhase: "waiting", visual: { ...OK, draft: null } })).text).toContain("Draft automático activo");
+  });
+});
+
+describe("visualPill (draft automático en lenguaje llano)", () => {
+  test("sin captura visual y sin Companion que diga nada: no disponible, nunca un proceso que reiniciar", () => {
+    expect(visualPill(null).text).toBe("● Draft automático no disponible");
+    expect(visualPill(status({ visual: null })).text).toBe("● Draft automático no disponible");
+    expect(visualPill(status({ visual: null, companion: companion("absent") })).text).toBe("● Draft automático no disponible");
+    expect(visualPill(status({ visual: null, companion: companion("failed") })).text).toBe("● Draft automático no disponible");
+  });
+
+  test("el Companion lo está preparando (descarga, arranque, reinicio): 'preparando...', no un fallo", () => {
+    for (const helper of ["downloading", "restarting", "running"] as const) {
+      expect(visualPill(status({ visual: null, companion: companion(helper) })).text).toBe("● Draft automático preparando...");
+    }
+  });
+
+  test("un Companion que ya no late no puede afirmar que algo se está preparando", () => {
+    expect(visualPill(status({ visual: null, companion: companion("downloading", false) })).text).toBe("● Draft automático no disponible");
+  });
+
+  test("activo, todavía sin selección de héroes", () => {
+    const text = visualPill(status({ visual: OK })).text;
+    expect(text).toContain("Draft automático activo");
+    expect(text).toContain("esperando selección de héroes");
+  });
+
+  test("durante la selección, con cobertura confirmada: N/10 héroes detectados", () => {
+    expect(visualPill(status({ visual: OK, draftPhase: "hero_selection", picks: 3 })).text).toBe("● 3/10 héroes detectados");
+    expect(visualPill(status({ visual: OK, draftPhase: "hero_selection", picks: 6, bans: 0 })).text).toBe("● 6/10 héroes detectados");
+  });
+
+  test("el helper no puede afirmar que leyó todo: 'incompleto', nunca como completo", () => {
+    const text = visualPill(status({ visual: UNREAD, draftPhase: "hero_selection", picks: 3 })).text;
+    expect(text).toBe("● Draft automático incompleto · 3/10 héroes detectados");
+    expect(text).not.toBe("● 3/10 héroes detectados");
+  });
+
+  test("todavía sin una lectura que valide la captura: preparando (si ya hay picks, incompleto)", () => {
+    expect(visualPill(status({ visual: UNVERIFIED, draftPhase: "hero_selection", picks: 0 })).text).toBe("● Draft automático preparando...");
+    expect(visualPill(status({ visual: UNVERIFIED, draftPhase: "hero_selection", picks: 2 })).text).toBe("● Draft automático incompleto · 2/10 héroes detectados");
+  });
+
+  test("la captura desaparece o reporta pérdida -> no disponible, sin pedir reiniciar nada", () => {
+    for (const visual of [{ ...OK, active: false }, { ...OK, health: "lost" as const }]) {
+      const text = visualPill(status({ visual })).text;
+      expect(text).toContain("Draft automático no disponible");
+      expect(text.toLowerCase()).not.toMatch(/ayudante|reinici/);
+    }
+  });
+
+  test("el helper sigue vivo pero reporta que perdió la ventana de Dota: no disponible, nunca 'preparando...'", () => {
+    const lost = { ...OK, health: "lost" as const };
+    expect(visualPill(status({ visual: lost, companion: companion("running"), draftPhase: "hero_selection", picks: 3 })).text).toBe("● Draft automático no disponible");
+  });
+
+  test("draft terminado", () => {
+    expect(visualPill(status({ visual: OK, draftPhase: "ended", picks: 10 })).text).toBe("● Draft terminado");
+  });
+
+  test("sin jerga de desarrollo ni instrucciones internas, en ningún estado", () => {
+    const states = [
+      visualPill(null),
+      visualPill(status({ visual: null, companion: companion("downloading") })),
+      visualPill(status({ visual: OK })),
+      visualPill(status({ visual: OK, draftPhase: "hero_selection", picks: 3 })),
+      visualPill(status({ visual: UNREAD, draftPhase: "hero_selection", picks: 3 })),
+    ];
+    for (const pill of states) {
+      const text = pill.text.toLowerCase();
+      for (const jargon of ["score", "confidence", "ocr", "cv", "layout", "debug", "python", "helper", "ayudante", "proceso", "terminal", "reinicia"]) expect(text).not.toContain(jargon);
+    }
+  });
+});
+
+describe("visualPill: status and board count the same, and never claim a complete read the engine refuses", () => {
+  test("helper healthy but the picks do not add up: warning with the same N the board renders, not a green N/10", () => {
+    const pill = visualPill(status({ draftPhase: "hero_selection", picks: 9, visual: OK, recommendation: { available: false, reason: "FACTS_UNRESOLVED" } }));
+    expect(pill.text).toBe("● Draft automático incompleto · 9/10 héroes detectados");
+    expect(pill.text).not.toMatch(/sealed|sellad|revele/i);
+  });
+
+  test("a consistent draft keeps the plain count", () => {
+    expect(visualPill(status({ draftPhase: "hero_selection", picks: 9, visual: OK, recommendation: { available: true, reason: null } })).text).toBe("● 9/10 héroes detectados");
+  });
+});

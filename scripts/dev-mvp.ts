@@ -13,13 +13,16 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildFixtureCmEligibilitySnapshot } from "../e2e/fixtures/cm-eligibility";
+import { defaultMvpPublicBaseUrl, resolveMvpDatabasePath } from "./dev-mvp-config";
+import { ensureManualMvpDatabase } from "./dev-mvp-db";
 
 const ROOT = resolve(import.meta.dir, "..");
 const ENGINE_PORT = process.env.ENGINE_PORT ?? "4000";
 const WEB_PORT = process.env.WEB_PORT ?? "3000";
 const SESSION_SECRET = process.env.SESSION_SECRET ?? randomBytes(32).toString("hex");
 const INTERNAL_AUTH_SECRET = process.env.INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
-const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? `http://127.0.0.1:${WEB_PORT}`;
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? defaultMvpPublicBaseUrl(WEB_PORT);
+const ENGINE_DB_PATH = resolveMvpDatabasePath(ROOT, process.env.ENGINE_DB_PATH);
 
 // R1 S7 (Blocker 2, Captain's Mode entry point; final blocker repair, Blocker 1): sin esto, CM
 // queda fail-closed también en local -- no hay depot real de Dota 2 en este entorno para producir
@@ -63,13 +66,20 @@ process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
 console.log("[dev:mvp] Iniciando apps/engine y apps/web...");
+try {
+  ensureManualMvpDatabase(ENGINE_DB_PATH);
+  console.log("[dev:mvp] SQLite local lista con las migraciones reales.");
+} catch {
+  console.error("[dev:mvp] No se pudo preparar la SQLite local con las migraciones reales.");
+  process.exit(1);
+}
 
 startProcess(
   "apps/engine",
   "bun",
   ["run", "--watch", "src/index.e2e.ts"],
   resolve(ROOT, "apps/engine"),
-  { ENGINE_PORT, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH },
+  { ENGINE_PORT, ENGINE_DB_PATH, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH },
 );
 
 startProcess(

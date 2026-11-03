@@ -205,3 +205,222 @@ describe("positionFitScorer", () => {
     expect(createPositionFitScorer(FIXTURE_POSITIONS).id).toBe("position_fit");
   });
 });
+
+// AP Solo Mid data/signal repair, blocker 1 (2026-09, docs/diagnostics/ap-solo-mid-dota-judge.md
+// §2/§3.3): `targetPosition === 2` switches position_fit from "what does my team still need,
+// anywhere" to "how strong is the evidence this hero works AS Mid". Synthetic fixtures only --
+// per instruction, no hero-name-based business assertions here (the real-hero sanity check is a
+// separate manual inspection, not a test).
+describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
+  const HERO_STRONG_MID_WEAK_SUPPORT = 9001;
+  const HERO_MARGINAL_MID_STRONG_SUPPORT = 9002;
+  const HERO_FIXED_MID_SMALL_OTHER = 9003;
+  const HERO_FIXED_MID_LARGE_OTHER = 9004;
+  const HERO_NO_MID_ENTRY = 9005; // dato en otras posiciones, ninguno en Mid
+
+  const state = draftState({ picks: { radiant: [], dire: [] } });
+
+  // Escenario A -- criterio del prompt: Mid fuerte / Support débil debe vencer a Mid marginal /
+  // Support muy fuerte, cuando la pregunta es explícitamente "¿qué tan buena es la evidencia de
+  // Mid?", no "¿qué tan flexible es?".
+  describe("Escenario A -- evidencia de Mid vence a flexibilidad de Support", () => {
+    const positions: HeroPositions = {
+      [HERO_STRONG_MID_WEAK_SUPPORT]: [
+        { position: 2, matches: 3000 }, // Mid fuerte -- satura la evidencia
+        { position: 5, matches: 200 }, // Support débil, apenas sobre el piso de registro
+      ],
+      [HERO_MARGINAL_MID_STRONG_SUPPORT]: [
+        { position: 2, matches: 250 }, // Mid marginal -- apenas admitido
+        { position: 5, matches: 5000 }, // Support muy fuerte
+      ],
+    };
+    const scorer = createPositionFitScorer(positions, 2);
+
+    test("Mid fuerte/Support débil vence a Mid marginal/Support fuerte por position_fit", () => {
+      const strong = scorer.score(state, HERO_STRONG_MID_WEAK_SUPPORT, EMPTY_META).raw as number;
+      const marginal = scorer.score(state, HERO_MARGINAL_MID_STRONG_SUPPORT, EMPTY_META).raw as number;
+      expect(strong).toBeGreaterThan(marginal);
+    });
+
+    test("el candidato de Mid fuerte satura cerca de 1", () => {
+      const result = scorer.score(state, HERO_STRONG_MID_WEAK_SUPPORT, EMPTY_META);
+      expect(result.raw).toBeCloseTo(1, 3);
+    });
+  });
+
+  // Escenario B -- cambiar los shares de Position 4/5 sin tocar la evidencia de Mid no debe
+  // alterar materialmente (acá: nada, por diseño) el position_fit de Mid. Contraste directo con
+  // el mecanismo legado, que SÍ es sensible a esto (renormaliza sobre el total de posiciones
+  // registradas) -- es exactamente el artefacto que el Dota Judge trazó como causa raíz.
+  describe("Escenario B -- invariante a shares de otras posiciones", () => {
+    const sameMidMatches = 1000;
+    const positionsSmallOther: HeroPositions = {
+      [HERO_FIXED_MID_SMALL_OTHER]: [
+        { position: 2, matches: sameMidMatches },
+        { position: 4, matches: 200 },
+        { position: 5, matches: 200 },
+      ],
+    };
+    const positionsLargeOther: HeroPositions = {
+      [HERO_FIXED_MID_LARGE_OTHER]: [
+        { position: 2, matches: sameMidMatches },
+        { position: 4, matches: 6000 },
+        { position: 5, matches: 6000 },
+      ],
+    };
+
+    test("position_fit de Mid es idéntico con shares chicos o gigantes en 4/5", () => {
+      const small = createPositionFitScorer(positionsSmallOther, 2)
+        .score(state, HERO_FIXED_MID_SMALL_OTHER, EMPTY_META).raw as number;
+      const large = createPositionFitScorer(positionsLargeOther, 2)
+        .score(state, HERO_FIXED_MID_LARGE_OTHER, EMPTY_META).raw as number;
+      expect(large).toBeCloseTo(small, 6);
+    });
+
+    test("contraste: el mecanismo legado (sin targetPosition) SÍ es sensible a ese mismo cambio", () => {
+      const smallLegacy = createPositionFitScorer(positionsSmallOther)
+        .score(state, HERO_FIXED_MID_SMALL_OTHER, EMPTY_META).raw as number;
+      const largeLegacy = createPositionFitScorer(positionsLargeOther)
+        .score(state, HERO_FIXED_MID_LARGE_OTHER, EMPTY_META).raw as number;
+      expect(smallLegacy).not.toBeCloseTo(largeLegacy, 2);
+    });
+  });
+
+  // Wave 5 Personal View repair: targetPosition is target-aware across all roles (1..5),
+  // while targetPosition === undefined preserves the legacy fill/safety formula.
+  describe("Pos2 locks -- proving Pos2 does not regress", () => {
+    test("Invoker (6632 matches en Pos2): satura en 3000 -> raw 1.0", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 2).score(state, INVOKER, EMPTY_META);
+      expect(result.raw).toBe(1.0);
+      expect(result.sampleSize).toBe(6632);
+      expect(result.explanation).toBe("Evidencia sólida de que funciona como midlane (6.632 partidas de alto MMR)");
+    });
+
+    test("Pudge (540 matches en Pos2): raw 540/3000 = 0.18", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 2).score(state, PUDGE, EMPTY_META);
+      expect(result.raw).toBeCloseTo(540 / 3000, 6);
+      expect(result.sampleSize).toBe(540);
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como midlane (");
+    });
+
+    test("candidato sin entrada en Mid (targetPosition=2): raw null, no admisión mezclada con scoring", () => {
+      const positions: HeroPositions = {
+        [HERO_NO_MID_ENTRY]: [{ position: 4, matches: 5000 }],
+      };
+      const result = createPositionFitScorer(positions, 2).score(state, HERO_NO_MID_ENTRY, EMPTY_META);
+      expect(result.raw).toBeNull();
+      expect(result.sampleSize).toBe(0);
+      expect(result.explanation).toBe("Sin evidencia suficiente de midlane para este héroe");
+    });
+  });
+
+  describe("Pos1 adversarial regression -- Carry ranking evaluates carry evidence, not support mass", () => {
+    test("Spectre (4476 matches en Pos1): satura en 3000 -> raw 1.0", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, SPECTRE, EMPTY_META);
+      expect(result.raw).toBe(1.0);
+      expect(result.sampleSize).toBe(4476);
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como carry (");
+    });
+
+    test("Anti-Mage (1409 matches en Pos1): raw 1409/3000", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, ANTI_MAGE, EMPTY_META);
+      expect(result.raw).toBeCloseTo(1409 / 3000, 6);
+      expect(result.sampleSize).toBe(1409);
+      expect(result.explanation).toStartWith("Evidencia moderada de que funciona como carry (");
+    });
+
+    test("adversarial: héroe con presencia secundaria en Pos1 no recibe bono de soporte", () => {
+      // Wraith King tiene 415 en Pos1 y 593 en Pos3. Con targetPosition=1, su raw es 415/3000,
+      // NO se infla por timing/safety de soporte ni por las necesidades de otros asientos del equipo.
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, WRAITH_KING, EMPTY_META);
+      expect(result.raw).toBeCloseTo(415 / 3000, 6);
+      expect(result.sampleSize).toBe(415);
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como carry (");
+    });
+
+    test("candidato sin entrada en Pos1: raw null", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, CRYSTAL_MAIDEN, EMPTY_META);
+      expect(result.raw).toBeNull();
+      expect(result.sampleSize).toBe(0);
+      expect(result.explanation).toBe("Sin evidencia suficiente de carry para este héroe");
+    });
+  });
+
+  describe("Pos3 adversarial regression -- Offlane ranking evaluates offlane evidence, not support mass", () => {
+    test("Pudge (2387 matches en Pos3): raw 2387/3000", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 3).score(state, PUDGE, EMPTY_META);
+      expect(result.raw).toBeCloseTo(2387 / 3000, 6);
+      expect(result.sampleSize).toBe(2387);
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como offlane (");
+    });
+
+    test("Wraith King (593 matches en Pos3): raw 593/3000", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 3).score(state, WRAITH_KING, EMPTY_META);
+      expect(result.raw).toBeCloseTo(593 / 3000, 6);
+      expect(result.sampleSize).toBe(593);
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como offlane (");
+    });
+
+    test("candidato sin entrada en Pos3: raw null", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 3).score(state, SPECTRE, EMPTY_META);
+      expect(result.raw).toBeNull();
+      expect(result.sampleSize).toBe(0);
+      expect(result.explanation).toBe("Sin evidencia suficiente de offlane para este héroe");
+    });
+  });
+
+  describe("Pos4 adversarial regression -- Support ranking evaluates Pos4, not mid need", () => {
+    test("Pudge (4123 matches en Pos4): satura en 3000 -> raw 1.0", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 4).score(state, PUDGE, EMPTY_META);
+      expect(result.raw).toBe(1.0);
+      expect(result.sampleSize).toBe(4123);
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como support (");
+    });
+
+    test("adversarial (KotL S13 pattern): Invoker (6632 en Pos2, 735 en Pos4) con targetPosition=4 evalúa sólo Pos4", () => {
+      // Aunque al equipo le falte Mid, en ranking personal Pos4 evalúa sólo los 735 de Pos4
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 4).score(state, INVOKER, EMPTY_META);
+      expect(result.raw).toBeCloseTo(735 / 3000, 6);
+      expect(result.sampleSize).toBe(735);
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como support (");
+    });
+
+    test("candidato sin entrada en Pos4: raw null", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 4).score(state, SPECTRE, EMPTY_META);
+      expect(result.raw).toBeNull();
+      expect(result.sampleSize).toBe(0);
+      expect(result.explanation).toBe("Sin evidencia suficiente de support para este héroe");
+    });
+  });
+
+  describe("Pos5 adversarial regression -- Hard support ranking does not penalize multi-role volume", () => {
+    test("Lich (2966 matches en Pos5): raw 2966/3000", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 5).score(state, LICH, EMPTY_META);
+      expect(result.raw).toBeCloseTo(2966 / 3000, 6);
+      expect(result.sampleSize).toBe(2966);
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como hard support (");
+    });
+
+    test("adversarial (Rubick S05 pattern): Crystal Maiden (2507 en Pos5, 520 en Pos4) no se diluye por jugar Pos4", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 5).score(state, CRYSTAL_MAIDEN, EMPTY_META);
+      expect(result.raw).toBeCloseTo(2507 / 3000, 6);
+      expect(result.sampleSize).toBe(2507);
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como hard support (");
+    });
+
+    test("candidato sin entrada en Pos5: raw null", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, 5).score(state, SPECTRE, EMPTY_META);
+      expect(result.raw).toBeNull();
+      expect(result.sampleSize).toBe(0);
+      expect(result.explanation).toBe("Sin evidencia suficiente de hard support para este héroe");
+    });
+  });
+
+  describe("targetPosition undefined preserva la fórmula legada", () => {
+    test("sin targetPosition, fill y safety operan como siempre", () => {
+      const result = createPositionFitScorer(FIXTURE_POSITIONS, undefined).score(state, WRAITH_KING, EMPTY_META);
+      expect(result.raw).toBeGreaterThan(0);
+      expect(result.sampleSize).toBe(593 + 415);
+    });
+  });
+});

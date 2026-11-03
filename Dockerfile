@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim AS base
 
 WORKDIR /app
 
@@ -31,26 +31,55 @@ RUN set -eu; \
 COPY apps/engine/package.json apps/engine/bun.lock ./apps/engine/
 RUN cd apps/engine && bun install --frozen-lockfile
 
-COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
-RUN cd apps/web && npm ci
+COPY apps/web/package.json apps/web/bun.lock ./apps/web/
+RUN cd apps/web && bun install --frozen-lockfile
 
 COPY apps/engine/src ./apps/engine/src
 COPY apps/engine/drizzle.config.ts apps/engine/tsconfig.json ./apps/engine/
 
 COPY apps/web/app ./apps/web/app
 COPY apps/web/components ./apps/web/components
+COPY apps/web/design ./apps/web/design
 COPY apps/web/features ./apps/web/features
 COPY apps/web/lib ./apps/web/lib
+COPY apps/web/server ./apps/web/server
 COPY apps/web/public ./apps/web/public
 # next-env.d.ts nunca se copia -- vive en apps/web/.gitignore a proposito (Next.js lo
 # genera/actualiza solo en next dev/build/lint), asi que nunca existe en el contexto de build de
-# Railway (que construye desde GitHub, no desde el filesystem local). npm run build lo recrea.
+# Railway (que construye desde GitHub, no desde el filesystem local). bun run build lo recrea.
 COPY apps/web/eslint.config.mjs apps/web/next.config.ts apps/web/postcss.config.mjs apps/web/proxy.ts apps/web/tsconfig.json ./apps/web/
 
 COPY scripts/start-railway.sh ./scripts/start-railway.sh
 COPY .env.example ./.env.example
 
-RUN cd apps/web && npm run build
+# El compilador de patrones profesionales es tooling de desarrollo: los tests del
+# motor lo importan, pero el runtime sólo lee el artefacto versionado
+# `pro-patterns.json`. Este target conserva esa frontera y permite certificar el
+# motor en Linux sin llevar scripts/pro al contenedor de Railway.
+FROM base AS test
+COPY scripts/pro/aggregate.ts scripts/pro/compile-patterns.ts ./scripts/pro/
+RUN bun test apps/engine
+
+FROM base AS runtime-build
+# Flight Recorder (diagnóstico temporal): vacío por defecto = la grabadora no se habilita. Sólo un build de
+# preview/debug lo pone en "1" (variable del servicio en Railway); además la URL debe llevar ?flightRecorder=1.
+ARG NEXT_PUBLIC_D2_FLIGHT_RECORDER=
+ENV NEXT_PUBLIC_D2_FLIGHT_RECORDER=$NEXT_PUBLIC_D2_FLIGHT_RECORDER
+RUN cd apps/web && bun run build
 RUN chmod +x scripts/start-railway.sh
 
 CMD ["./scripts/start-railway.sh"]
+
+# Linux browser certification gets a separate image target. It alone carries the
+# loopback relay for the engine's clock seam; the Railway runtime above does not.
+FROM runtime-build AS e2e-runtime
+COPY scripts/start-e2e-runtime.ts ./scripts/start-e2e-runtime.ts
+
+CMD ["bun", "scripts/start-e2e-runtime.ts"]
+
+# Keep the production image as the implicit Docker target. The E2E relay remains available only
+# through its explicit target above, so Railway's default Docker build cannot ship it. Test files
+# and the only entry point that enables forced bot control are not runtime assets.
+FROM runtime-build AS runtime
+RUN find apps/engine/src -name '*.test.ts' -delete \
+  && rm -f apps/engine/src/index.e2e.ts

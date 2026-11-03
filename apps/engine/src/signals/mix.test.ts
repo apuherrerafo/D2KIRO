@@ -5,6 +5,7 @@ import type { HeroCapabilities } from "../draft-paths/types";
 import { buildAvailableSignalsReport, buildComparison, buildSuggestions, dataReady, mixScore, nonVotingReason, structurallyApplicableSignals, votingSignals, type AvailableSignalsReport, type Suggestion } from "./mix";
 import { parseCalibration, type Calibration } from "./calibration";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
+import type { MetaReadiness } from "../meta/readiness";
 
 // TSK-210 (Fase 9.1, costura S18): ninguna prueba lee data/generated/percentiles.json real.
 // EMPTY_CAL fuerza el fallback a RAW_RANGE dentro de calibratedNormalize; los fixtures con
@@ -74,6 +75,26 @@ test("la sugerencia para la posición elegida explica el flex real del héroe", 
   expect(result.suggestions[0]?.reason).toContain("flexearse a support y offlane");
 });
 
+test("targetPosition=2 filtra uso Mid marginal antes del ranking final", () => {
+  const result = buildSuggestions(
+    draftState({ banned: [99] }),
+    meta({
+      1: { id: 1, localizedName: "Mid marginal" },
+      2: { id: 2, localizedName: "Mid real" },
+    }),
+    {
+      targetPosition: 2,
+      heroPositions: {
+        1: [{ position: 2, matches: 200 }, { position: 4, matches: 1800 }],
+        2: [{ position: 2, matches: 700 }, { position: 1, matches: 300 }],
+      },
+      heroCounters: new Map([[1, [{ vs: 99, level: "hard", why: "fixture" }]]]),
+    },
+  );
+
+  expect(result.suggestions.map((suggestion) => suggestion.hero)).toEqual([2]);
+});
+
 test("semillas distintas rotan alternativas de calidad equivalente sin volver inestable una misma partida", () => {
   const snapshot = meta({
     1: { id: 1, localizedName: "Uno" },
@@ -93,6 +114,19 @@ test("semillas distintas rotan alternativas de calidad equivalente sin volver in
 
   expect(sameDraft.suggestions.map((suggestion) => suggestion.hero)).toEqual(firstDraft.suggestions.map((suggestion) => suggestion.hero));
   expect(nextDraft.suggestions.map((suggestion) => suggestion.hero)).not.toEqual(firstDraft.suggestions.map((suggestion) => suggestion.hero));
+});
+
+test("limit: por defecto el scorer entrega 6 (el grid del Copilot); con `limit` entrega más del MISMO ranking, y la apertura de equipo lo ignora", () => {
+  const heroes: Record<number, { id: number; localizedName: string }> = {};
+  for (let id = 1; id <= 14; id += 1) heroes[id] = { id, localizedName: `Hero ${id}` };
+  const snapshot = meta(heroes);
+  const base = buildSuggestions(draftState(), snapshot, { heroPositions: {} });
+  const wide = buildSuggestions(draftState(), snapshot, { heroPositions: {}, limit: 12 });
+  expect(base.suggestions).toHaveLength(6); // CANDADO: sin `limit` nada cambia
+  expect(wide.suggestions).toHaveLength(12);
+  expect(wide.suggestions.slice(0, 6).map((s) => s.hero)).toEqual(base.suggestions.map((s) => s.hero)); // mismo orden: solo más largo
+  expect(wide.suggestions.slice(0, 6).map((s) => s.score)).toEqual(base.suggestions.map((s) => s.score));
+  expect(buildSuggestions(draftState(), snapshot, { heroPositions: {}, limit: 2 }).suggestions).toHaveLength(6); // un límite menor nunca recorta el piso de 6
 });
 
 describe("SCORING_WEIGHTS_V1", () => {
@@ -273,7 +307,7 @@ describe("SCORING_WEIGHTS_V5 — candado de dominancia de posición sobre comodi
     // es null -- sin esto, el archivo real de capabilities.json decidiría parte de esta
     // comparación en vez de dejarla 100% en manos de position_fit, que es la señal que este test
     // dice estar probando (mismo criterio que heroPositions:{} en los tests de arriba).
-    const result = buildSuggestions(state, snapshot, { heroPositions: HERO_POSITIONS, heroCapabilities: [] });
+    const result = buildSuggestions(state, snapshot, { heroPositions: HERO_POSITIONS, heroCapabilities: [], heroSynergies: new Map() });
 
     // TSK-192: el Copilot muestra 6; el candado de Fase 3 es que WK (repite rol ya cubierto) no
     // se PROMUEVE -- se verifica contra el top 3, no contra la lista extendida.
@@ -425,7 +459,7 @@ describe("RAW_RANGE.counter recalibrado -- counter ya no queda ahogado por patch
 // módulo y se ensambla por llamada con la capa curada inyectable (`heroCounters`), mismo patrón
 // que position_fit/team_synergy/archetype_fit.
 describe("Fase 8 -- counter cableado como scorer por llamada (candado de pipeline)", () => {
-  const OPTS = { heroPositions: {} as HeroPositions, heroCapabilities: [] as HeroCapabilities[] };
+  const OPTS = { heroPositions: {} as HeroPositions, heroCapabilities: [] as HeroCapabilities[], heroSynergies: new Map() };
 
   test("heroCounters vacío es un no-op: mismo ranking y counter sigue en raw:null (§14.7-2)", () => {
     // Earthshaker (7) revelado del rival, ningún par curado entre estos héroes, matchups:{} ->
@@ -437,10 +471,12 @@ describe("Fase 8 -- counter cableado como scorer por llamada (candado de pipelin
       50: { id: 50, localizedName: "Dazzle" },
     });
 
-    const withEmpty = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map() });
-    const withRealFile = buildSuggestions(state, snapshot, OPTS); // carga hero-counters.json real
+    // Un catálogo curado que no toca a ningún héroe de este draft (fixture inline: la prueba nunca lee hero-counters.json real).
+    const unrelatedCatalog = new Map([[900, [{ vs: 901, level: "hard" as const, why: "fixture sin relación con este draft" }]]]);
+    const withEmpty = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map(), heroSynergies: new Map() });
+    const withUnrelated = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: unrelatedCatalog });
 
-    expect(withEmpty.suggestions.map((s) => s.hero)).toEqual(withRealFile.suggestions.map((s) => s.hero));
+    expect(withEmpty.suggestions.map((s) => s.hero)).toEqual(withUnrelated.suggestions.map((s) => s.hero));
     for (const suggestion of withEmpty.suggestions) {
       expect(suggestion.signals.find((s) => s.signal === "counter")?.raw).toBeNull();
     }
@@ -455,7 +491,7 @@ describe("Fase 8 -- counter cableado como scorer por llamada (candado de pipelin
       31: { id: 31, localizedName: "Lich" },
     });
 
-    const neutral = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map() });
+    const neutral = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map(), heroSynergies: new Map() });
     const withCounter = buildSuggestions(state, snapshot, {
       ...OPTS,
       heroCounters: new Map([
@@ -469,6 +505,50 @@ describe("Fase 8 -- counter cableado como scorer por llamada (candado de pipelin
     expect(huskarNeutral.signals.find((s) => s.signal === "counter")?.raw).toBeNull();
     expect(huskarCountered.signals.find((s) => s.signal === "counter")?.raw).toBeCloseTo(-0.12, 10);
     expect(huskarCountered.score).toBeLessThan(huskarNeutral.score);
+  });
+});
+
+// Sinergias de pareja (base de conocimiento, 2026-10): candado y sensibilidad contra el pipeline
+// completo, no contra team_synergy aislado -- mismo criterio que el bloque de counter de arriba.
+describe("sinergias de pareja en el pipeline completo", () => {
+  const OWN = 10;
+  const PLAIN = 20;
+  const PARTNER = 21;
+  const caps = (hero: number): HeroCapabilities => ({
+    hero, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: true,
+    structuralDamage: "low", teamfight: "low", scaling: "low",
+  });
+  const OPTS = { heroPositions: {} as HeroPositions, heroCapabilities: [caps(OWN), caps(PLAIN), caps(PARTNER)], heroCounters: new Map(), calibration: EMPTY_CAL };
+  const state = draftState({ picks: { radiant: [OWN], dire: [] } });
+  const snapshot = meta({
+    [OWN]: { id: OWN, localizedName: "Propio" },
+    [PLAIN]: { id: PLAIN, localizedName: "Sin pareja" },
+    [PARTNER]: { id: PARTNER, localizedName: "Con pareja" },
+  });
+  const weightedOf = (set: ReturnType<typeof buildSuggestions>) =>
+    set.suggestions.map((s) => [s.hero, s.signals.map((sig) => [sig.signal, sig.weighted])]);
+
+  test("CANDADO: parejas que no tocan a mi equipo = mapa vacío (mismo ranking, mismo weighted)", () => {
+    const empty = buildSuggestions(state, snapshot, { ...OPTS, heroSynergies: new Map() });
+    const unrelated = buildSuggestions(state, snapshot, {
+      ...OPTS,
+      heroSynergies: new Map([[PLAIN, [{ with: PARTNER, why: "No elegido" }]], [PARTNER, [{ with: PLAIN, why: "No elegido" }]]]),
+    });
+    expect(weightedOf(unrelated)).toEqual(weightedOf(empty));
+  });
+
+  test("una pareja con mi pick sube al candidato por encima de su gemelo y lo explica", () => {
+    const empty = buildSuggestions(state, snapshot, { ...OPTS, heroSynergies: new Map() });
+    const paired = buildSuggestions(state, snapshot, {
+      ...OPTS,
+      heroSynergies: new Map([[PARTNER, [{ with: OWN, why: "Se potencian" }]], [OWN, [{ with: PARTNER, why: "Se potencian" }]]]),
+    });
+    const scoreOf = (set: ReturnType<typeof buildSuggestions>, hero: number) => set.suggestions.find((s) => s.hero === hero)!.score;
+    expect(scoreOf(empty, PARTNER)).toBe(scoreOf(empty, PLAIN));
+    expect(scoreOf(paired, PARTNER)).toBeGreaterThan(scoreOf(paired, PLAIN));
+    expect(paired.suggestions[0]!.hero).toBe(PARTNER);
+    const synergy = paired.suggestions[0]!.signals.find((s) => s.signal === "team_synergy")!;
+    expect(synergy.explanation).toContain("Sinergia con Propio: Se potencian");
   });
 });
 
@@ -664,7 +744,7 @@ describe("buildSuggestions", () => {
     });
     const heroPositions: HeroPositions = { 1: [{ position: 1, matches: 1000 }] };
 
-    const result = buildSuggestions(state, snapshot, { heroPositions, calibration: EMPTY_CAL });
+    const result = buildSuggestions(state, snapshot, { heroPositions, calibration: EMPTY_CAL, metaIsStale: false });
     const suggestion = result.suggestions.find((s) => s.hero === 1);
 
     expect(suggestion).toBeDefined();
@@ -820,7 +900,7 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
       { matchups: { 1: [{ vsHero: 50, games: 300, wins: 210 }, { vsHero: 60, games: 300, wins: 150 }] } }, // solo el 1 tiene dato vs 50
     );
 
-    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL });
     const s1 = result.suggestions.find((s) => s.hero === 1)!;
     const s2 = result.suggestions.find((s) => s.hero === 2)!;
     const c1 = s1.signals.find((s) => s.signal === "counter")!;
@@ -828,13 +908,63 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
 
     // A(S) = {counter, position_fit}. w'_counter sobre ese denominador.
     const wCounter = SCORING_WEIGHTS_V6.counter / (SCORING_WEIGHTS_V6.counter + SCORING_WEIGHTS_V6.position_fit);
-    // μ_counter = normalized del único candidato con dato (el 1).
-    const muCounter = c1.normalized as number;
+    // μ_counter = normalized del único candidato con dato (el 1), topado en 50 (AP Solo Mid
+    // data/signal repair, root cause 3 Task B): el relleno de "sin dato" para `counter` nunca
+    // puede superar el neutro (50, raw=0), o "no saber" terminaría valiendo más que una ventaja
+    // real conocida. Este fixture da a propósito un candidato con edge FUERTE (normalized > 50)
+    // para que el candado ejercite el tope, no sólo el caso donde ya coincidía con la media cruda.
+    const muCounter = Math.min(c1.normalized as number, 50);
+    expect(c1.normalized as number).toBeGreaterThan(50); // si esto deja de ser cierto, el tope no se ejercita
 
     expect(c1.raw).not.toBeNull();
     expect(c2.raw).toBeNull(); // el hueco de datos NO se rellena en raw
-    expect(c2.weighted).toBeCloseTo(wCounter * muCounter, 8); // se rellena en weighted vía μ
+    expect(c2.weighted).toBeCloseTo(wCounter * muCounter, 8); // se rellena en weighted vía μ, topado en 50
     expect(c2.weighted).toBeGreaterThan(0);
+  });
+
+  // AP Solo Mid data/signal repair (Dota Judge root cause 3, Task B -- hallazgo RC8): reproduce el
+  // caso medido en producción -- un candidato SIN ningún dato de contrapick (raw:null) recibía un
+  // relleno μ(S) más alto que un candidato con evidencia REAL pero débil (+0.02), porque μ(S) era
+  // la media de TODOS los candidatos con dato, y un candidato con un edge fuerte en el mismo estado
+  // arrastraba esa media muy por encima del valor propio del candidato débil. "No saber" terminaba
+  // puntuando mejor que "saber algo bueno pero chico". El tope en 50 (neutro real) lo corrige: el
+  // relleno de UNKNOWN nunca puede superar el neutro, así que el candidato con evidencia real débil
+  // (cuyo propio normalized > 50) siempre le gana a UNKNOWN, sin importar qué tan fuerte sea la
+  // evidencia de un tercer candidato en el mismo estado.
+  test("AC2b -- UNKNOWN nunca supera a evidencia real débil, aunque otro candidato tenga evidencia fuerte en el mismo estado", () => {
+    const snapshot = meta(
+      {
+        1: { id: 1, localizedName: "Evidencia débil" },
+        2: { id: 2, localizedName: "Evidencia fuerte" },
+        3: { id: 3, localizedName: "Sin dato" },
+        50: { id: 50, localizedName: "Enemigo" },
+      },
+      {
+        matchups: {
+          // Débil: 0.52 vs 0.50 de base -> delta chico y positivo (misma naturaleza que el +0.02
+          // medido en producción).
+          1: [{ vsHero: 50, games: 300, wins: 156 }, { vsHero: 60, games: 300, wins: 150 }],
+          // Fuerte: 0.65 vs 0.50 de base -> delta grande, arrastra la media de "candidatos con
+          // dato" muy por encima del valor propio del candidato débil.
+          2: [{ vsHero: 50, games: 300, wins: 195 }, { vsHero: 60, games: 300, wins: 150 }],
+          // 3 no tiene NINGÚN matchup vs el enemigo revelado -> raw:null, se rellena con μ(S).
+        },
+      },
+    );
+
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL });
+    const weak = result.suggestions.find((s) => s.hero === 1)!.signals.find((s) => s.signal === "counter")!;
+    const strong = result.suggestions.find((s) => s.hero === 2)!.signals.find((s) => s.signal === "counter")!;
+    const unknown = result.suggestions.find((s) => s.hero === 3)!.signals.find((s) => s.signal === "counter")!;
+
+    expect(weak.raw).not.toBeNull();
+    expect(weak.normalized as number).toBeGreaterThan(50); // evidencia real, aunque débil, sigue siendo positiva
+    expect(strong.normalized as number).toBeGreaterThan(weak.normalized as number); // el fuerte es, de hecho, más fuerte
+    expect(unknown.raw).toBeNull(); // el hueco de dato nunca se escribe en raw
+
+    // El corazón del candado: UNKNOWN (relleno μ) nunca le gana a la evidencia real débil, pese a
+    // que el candidato fuerte del mismo estado sí arrastraría la media cruda por encima de `weak`.
+    expect(unknown.weighted).toBeLessThanOrEqual(weak.weighted);
   });
 
   test("AC3 -- EvidenceCoverage: cobertura total -> 1; parcial -> w' de la señal con dato", () => {
@@ -843,7 +973,7 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
       { matchups: { 1: [{ vsHero: 50, games: 300, wins: 210 }, { vsHero: 60, games: 300, wins: 150 }] } },
     );
 
-    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL });
     const s1 = result.suggestions.find((s) => s.hero === 1)!;
     const s2 = result.suggestions.find((s) => s.hero === 2)!;
 
@@ -877,8 +1007,8 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
     );
     const corrupt = parseCalibration({ schemaVersion: 99, signals: "broken" }); // -> Calibration vacía
 
-    const calibrated = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: corrupt });
-    const legacy = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), _legacyMixMode: true });
+    const calibrated = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), heroSynergies: new Map(), calibration: corrupt });
+    const legacy = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), heroSynergies: new Map(), _legacyMixMode: true });
 
     expect(calibrated.suggestions.map((s) => s.hero)).toEqual(legacy.suggestions.map((s) => s.hero));
     for (const s of calibrated.suggestions) {
@@ -934,7 +1064,7 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
     // es estructuralmente aplicable pero no vota -- Task 11/12). Un candidato con position_fit ->
     // cobertura 1 -> alta.
     const snapshot = meta({ 1: { id: 1, localizedName: "Solo" } });
-    const result = buildSuggestions(draftState(), snapshot, { heroPositions: { 1: [{ position: 1, matches: 1000 }] }, calibration: EMPTY_CAL });
+    const result = buildSuggestions(draftState(), snapshot, { heroPositions: { 1: [{ position: 1, matches: 1000 }] }, calibration: EMPTY_CAL, metaIsStale: false });
     expect(result.suggestions[0]?.evidenceCoverage).toBeCloseTo(1, 10);
     expect(result.suggestions[0]?.confidence).toBe("alta");
   });
@@ -949,7 +1079,7 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
 // ============================================================================
 describe("Task 11 -- A(S) estructural desacoplada de la calibración", () => {
   const KNOWN_POS: HeroPositions = { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 1, matches: 1000 }], 7: [{ position: 2, matches: 1000 }] };
-  const bareOptions = () => ({ heroCounters: new Map(), heroPositions: KNOWN_POS });
+  const bareOptions = () => ({ heroCounters: new Map(), heroSynergies: new Map(), heroPositions: KNOWN_POS });
 
   // --- Caso 1: estructura presente + datos presentes -> applicable = true ---
   test("estructura presente: enemigo revelado -> counter; pick propio -> team_synergy; lado conocido -> position_fit", () => {
@@ -978,7 +1108,7 @@ describe("Task 11 -- A(S) estructural desacoplada de la calibración", () => {
     // Antes de Task 11 esta calibración metía patch_meta en A(S) -> cambiaba denominador y score.
     const withPatchCal = parseCalibration({ schemaVersion: 1, signals: { patch_meta: { global: { p05: 0.3, p95: 0.7, n: 1000 } } } });
 
-    const base = { heroCounters: new Map(), heroPositions: KNOWN_POS };
+    const base = { heroCounters: new Map(), heroSynergies: new Map(), heroPositions: KNOWN_POS };
     const empty = buildSuggestions(state, snapshot, { ...base, calibration: EMPTY_CAL });
     const calibrated = buildSuggestions(state, snapshot, { ...base, calibration: withPatchCal });
 
@@ -1024,7 +1154,7 @@ describe("Task 11 -- A(S) estructural desacoplada de la calibración", () => {
 // ============================================================================
 describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta", () => {
   const KNOWN_POS: HeroPositions = { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 1, matches: 1000 }], 7: [{ position: 2, matches: 1000 }] };
-  const bareOptions = () => ({ heroCounters: new Map(), heroPositions: KNOWN_POS });
+  const bareOptions = () => ({ heroCounters: new Map(), heroSynergies: new Map(), heroPositions: KNOWN_POS });
   const ALL_SIGNALS = ["counter", "patch_meta", "team_synergy", "hero_pool_fit", "position_fit", "archetype_fit"] as const;
 
   // ---- REGRESSION MATRIX A/B/C/D: votes == (structurallyApplicable AND dataReady) ----
@@ -1041,7 +1171,7 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
       const voting = votingSignals(state, snapshot, bareOptions());
       for (const signal of ALL_SIGNALS) {
         const structurally = applicable.has(signal);
-        const ready = dataReady(signal, snapshot);
+        const ready = dataReady(signal, state, snapshot);
         // regla formal (requisito 3.2 c3): la conjunción, nunca inferida de raw
         expect(voting.has(signal)).toBe(structurally && ready);
         // Caso C/D: no estructural => nunca vota aunque dataReady sea true
@@ -1056,8 +1186,8 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     const state = draftState({ picks: { radiant: [7], dire: [50] } });
     const snapshot = meta({});
     // dataReady ni siquiera acepta calibración como parámetro -> imposible que la use de interruptor.
-    expect(dataReady("patch_meta", snapshot)).toBe(false);
-    expect(dataReady("position_fit", snapshot)).toBe(true);
+    expect(dataReady("patch_meta", state, snapshot)).toBe(false); // sin patchStats, sin cobertura
+    expect(dataReady("position_fit", state, snapshot)).toBe(true);
     const votingA = [...votingSignals(state, snapshot, bareOptions())].sort();
     const votingB = [...votingSignals(state, snapshot, bareOptions())].sort();
     expect(votingA).toEqual(votingB);
@@ -1070,10 +1200,10 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     const snapshot = meta({});
     expect(structurallyApplicableSignals(before, snapshot, bareOptions()).has("counter")).toBe(false);
     expect(structurallyApplicableSignals(after, snapshot, bareOptions()).has("counter")).toBe(true);
-    // patch_meta estructuralmente aplicable en ambos, dataReady=false en ambos
+    // patch_meta estructuralmente aplicable en ambos, dataReady=false en ambos (sin patchStats)
     for (const s of [before, after]) {
       expect(structurallyApplicableSignals(s, snapshot, bareOptions()).has("patch_meta")).toBe(true);
-      expect(dataReady("patch_meta", snapshot)).toBe(false);
+      expect(dataReady("patch_meta", s, snapshot)).toBe(false);
       expect(votingSignals(s, snapshot, bareOptions()).has("patch_meta")).toBe(false);
     }
   });
@@ -1115,7 +1245,12 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
   });
 
   // ---- RAW ORTHOGONALITY: raw numérico NO fuerza dataReady=true ----
-  test("orthogonality -- patch_meta con patchStats >= 500 (raw numérico) SIGUE sin votar y con weighted 0", () => {
+  test("orthogonality -- patch_meta con patchStats >= 500 pero SÓLO 2 héroes de cobertura (raw numérico) SIGUE sin votar y con weighted 0", () => {
+    // AP Solo Mid data/signal repair: dataReady("patch_meta") ya no es un literal apagado -- este
+    // caso demuestra la ortogonalidad con un motivo REAL: el parche coincide (state.patch="7.36",
+    // draftState() default) y ambos héroes superan MIN_PATCH_GAMES, pero la cobertura (2 héroes) es
+    // muchísimo menor que MIN_PATCH_META_COVERAGE_HEROES -- un dataset roto/disperso sigue sin
+    // votar aunque el scorer produzca un raw numérico válido para esos 2 héroes puntuales.
     const patchStats = {
       1: [{ patch: "7.36", bracket: "archon" as const, picks: 5000, wins: 3000 }],
       2: [{ patch: "7.36", bracket: "archon" as const, picks: 5000, wins: 2000 }],
@@ -1125,9 +1260,9 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     for (const suggestion of result.suggestions) {
       const pm = suggestion.signals.find((s) => s.signal === "patch_meta")!;
       expect(pm.raw).not.toBeNull(); // el scorer produjo un winrate real
-      expect(pm.weighted).toBe(0); // pero dataReady=false => no vota
+      expect(pm.weighted).toBe(0); // pero dataReady=false (cobertura insuficiente) => no vota
     }
-    expect(dataReady("patch_meta", snapshot)).toBe(false);
+    expect(dataReady("patch_meta", draftState(), snapshot)).toBe(false);
     expect(votingSignals(draftState(), snapshot, { heroPositions: {} }).has("patch_meta")).toBe(false);
   });
 
@@ -1142,14 +1277,16 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     expect(c?.raw).toBeNull();
   });
 
-  // ---- CP3b / Property 11: contrato R0 EXACTO de patch_meta + producción idéntica a pre-R0 ----
-  test("CP3b -- patch_meta: structurallyApplicable=true, dataReady=false, votes=false, weighted=0, reason='data_not_ready'", () => {
+  // ---- CP3b / Property 11: sin patchStats, patch_meta no vota (mismo shape que el contrato R0,
+  // ahora por una condición real -- ver el describe "patchMetaReady" más abajo para el caso donde
+  // SÍ vota) ----
+  test("CP3b -- patch_meta sin patchStats: structurallyApplicable=true, dataReady=false, votes=false, weighted=0, reason='data_not_ready'", () => {
     const state = draftState({ picks: { radiant: [7], dire: [50] } });
     const snapshot = meta({ 1: { id: 1, localizedName: "A" }, 7: { id: 7, localizedName: "Own" }, 50: { id: 50, localizedName: "Enemy" } });
-    const opts = { heroCounters: new Map(), heroPositions: KNOWN_POS, calibration: EMPTY_CAL };
+    const opts = { heroCounters: new Map(), heroSynergies: new Map(), heroPositions: KNOWN_POS, calibration: EMPTY_CAL };
 
     expect(structurallyApplicableSignals(state, snapshot, opts).has("patch_meta")).toBe(true);
-    expect(dataReady("patch_meta", snapshot)).toBe(false);
+    expect(dataReady("patch_meta", state, snapshot)).toBe(false);
     expect(votingSignals(state, snapshot, opts).has("patch_meta")).toBe(false);
     expect(nonVotingReason("patch_meta", state, snapshot, opts)).toBe("data_not_ready");
 
@@ -1229,6 +1366,67 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
       (SCORING_WEIGHTS_V6.counter / denom) * (c.normalized as number);
     expect(top.score).toBeCloseTo(expectedScore, 8);
   });
+
+  // ==========================================================================
+  // AP Solo Mid data/signal repair (Dota Judge root cause 1, 2026-09): `dataReady("patch_meta")`
+  // dejó de ser un literal `false` hardcodeado. Estos tres casos son los que el Dota Judge pidió
+  // explícitamente: parche fresco con cobertura real vota; parche equivocado no vota; dataset
+  // roto/disperso (pocos héroes, aunque cada uno individualmente supere MIN_PATCH_GAMES) no vota.
+  // ==========================================================================
+  describe("patchMetaReady -- cobertura real del parche, no un literal", () => {
+    // 30 héroes, cada uno con >= MIN_PATCH_GAMES en bracket bajo/medio para "7.41e" -- suficiente
+    // para pasar el piso absoluto (20) Y la mayoría relativa (aquí, 100% de los héroes con dato).
+    function richPatchStats(patch: string, heroCount: number) {
+      const stats: Record<number, { patch: string; bracket: "archon"; picks: number; wins: number }[]> = {};
+      for (let hero = 1; hero <= heroCount; hero++) {
+        stats[hero] = [{ patch, bracket: "archon", picks: 5000, wins: 2600 }];
+      }
+      return stats;
+    }
+
+    test("parche fresco con cobertura real (30 héroes, >=500 partidas c/u) -> patch_meta vota", () => {
+      const state = draftState({ patch: "7.41e" });
+      const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 30) });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(true);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(true);
+    });
+
+    test("parche equivocado (dataset fresco pero de OTRO parche) -> patch_meta no vota", () => {
+      // Mismo dataset "rico" de arriba, pero el estado de draft está en un parche distinto -- el
+      // caso real que originó el hallazgo: la base tenía 7.41e mientras un comentario legacy
+      // seguía citando "7.35d" como motivo del apagado.
+      const state = draftState({ patch: "7.35d" });
+      const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 30) });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(false);
+    });
+
+    test("dataset insuficiente/disperso (5 héroes, aunque cada uno supere MIN_PATCH_GAMES) -> patch_meta no vota", () => {
+      const state = draftState({ patch: "7.41e" });
+      const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 5) });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(false);
+    });
+
+    test("dataset roto (piso absoluto de héroes con cobertura alcanzado, pero por debajo de la mayoría relativa) -> patch_meta no vota", () => {
+      // 50 héroes con fila para "7.41e"; exactamente 20 superan MIN_PATCH_GAMES (cruza el piso
+      // absoluto de MIN_PATCH_META_COVERAGE_HEROES) pero son sólo el 40% del total -- la mayoría
+      // (30/50) sigue por debajo del umbral, así que la RATIO de cobertura falla aunque el conteo
+      // absoluto de héroes con cobertura ya no sea el motivo.
+      const stats: Record<number, { patch: string; bracket: "archon"; picks: number; wins: number }[]> = {};
+      for (let hero = 1; hero <= 50; hero++) {
+        const picks = hero <= 20 ? 5000 : 50; // exactamente 20/50 heroes cruzan MIN_PATCH_GAMES (500)
+        stats[hero] = [{ patch: "7.41e", bracket: "archon", picks, wins: Math.round(picks * 0.5) }];
+      }
+      const state = draftState({ patch: "7.41e" });
+      const snapshot = meta({}, { patchStats: stats });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+    });
+  });
 });
 
 // ============================================================================
@@ -1270,7 +1468,7 @@ describe("Task 13 -- cálculo único: score/reason/comparison/evidence de una fu
       { patchStats: PATCH_STATS },
     );
     // Sin enemigo revelado ni pick propio: voting = {position_fit}. patch_meta NO vota pese a su raw.
-    const result = buildSuggestions(draftState(), snapshot, { heroPositions: CARRY2, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const result = buildSuggestions(draftState(), snapshot, { heroPositions: CARRY2, heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL });
 
     expect(result.comparison?.signal).not.toBe("patch_meta");
     if (result.comparison) {
@@ -1316,7 +1514,7 @@ describe("Task 13 -- cálculo único: score/reason/comparison/evidence de una fu
     const state = draftState({ picks: { radiant: [3], dire: [50] } });
     const result = buildSuggestions(state, snapshot, {
       heroPositions: { 1: [{ position: 1, matches: 900 }], 2: [{ position: 1, matches: 900 }], 3: [{ position: 3, matches: 900 }] },
-      heroCounters: new Map(),
+      heroCounters: new Map(), heroSynergies: new Map(),
       calibration: EMPTY_CAL,
     });
     expect(result.suggestions.length).toBeGreaterThan(0);
@@ -1340,11 +1538,11 @@ describe("Task 13 -- cálculo único: score/reason/comparison/evidence de una fu
       { matchups: { 1: [{ vsHero: 99, games: 400, wins: 150 }] } }, // hero 1: matchup adverso vs 99 (baneado)
     );
     const state = draftState({ localSide: "radiant", banned: [99], picks: { radiant: [], dire: [] } });
-    const result = buildSuggestions(state, snapshot, { teamOpening: true, heroPositions, heroCapabilities: [], calibration: EMPTY_CAL });
+    const result = buildSuggestions(state, snapshot, { teamOpening: true, heroPositions, heroCapabilities: [], heroSynergies: new Map(), calibration: EMPTY_CAL });
 
     const relieved = result.suggestions.find((s) => s.hero === 1)!;
     // el alivio por ban movió el score de este candidato
-    const withoutBan = buildSuggestions({ ...state, banned: [] }, snapshot, { teamOpening: true, heroPositions, heroCapabilities: [], calibration: EMPTY_CAL });
+    const withoutBan = buildSuggestions({ ...state, banned: [] }, snapshot, { teamOpening: true, heroPositions, heroCapabilities: [], heroSynergies: new Map(), calibration: EMPTY_CAL });
     expect(relieved.score).toBeGreaterThan(withoutBan.suggestions.find((s) => s.hero === 1)!.score);
     // CP10 se mantiene pese al reemplazo del score
     for (const s of result.suggestions) {
@@ -1371,7 +1569,7 @@ describe("Task 13 -- cálculo único: score/reason/comparison/evidence de una fu
       { 1: { id: 1, localizedName: "A" }, 2: { id: 2, localizedName: "B" }, 50: { id: 50, localizedName: "E" } },
       { matchups: { 1: [{ vsHero: 50, games: 400, wins: 260 }] }, patchStats: PATCH_STATS },
     );
-    const normal = buildSuggestions(draftState({ picks: { radiant: [], dire: [50] } }), snapshot, { heroPositions: CARRY2, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const normal = buildSuggestions(draftState({ picks: { radiant: [], dire: [50] } }), snapshot, { heroPositions: CARRY2, heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL });
     const legacy = buildSuggestions(draftState({ picks: { radiant: [], dire: [50] } }), snapshot, { heroPositions: CARRY2, _legacyMixMode: true });
     for (const set of [normal, legacy]) {
       for (const s of set.suggestions) {
@@ -1394,7 +1592,7 @@ describe("Task 13 -- cálculo único: score/reason/comparison/evidence de una fu
         { hero: 2, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: true, structuralDamage: "high", teamfight: "low", scaling: "high" },
         { hero: 3, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: false, structuralDamage: "low", teamfight: "high", scaling: "low" },
       ],
-      heroCounters: new Map(),
+      heroCounters: new Map(), heroSynergies: new Map(),
       calibration: EMPTY_CAL,
     });
     const cand = result.suggestions.find((s) => s.hero === 3)!;
@@ -1423,7 +1621,7 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
     2: [{ position: 1, matches: 1000 }],
     7: [{ position: 2, matches: 1000 }],
   };
-  const bareOptions = () => ({ heroCounters: new Map(), heroPositions: KNOWN_POS, calibration: EMPTY_CAL });
+  const bareOptions = () => ({ heroCounters: new Map(), heroSynergies: new Map(), heroPositions: KNOWN_POS, calibration: EMPTY_CAL });
   const ALL_SIGNALS = ["counter", "patch_meta", "team_synergy", "hero_pool_fit", "position_fit", "archetype_fit"] as const;
   const bySignal = (r: AvailableSignalsReport, s: string): AvailableSignalsReport["signals"][number] =>
     r.signals.find((x) => x.signal === s)!;
@@ -1497,7 +1695,7 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
     };
     const snapshot = meta({ 1: { id: 1, localizedName: "A" }, 2: { id: 2, localizedName: "B" } }, { patchStats });
     const heroPositions: HeroPositions = { 1: [{ position: 1, matches: 999 }], 2: [{ position: 1, matches: 999 }] };
-    const opts = { heroCounters: new Map(), heroPositions, calibration: EMPTY_CAL };
+    const opts = { heroCounters: new Map(), heroSynergies: new Map(), heroPositions, calibration: EMPTY_CAL };
     // el scorer produce un raw numérico...
     const pm = buildSuggestions(draftState(), snapshot, opts).suggestions[0]!.signals.find((s) => s.signal === "patch_meta")!;
     expect(pm.raw).not.toBeNull();
@@ -1512,7 +1710,7 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
   test("6 -- estado degenerado (no_signal_available): el reporte se produce aunque suggestions === []", () => {
     const state = draftState({ localSide: "unknown", picks: { radiant: [], dire: [] } });
     const snapshot = meta({ 1: { id: 1, localizedName: "Primero" }, 2: { id: 2, localizedName: "Segundo" } });
-    const opts = { heroPositions: {}, heroCapabilities: [], heroCounters: new Map(), calibration: EMPTY_CAL };
+    const opts = { heroPositions: {}, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL };
 
     const suggestionSet = buildSuggestions(state, snapshot, opts);
     expect(suggestionSet.suggestions).toEqual([]);
@@ -1564,7 +1762,7 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
       { 1: { id: 1, localizedName: "A" }, 2: { id: 2, localizedName: "B" }, 50: { id: 50, localizedName: "E" } },
       { matchups: { 1: [{ vsHero: 50, games: 400, wins: 260 }], 2: [{ vsHero: 50, games: 400, wins: 300 }] } },
     );
-    const opts = { heroPositions: KNOWN_POS, heroCounters: new Map(), calibration: EMPTY_CAL };
+    const opts = { heroPositions: KNOWN_POS, heroCounters: new Map(), heroSynergies: new Map(), calibration: EMPTY_CAL };
     const before = buildSuggestions(state, snapshot, opts);
     buildAvailableSignalsReport(state, snapshot, opts);
     const after = buildSuggestions(state, snapshot, opts);
@@ -1585,7 +1783,7 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
     const empty = buildAvailableSignalsReport(state, snapshot, bareOptions());
     for (const row of empty.signals) expect(row.calibrated).toBe(false);
 
-    const calibrated = buildAvailableSignalsReport(state, snapshot, { heroCounters: new Map(), heroPositions: KNOWN_POS, calibration: withCal });
+    const calibrated = buildAvailableSignalsReport(state, snapshot, { heroCounters: new Map(), heroSynergies: new Map(), heroPositions: KNOWN_POS, calibration: withCal });
     expect(bySignal(calibrated, "position_fit").calibrated).toBe(true);
     expect(bySignal(calibrated, "patch_meta").calibrated).toBe(true);
     expect(bySignal(calibrated, "counter").calibrated).toBe(false);
@@ -1620,7 +1818,7 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
   test("12 -- degenerado presente aun con una señal estructuralmente aplicable pero no lista; la primera votante recupera el ranking", () => {
     const snapshot = meta({ 1: { id: 1, localizedName: "A" }, 2: { id: 2, localizedName: "B" } });
     const heroPositions: HeroPositions = { 1: [{ position: 1, matches: 999 }], 2: [{ position: 5, matches: 999 }] };
-    const opts = { heroCounters: new Map(), heroPositions, calibration: EMPTY_CAL };
+    const opts = { heroCounters: new Map(), heroSynergies: new Map(), heroPositions, calibration: EMPTY_CAL };
 
     // localSide "unknown": position_fit no aplica; patch_meta SÍ aplica estructuralmente pero
     // dataReady=false -> ninguna señal vota -> degenerado (no sólo "nada aplica", también "algo
@@ -1640,5 +1838,179 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
     expect(liveReport.voting).toEqual(["position_fit"]);
     expect(liveReport.decisionContext).not.toBe("no_signal_available");
     expect(buildSuggestions(live, snapshot, opts).suggestions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("PB-R3 -- Confidence consistency between legacy and new readiness callers", () => {
+  const snapshot = meta({
+    1: { id: 1, localizedName: "Hero 1" },
+    2: { id: 2, localizedName: "Hero 2" },
+    3: { id: 3, localizedName: "Hero 3" },
+  });
+  const heroPositions: HeroPositions = {
+    1: [{ position: 1, matches: 500 }],
+    2: [{ position: 2, matches: 500 }],
+    3: [{ position: 3, matches: 500 }],
+  };
+  const baseOpts = { heroCounters: new Map(), heroPositions, calibration: EMPTY_CAL };
+  const state = draftState({ localSide: "radiant", picks: { radiant: [], dire: [] } });
+
+  const staleReadiness: MetaReadiness = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41e", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2020-01-01T00:00:00Z", syncAgeMs: 99999999, isFresh: false, isStale: true },
+    patchCompatibility: "compatible",
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: true,
+  };
+
+  const freshReadiness: MetaReadiness = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41f", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2026-09-21T00:00:00Z", syncAgeMs: 1000, isFresh: true, isStale: false },
+    patchCompatibility: "compatible",
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: false,
+  };
+
+  test("new-interface-only caller receives confidence: 'media' and 'stale_meta' when readiness is stale", () => {
+    const legacyStale = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: true });
+    const newStale = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: staleReadiness });
+
+    expect(legacyStale.degraded).toContain("stale_meta");
+    expect(newStale.degraded).toContain("stale_meta");
+    expect(newStale.suggestions.length).toBeGreaterThan(0);
+    for (const s of newStale.suggestions) {
+      expect(s.confidence).toBe("media");
+    }
+    // New-interface-only caller receives exact same confidence as legacy caller
+    expect(newStale.suggestions.map((s) => s.confidence)).toEqual(legacyStale.suggestions.map((s) => s.confidence));
+  });
+
+  test("fresh caller (legacy or new interface) retains alta confidence and no stale_meta", () => {
+    const legacyFresh = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: false });
+    const newFresh = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: freshReadiness });
+
+    expect(legacyFresh.degraded).not.toContain("stale_meta");
+    expect(newFresh.degraded).not.toContain("stale_meta");
+    for (const s of newFresh.suggestions) {
+      expect(s.confidence).toBe("alta");
+    }
+    expect(newFresh.suggestions.map((s) => s.confidence)).toEqual(legacyFresh.suggestions.map((s) => s.confidence));
+  });
+
+  test("readiness metadata alone cannot alter ranking order or scores", () => {
+    const baseline = buildSuggestions(state, snapshot, baseOpts);
+    const legacyStale = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: true });
+    const newStale = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: staleReadiness });
+
+    // Ranking order of heroes must be identical
+    expect(legacyStale.suggestions.map((s) => s.hero)).toEqual(baseline.suggestions.map((s) => s.hero));
+    expect(newStale.suggestions.map((s) => s.hero)).toEqual(baseline.suggestions.map((s) => s.hero));
+
+    // Scores must be identical
+    expect(legacyStale.suggestions.map((s) => s.score)).toEqual(baseline.suggestions.map((s) => s.score));
+    expect(newStale.suggestions.map((s) => s.score)).toEqual(baseline.suggestions.map((s) => s.score));
+  });
+});
+
+describe("PB-R5 -- Effective meta staleness from resolved readiness", () => {
+  const snapshot = meta({
+    1: { id: 1, localizedName: "Hero 1" },
+    2: { id: 2, localizedName: "Hero 2" },
+    3: { id: 3, localizedName: "Hero 3" },
+  });
+  const heroPositions: HeroPositions = {
+    1: [{ position: 1, matches: 500 }],
+    2: [{ position: 2, matches: 500 }],
+    3: [{ position: 3, matches: 500 }],
+  };
+  const baseOpts = { heroCounters: new Map(), heroPositions, calibration: EMPTY_CAL };
+  const state = draftState({ localSide: "radiant", picks: { radiant: [], dire: [] } });
+
+  const freshReadiness: MetaReadiness = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41f", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2026-09-21T00:00:00Z", syncAgeMs: 1000, isFresh: true, isStale: false },
+    patchCompatibility: "compatible",
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: false,
+  };
+
+  const staleReadiness: MetaReadiness = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41e", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2020-01-01T00:00:00Z", syncAgeMs: 99999999, isFresh: false, isStale: true },
+    patchCompatibility: "compatible",
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: true,
+  };
+
+  test("1. No metaReadiness injected: internally computed readiness is stale", () => {
+    const result = buildSuggestions(state, snapshot, baseOpts);
+    expect(result.readiness).toBeDefined();
+    expect(result.readiness?.syncFreshness.isStale).toBe(true);
+    expect(result.readiness?.metaIsStale).toBe(true);
+    expect(result.degraded).toContain("stale_meta");
+    expect(result.suggestions.length).toBeGreaterThan(0);
+    for (const s of result.suggestions) {
+      expect(s.confidence).not.toBe("alta");
+      expect(s.confidence).toBe("media");
+    }
+  });
+
+  test("2. Explicit fresh metaReadiness: no stale_meta degradation and fresh confidence behavior", () => {
+    const result = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: freshReadiness });
+    expect(result.readiness).toBeDefined();
+    expect(result.readiness?.syncFreshness.isStale).toBe(false);
+    expect(result.readiness?.metaIsStale).toBe(false);
+    expect(result.degraded).not.toContain("stale_meta");
+    expect(result.suggestions.length).toBeGreaterThan(0);
+    for (const s of result.suggestions) {
+      expect(s.confidence).toBe("alta");
+    }
+  });
+
+  test("3. Legacy metaIsStale=true with otherwise fresh readiness: stale behavior preserved", () => {
+    const result = buildSuggestions(state, snapshot, {
+      ...baseOpts,
+      metaIsStale: true,
+      metaReadiness: freshReadiness,
+    });
+    expect(result.degraded).toContain("stale_meta");
+    for (const s of result.suggestions) {
+      expect(s.confidence).toBe("media");
+    }
+  });
+
+  test("4. New readiness-only caller: same confidence/degradation semantics as equivalent legacy caller", () => {
+    // Fresh comparison
+    const legacyFresh = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: false });
+    const newFresh = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: freshReadiness });
+    expect(newFresh.degraded).toEqual(legacyFresh.degraded);
+    expect(newFresh.suggestions.map((s) => s.confidence)).toEqual(legacyFresh.suggestions.map((s) => s.confidence));
+
+    // Stale comparison
+    const legacyStale = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: true });
+    const newStale = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: staleReadiness });
+    expect(newStale.degraded).toEqual(legacyStale.degraded);
+    expect(newStale.suggestions.map((s) => s.confidence)).toEqual(legacyStale.suggestions.map((s) => s.confidence));
+  });
+
+  test("5. Ranking scores and order identical between fresh and stale metadata when only readiness metadata differs", () => {
+    const fresh = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: freshReadiness });
+    const staleInjected = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: staleReadiness });
+    const staleLegacy = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: true });
+    const staleImplicit = buildSuggestions(state, snapshot, baseOpts);
+
+    const expectedHeroes = fresh.suggestions.map((s) => s.hero);
+    expect(staleInjected.suggestions.map((s) => s.hero)).toEqual(expectedHeroes);
+    expect(staleLegacy.suggestions.map((s) => s.hero)).toEqual(expectedHeroes);
+    expect(staleImplicit.suggestions.map((s) => s.hero)).toEqual(expectedHeroes);
+
+    const expectedScores = fresh.suggestions.map((s) => s.score);
+    expect(staleInjected.suggestions.map((s) => s.score)).toEqual(expectedScores);
+    expect(staleLegacy.suggestions.map((s) => s.score)).toEqual(expectedScores);
+    expect(staleImplicit.suggestions.map((s) => s.score)).toEqual(expectedScores);
   });
 });

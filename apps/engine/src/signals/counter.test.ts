@@ -108,7 +108,7 @@ describe("createCounterScorer -- candado de regresion cero (§14.7-1)", () => {
     const baseline = (200 + 40 + 250) / (300 + 100 + 500);
     expect(legacy.raw).toBeCloseTo(200 / 300 - baseline, 10);
     expect(legacy.sampleSize).toBe(300);
-    expect(legacy.explanation).toBe("Fuerte contra Lina");
+    expect(legacy.explanation).toBe("Fuerte contra Lina (67% en 300 partidas)");
   });
 
   test("enemigos conocidos todos bajo 200 partidas: null con params legacy, raw shrunk real con params de produccion", () => {
@@ -169,7 +169,7 @@ describe("createCounterScorer -- capa curada (§14.10-3)", () => {
     const result = createCounterScorer(huskarCounteredByAA).score(state, 68, snapshot);
 
     expect(result.raw).toBeCloseTo(0.12, 10); // +M.hard
-    expect(result.explanation).toContain("Le ganás a Huskar");
+    expect(result.explanation).toContain("Le ganas a Huskar");
     expect(result.sampleSize).toBe(0);
   });
 
@@ -264,6 +264,123 @@ describe("createCounterScorer -- degradacion (§14.10-6)", () => {
   });
 });
 
+// AP Solo Mid data/signal repair (Dota Judge root cause 3.1, P0 confirmado): `contribs` se
+// promediaba en vez de sumarse -- cubrir a DOS rivales revelados con la misma intensidad daba el
+// MISMO raw que cubrir a uno solo, y en el caso medido (mobility: Storm Spirit + Puck), un
+// candidato que contrarrestaba a AMBOS rivales rankeó #6 con el mismo raw que otro que sólo
+// contrarrestaba a UNO. La fórmula correcta es la suma de la evidencia disponible, no su promedio
+// -- estos casos no usan ningún nombre de héroe como regla de negocio, son puramente estructurales.
+describe("createCounterScorer -- agregación multi-rival (§ root cause 3.1, no promediar cobertura)", () => {
+  const HERO = 1;
+  const RIVAL_A = 10;
+  const RIVAL_B = 11;
+
+  test("dos positivos (medium c/u contra dos rivales distintos) -> raw es la SUMA, no el promedio", () => {
+    const curated = new Map([
+      [RIVAL_A, [{ vs: HERO, level: "medium" as const, why: "gana a A" }]],
+      [RIVAL_B, [{ vs: HERO, level: "medium" as const, why: "gana a B" }]],
+    ]);
+    const oneRival = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A] } }),
+      HERO,
+      meta(),
+    );
+    const twoRivals = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(oneRival.raw).toBeCloseTo(0.06, 10); // M.medium, un solo rival
+    expect(twoRivals.raw).toBeCloseTo(0.12, 10); // suma de dos medium -- NO 0.06 (lo que daría un promedio)
+    // El requisito literal del hallazgo: cubrir más rivales comparables nunca vale menos.
+    expect(twoRivals.raw as number).toBeGreaterThan(oneRival.raw as number);
+  });
+
+  test("dos negativos (medium c/u, el candidato es countereado por ambos) -> raw es la suma negativa", () => {
+    const curated = new Map([[HERO, [
+      { vs: RIVAL_A, level: "medium" as const, why: "A le gana" },
+      { vs: RIVAL_B, level: "medium" as const, why: "B le gana" },
+    ]]]);
+    const result = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(result.raw).toBeCloseTo(-0.12, 10);
+  });
+
+  test("positivo + negativo (uno a favor, uno en contra, ambos medium) -> se cancelan, no se promedian a -0.03/+0.03", () => {
+    const curated = new Map([
+      [RIVAL_A, [{ vs: HERO, level: "medium" as const, why: "gana a A" }]], // a favor de HERO
+      [HERO, [{ vs: RIVAL_B, level: "medium" as const, why: "B le gana a HERO" }]], // en contra de HERO
+    ]);
+    const result = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(result.raw).toBeCloseTo(0, 10); // +0.06 + (-0.06) -- ni 0.03 ni -0.03 (eso sería promedio)
+  });
+
+  test("positivo + neutral (el segundo rival no tiene NINGÚN dato, curado ni estadístico) -> no diluye al primero", () => {
+    const curated = new Map([[RIVAL_A, [{ vs: HERO, level: "medium" as const, why: "gana a A" }]]]);
+    // RIVAL_B no aparece en `curated` ni en `meta().matchups` -- capa curada Y estadística vacías
+    // para ese rival, así que no aporta ningún elemento a `contribs` (se salta, no cuenta como 0).
+    const withUnknown = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+    const withoutUnknown = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(withUnknown.raw).toBeCloseTo(0.06, 10);
+    expect(withUnknown.raw).toBeCloseTo(withoutUnknown.raw as number, 10); // el rival "unknown" no mueve la aguja
+  });
+
+  test("dos hard (0.12 c/u) -> la suma excede M.hard sin clamp cuando no hay alivio por bans, igual que hoy con un solo rival", () => {
+    const curated = new Map([
+      [RIVAL_A, [{ vs: HERO, level: "hard" as const, why: "gana duro a A" }]],
+      [RIVAL_B, [{ vs: HERO, level: "hard" as const, why: "gana duro a B" }]],
+    ]);
+    const result = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(result.raw).toBeCloseTo(0.24, 10); // 2 x M.hard, sin clamp (banRelief === 0)
+  });
+
+  test("reproduce el caso medido: cubrir a dos rivales con medium nunca vale menos que cubrir a uno solo con medium", () => {
+    // Estructuralmente idéntico al hallazgo P0 (mobility: dos enemigos móviles). Riki-equivalente
+    // (A) contrarresta a AMBOS rivales con medium y no pierde contra ninguno; Huskar-equivalente
+    // (B) sólo contrarresta a uno de los dos, también medium. Ningún nombre de héroe real se usa
+    // como regla de negocio -- son IDs sintéticos.
+    const COVERS_BOTH = 20;
+    const COVERS_ONE = 21;
+    const curated = new Map([
+      [RIVAL_A, [
+        { vs: COVERS_BOTH, level: "medium" as const, why: "A cubre a ambos, parte 1" },
+        { vs: COVERS_ONE, level: "medium" as const, why: "B cubre a uno, parte 1" },
+      ]],
+      [RIVAL_B, [{ vs: COVERS_BOTH, level: "medium" as const, why: "A cubre a ambos, parte 2" }]],
+    ]);
+    const state = draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } });
+
+    const coversBoth = createCounterScorer(curated).score(state, COVERS_BOTH, meta());
+    const coversOne = createCounterScorer(curated).score(state, COVERS_ONE, meta());
+
+    expect(coversBoth.raw as number).toBeGreaterThanOrEqual(coversOne.raw as number);
+  });
+});
+
 // TSK-188 (SPEC.md §14.13): alivio positivo "tus counters estan baneados = pick mas libre".
 describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => {
   const MORPHLING = 10;
@@ -328,6 +445,17 @@ describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => 
     expect(result.explanation).toContain("1 de sus counters está baneado: Necrophos");
   });
 
+  test("el why de un counter en tu contra se etiqueta como riesgo y nombra al rival", () => {
+    // Why en tercera persona: pegado crudo se leía como una ventaja del candidato.
+    const huskarCounters = new Map<HeroId, CuratedCounter[]>([
+      [59, [{ vs: ANCIENT_APPARITION, level: "hard", why: "Ice Blast corta la curacion de Huskar." }]],
+    ]);
+    const state = draftState({ picks: { radiant: [], dire: [ANCIENT_APPARITION] } });
+    const result = createCounterScorer(huskarCounters).score(state, 59, meta({ heroes: heroNames }));
+
+    expect(result.explanation).toBe("Riesgo (Ancient Apparition te counterea): Ice Blast corta la curacion de Huskar");
+  });
+
   test("candado de regresion §14.7 intacto: con params legacy y curated vacio, los bans no cambian nada", () => {
     const withBans = draftState({ banned: [SILENCER, ANCIENT_APPARITION, NECROPHOS], picks: { radiant: [], dire: [10, 11] } });
     const noBans = draftState({ banned: [], picks: { radiant: [], dire: [10, 11] } });
@@ -337,5 +465,337 @@ describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => 
 
     const scorer = createCounterScorer(NO_CURATED, LEGACY);
     expect(scorer.score(withBans, 1, snapshot)).toEqual(scorer.score(noBans, 1, snapshot));
+  });
+});
+
+describe("Wave 5 Hardening (H1/RH-R3) -- hasRevealedEnemyCounterEvidence producer logic", () => {
+  const CANDIDATE = 1;
+  const REVEALED_ENEMY = 10;
+  const BANNED_COUNTER = 99;
+
+  test("Case A: revealed enemy, negative statistical delta, positive ban relief, no curated relation -> false", () => {
+    // Candidate 1 has a banned counter (99) that gives positive ban relief (+0.04).
+    // Candidate 1 faces revealed enemy (10) where statistical delta is negative.
+    // Candidate 1 has NO curated relation against enemy 10.
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [CANDIDATE, [{ vs: BANNED_COUNTER, level: "hard", why: "Banned counter" }]],
+    ]);
+    const state = draftState({
+      banned: [BANNED_COUNTER],
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    // Matchup: 10 vs 10: 10 wins out of 50 (winrate 0.20), vs 88: 40 wins out of 50 (winrate 0.80).
+    // Overall baseline is (10 + 40) / 100 = 0.50.
+    // Observed winrate vs 10 is 0.20, delta is 0.20 - 0.50 = -0.30 (negative!).
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 10 },
+          { vsHero: 88, games: 50, wins: 40 },
+        ],
+      },
+    });
+
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).not.toBeNull();
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case B: revealed enemy, positive statistical delta -> true", () => {
+    // Candidate 1 faces revealed enemy (10) with positive statistical delta and no curated relations.
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    // Matchup: 40 wins out of 50 vs 10 (winrate 0.80), baseline 0.50 -> positive delta (+0.30)
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 40 },
+          { vsHero: 88, games: 50, wins: 10 },
+        ],
+      },
+    });
+
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+  });
+
+  test("Case C: revealed enemy, curated counter relation -> true", () => {
+    // Revealed enemy (10) is counter-picked by candidate 1 via curated relationship.
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [REVEALED_ENEMY, [{ vs: CANDIDATE, level: "hard", why: "Candidate counters revealed enemy" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, CANDIDATE, meta());
+
+    expect(result.raw).toBeCloseTo(0.12, 10);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+  });
+
+  test("Case D: ban relief only with no revealed-enemy advantage -> false", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [CANDIDATE, [{ vs: BANNED_COUNTER, level: "hard", why: "Banned counter" }]],
+    ]);
+
+    // D1: No revealed enemies at all, only ban relief
+    const stateNoEnemies = draftState({
+      banned: [BANNED_COUNTER],
+      picks: { radiant: [], dire: [] },
+    });
+    const resNoEnemies = createCounterScorer(curated).score(stateNoEnemies, CANDIDATE, meta());
+    expect(resNoEnemies.raw).toBeCloseTo(0.04, 10);
+    expect(resNoEnemies.hasRevealedEnemyCounterEvidence).toBe(false);
+
+    // D2: Revealed enemy present, but candidate has zero or negative matchup advantage
+    const stateWithEnemy = draftState({
+      banned: [BANNED_COUNTER],
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const snapshotEven = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 25 },
+          { vsHero: 88, games: 50, wins: 25 },
+        ],
+      },
+    });
+    const resWithEnemy = createCounterScorer(curated).score(stateWithEnemy, CANDIDATE, snapshotEven);
+    expect(resWithEnemy.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case E: curated medium contributes to score (+0.06) but hasRevealedEnemyCounterEvidence is false", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [REVEALED_ENEMY, [{ vs: CANDIDATE, level: "medium", why: "Candidate medium counters revealed enemy" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, CANDIDATE, meta());
+
+    expect(result.raw).toBeCloseTo(0.06, 10);
+    // Medium contributes to score, but does NOT qualify alone for the visible COUNTER claim
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case F: statistical counter below sample size floor (N < 40) does not qualify", () => {
+    // games: 25 (below floor 40), wins: 20 -> raw delta is high (+0.30), but sample is under floor
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 25, wins: 20 },
+          { vsHero: 88, games: 25, wins: 5 },
+        ],
+      },
+    });
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case G: statistical counter with shrunk delta below +0.04 does not qualify", () => {
+    // games: 50, wins: 26 -> winrate 0.52 vs baseline 0.50 -> delta +0.02 (below +0.04)
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 26 },
+          { vsHero: 88, games: 50, wins: 24 },
+        ],
+      },
+    });
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+});
+
+describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evidence", () => {
+  const RAZOR = 15;
+  const CRYSTAL_MAIDEN = 5;
+  const BRISTLEBACK = 99;
+  const CHAOS_KNIGHT = 81;
+  const MORPHLING = 10;
+  const HUSKAR = 59;
+  const ANCIENT_APPARITION = 68;
+  const MEDUSA = 94;
+
+  const testMeta = meta({
+    heroes: {
+      [RAZOR]: { id: RAZOR, localizedName: "Razor" },
+      [CRYSTAL_MAIDEN]: { id: CRYSTAL_MAIDEN, localizedName: "Crystal Maiden" },
+      [BRISTLEBACK]: { id: BRISTLEBACK, localizedName: "Bristleback" },
+      [CHAOS_KNIGHT]: { id: CHAOS_KNIGHT, localizedName: "Chaos Knight" },
+      [MORPHLING]: { id: MORPHLING, localizedName: "Morphling" },
+      [HUSKAR]: { id: HUSKAR, localizedName: "Huskar" },
+      [ANCIENT_APPARITION]: { id: ANCIENT_APPARITION, localizedName: "Ancient Apparition" },
+      [MEDUSA]: { id: MEDUSA, localizedName: "Medusa" },
+    },
+    matchups: {
+      [RAZOR]: [
+        // Qualifying statistical matchup: 40 wins / 50 games (0.80), baseline 0.50 -> delta +0.30
+        { vsHero: CRYSTAL_MAIDEN, games: 50, wins: 40 },
+        // Non-qualifying statistical matchup: 10 wins / 50 games (0.20) -> negative delta
+        { vsHero: CHAOS_KNIGHT, games: 50, wins: 10 },
+        { vsHero: 888, games: 50, wins: 25 },
+      ],
+      [ANCIENT_APPARITION]: [
+        { vsHero: 888, games: 50, wins: 25 },
+      ],
+      [1]: [
+        // Qualifying vs MEDUSA
+        { vsHero: MEDUSA, games: 50, wins: 40 },
+        // Negative vs 10
+        { vsHero: 10, games: 50, wins: 10 },
+        { vsHero: 888, games: 50, wins: 25 },
+      ],
+    },
+  });
+
+  test("1. S05-style case: badge earned vs Crystal Maiden; medium Bristleback relation exists; rationale names Crystal Maiden, not Bristleback", () => {
+    // Bristleback has a curated medium counter relation vs Razor
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [BRISTLEBACK, [{ vs: RAZOR, level: "medium", why: "Static Link drena su daño y Razor evita golpearlo por detras" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN, BRISTLEBACK] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    // Badge is legitimately earned against Crystal Maiden via statistical evidence
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    // Rationale must name Crystal Maiden, NOT Bristleback
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas)");
+    expect(result.explanation).not.toContain("Bristleback");
+  });
+
+  test("2. hard curated badge: rationale names the hard curated target", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [HUSKAR, [{ vs: ANCIENT_APPARITION, level: "hard", why: "Ice Blast cancela la curación" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [HUSKAR] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, ANCIENT_APPARITION, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    expect(result.explanation).toBe("Le ganas a Huskar: Ice Blast cancela la curación");
+  });
+
+  test("3. statistical-only badge: rationale names the qualifying statistical target", () => {
+    const state = draftState({
+      picks: { radiant: [], dire: [MEDUSA] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, 1, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    expect(result.explanation).toBe("Fuerte contra Medusa (80% en 50 partidas)");
+  });
+
+  test("4. medium-only curated: no badge", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [BRISTLEBACK, [{ vs: RAZOR, level: "medium", why: "Medium counter relation" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [BRISTLEBACK] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    // Contributes numerically (+0.06), but NO badge
+    expect(result.raw).toBeCloseTo(0.06, 10);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+    // Mueve el puntaje, así que el texto lo dice como "posible" y con su porqué (nunca "Sin ventaja").
+    expect(result.explanation).toBe("Ventaja posible contra Bristleback: Medium counter relation");
+  });
+
+  test("5. negative statistical relation: never used as positive COUNTER rationale", () => {
+    const state = draftState({
+      picks: { radiant: [], dire: [10] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, 1, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+    expect(result.explanation).not.toContain("Fuerte contra");
+    expect(result.explanation).toBe("Sin ventaja de contrapick conocida en este draft");
+  });
+
+  test("6. if multiple enemies exist: every enemy named in COUNTER rationale must independently qualify under visible badge semantics", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      // Medium relation (does not qualify)
+      [BRISTLEBACK, [{ vs: RAZOR, level: "medium", why: "Medium" }]],
+      // Negative curated relation: Morphling counters Razor
+      [RAZOR, [{ vs: MORPHLING, level: "hard", why: "Waveform rompe Static Link" }]],
+    ]);
+    // 4 revealed enemies:
+    // - Crystal Maiden: passes statistical threshold (qualifying)
+    // - Bristleback: medium curated (non-qualifying)
+    // - Chaos Knight: negative statistical delta (non-qualifying)
+    // - Morphling: negative curated why (enemy counters candidate)
+    const state = draftState({
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN, BRISTLEBACK, CHAOS_KNIGHT, MORPHLING] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    // ONLY Crystal Maiden independently qualifies; no other enemy is named
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas)");
+    expect(result.explanation).not.toContain("Bristleback");
+    expect(result.explanation).not.toContain("Chaos Knight");
+    expect(result.explanation).not.toContain("Morphling");
+  });
+
+  test("7. ban relief text may be appended, but it must never replace the actual counter target that earned the badge", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      // Candidate's counter is banned -> positive ban relief (+0.04)
+      [RAZOR, [{ vs: MORPHLING, level: "hard", why: "Waveform rompe Static Link" }]],
+    ]);
+    const state = draftState({
+      banned: [MORPHLING],
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    // Preserves the counter target and appends ban relief clause
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas). 1 de sus counters está baneado: Morphling");
+  });
+
+  test("latent case: statistical COUNTER badge with negative curated counter against candidate never outputs negative explanation", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [RAZOR, [{ vs: MORPHLING, level: "hard", why: "Waveform rompe Static Link al instante" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN, MORPHLING] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas)");
+    expect(result.explanation).not.toContain("Waveform");
   });
 });

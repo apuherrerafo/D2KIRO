@@ -1,0 +1,95 @@
+{
+  "schema": "stratz-low-count-acceptance/v1",
+  "status": "PASS",
+  "verifiedAt": "2026-09-22T05:21:44.843Z",
+  "snapshotHash": "c324fc1bbe3ec36e1c20dc0e8c63cf1a6640b48bd0e9475b263fdd7cffa4fb1c",
+  "selectedClosedBuckets": [
+    1789084800,
+    1789171200,
+    1789257600,
+    1789344000,
+    1789430400,
+    1789516800,
+    1789603200
+  ],
+  "firstEvidence": {
+    "heroId": 1,
+    "position": 4,
+    "day": 1789171200,
+    "matchCount": 1,
+    "snapshotHash": "c324fc1bbe3ec36e1c20dc0e8c63cf1a6640b48bd0e9475b263fdd7cffa4fb1c"
+  },
+  "totalLowCountObservations": 1919,
+  "examples": [
+    {
+      "heroId": 1,
+      "position": 4,
+      "day": 1789171200,
+      "matchCount": 1,
+      "winCount": 0
+    },
+    {
+      "heroId": 1,
+      "position": 5,
+      "day": 1789171200,
+      "matchCount": 1,
+      "winCount": 0
+    },
+    {
+      "heroId": 2,
+      "position": 1,
+      "day": 1789084800,
+      "matchCount": 1,
+      "winCount": 0
+    },
+    {
+      "heroId": 3,
+      "position": 1,
+      "day": 1789171200,
+      "matchCount": 1,
+      "winCount": 1
+    },
+    {
+      "heroId": 3,
+      "position": 1,
+      "day": 1789344000,
+      "matchCount": 1,
+      "winCount": 0
+    },
+    {
+      "heroId": 3,
+      "position": 1,
+      "day": 1789516800,
+      "matchCount": 1,
+      "winCount": 1
+    },
+    {
+      "heroId": 3,
+      "position": 3,
+      "day": 1789171200,
+      "matchCount": 1,
+      "winCount": 0
+    },
+    {
+      "heroId": 3,
+      "position": 3,
+      "day": 1789257600,
+      "matchCount": 1,
+      "winCount": 1
+    },
+    {
+      "heroId": 4,
+      "position": 4,
+      "day": 1789344000,
+      "matchCount": 1,
+      "winCount": 1
+    },
+    {
+      "heroId": 4,
+      "position": 4,
+      "day": 1789430400,
+      "matchCount": 1,
+      "winCount": 1
+    }
+  ]
+}

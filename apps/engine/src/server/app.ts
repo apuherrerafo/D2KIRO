@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { accounts } from "../db/schema";
 import { verifyAccountToken } from "./account-token";
-import { getSoleAccountId } from "../db/queries";
+import { getSoleAccountId, getTeamGroup, getTeamGroupById } from "../db/queries";
 import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
@@ -12,10 +12,10 @@ import { deriveDecisionContext } from "../drafter/decision-context";
 import { currentCaptainsModeTurn } from "../draft/turn-clock";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
-import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness } from "../meta/provider";
+import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness, getMetaReadiness } from "../meta/provider";
 import { requireAccount } from "./require-account";
 import { createAccountRoutes } from "./routes/account";
-import type { HeroPositions } from "../signals/hero-positions";
+import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions";
 import { buildSuggestions, type SuggestionSet } from "../signals/mix";
 import {
   checkCaptureToken,
@@ -27,13 +27,19 @@ import {
 } from "./edge";
 import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
-import { createMetaRoutes } from "./routes/meta";
+import { createMetaRoutes, CURRENT_PATCH } from "./routes/meta";
+import { createLiveCaptureRoutes } from "./routes/live-capture";
+import { createLiveGsiRoutes } from "./routes/live-gsi";
+import { LiveCaptureRegistry } from "../live/live-capture-registry";
+import { createGsiLinkStore, type GsiLinkStore } from "../live/gsi-links";
 import { createProDrafterRoutes, handleLowConfidenceReport } from "./routes/pro-drafter";
 import { loadTrustedEligibilityArtifact } from "../draft-protocol";
 import { createProtocolSessionRoutes } from "./routes/protocol-sessions";
 import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
+import { createTelemetryRoutes } from "./routes/telemetry";
 import { createTeamGroupRoutes } from "./routes/team-groups";
 import { ProtocolSessionStore } from "./protocol-session";
+import { withHeroPoolOverride } from "./hero-pool-override";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
@@ -82,6 +88,10 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   // que `index.ts` puede pasar (no lo pasa nunca); sólo `index.e2e.ts` lo fija en `true`,
   // hardcodeado -- no hay ninguna variable de entorno que lo controle en absoluto.
   allowClientForcedBotSelection?: boolean;
+  // Mismo patrón: sólo index.e2e.ts lo fija en true. Ver ProtocolSessionRouteDeps.allowTestClockControl.
+  allowTestClockControl?: boolean;
+  // TSK-219: inyectable para pruebas; por defecto la tabla `live_gsi_links` de la misma SQLite.
+  gsiLinks?: GsiLinkStore;
 }
 
 interface WsData {
@@ -92,10 +102,14 @@ interface WsData {
 // real (eso ya lo da el binding), es solo lo mínimo para que el navegador acepte una respuesta
 // cross-origin de un proceso local en otro puerto (apps/web). Nunca refleja un origin remoto.
 const ALLOWED_ORIGIN_PATTERN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
+// Live capture: the local Overwolf capturer (scripts/live/overwolf-capture) runs on the
+// `overwolf-extension://<app uid>` origin. Same reasoning as above -- the 127.0.0.1 binding and the
+// capture token are the perimeter; this only lets that local app read the engine's answer.
+const OVERWOLF_ORIGIN_PATTERN = /^overwolf-extension:\/\/[a-z0-9]{8,64}$/;
 
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin");
-  if (!origin || !ALLOWED_ORIGIN_PATTERN.test(origin)) return {};
+  if (!origin || (!ALLOWED_ORIGIN_PATTERN.test(origin) && !OVERWOLF_ORIGIN_PATTERN.test(origin))) return {};
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
@@ -125,6 +139,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const protocolSessionRoutes = createProtocolSessionRoutes({
     store: protocolSessionStore,
     computeSuggestions: (state, accountId, options) => computeSuggestionsForState(state, accountId, options),
+    // Live Dota sessions never recommend on a draft the system knows it only half-read (the registry is built below).
+    liveRecommendationGate: (sessionId) => liveCaptureRegistry.recommendationGate(sessionId),
     // Default (cmEligibilityArtifactPath undefined) is IDENTICAL to before this field existed:
     // createProtocolSessionRoutes's own default (loadTrustedEligibilityArtifact() with no path
     // argument) reads DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH.
@@ -132,8 +148,42 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       ? () => loadTrustedEligibilityArtifact(cmEligibilityArtifactPath)
       : undefined,
     allowClientForcedBotSelection: deps.allowClientForcedBotSelection === true,
+    allowTestClockControl: deps.allowTestClockControl === true,
+    heroCapabilities: deps.heroCapabilities,
+    heroUniverse: async () => {
+      const heroRows = await getAllHeroMeta(deps.db);
+      const meta = await getCachedMetaSnapshot<TSchema>(deps.db, null);
+      const totalPicks = (heroId: number): number => (meta.patchStats?.[heroId] ?? []).reduce((sum, stat) => sum + stat.picks, 0);
+      const allHeroIds = heroRows.map((hero) => hero.id);
+      // Proxy for "how likely to be banned": no ban-rate data exists in this project, so total pick volume orders the pool.
+      const metaOrder = [...allHeroIds].sort((a, b) => totalPicks(b) - totalPicks(a) || a - b);
+      return { allHeroIds, metaOrder };
+    },
+    heroPositions: deps.heroPositions,
+    loadTeamGroup: async (id, accountId) => {
+      if (accountId !== null) {
+        return getTeamGroup(deps.db, id, accountId);
+      }
+      return getTeamGroupById(deps.db, id);
+    },
+  });
+  // Live Dota capture: facts from the capturer (/ingest/draft-event, source "overwolf") and the Player's
+  // manual fallback rebuild ONE protocol session through the kernel (live/live-capture-registry.ts).
+  // Role credibility for live own-pick position resolution: the SAME curated data the Coach ranks with.
+  const liveCaptureRegistry = new LiveCaptureRegistry({ store: protocolSessionStore, defaultPatch: CURRENT_PATCH, heroPositions: deps.heroPositions ?? loadHeroPositions() });
+  const liveCaptureRoutes = createLiveCaptureRoutes({ registry: liveCaptureRegistry, defaultPatch: CURRENT_PATCH });
+  // TSK-219: Dota GSI over the Internet -- the link store (hash-only credentials) and its routes.
+  const liveGsiRoutes = createLiveGsiRoutes({
+    links: deps.gsiLinks ?? createGsiLinkStore(deps.db),
+    registry: liveCaptureRegistry,
+    // Account-scoped load (getTeamGroup filters by account_id): another account's preset resolves to null.
+    loadTeamGroup: (teamGroupId, accountId) => getTeamGroup(deps.db, teamGroupId, accountId),
   });
   const rateLimiter = createSessionRateLimiter();
+  // MVP P0.1 -- minimal client error reporting foundation. Own rate limiter instance (own key
+  // space: sessionId-or-IP, never the draft-event session ids above) so a telemetry burst can
+  // never consume the budget /ingest and /api/session/manual depend on.
+  const telemetryRoutes = createTelemetryRoutes({ rateLimiter: createSessionRateLimiter() });
   const accountTokenNow = deps.accountTokenNow ?? Date.now;
   const accountNonceStore = new Map<string, number>();
   const heroPoolRoutes = createHeroPoolRoutes({ db: deps.db, openDotaClient: deps.openDotaClient });
@@ -141,7 +191,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const teamGroupRoutes = createTeamGroupRoutes({ db: deps.db });
   const simulatorRoutes = createSimulatorSessionRoutes({ db: deps.db });
   const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions });
-  const draftPathsRoutes = createDraftPathsRoutes({ db: deps.db, sessionStore, heroCapabilities: deps.heroCapabilities });
+  const draftPathsRoutes = createDraftPathsRoutes({
+    db: deps.db,
+    sessionStore,
+    protocolSessionStore,
+    heroCapabilities: deps.heroCapabilities,
+    requireAccount: (req, allowUnknown) => requireHttpAccount(req, allowUnknown),
+  });
   // Dark launch (pro-drafter-spec-v1.md §3): apagado por defecto, gate real es ENABLE_PRO_DRAFTER
   // (chequeado en el dispatch de abajo), no la sola existencia de esta instancia -- construirla no
   // toca la red ni SQLite, solo carga archivos estáticos ya usados en otras partes del motor.
@@ -174,6 +230,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       archetypeIntent?: DraftPathArchetype;
       // R1 S5 (blocker 3): forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
       candidateHeroIds?: readonly number[];
+      overrideHeroPool?: readonly number[];
+      // Step 1B-B: forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
+      candidateUniverseIsAdmission?: boolean;
+      // Team Coach: pide más de 6 candidatos para poder rellenar sus 5 tarjetas -- forwarded verbatim, ver mix.ts.
+      limit?: number;
     } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
@@ -183,8 +244,14 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     } catch {
       throw new SnapshotUnavailableError();
     }
-    const freshness = await getMetaFreshness(deps.db);
-    return buildSuggestions(state, meta, { metaIsStale: freshness.isStale, heroPositions: deps.heroPositions, ...options });
+    meta = withHeroPoolOverride(meta, options.overrideHeroPool);
+    const readiness = await getMetaReadiness(deps.db, { state, meta });
+    return buildSuggestions(state, meta, {
+      metaIsStale: readiness.syncFreshness.isStale,
+      metaReadiness: readiness,
+      heroPositions: deps.heroPositions,
+      ...options,
+    });
   }
 
   // TSK-181 (Fase 4.3): SessionStore guarda la intención como `DraftPathArchetype | null` (null =
@@ -304,6 +371,18 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return Response.json({ error: "rate_limit_exceeded", scope: "session" }, { status: 429 });
     }
 
+    // Live capture: ONLY the token-authenticated capturer path routes "overwolf" and "ocr" (local visual
+    // capture) envelopes to the live protocol session. The legacy SessionStore never sees them; the tokenless manual path is unchanged.
+    if (opts.requireToken && (body.source === "overwolf" || body.source === "ocr")) {
+      const outcome = liveCaptureRegistry.ingestEnvelope(body);
+      return Response.json(
+        outcome.accepted
+          ? { accepted: true, changed: outcome.changed, ignored: outcome.ignored, live: outcome.status, ...(body.source === "ocr" ? { ack: liveCaptureRegistry.visualAck(body.sessionId) } : {}) }
+          : { accepted: false, rejected: outcome.reason },
+        { status: outcome.accepted ? 202 : 409 },
+      );
+    }
+
     // TSK-055: oportunista, igual que cleanupSimulatorSessions() -- sin scheduler propio.
     sessionStore.evictStale();
     const { state, rejected } = sessionStore.apply(body);
@@ -339,12 +418,60 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       : { ok: true as const, accountId };
   }
 
+  function requireProtocolAccount(request: Request, sessionId?: string) {
+    const auth = requireHttpAccount(request);
+    if (!auth.ok || sessionId === undefined) return auth;
+    const ownership = protocolSessionRoutes.isOwnedBy(sessionId, auth.accountId);
+    if (ownership !== false) return auth;
+    return { ok: false as const, response: Response.json({ error: "protocol_session_forbidden" }, { status: 403 }) };
+  }
+
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json({ ...getHealthStatus(sessionStore.size), authMode: deps.internalAuthSecret ? "multi_tenant" : "single_tenant_local" });
     }
     if (request.method === "POST" && url.pathname === "/ingest/draft-event") {
       return handleDraftEvent(request, { requireToken: true, rateLimit: true });
+    }
+    // TSK-219: Dota GSI ingest. Public ONLY through apps/web's relay (app/api/live/gsi/[liveId]); every
+    // update authenticates with its link's own token inside routes/live-gsi.ts -- no account token here.
+    const gsiIngestMatch = url.pathname.match(/^\/api\/live\/gsi\/([^/]+)$/);
+    if (gsiIngestMatch && request.method === "POST") {
+      return liveGsiRoutes.postIngest(request, gsiIngestMatch[1] ?? "");
+    }
+    // Local visual capture: same public door and same link credential as GSI (relayed by apps/web).
+    const visualIngestMatch = url.pathname.match(/^\/api\/live\/visual\/([^/]+)$/);
+    if (visualIngestMatch && request.method === "POST") {
+      return liveGsiRoutes.postVisual(request, visualIngestMatch[1] ?? "");
+    }
+    // D2KIRO Companion heartbeat: same public door and same link credential (relayed by apps/web).
+    const companionMatch = url.pathname.match(/^\/api\/live\/companion\/([^/]+)$/);
+    if (companionMatch && request.method === "POST") {
+      return liveGsiRoutes.postCompanion(request, companionMatch[1] ?? "");
+    }
+    // Issue (= rotate) is called only by apps/web's server-side cfg download: it is deliberately absent
+    // from the browser proxy allowlist (next.config.ts), so no browser script ever receives a token.
+    if (request.method === "POST" && url.pathname === "/api/live/gsi-link/issue") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.postIssue(auth.accountId) : auth.response;
+    }
+    if (url.pathname === "/api/live/gsi-link" && (request.method === "GET" || request.method === "DELETE")) {
+      const auth = requireHttpAccount(request);
+      if (!auth.ok) return auth.response;
+      return request.method === "GET" ? liveGsiRoutes.getLink(auth.accountId) : liveGsiRoutes.deleteLink(auth.accountId);
+    }
+    // Live Dota + Party 5: select (or clear) the account's own team preset for its live session.
+    if (request.method === "PUT" && url.pathname === "/api/live/team-group") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.putTeamGroup(request, auth.accountId) : auth.response;
+    }
+    // Live Dota: the Player's own seat ("I am Pos N"). With GSI's local hero it binds the Player's hero to a position.
+    if (request.method === "PUT" && url.pathname === "/api/live/human-position") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.putHumanPosition(request, auth.accountId) : auth.response;
+    }
+    if (request.method === "POST" && url.pathname === "/api/telemetry/error") {
+      return telemetryRoutes.postError(request);
     }
     if (request.method === "POST" && url.pathname === "/api/session/manual") {
       // TSK-214: `rateLimit: true`. Antes era `false` porque esta ruta sólo era alcanzable en
@@ -406,32 +533,82 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "POST" && url.pathname === "/api/simulator/sessions") {
       return simulatorRoutes.post();
     }
-    // R1 S2/S3 -- kernel-backed protocol sessions. No account gate: same posture as
-    // /api/session/manual and /api/simulator/sessions (local capturers/simulators, not
-    // account-scoped data) -- account scoping for this path is future work, not this wave's scope.
+    // Live capture: create/open a live session and claim it for the signed-in account.
+    if (request.method === "POST" && url.pathname === "/api/session/protocol/live") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveCaptureRoutes.postLiveSession(request, auth.accountId) : auth.response;
+    }
+    const liveStatusSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "live-status");
+    if (liveStatusSessionId !== null && request.method === "GET") {
+      const auth = requireProtocolAccount(request, liveStatusSessionId);
+      return auth.ok ? liveCaptureRoutes.getLiveStatus(liveStatusSessionId) : auth.response;
+    }
+    const liveObservationSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "live-observation");
+    if (liveObservationSessionId !== null && request.method === "POST") {
+      const auth = requireProtocolAccount(request, liveObservationSessionId);
+      return auth.ok ? liveCaptureRoutes.postLiveObservation(request, liveObservationSessionId) : auth.response;
+    }
     if (request.method === "POST" && url.pathname === "/api/session/protocol") {
-      return protocolSessionRoutes.post(request);
+      const auth = requireProtocolAccount(request);
+      return auth.ok ? protocolSessionRoutes.post(request, auth.accountId) : auth.response;
     }
     const protocolCommandSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "command");
     if (protocolCommandSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postCommand(request, protocolCommandSessionId);
+      const auth = requireProtocolAccount(request, protocolCommandSessionId);
+      return auth.ok ? protocolSessionRoutes.postCommand(request, protocolCommandSessionId) : auth.response;
+    }
+    const protocolResolveBansSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "resolve-bans");
+    if (protocolResolveBansSessionId !== null && request.method === "POST") {
+      const auth = requireProtocolAccount(request, protocolResolveBansSessionId);
+      return auth.ok ? protocolSessionRoutes.postResolveBans(request, protocolResolveBansSessionId) : auth.response;
+    }
+    const protocolTestClockSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "test-advance-clock");
+    if (protocolTestClockSessionId !== null && request.method === "POST") {
+      const auth = requireProtocolAccount(request, protocolTestClockSessionId);
+      return auth.ok ? protocolSessionRoutes.postTestAdvanceClock(request, protocolTestClockSessionId) : auth.response;
     }
     const protocolSimulatorAuthoritySessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "simulator-authority");
     if (protocolSimulatorAuthoritySessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postSimulatorAuthority(request, protocolSimulatorAuthoritySessionId);
+      const auth = requireProtocolAccount(request, protocolSimulatorAuthoritySessionId);
+      return auth.ok ? protocolSessionRoutes.postSimulatorAuthority(request, protocolSimulatorAuthoritySessionId) : auth.response;
     }
     const protocolBotSelectionSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "bot-selection");
     if (protocolBotSelectionSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postBotSelection(request, protocolBotSelectionSessionId);
+      const auth = requireProtocolAccount(request, protocolBotSelectionSessionId);
+      return auth.ok ? protocolSessionRoutes.postBotSelection(request, protocolBotSelectionSessionId) : auth.response;
+    }
+    const protocolAutoDriveSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "auto-drive");
+    if (protocolAutoDriveSessionId !== null && request.method === "POST") {
+      const auth = requireProtocolAccount(request, protocolAutoDriveSessionId);
+      return auth.ok ? protocolSessionRoutes.postAutoDrive(protocolAutoDriveSessionId) : auth.response;
+    }
+    // PD-026/PD-027 -- human yields remaining Own Team round capacity to the Ally Bot.
+    const protocolYieldSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "yield");
+    if (protocolYieldSessionId !== null && request.method === "POST") {
+      const auth = requireProtocolAccount(request, protocolYieldSessionId);
+      return auth.ok ? protocolSessionRoutes.postYield(protocolYieldSessionId) : auth.response;
     }
     // R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
     const protocolRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "recommendations");
     if (protocolRecommendationsSessionId !== null && request.method === "GET") {
-      return protocolSessionRoutes.getRecommendations(protocolRecommendationsSessionId, url);
+      const auth = requireProtocolAccount(request, protocolRecommendationsSessionId);
+      return auth.ok ? protocolSessionRoutes.getRecommendations(protocolRecommendationsSessionId, url, auth.accountId) : auth.response;
+    }
+    // Team Coach Board -- every human-controlled position against one snapshot (read-only).
+    const protocolTeamRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "team-recommendations");
+    if (protocolTeamRecommendationsSessionId !== null && request.method === "GET") {
+      const auth = requireProtocolAccount(request, protocolTeamRecommendationsSessionId);
+      return auth.ok ? protocolSessionRoutes.getTeamRecommendations(protocolTeamRecommendationsSessionId, url, auth.accountId) : auth.response;
+    }
+    const protocolPositionAssignmentSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "position-assignment");
+    if (protocolPositionAssignmentSessionId !== null && request.method === "POST") {
+      const auth = requireProtocolAccount(request, protocolPositionAssignmentSessionId);
+      return auth.ok ? protocolSessionRoutes.postPositionAssignment(request, protocolPositionAssignmentSessionId, auth.accountId) : auth.response;
     }
     const protocolSessionId = protocolSessionRoutes.parseSessionId(url.pathname);
     if (protocolSessionId !== null && request.method === "GET") {
-      return protocolSessionRoutes.get(protocolSessionId, url);
+      const auth = requireProtocolAccount(request, protocolSessionId);
+      return auth.ok ? protocolSessionRoutes.get(protocolSessionId, url) : auth.response;
     }
     const simulatorSessionId = simulatorRoutes.parseStateSessionId(url.pathname);
     if (simulatorSessionId !== null && request.method === "GET") {
@@ -444,6 +621,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "POST" && url.pathname === "/api/team-groups") {
       const auth = requireHttpAccount(request);
       return auth.ok ? teamGroupRoutes.post(request, auth.accountId) : auth.response;
+    }
+    const poolPath = teamGroupRoutes.parsePoolPath(url.pathname);
+    if (poolPath !== null && request.method === "PUT") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.putPool(request, poolPath.teamGroupId, poolPath.memberId, poolPath.position, auth.accountId) : auth.response;
     }
     const teamGroupId = teamGroupRoutes.parseId(url.pathname);
     if (teamGroupId !== null && request.method === "GET") {
@@ -513,7 +695,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
           const verified = verifyAccountToken(message.accountToken, deps.internalAuthSecret, accountTokenNow, accountNonceStore);
           const known = verified.ok && deps.db.select({ id: accounts.steamAccountId }).from(accounts).where(eq(accounts.steamAccountId, verified.accountId)).limit(1).all().length > 0;
           if (!verified.ok || !known || !sessionStore.claimOwner(message.sessionId, verified.accountId)) {
-            ws.send(JSON.stringify(buildServerMessage("error", 0, { code: "unauthorized", message: "Sesión no válida — volvé a iniciar sesión" })));
+            ws.send(JSON.stringify(buildServerMessage("error", 0, { code: "unauthorized", message: "Sesión no válida — vuelve a iniciar sesión" })));
             ws.close(1008, "unauthorized");
             return;
           }
@@ -545,7 +727,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
               JSON.stringify(
                 buildServerMessage("error", state.lastSeq, {
                   code: "snapshot_unavailable",
-                  message: "No se pudo construir el snapshot de meta -- reintentá en unos segundos",
+                  message: "No se pudo construir el snapshot de meta -- reintenta en unos segundos",
                 }),
               ),
             );

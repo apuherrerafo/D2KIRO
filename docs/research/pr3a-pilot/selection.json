@@ -1,0 +1,132 @@
+{
+  "purpose": "V7 PR-3A pilot -- muestra fijada ANTES de evaluar con certifyProMatch",
+  "rule": "L1 = liga elegible con más filas en /proMatches (empate: mayor leagueid) -> 4 más nuevas; L2 = liga más poblada del otro tier elegible -> 1 más nueva; si no hay L2, 5 de L1. Más nueva = mayor match_id.",
+  "fetchedAt": "2026-10-22T22:34:40.776Z",
+  "requests": [
+    {
+      "path": "/leagues",
+      "status": 200,
+      "bytes": 1045570,
+      "sha256": "f6882ea26844417de9ea6d32505b4c2bc0d937d1b055e237cb57a3802663a27d",
+      "at": "2026-10-22T22:34:40.776Z"
+    },
+    {
+      "path": "/proMatches",
+      "status": 200,
+      "bytes": 32224,
+      "sha256": "6ee2ddf41759645dc35104e53888f81d3f6661fafe28e4234dffa296686df7cc",
+      "at": "2026-10-22T22:34:41.015Z"
+    }
+  ],
+  "leaguesTotalRows": 10390,
+  "leaguesTierDistribution": {
+    "professional": 2484,
+    "excluded": 7528,
+    "premium": 214,
+    "amateur": 59,
+    "null": 105
+  },
+  "proMatchesRows": 100,
+  "candidateLeagues": [
+    {
+      "leagueid": 19944,
+      "tier": "professional",
+      "rowsInPage": 49
+    },
+    {
+      "leagueid": 20406,
+      "tier": "professional",
+      "rowsInPage": 11
+    },
+    {
+      "leagueid": 20395,
+      "tier": "professional",
+      "rowsInPage": 8
+    },
+    {
+      "leagueid": 18631,
+      "tier": "professional",
+      "rowsInPage": 3
+    }
+  ],
+  "selectedLeagues": {
+    "l1": 19944,
+    "l1Tier": "professional",
+    "l2": null,
+    "l2Tier": null
+  },
+  "selected": [
+    {
+      "match_id": 9057084643,
+      "leagueid": 19944,
+      "league_name": "EPL Masters 2026 ",
+      "start_time": 1792696356,
+      "start_time_iso": "2026-10-22T19:12:36.000Z",
+      "radiant_win": false
+    },
+    {
+      "match_id": 9056988862,
+      "leagueid": 19944,
+      "league_name": "EPL Masters 2026 ",
+      "start_time": 1792692706,
+      "start_time_iso": "2026-10-22T18:11:46.000Z",
+      "radiant_win": true
+    },
+    {
+      "match_id": 9056844521,
+      "leagueid": 19944,
+      "league_name": "EPL Masters 2026 ",
+      "start_time": 1792686683,
+      "start_time_iso": "2026-10-22T16:31:23.000Z",
+      "radiant_win": false
+    },
+    {
+      "match_id": 9056685103,
+      "leagueid": 19944,
+      "league_name": "EPL Masters 2026 ",
+      "start_time": 1792681136,
+      "start_time_iso": "2026-10-22T14:58:56.000Z",
+      "radiant_win": true
+    },
+    {
+      "match_id": 9056536159,
+      "leagueid": 19944,
+      "league_name": "EPL Masters 2026 ",
+      "start_time": 1792675118,
+      "start_time_iso": "2026-10-22T13:18:38.000Z",
+      "radiant_win": false
+    }
+  ],
+  "leaguesSubset": [
+    {
+      "leagueid": 19944,
+      "tier": "professional",
+      "name": "EPL Masters 2026 "
+    },
+    {
+      "leagueid": 20395,
+      "tier": "professional",
+      "name": "PARI UNIVERSE by FISSURE"
+    },
+    {
+      "leagueid": 20334,
+      "tier": "excluded",
+      "name": "NEXUS SERIES II"
+    },
+    {
+      "leagueid": 18631,
+      "tier": "professional",
+      "name": "护鼠宝"
+    },
+    {
+      "leagueid": 20411,
+      "tier": "excluded",
+      "name": "奇迹杯"
+    },
+    {
+      "leagueid": 20406,
+      "tier": "professional",
+      "name": "1win Streamers League #3"
+    }
+  ]
+}

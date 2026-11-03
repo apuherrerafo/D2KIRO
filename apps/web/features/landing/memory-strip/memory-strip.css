@@ -1,0 +1,134 @@
+/* LANDING-01B · Memory Strip, Phases A and B. Static grammar only: no animation here on purpose (Phase B).
+   Colour only from the `--r3-*` tokens, custom properties prefixed `ms-`. Meaning is carried by geometry first
+   (solid / dashed / faint / ribbon / split) and by colour second:
+   cyan = retained · pink = contradiction · lime = qualified · neutral = unresolved. */
+
+.ms-host { container-type: inline-size; width: 100%; }
+.ms {
+  --ms-cyan: var(--r3-spec-cyan); --ms-pink: var(--r3-spec-pink); --ms-lime: var(--r3-spec-lime);
+  --ms-neutral: var(--r3-muted);
+  background:
+    radial-gradient(60% 50% at 72% 30%, color-mix(in srgb, var(--ms-pink) 7%, transparent), transparent 70%),
+    radial-gradient(55% 50% at 24% 70%, color-mix(in srgb, var(--ms-cyan) 7%, transparent), transparent 70%),
+    var(--r3-bg);
+  color: var(--r3-ink);
+  display: grid; min-height: min(100vh, 760px); padding: 40px 24px; place-items: center;
+}
+.ms-layout { align-items: center; column-gap: 72px; display: grid; grid-template-columns: auto minmax(0, 340px); max-width: 100%; }
+
+/* ───────── annotation: editorial, tied to the evidence beside it ───────── */
+.ms-annotation { display: grid; gap: 16px; max-width: 340px; }
+.ms-stage { align-items: baseline; display: grid; gap: 4px; margin: 0; }
+.ms-stage-kicker { color: var(--r3-muted); font: 500 12px/1 var(--f-bric); letter-spacing: .18em; text-transform: uppercase; }
+.ms-stage-number { font: 700 96px/.9 var(--f-syne); letter-spacing: -.04em; }
+.ms-stage[data-numbered="false"] .ms-stage-kicker { color: var(--r3-ink); font-size: 14px; }
+.ms-copy { font: 500 24px/1.25 var(--f-bric); letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+.ms-note { border-left: 1px solid var(--r3-line-strong); color: var(--r3-muted); font: 400 13px/1.45 var(--f-bric); margin: 0; padding-left: 12px; }
+
+/* ───────── the evidence object ───────── */
+.ms-object { margin: 0; width: min(480px, calc((100vh - 120px) * .96), calc(100cqw - 48px)); }
+.ms-canvas { aspect-ratio: var(--ms-ar); container-type: inline-size; position: relative; width: 100%; }
+.ms-svg { display: block; height: 100%; inset: 0; overflow: visible; position: absolute; width: 100%; }
+.ms-dom { --u: calc(100cqw / 480); inset: 0; pointer-events: none; position: absolute; }
+
+/* unresolved region: irregular, glassy, low opacity, no score */
+.ms-region {
+  fill: color-mix(in srgb, var(--r3-ink) 5%, transparent);
+  stroke: color-mix(in srgb, var(--r3-ink) 22%, transparent); stroke-dasharray: 1 5; stroke-linecap: round; stroke-width: 1;
+}
+
+/* paths */
+.ms-path-core { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ms-path[data-tone="cyan"] { --ms-stroke: var(--ms-cyan); }
+.ms-path[data-tone="lime"] { --ms-stroke: var(--ms-lime); }
+.ms-path[data-tone="neutral"] { --ms-stroke: var(--ms-neutral); }
+.ms-path-core { stroke: var(--ms-stroke); }
+.ms-path[data-relation="retained"] .ms-path-core { stroke-width: 1.5; }
+.ms-path[data-relation="uncertain"] .ms-path-core { stroke-dasharray: 2 5; stroke-width: 1; }
+.ms-path[data-relation="undertrace"] .ms-path-core { opacity: .5; stroke-width: 1; }
+.ms-path[data-relation="qualified"] .ms-path-core { stroke-width: 1.75; }
+.ms-path-halo { fill: none; opacity: .32; stroke: var(--ms-lime); stroke-linecap: round; stroke-width: 7; }
+.ms-terminal { fill: var(--r3-bg); stroke: var(--ms-neutral); stroke-width: 1; }
+
+/* matchup: translucent, hatched sliver that cuts across */
+.ms-matchup-body { fill: color-mix(in srgb, var(--ms-pink) 14%, transparent); }
+.ms-hatch-line { stroke: color-mix(in srgb, var(--ms-pink) 55%, transparent); stroke-width: 1; }
+.ms-matchup-edge { stroke: color-mix(in srgb, var(--ms-pink) 70%, transparent); stroke-width: 1; }
+
+/* nodes and markers */
+.ms-node[data-tone="cyan"] { fill: var(--ms-cyan); }
+.ms-node[data-tone="lime"] { fill: var(--ms-lime); }
+.ms-node[data-tone="neutral"] { fill: var(--ms-neutral); }
+.ms-node { stroke: var(--r3-bg); stroke-width: 1.5; }
+.ms-contradiction-half { fill: var(--ms-pink); stroke: var(--r3-bg); stroke-width: 1; }
+.ms-contradiction-cut { stroke: var(--r3-ink); stroke-linecap: round; stroke-width: 1; }
+.ms-role path { fill: none; stroke: var(--r3-muted); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+
+/* origin seal: 64 outer / 48 portrait */
+.ms-origin { height: calc(var(--u) * 64); position: absolute; transform: translate(-50%, -50%); width: calc(var(--u) * 64); }
+.ms-origin-ring { height: 100%; inset: 0; position: absolute; width: 100%; }
+.ms-origin-outer { fill: color-mix(in srgb, var(--r3-bg) 70%, transparent); stroke: color-mix(in srgb, var(--ms-cyan) 35%, transparent); stroke-width: 1; }
+.ms-origin-arc { fill: none; stroke: var(--ms-cyan); stroke-linecap: round; stroke-width: 2; }
+.ms-origin .ms-icon { inset: 0; margin: auto; position: absolute; }
+.ms-origin .ms-icon .chm-icon[data-size] { --chm-icon-size: calc(var(--u) * 48); border-radius: 6px; }
+
+/* hero echo: 28 / 40 active, never below a readable minimum */
+.ms-echo { position: absolute; transform: translate(-50%, -50%); }
+.ms-echo .ms-icon .chm-icon[data-size] { --chm-icon-size: max(24px, calc(var(--u) * 28)); border-radius: 4px; outline: 1.5px solid var(--ms-echo, var(--r3-line-strong)); outline-offset: 2px; }
+.ms-echo[data-active="true"] .ms-icon .chm-icon[data-size] { --chm-icon-size: max(32px, calc(var(--u) * 40)); }
+.ms-echo[data-tone="cyan"] { --ms-echo: var(--ms-cyan); }
+.ms-echo[data-tone="lime"] { --ms-echo: var(--ms-lime); }
+.ms-echo[data-tone="neutral"] { --ms-echo: var(--ms-pink); }
+
+/* labels */
+.ms-label { display: grid; gap: 2px; margin: 0; position: absolute; white-space: nowrap; }
+.ms-label-kicker { color: var(--r3-muted); font: 500 10px/1 var(--f-bric); letter-spacing: .14em; text-transform: uppercase; }
+.ms-label-text { font: 500 12px/1.2 var(--f-bric); }
+.ms-label[data-side="above"] { justify-items: center; text-align: center; transform: translate(-50%, calc(-100% - var(--u) * var(--gap))); }
+.ms-label[data-side="below"] { justify-items: center; text-align: center; transform: translate(-50%, calc(var(--u) * var(--gap))); }
+.ms-label[data-side="below-left"] { justify-items: end; text-align: right; transform: translate(0, calc(var(--u) * var(--gap))) translateX(calc(-100% - var(--u) * var(--gap-x))); }
+.ms-label[data-side="left"] { justify-items: end; text-align: right; transform: translate(calc(-100% - var(--u) * var(--gap)), -50%); }
+.ms-label[data-side="right"] { transform: translate(calc(var(--u) * (var(--gap) + var(--gap-x))), -50%); }
+
+/* narrow object: the same evidence, only the active labels stay */
+@container (max-width: 400px) {
+  .ms-label[data-active="false"] { display: none; }
+  .ms-label-text { font-size: 11px; }
+}
+
+/* visually hidden textual equivalent of the evidence */
+.ms-sr { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; white-space: nowrap; }
+
+@container (max-width: 860px) {
+  .ms { align-items: start; padding: 24px; }
+  .ms-layout { grid-template-columns: minmax(0, 1fr); row-gap: 24px; justify-items: center; }
+  .ms-object { width: min(342px, calc(100cqw - 48px)); }
+  .ms-annotation { gap: 12px; max-width: min(342px, calc(100cqw - 48px)); }
+  .ms-stage { align-items: baseline; display: flex; gap: 12px; }
+  .ms-stage-number { font-size: 56px; }
+  .ms-copy { font-size: 20px; }
+
+  /* Match 01 / 08 / 24 / 56: their evidence sits in a band of the 480 by 500 box, so the canvas becomes a window onto
+     that band (same SVG + DOM layers, shifted up) instead of carrying empty rows above and below it. */
+  .ms[data-scene="match-01"] .ms-canvas { --ms-top: 60; --ms-h: 380; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-08"] .ms-canvas { --ms-top: 40; --ms-h: 370; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-56"] .ms-canvas { --ms-top: 36; --ms-h: 420; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-24"] .ms-canvas { --ms-top: 50; --ms-h: 330; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-01"] .ms-svg, .ms[data-scene="match-01"] .ms-dom,
+  .ms[data-scene="match-08"] .ms-svg, .ms[data-scene="match-08"] .ms-dom,
+  .ms[data-scene="match-56"] .ms-svg, .ms[data-scene="match-56"] .ms-dom,
+  .ms[data-scene="match-24"] .ms-svg, .ms[data-scene="match-24"] .ms-dom {
+    height: calc(100cqw * 500 / 480); inset: auto; left: 0; top: calc(-100cqw * var(--ms-top) / 480); width: 100%;
+  }
+}
+
+/* ───────── Phase C: motion ─────────
+   While a transition runs the canvas crop is driven by `--ms-top` / `--ms-h` (set inline by the player, interpolated between
+   the two scenes' windows), so the picture never jumps. Everything else is transform / opacity / SVG attributes. */
+@container (max-width: 860px) {
+  .ms[data-motion] .ms-canvas { aspect-ratio: 480 / var(--ms-h); overflow: hidden; overflow: clip; overflow-clip-margin: 24px; }
+  .ms[data-motion] .ms-svg, .ms[data-motion] .ms-dom {
+    height: calc(100cqw * 500 / 480); inset: auto; left: 0; top: calc(-100cqw * var(--ms-top) / 480); width: 100%;
+  }
+}
+.ms[data-motion] .ms-origin, .ms[data-motion] .ms-echo { will-change: transform, opacity; }

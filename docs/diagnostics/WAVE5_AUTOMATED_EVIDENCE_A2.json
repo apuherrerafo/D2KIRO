@@ -1,0 +1,468 @@
+{
+  "result": "PASS",
+  "evidenceIdentity": {
+    "schema": "wave5-evidence-identity/v1",
+    "certificationId": "W5-A2-CERT-002",
+    "generatedAt": "2026-09-22T06:09:14.044Z",
+    "runtime": {
+      "bun": "1.4.2"
+    },
+    "code": {
+      "head": "6c9e5fffe8531a3f6d034af285fef911be2d09a4",
+      "branch": "HEAD",
+      "isolation": "linked-worktree",
+      "cleanAtHead": false,
+      "dirtyPathCount": 61,
+      "dirtyDiffHash": "8b5e123ec1a40bbe5a4c78e2c2d1a1c72c51b81f2ff7c6dbe8d6e667cad970b7",
+      "dirty": [
+        {
+          "status": "M",
+          "path": ".gitignore",
+          "blobId": "d445af8e47e5f5844fac86533145b0fa0771d295"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/hero-card.test.ts",
+          "blobId": "2811b67af2c55e9ded5a204a084283011c8928aa"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/hero-card.ts",
+          "blobId": "1563ca15d9ce43b6d2ec4c4285ca41324e8a873c"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/orchestrator.ts",
+          "blobId": "80a1c50b079232bc51d4f9137ff5b194e0932525"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/personal-hero-view.ts",
+          "blobId": "f3e0f318adce4789c71202fb9efc8f7db2eaf3bc"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/perspective-boundary.test.ts",
+          "blobId": "43cd523b2107eec76dea347e39afdfbca69c78e5"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/recommendation-output-v3.test.ts",
+          "blobId": "7a54a7fd8ddcdb984b5c66645b99cdbb8f7fbd14"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/recommendation-output-v3.ts",
+          "blobId": "d28245970f2ff001413e2b63eb448d0cc8570fc4"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/reveal-strategy.test.ts",
+          "blobId": "cfa558e15f3e21424a55988c045fdfa2d17dd556"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/reveal-strategy.ts",
+          "blobId": "7893e7528561f7c813fe7a6c380633a5ecc84eca"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/coach/safe-core.coach.test.ts",
+          "blobId": "3df57b8091661a7caa6c6ead37df38b0b6710cef"
+        },
+        {
+          "status": "??",
+          "path": "apps/engine/src/coach/wave5.certification.test.ts",
+          "blobId": "fc1c813a9e2a126534b87cbbaba7cdcff23f2385"
+        },
+        {
+          "status": "??",
+          "path": "apps/engine/src/coach/wave5.dota-judge-remediation.test.ts",
+          "blobId": "6ec1636ece3dcd4a82e4c4e09780e69bf7d06fb6"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/draft-protocol/perspective.test.ts",
+          "blobId": "87de55c24386d0f9281e73d73aaf8d86cf8daca9"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/recommendation/build-from-perspective.ts",
+          "blobId": "4a01616e52e281cda39b74c6eb49bf9cb6e86468"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/server/routes/coach-recommendations.ts",
+          "blobId": "c9a50cd611cf2f0dfbb405f8ec370683af1c657f"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/signals/hero-positions.json",
+          "blobId": "3aaace5976d7b9e383bfad827c3f66f659bde5c0"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/signals/hero-positions.test.ts",
+          "blobId": "274a3107c7ab5b0ecfd18fedc433dce670a5fa90"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/signals/hero-positions.ts",
+          "blobId": "33665677eb7c3b1889742d4826d0d41a54e6da14"
+        },
+        {
+          "status": "M",
+          "path": "apps/engine/src/simulator/enemy-bot.test.ts",
+          "blobId": "7f388bd43dbb990d4e3ab7e2c04bcf7af1ed0236"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/draft/styles.ts",
+          "blobId": "a342129c6d66131d30d3b77b5c30620979d4ec4b"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/random-draft-simulator/coach-client.test.ts",
+          "blobId": "d384b85c2adca84744a6b2bceb22af697840eb4e"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/random-draft-simulator/coach-client.ts",
+          "blobId": "37a941d0951a4c5a05148d4477452182d94c5e4f"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/random-draft-simulator/components/CoachPanel.test.tsx",
+          "blobId": "1f7eac0dfa31a607958db45184e350b14576947a"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/random-draft-simulator/components/CoachPanel.tsx",
+          "blobId": "e5d9582bc11bac979511f0e63254c8abe209e10f"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/random-draft-simulator/components/CopilotPanel.test.tsx",
+          "blobId": "47dad3a3e315c42689958383b0ba9cba173cb525"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/features/random-draft-simulator/components/CopilotPanel.tsx",
+          "blobId": "db089e4035f6beb32d0a15ebb8bd76601616136b"
+        },
+        {
+          "status": "??",
+          "path": "apps/web/features/random-draft-simulator/degradation-copy.test.ts",
+          "blobId": "f707bd188ba25b08b64fc5eafc92aa3bc783cf14"
+        },
+        {
+          "status": "??",
+          "path": "apps/web/features/random-draft-simulator/degradation-copy.ts",
+          "blobId": "1d178db90937707fff6ac843cfcf9014b0ee93c1"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/next.config.test.ts",
+          "blobId": "e3555f0f081be311563628f34104d52de3d67665"
+        },
+        {
+          "status": "M",
+          "path": "apps/web/next.config.ts",
+          "blobId": "1193df64d0d3eb9f2a3042c00734846a541090c0"
+        },
+        {
+          "status": "??",
+          "path": "docs/QA_CALIBRATION.md",
+          "blobId": "8947122c9dae84bb00444260bc931b7e83fa18f3"
+        },
+        {
+          "status": "??",
+          "path": "e2e/wave5-certification.spec.ts",
+          "blobId": "dbf056ebe8515d9fbd77dfdd21140af9316ffb25"
+        },
+        {
+          "status": "??",
+          "path": "eval/snapshots/W5-EMP-001.provenance.json",
+          "blobId": "d3b1747431aad69e5f88101b6ebf5b3345693db9"
+        },
+        {
+          "status": "??",
+          "path": "eval/snapshots/W5-EMP-001.sqlite",
+          "blobId": "1c131d648fe4e5fcbee6cbab794cbb2aae402a69"
+        },
+        {
+          "status": "M",
+          "path": "package.json",
+          "blobId": "a0e32739ba74f4f5d71ebfbad17bd309d18ddca1"
+        },
+        {
+          "status": "??",
+          "path": "scripts/eval/empirical-provenance.test.ts",
+          "blobId": "056bf56c891e5d2a27054ae2ea6ae1d91e30134b"
+        },
+        {
+          "status": "??",
+          "path": "scripts/eval/empirical-provenance.ts",
+          "blobId": "84dde3fc3c248d0bda630d54e787fe077ce27f64"
+        },
+        {
+          "status": "??",
+          "path": "scripts/eval/freeze-empirical-snapshot.ts",
+          "blobId": "b7d97bba83254803d0da7897ef2de1e108d0514b"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/audit-bounds.ts",
+          "blobId": "46c106f1d33a4b15fa3bcc54c3f3d1f4533a45e2"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/bounds.test.ts",
+          "blobId": "0bb334359c9cd91bc2836683362eb15cf1a97bbe"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/bounds.ts",
+          "blobId": "76d1259f591dc688b1d4b5e8bc0e59f35c88bfb2"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/coverage.ts",
+          "blobId": "fee7f516d523f6260894f9a23f0ed12fe0600125"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/fetch-stratz.ts",
+          "blobId": "9391693d28727ac99f80cb24b5a171bca5632143"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/import-observations.test.ts",
+          "blobId": "8e47c70171ce187f5c699bf1c86b036d9bebfd46"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/import-observations.ts",
+          "blobId": "5cf2ae0c6cd7b1410c377b9ddae86efc4af86c09"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/scrape-d2pt.ts",
+          "blobId": "eb9d340181e07317b95d69a48609f4cfc06e9f85"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/stratz.test.ts",
+          "blobId": "7b9e915cb499b3cf1dd0dda29910ad2a4f11cfc2"
+        },
+        {
+          "status": "??",
+          "path": "scripts/positions/verify-stratz-low-counts.ts",
+          "blobId": "0d2f9c9c6747cc3c2fc7f3ae4058ab7c052989de"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5-certification.ts",
+          "blobId": "237658b8b0b1ea78eaa013df2c3e97ca4cb4a4b6"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5-dota-judge-packet.ts",
+          "blobId": "b24171b01a399adb997ae1dfa2ffc9e76981604f"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5-smoke.ts",
+          "blobId": "02d917a1f50796816d7034ece9c0969fa1b7e8c1"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/certification-worktree.test.ts",
+          "blobId": "efd1e6e257482b97b211f3b1b5b7b6cfa677ee67"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/certification-worktree.ts",
+          "blobId": "8e12dfcefd19fe9dd7cbf467b08dda0462b51f35"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/driver.ts",
+          "blobId": "cc3e9549caebff05734ec6fa0dacd3ea04b047f1"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/evidence-identity.test.ts",
+          "blobId": "91960448bef3630b33b0c1c0fd84fb3a79f185bd"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/evidence-identity.ts",
+          "blobId": "6572b63a50958ef4a31d0de71079a9b4edd2dcea"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/packet-diff.test.ts",
+          "blobId": "ad59e9a3262e930024ae1a5cc7ff577cabed9bd2"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/packet-diff.ts",
+          "blobId": "f3cab2d2b2a439366bef120ccfbf3a044fa23006"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/pure.test.ts",
+          "blobId": "2286678b855d5624ffe91b02da633dd0fccef616"
+        },
+        {
+          "status": "??",
+          "path": "scripts/wave5/pure.ts",
+          "blobId": "ce9e685b7a3521f7837b5362afd78fec233c6b71"
+        }
+      ],
+      "trackedAndUntrackedFileCount": 1073,
+      "contentStateHash": "5844451deed19a2c9b13866f3878a9cc0deaa67b605e7e639d7dc1587992c974",
+      "outputsExcluded": [
+        "docs/diagnostics/"
+      ]
+    },
+    "data": {
+      "empiricalSnapshot": {
+        "certifiable": true,
+        "id": "W5-EMP-001",
+        "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+        "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+        "provenanceSha256": "e00376cdd577c618d3caf709cfbb573cc7ef8688473965d74fd4e58a307b1d51",
+        "verifiedAgainstProvenance": true,
+        "drift": [],
+        "rowCounts": {
+          "heroes": 127,
+          "hero_patch_stats": 1016,
+          "hero_matchups": 15982,
+          "matchupHeroesDistinct": 127
+        },
+        "source": "OpenDota",
+        "retrievalWindow": {
+          "from": "2026-09-18T01:11:38.894Z",
+          "to": "2026-09-19T20:49:59.597Z"
+        },
+        "interruptedSyncRunPresent": true,
+        "observationWindow": null,
+        "patchClaim": {
+          "label": "7.41e",
+          "verified": false
+        }
+      },
+      "empiricalPatchAttribution": "label-only, UNVERIFIED -- the source reports no patch; the label is applied by our ingestion",
+      "rulesetTarget": "7.41f",
+      "positionalDataset": {
+        "path": "apps/engine/src/signals/hero-positions.json",
+        "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78",
+        "format": "hero-position-observations/v1",
+        "mode": "as-loaded",
+        "denominatorCorrected": true,
+        "completeness": "all observed rows retained (see the file's provenance)",
+        "provenanceTwin": {
+          "path": "data/metadata/hero-positions.json",
+          "sha256": null
+        }
+      },
+      "curatedData": [
+        {
+          "path": "apps/engine/src/signals/hero-counters.json",
+          "sha256": "0c2be735c3434cc0e4bd42838dabe2584c41c3bf6e07616f509944b727873f4b"
+        },
+        {
+          "path": "apps/engine/src/draft-paths/capabilities.json",
+          "sha256": "8ac9d22827b11852b0514cc85db652f9a475a501e783da25405620ab9ca2f120"
+        }
+      ],
+      "generatedData": [
+        {
+          "path": "data/generated/percentiles.json",
+          "sha256": "9e871e50c9d3d84d43773ddc4f13843e6db26fe1a2a7b94f86aeb77847ae8f0c"
+        },
+        {
+          "path": "data/generated/signal-profile.json",
+          "sha256": "452627a296b164e420de4d82cedd9dc672fca882f334048822da982ba24e6413"
+        },
+        {
+          "path": "data/generated/tolerance.json",
+          "sha256": "ea3193f6820db61c5e63203a09885bc6b0bab189c87434d44e2bf040a4d68e39"
+        }
+      ]
+    },
+    "comparableKey": "22246f114353b97e3cadd9fe0fe246070460bd94edca8d567d310154aeb04c6f",
+    "reproduce": [
+      "bun scripts/eval/freeze-empirical-snapshot.ts --verify=W5-EMP-001",
+      "bun scripts/wave5-certification.ts --suffix=_A2 --certification-id=W5-A2-CERT-002",
+      "bun scripts/wave5/evidence-identity.ts --compare=<packetA.json>,<packetB.json>"
+    ]
+  },
+  "head": "6c9e5fffe8531a3f6d034af285fef911be2d09a4",
+  "failures": [],
+  "soak": {
+    "drafts": 600,
+    "completed": 600,
+    "states": 3095,
+    "replayMismatches": 0,
+    "badStatuses": 0,
+    "byPolicy": [
+      {
+        "policy": "follow-coach",
+        "drafts": 200,
+        "completed": 200,
+        "states": 1047
+      },
+      {
+        "policy": "varied",
+        "drafts": 200,
+        "completed": 200,
+        "states": 1038
+      },
+      {
+        "policy": "deviate",
+        "drafts": 200,
+        "completed": 200,
+        "states": 1010
+      }
+    ]
+  },
+  "twins": {
+    "compared": 349,
+    "identical": 349,
+    "mismatches": 0,
+    "skippedCollision": 31,
+    "divergedAfterReveal": 200,
+    "revealChecks": 200,
+    "twistCases": 100
+  },
+  "separation": {
+    "states": 416,
+    "teamIdentical": 416,
+    "teamMismatches": 0,
+    "personalDiffers": 221,
+    "poolMembershipDiffers": 221,
+    "poolBadgeOnTeamList": 0
+  },
+  "fallback": {
+    "states": 21,
+    "previouslyAbortedNowComplete": 19,
+    "previouslyAborted": 19
+  },
+  "safeCore": {
+    "raw": 2,
+    "wave4aPopulation": 2
+  },
+  "performance": {
+    "samples": 3095,
+    "p50": 10.563099999999395,
+    "p95": 50.52509999999984,
+    "p99": 58.410100000000966,
+    "max": 70.91580000000249,
+    "overBudget": 0,
+    "overCutoff": 0,
+    "coldFirst": 45.57159999999999
+  }
+}

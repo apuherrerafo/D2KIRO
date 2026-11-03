@@ -15,6 +15,8 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/simulator/sessions/:sessionId/state",
   "/engine/api/team-groups",
   "/engine/api/team-groups/:id",
+  // Hero Pools V2 (F4): el ÚNICO camino de escritura de un pool por jugador y posición. Sin esta entrada el guardado da 404.
+  "/engine/api/team-groups/:id/members/:memberId/pools/:position",
   // TSK-214: rutas que apps/web llamaba desde el NAVEGADOR contra http://127.0.0.1:4000.
   // En Railway ese loopback no existe para el navegador del usuario, así que fallaban todas en
   // silencio -- los picks del simulador nunca llegaban al motor y el tablero quedaba congelado.
@@ -24,6 +26,11 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/session/protocol/:sessionId",
   "/engine/api/session/protocol/:sessionId/command",
   "/engine/api/session/protocol/:sessionId/bot-selection",
+  "/engine/api/session/protocol/:sessionId/auto-drive",
+  "/engine/api/session/protocol/:sessionId/yield",
+  // AP Ranked Roles V1 (Wave 1): server-side BanResolutionPolicy. Without this entry the browser gets
+  // a 404 through the proxy and the Simulator (correctly, fail closed) refuses to start Round 1.
+  "/engine/api/session/protocol/:sessionId/resolve-bans",
   "/engine/api/session/protocol/:sessionId/simulator-authority",
   // R1 S7 (Blocker 2 investigation) -- missing from this allowlist since TSK-214 added the rest of
   // this family: fetchRecommendations() (protocol-client.ts) has been 404ing through this proxy in
@@ -34,10 +41,31 @@ const ENGINE_REWRITE_SOURCES = [
   // gap: confirmed via curl direct-to-engine (200, real RecommendationSet/v2) vs through this proxy
   // (404) with the exact same session id.
   "/engine/api/session/protocol/:sessionId/recommendations",
+  // Wave 5 (product certification): coach-client.ts `assignOwnCoachPosition` posts here when the Player assigns a
+  // position to an own Flex hero. It was missing from this allowlist, so the call 404ed through the proxy and the
+  // Own-Flex assignment silently did nothing in the real product (found by the Wave 5 browser journey).
+  "/engine/api/session/protocol/:sessionId/position-assignment",
+  // Team Coach Board (/simulator and /live-draft): every human position ranked against one snapshot.
+  "/engine/api/session/protocol/:sessionId/team-recommendations",
+  // Live Dota capture: open/claim a live session, read capture status, report a fact by hand (fallback).
+  "/engine/api/session/protocol/live",
+  "/engine/api/session/protocol/:sessionId/live-status",
+  "/engine/api/session/protocol/:sessionId/live-observation",
+  // TSK-219: the browser reads (GET) and revokes (DELETE) its Dota GSI link. Issuing one is NOT here on
+  // purpose: only the server-side cfg download (app/api/live/gsi-config) may receive a link token.
+  "/engine/api/live/gsi-link",
+  // Live Dota + Party 5: select (PUT) or clear the account's own team preset for its live session. The body only
+  // NAMES a preset (teamGroupId); the engine loads its pools server-side, scoped to the signed-in account.
+  "/engine/api/live/team-group",
+  // Live Dota: the Player declares their own seat ("I am Pos N", null clears it). The body is one position; the
+  // engine resolves the session from the account's own Dota link, so a client can never name another account's.
+  "/engine/api/live/human-position",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",
   "/engine/api/pro-drafter/low-confidence-report",
+  // MVP client telemetry relay: telemetry-client.ts posts client errors here
+  "/engine/api/telemetry/error",
 ] as const;
 
 const nextConfig: NextConfig = {

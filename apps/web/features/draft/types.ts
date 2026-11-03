@@ -75,6 +75,7 @@ export interface SignalContribution {
   // a este usuario ahora mismo" (pool nunca configurado) es distinto de `raw: null` ("hay hueco de
   // datos") -- mismo campo, mismo significado, que el motor ya define en signals/types.ts.
   applicable?: boolean;
+  hasRevealedEnemyCounterEvidence?: boolean;
 }
 
 export type SuggestionConfidence = "alta" | "media" | "baja";
@@ -104,7 +105,15 @@ export interface SuggestionComparison {
   delta: number;
 }
 
-export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available";
+export type KnownDegradationFlag =
+  | "stale_meta"
+  | "partial_signals"
+  | "unconfirmed_state"
+  | "unknown_format"
+  | "no_signal_available"
+  | "patch_meta_data_not_ready";
+
+export type DegradationFlag = KnownDegradationFlag | (string & {});
 
 export interface SuggestionSet {
   schema: "suggestions/v1";

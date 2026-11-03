@@ -137,7 +137,11 @@ describe("S2 acceptance -- Ranked All Pick through ProtocolSessionStore", () => 
     expect(store.get("collisions")!.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
 
     // Collision 1 and 2 banned the hero; collision 3's hero must NOT be banned once resolved.
-    const resolution = resolveSimulatorCollisionAuthority(store.get("collisions")!, "TESTSEED")!;
+    const resolution = resolveSimulatorCollisionAuthority(
+      store.get("collisions")!.rankedAp!.round!.pendingCollision!,
+      store.registrationEvidence("collisions")!,
+    );
+    if (!resolution.ok) throw new Error("no winner");
     expect(resolution.command.heroId).toBe(403);
     const result = store.apply("collisions", resolution.command);
     expect(result?.rejected).toBeUndefined();

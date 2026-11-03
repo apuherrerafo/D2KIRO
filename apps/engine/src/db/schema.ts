@@ -102,11 +102,31 @@ export const teamMembers = sqliteTable("team_members", {
   teamGroupId: integer("team_group_id")
     .notNull()
     .references(() => teamGroups.id),
+  // Display order in the editor ONLY. It is never a position: see `position`.
   slot: integer("slot").notNull(),
+  // The player's usual position (1..5), an explicit fact the user confirmed. NULL = never confirmed (legacy rows,
+  // or a companion nobody placed): such a member is never given a position, so their pool is never applied.
+  position: integer("position").$type<1 | 2 | 3 | 4 | 5>(),
   name: text("name").notNull(),
   heroPool: text("hero_pool", { mode: "json" }).$type<number[]>().notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// Hero Pools V2 (F2): one pool per (member, position). A pool belongs to the person (`team_members.id`) AND the seat it
+// was written for, so changing a match position activates THAT seat's pool and never borrows another one. `version` is
+// a per-pool counter for compare-and-set writes (a stale tab can't overwrite a newer pool). An empty `hero_pool` is an
+// explicit "no pool for this seat" and shadows the legacy `team_members.hero_pool`, which stays untouched.
+export const teamMemberPositionPools = sqliteTable(
+  "team_member_position_pools",
+  {
+    memberId: integer("member_id").notNull().references(() => teamMembers.id),
+    position: integer("position").$type<1 | 2 | 3 | 4 | 5>().notNull(),
+    heroPool: text("hero_pool", { mode: "json" }).$type<number[]>().notNull(),
+    version: integer("version").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.memberId, table.position] })],
+);
 
 // TSK-050: inbox append-only de reportes de QA manual -- `draftState`/`suggestions` quedan sin
 // `$type<...>()` a propósito, ese contrato vive en apps/web y cambia con cada fase; tipar acá
@@ -118,4 +138,44 @@ export const draftFeedback = sqliteTable("draft_feedback", {
   draftState: text("draft_state", { mode: "json" }).notNull(),
   suggestions: text("suggestions", { mode: "json" }),
   createdAt: text("created_at").notNull(),
+});
+
+// MVP Player Feedback: feedback granular por recomendación individual (thumbs up/down)
+export const recommendationFeedback = sqliteTable("recommendation_feedback", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: text("session_id").notNull(),
+  heroId: integer("hero_id").notNull(),
+  targetPosition: integer("target_position"),
+  rating: text("rating").notNull().$type<"positive" | "negative">(),
+  reason: text("reason").$type<
+    | "wrong_position"
+    | "poor_hero"
+    | "questionable_counter"
+    | "unclear_explanation"
+    | "not_useful"
+    | "other"
+  >(),
+  comment: text("comment"),
+  stateIdentity: text("state_identity"),
+  rulesetId: text("ruleset_id"),
+  rulesetVersion: text("ruleset_version"),
+  accountId: integer("account_id").references(() => accounts.steamAccountId),
+  createdAt: text("created_at").notNull(),
+});
+
+
+// TSK-219: enlace de Dota GSI -> Railway. Un `.cfg` instalado una vez POSTea a
+// `/api/live/gsi/<liveId>` con un token propio del enlace. Sólo se guarda el HASH del token (nunca el
+// token), el dueño es la cuenta autenticada que lo generó -- jamás una identidad del cuerpo GSI.
+// Tiempos en ms epoch: se comparan contra el reloj inyectado, no se muestran crudos. Una fila por cuenta
+// como máximo: rotar o revocar BORRA la fila anterior (el `.cfg` viejo deja de autenticar al instante).
+export const liveGsiLinks = sqliteTable("live_gsi_links", {
+  liveId: text("live_id").primaryKey(),
+  accountId: integer("account_id")
+    .notNull()
+    .references(() => accounts.steamAccountId),
+  tokenHash: text("token_hash").notNull(),
+  sessionId: text("session_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
 });

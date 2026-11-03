@@ -16,8 +16,10 @@ const MAX_NAMED_ENEMIES = 2;
 //   2. Capa estadística (sólo rivales NO cubiertos por el curado): shrinkage hacia el baseline
 //      del candidato vía `shrinkEstimate` (`pro/shrinkage.ts`, TSK-165) -- una muestra chica
 //      tiende a `c_r = 0` ("sin señal"), no a un offset fijo.
-// `raw = mean(c_r)` sobre los rivales cubiertos; `null` si ninguno (idéntico a hoy).
-// Con `curated` vacío + `{ minGames: 200, shrinkPriorStrength: null }` reproduce el
+// `raw = sum(c_r)` sobre los rivales cubiertos (AP Solo Mid data/signal repair: era `mean`, ver
+// nota junto al cálculo -- promediar borraba la cobertura de enfrentar a más de un rival);
+// `null` si ninguno (idéntico a hoy). Con un solo rival cubierto, suma y promedio coinciden, así
+// que `curated` vacío + `{ minGames: 200, shrinkPriorStrength: null }` sigue reproduciendo el
 // comportamiento previo número por número (candado de regresión, §14.7).
 
 // §14.6 -- valores de arranque, ajustables tras el QA en el simulador (no reabren el SPEC).
@@ -29,6 +31,20 @@ export const COUNTER_MIN_GAMES = 10;
 export const COUNTER_SHRINK_PRIOR_STRENGTH = 20;
 // "Partidas virtuales" hacia el baseline del candidato: 42 partidas conservan ~68% del delta,
 // 200 ~91%, 10 ~33%.
+
+/**
+ * Umbral mínimo de partidas para que una ventaja estadística califique para la insignia visible COUNTER.
+ * Basado en la distribución empírica congelada (mediana de partidas = 51, p40 = 40): a 40 partidas con
+ * shrinkPriorStrength = 20, el factor de contracción es 40/(40+20) = 0.667.
+ */
+export const STATISTICAL_COUNTER_BADGE_MIN_GAMES = 40;
+
+/**
+ * Ventaja estadística mínima (delta contraído sobre baseline) para que califique para la insignia visible COUNTER.
+ * +0.04 (+4.0% de delta contraído) se sitúa en el percentil 78 (p78) de todos los pares y top 47% de los positivos,
+ * requiriendo un delta observado crudo de al menos +6.0% a 40 partidas.
+ */
+export const STATISTICAL_COUNTER_BADGE_MIN_DELTA = 0.04;
 
 // TSK-188 (SPEC.md §14.13): término POSITIVO "tus counters están baneados = pick más libre".
 // No depende de picks rivales revelados -- vota desde el pick 1. Valores de arranque QA-tuneables.
@@ -42,6 +58,10 @@ export interface CounterScorerOptions {
   /** Fuerza del prior del shrinkage hacia el baseline del candidato. Default
    *  `COUNTER_SHRINK_PRIOR_STRENGTH`. `null` -> usa el delta crudo (comportamiento previo). */
   shrinkPriorStrength?: number | null;
+  /** Umbral de partidas para calificar para hasRevealedEnemyCounterEvidence (insignia COUNTER). Default STATISTICAL_COUNTER_BADGE_MIN_GAMES. */
+  badgeMinGames?: number;
+  /** Umbral de delta contraído para calificar para hasRevealedEnemyCounterEvidence (insignia COUNTER). Default STATISTICAL_COUNTER_BADGE_MIN_DELTA. */
+  badgeMinDelta?: number;
 }
 
 // `knownEnemies` no depende del candidato ni de `meta` -- se deriva sólo del `state`, que el
@@ -76,10 +96,24 @@ interface EnemyDelta {
   vsHero: HeroId;
   delta: number;
   games: number;
+  /** Winrate crudo del candidato contra este rival (0..1), para mostrarlo en el texto. */
+  observedWinrate: number;
 }
 
-// Explicación cuando SÓLO hubo capa estadística (idéntica a la previa).
-function buildStatisticalExplanation(meta: MetaSnapshot, deltas: EnemyDelta[]): string {
+// Explicación cuando SÓLO hubo capa estadística.
+function buildStatisticalExplanation(
+  meta: MetaSnapshot,
+  deltas: EnemyDelta[],
+  badgeMinGames = STATISTICAL_COUNTER_BADGE_MIN_GAMES,
+  badgeMinDelta = STATISTICAL_COUNTER_BADGE_MIN_DELTA,
+): string {
+  const qualifying = deltas
+    .filter((d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, MAX_NAMED_ENEMIES)
+    .map((d) => heroName(meta, d.vsHero));
+  if (qualifying.length > 0) return `Fuerte contra ${qualifying.join(" y ")}`;
+
   const strongAgainst = deltas
     .filter((d) => d.delta > 0)
     .sort((a, b) => b.delta - a.delta)
@@ -90,14 +124,19 @@ function buildStatisticalExplanation(meta: MetaSnapshot, deltas: EnemyDelta[]): 
 }
 
 // Explicación cuando hubo al menos una contribución curada: los `why` de los counters en tu
-// contra primero (hasta 2), luego los rivales a los que les ganás.
+// contra primero (hasta 2), luego los rivales a los que les ganas.
 function buildCuratedExplanation(negativeWhy: string[], positiveNames: string[]): string {
   const parts: string[] = [];
   if (negativeWhy.length > 0) parts.push(negativeWhy.slice(0, MAX_NAMED_ENEMIES).join(" "));
   if (positiveNames.length > 0) {
-    parts.push(`Le ganás a ${positiveNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`);
+    parts.push(`Le ganas a ${positiveNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`);
   }
   return parts.join(" ");
+}
+
+// El `why` curado sin punto final ni espacios: las cláusulas se unen con ". ".
+function cleanWhy(why: string): string {
+  return why.trim().replace(/[.\s]+$/, "");
 }
 
 // TSK-188: cláusula de alivio -- "N de sus counters están baneados: <hasta 2 nombres>".
@@ -114,6 +153,8 @@ export function createCounterScorer(
   const minGames = options.minGames ?? COUNTER_MIN_GAMES;
   const shrinkPriorStrength =
     options.shrinkPriorStrength === undefined ? COUNTER_SHRINK_PRIOR_STRENGTH : options.shrinkPriorStrength;
+  const badgeMinGames = options.badgeMinGames ?? STATISTICAL_COUNTER_BADGE_MIN_GAMES;
+  const badgeMinDelta = options.badgeMinDelta ?? STATISTICAL_COUNTER_BADGE_MIN_DELTA;
 
   // Cache por instancia: el índice depende de `minGames`, así que no puede compartirse entre
   // scorers con distinto umbral.
@@ -136,7 +177,8 @@ export function createCounterScorer(
 
       const contribs: number[] = [];
       const negativeWhy: string[] = [];
-      const positiveNames: string[] = [];
+      const positiveHard: { name: string; why: string }[] = [];
+      const positiveMedium: { name: string; why: string }[] = [];
       const statDeltas: EnemyDelta[] = [];
       let statSampleSize = 0;
 
@@ -148,14 +190,22 @@ export function createCounterScorer(
         const against = curatedForCandidate.find((entry) => entry.vs === rival);
         if (against) {
           curatedValue -= M[against.level];
-          negativeWhy.push(against.why);
+          // El `why` curado describe por qué el rival le gana al candidato, a menudo en tercera
+          // persona ("Death Pulse limpia ilusiones"): pegado crudo se leía como una ventaja. Se
+          // etiqueta siempre como riesgo y se nombra al rival (mismo criterio que e63e79d).
+          negativeWhy.push(`Riesgo (${heroName(meta, rival)} te counterea): ${against.why.trim().replace(/[.\s]+$/, "")}`);
           curatedHit = true;
         }
 
         const counters = (curated.get(rival) ?? []).find((entry) => entry.vs === candidate);
         if (counters) {
           curatedValue += M[counters.level];
-          positiveNames.push(heroName(meta, rival));
+          const reason = { name: heroName(meta, rival), why: cleanWhy(counters.why) };
+          if (counters.level === "hard") {
+            positiveHard.push(reason);
+          } else {
+            positiveMedium.push(reason);
+          }
           curatedHit = true;
         }
 
@@ -180,7 +230,7 @@ export function createCounterScorer(
 
         contribs.push(cr);
         statSampleSize += row.games;
-        statDeltas.push({ vsHero: rival, delta: cr, games: row.games });
+        statDeltas.push({ vsHero: rival, delta: cr, games: row.games, observedWinrate: row.observedWinrate });
       }
 
       // TSK-188: alivio positivo -- counters del candidato que están baneados (fuera de la mesa).
@@ -201,24 +251,68 @@ export function createCounterScorer(
           weighted: 0,
           explanation: "Sin datos suficientes de enfrentamientos para este candidato",
           sampleSize: 0,
+          hasRevealedEnemyCounterEvidence: false,
         };
       }
 
-      const meanRevealed =
-        contribs.length > 0 ? contribs.reduce((sum, value) => sum + value, 0) / contribs.length : 0;
-      // `banRelief === 0` -> `raw` es el `mean(c_r)` de 8A SIN clamp (candado de regresión §14.7:
-      // el fixture actual da 0.12222 > M.hard y debe seguir dándolo). Con alivio, el total sí se
-      // acota a `RAW_RANGE.counter`.
+      // AP Solo Mid data/signal repair (Dota Judge root cause 3.1, P0 confirmado y reproducido en
+      // counter.test.ts): `contribs` SE SUMABA COMO PROMEDIO, no como total -- un candidato que
+      // cubre a DOS rivales revelados con un `medium` cada uno (0.06 + 0.06) promediaba a 0.06,
+      // exactamente el mismo valor que cubrir a UN SOLO rival con `medium`. Cubrir el doble de
+      // amenazas terminaba valiendo lo mismo que cubrir la mitad -- el caso medido: Riki (medium
+      // vs Storm Y Puck, pierde contra ninguno) rankeó #6 con el mismo raw que Huskar (medium vs
+      // Puck solamente). La suma preserva la cobertura: dos evidencias positivas comparables nunca
+      // valen menos que una sola. Sigue SIN clamp antes del alivio (candado de regresión §14.7: el
+      // fixture de un solo rival da 0.12222 > M.hard y debe seguir dándolo -- con un solo elemento,
+      // suma y promedio coinciden). Con alivio, el total sí se acota a `RAW_RANGE.counter`.
+      const sumRevealed = contribs.reduce((sum, value) => sum + value, 0);
       const raw =
-        banRelief === 0 ? meanRevealed : Math.max(-M.hard, Math.min(M.hard, meanRevealed + banRelief));
+        banRelief === 0 ? sumRevealed : Math.max(-M.hard, Math.min(M.hard, sumRevealed + banRelief));
+
+      // Wave 5 Domain Remediation: valid visible counter evidence requires:
+      // 1. Curated HARD counter against a revealed enemy (curated level="hard" only), OR
+      // 2. Statistical counter against a revealed enemy with sufficient sample floor and effect size:
+      //    games >= badgeMinGames (default 40) AND shrunk delta >= badgeMinDelta (default +0.04).
+      // Curated medium relations contribute to numerical scoring (+0.06) but do NOT qualify
+      // alone for the visible COUNTER claim.
+      // Ban relief alone or net-negative/sub-threshold statistical evidence never qualifies.
+      const hasCuratedHardCounter = positiveHard.length > 0;
+      const qualifyingStatDeltas = statDeltas.filter(
+        (d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta,
+      );
+      const hasStatisticalCounter = qualifyingStatDeltas.length > 0;
+      const hasRevealedEnemyCounterEvidence =
+        hasCuratedHardCounter || hasStatisticalCounter;
 
       let explanation: string;
-      if (contribs.length > 0) {
-        const base =
-          negativeWhy.length > 0 || positiveNames.length > 0
-            ? buildCuratedExplanation(negativeWhy, positiveNames)
-            : buildStatisticalExplanation(meta, statDeltas);
+      if (hasCuratedHardCounter) {
+        // A. Curated hard relation earned the badge: explanation must name that hard-counter target.
+        // Medium curated relations and non-qualifying statistical relations are never named.
+        // El porqué curado va siempre: "Le ganas a X" sin mecanismo no dice nada que un jugador pueda comprobar.
+        const base = positiveHard
+          .slice(0, MAX_NAMED_ENEMIES)
+          .map((r) => `Le ganas a ${r.name}: ${r.why}`)
+          .join(". ");
         explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
+      } else if (hasStatisticalCounter) {
+        // B. Qualifying statistical relation earned the badge: explanation must name one or more
+        // revealed enemies whose statistical evidence itself passes games >= 40 and contracted delta >= +0.04.
+        // Medium curated relations and negative/sub-threshold statistical relations are never named.
+        const qualifyingNames = qualifyingStatDeltas
+          .sort((a, b) => b.delta - a.delta)
+          .slice(0, MAX_NAMED_ENEMIES)
+          .map((d) => `${heroName(meta, d.vsHero)} (${Math.round(d.observedWinrate * 100)}% en ${d.games} partidas)`);
+        // Esta capa es solo winrate: se dice con las cifras a la vista, no como si fuera una razón de Dota.
+        const base = `Fuerte contra ${qualifyingNames.join(" y ")}`;
+        explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
+      } else if (contribs.length > 0) {
+        // No qualifying positive counter against revealed enemies.
+        // Un counter curado `medium` sí mueve el puntaje (+0.06), así que el texto no puede decir que
+        // no hay ventaja: se nombra como "posible", con su porqué. No gana la insignia COUNTER.
+        const parts: string[] = negativeWhy.slice(0, MAX_NAMED_ENEMIES);
+        parts.push(...positiveMedium.slice(0, MAX_NAMED_ENEMIES).map((r) => `Ventaja posible contra ${r.name}: ${r.why}`));
+        if (banRelief > 0) parts.push(buildBanReliefClause(banReliefNames));
+        explanation = parts.length > 0 ? parts.join(". ") : "Sin ventaja de contrapick conocida en este draft";
       } else {
         explanation = buildBanReliefClause(banReliefNames);
       }
@@ -231,6 +325,7 @@ export function createCounterScorer(
         weighted: 0,
         explanation,
         sampleSize: statSampleSize,
+        hasRevealedEnemyCounterEvidence,
       };
     },
   };

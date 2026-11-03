@@ -1,0 +1,890 @@
+{
+  "schema": "engine-p1-exam/v1",
+  "purpose": "Baseline of how the Coach recommends heroes today (F1, TSK-250). Measures; changes nothing. PASS technical != strategic improvement.",
+  "identity": {
+    "schema": "wave5-evidence-identity/v1",
+    "certificationId": "ENGINE_P1_EXAM_BASELINE",
+    "runtime": {
+      "bun": "1.4.2"
+    },
+    "code": {
+      "head": "8b89af780850be15048990ad2d5506fc4c179c41",
+      "branch": "feat/engine-p1-drafter-base",
+      "isolation": "linked-worktree",
+      "cleanAtHead": true,
+      "dirtyPathCount": 0,
+      "dirtyDiffHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "dirty": [],
+      "trackedAndUntrackedFileCount": 1533,
+      "contentStateHash": "77ee8e495848ed2f941fb44a5227b73c3472fde9b0fabd15d4485e7e8d3dd91f",
+      "outputsExcluded": [
+        "docs/diagnostics/"
+      ]
+    },
+    "data": {
+      "empiricalSnapshot": {
+        "certifiable": true,
+        "id": "W5-EMP-001",
+        "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+        "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+        "provenanceSha256": "e00376cdd577c618d3caf709cfbb573cc7ef8688473965d74fd4e58a307b1d51",
+        "verifiedAgainstProvenance": true,
+        "drift": [],
+        "rowCounts": {
+          "heroes": 127,
+          "hero_patch_stats": 1016,
+          "hero_matchups": 15982,
+          "matchupHeroesDistinct": 127
+        },
+        "source": "OpenDota",
+        "retrievalWindow": {
+          "from": "2026-09-18T01:11:38.894Z",
+          "to": "2026-09-19T20:49:59.597Z"
+        },
+        "interruptedSyncRunPresent": true,
+        "observationWindow": null,
+        "patchClaim": {
+          "label": "7.41e",
+          "verified": false
+        }
+      },
+      "empiricalPatchAttribution": "label-only, UNVERIFIED -- the source reports no patch; the label is applied by our ingestion",
+      "rulesetTarget": "7.41f",
+      "positionalDataset": {
+        "path": "apps/engine/src/signals/hero-positions.json",
+        "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78",
+        "format": "hero-position-observations/v1",
+        "mode": "as-loaded",
+        "denominatorCorrected": true,
+        "completeness": "all observed rows retained (see the file's provenance)",
+        "provenanceTwin": {
+          "path": "data/metadata/hero-positions.json",
+          "sha256": "ecb5cecb782f6c93234768f306cbfc05ddcee4b1da8511f543f34b39ee42287e"
+        }
+      },
+      "curatedData": [
+        {
+          "path": "apps/engine/src/signals/hero-counters.json",
+          "sha256": "b89087af92423a08f59c0829dcb503a8ad790862de697a3daffc3fce917549c4"
+        },
+        {
+          "path": "apps/engine/src/draft-paths/capabilities.json",
+          "sha256": "6d2474244c1d73b2772a29d79306e301475aa509a83073a2d3ce063531840870"
+        }
+      ],
+      "generatedData": [
+        {
+          "path": "data/generated/percentiles.json",
+          "sha256": "eb3a1084daf752dbb4df4c6467e18a755597c831f01fbd26602d2458b7efc3d9"
+        },
+        {
+          "path": "data/generated/signal-profile.json",
+          "sha256": "241e2fcdebe39d907d188bc0ab8b9af70363655479ea1e10007bc4465a7c797f"
+        },
+        {
+          "path": "data/generated/tolerance.json",
+          "sha256": "7b212ff49ecbe921d48cec586cce1c1f7cd772d172d9e465b062264f7c041ff8"
+        }
+      ]
+    },
+    "comparableKey": "e56e316f946fd5600cc23f07a9ffee0c854901ca0ac49ed0b12bd378d749aed0",
+    "reproduce": [
+      "bun scripts/p1-exam/exam.ts --out=ENGINE_P1_EXAM_BASELINE --drafts=120"
+    ]
+  },
+  "config": {
+    "drafts": 120,
+    "policies": [
+      "follow-coach",
+      "varied",
+      "deviate"
+    ],
+    "personalPositions": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "sides": [
+      "radiant",
+      "dire"
+    ],
+    "seeds": "AUDIT001.."
+  },
+  "coverage": {
+    "drafts": 120,
+    "completed": 120,
+    "decisionPoints": 622,
+    "round1": 254,
+    "round2": 247,
+    "round3": 121,
+    "harnessFailures": 0,
+    "harnessBadStatuses": 0
+  },
+  "limitations": [
+    "Frozen statistical snapshot labelled 7.41e (label unverified); curated positions/counters are hand-curated. Absolute numbers are comparative baselines, not truth.",
+    "The simulated Player follows V3 (follow-coach / varied / deviate); the Enemy Bot is scripted. States are realistic, not human.",
+    "The lab has no saved-team pools: POOL_SCARCITY is approximated with the Player's own pool at their personal position.",
+    "I3 'declared precedence' is LivePositionPriorityV1 evaluated offline over the board's own columns; it does not run in the simulator today.",
+    "I11 is not measurable until T5 creates the `basis` field."
+  ],
+  "summary": {
+    "states": 622,
+    "hard": {
+      "I1_illegal": {
+        "violations": 0,
+        "examples": []
+      },
+      "I2_roleFeasibility": {
+        "violations": 0,
+        "examples": []
+      },
+      "I3_conformity": {
+        "targetDivergesFromDeclaredPrecedence": {
+          "states": 432,
+          "of": 622,
+          "rate": 0.6945,
+          "examples": [
+            "follow-coach:AUDIT001:radiant#0 board recommends pos1 (DETERMINISTIC_DEFAULT); declared precedence (LPP/PHASE) would pick pos5",
+            "follow-coach:AUDIT001:radiant#1 board recommends pos2 (DETERMINISTIC_DEFAULT); declared precedence (LPP/PHASE) would pick pos5",
+            "follow-coach:AUDIT001:radiant#2 board recommends pos3 (DETERMINISTIC_DEFAULT); declared precedence (LPP/COUNTER_WINDOW) would pick pos5",
+            "follow-coach:AUDIT001:radiant#3 board recommends pos4 (DETERMINISTIC_DEFAULT); declared precedence (LPP/COUNTER_WINDOW) would pick pos5",
+            "follow-coach:AUDIT001:radiant#4 board recommends pos4 (DETERMINISTIC_DEFAULT); declared precedence (LPP/COUNTER_WINDOW) would pick pos5"
+          ]
+        },
+        "openColumnNotRanked": {
+          "violations": 0,
+          "examples": []
+        },
+        "phaseShownAsStrategic": 0
+      },
+      "I6_visible": {
+        "gapOpenStates": 1,
+        "gapNotVisibleOnAnyCard": 1,
+        "note": "A late open initiation/catch gap that no card mentions. T4/T5 are expected to close it; at baseline it is a known defect."
+      },
+      "I9_visible": {
+        "hardCounteredHeroesInTop3": 0,
+        "statesAffected": 0,
+        "withoutVisibleRisk": 0,
+        "examples": [],
+        "note": "Plan v2: allowed in the top-3 only when fewer than 3 credible alternatives exist AND the risk is shown. At baseline the risk is never shown."
+      },
+      "I11_honestBasis": {
+        "status": "NOT_MEASURABLE",
+        "reason": "No `basis` field exists on any card yet (it is created by T5/TSK-254); today a curated claim and a statistical claim look identical."
+      }
+    },
+    "observations": {
+      "I3_openingOnCore": {
+        "openingStates": 120,
+        "coreFirstWithoutWindow": 46,
+        "rate": 0.3833,
+        "note": "Simulator recommends Pos 1/2 on the Player's first decision of round 1 with no COUNTER_WINDOW/POOL_SCARCITY behind it."
+      },
+      "I4_reactivityJaccardTop3": {
+        "overall": 0.2939,
+        "byPosition": {
+          "pos1": 0.3243,
+          "pos2": 0.2976,
+          "pos3": 0.2881,
+          "pos4": 0.2733,
+          "pos5": 0.2864
+        },
+        "sampleStates": 120,
+        "note": "1.0 = the same three heroes for a position in every draft."
+      },
+      "I5_positionFitShareOfScore": {
+        "levelMedian": 0.5999,
+        "levelP10": 0.555,
+        "levelP90": 0.6347,
+        "orderMedian": 0,
+        "orderP10": -0.0287,
+        "orderP90": 0.5382,
+        "saturatedShareMean": 0.8312,
+        "states": 622,
+        "candidatesPerState": 6,
+        "note": "level = share of V6's score that is position_fit; order = cov(position_fit, score)/var(score) among the candidates V6 keeps (TOP_N) for the recommended column. Not the whole credible field: V6 truncates before the exam can see it."
+      },
+      "I7_damageMix": {
+        "monoDamageStates": 1,
+        "top3Diversifies": 0
+      },
+      "I6_fill": {
+        "gapOpenStates": 1,
+        "top3Fills": 1,
+        "fillerExistsInShownSet": 1
+      },
+      "I8_exposureOfRound1Primary": {
+        "states": 120,
+        "meanHardCountersAvailable": 0.325,
+        "maxHardCountersAvailable": 2
+      },
+      "I10_round1Top3InMorePlayedHalf": {
+        "candidates": 1800,
+        "inMorePlayedHalf": 1800,
+        "rate": 1,
+        "note": "Observation only (plan v2 removed it as a gate): high = the ranking leans on popularity."
+      },
+      "top1Concentration": {
+        "pos1": {
+          "distinctPrimaries": 6,
+          "sample": 120,
+          "mostCommonShare": 0.3333
+        },
+        "pos2": {
+          "distinctPrimaries": 9,
+          "sample": 120,
+          "mostCommonShare": 0.3167
+        },
+        "pos3": {
+          "distinctPrimaries": 8,
+          "sample": 120,
+          "mostCommonShare": 0.4333
+        },
+        "pos4": {
+          "distinctPrimaries": 8,
+          "sample": 120,
+          "mostCommonShare": 0.325
+        },
+        "pos5": {
+          "distinctPrimaries": 9,
+          "sample": 120,
+          "mostCommonShare": 0.4
+        }
+      },
+      "shownButNotCredibleAtColumn": {
+        "count": 0,
+        "examples": []
+      }
+    }
+  },
+  "judgePacket": {
+    "schema": "engine-p1-judge-packet/v1",
+    "componentQuestions": [
+      {
+        "id": "C1-position",
+        "text": "Position order: is the position the board recommends the right one to commit to NOW (and not just the lowest open one)?"
+      },
+      {
+        "id": "C2-ranking",
+        "text": "Hero ranking: are the heroes shown for that position the ones you would consider, or do they look chosen for being popular?"
+      },
+      {
+        "id": "C3-composition",
+        "text": "Composition: does the advice notice what the team still lacks (initiation / catch / damage mix)?"
+      },
+      {
+        "id": "C4-exposure",
+        "text": "Exposure: is any recommended hero a clear counter-target of what the rival has shown, and does the card say so?"
+      }
+    ],
+    "planQuestions": [
+      {
+        "id": "P1-tempo",
+        "text": "Does this team need to win early, or can it scale?"
+      },
+      {
+        "id": "P2-objectives",
+        "text": "Can this draft convert an advantage into objectives?"
+      },
+      {
+        "id": "P3-plan",
+        "text": "Does the recommendation improve the plan, or only the score?"
+      }
+    ],
+    "points": [
+      {
+        "coverage": "round-1 opening recommends a core without a window",
+        "opaqueKey": "c2c44fe7f992",
+        "round": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 1,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Terrorblade",
+            "Spectre",
+            "Phantom Lancer"
+          ],
+          "pos2": [
+            "Earth Spirit",
+            "Outworld Destroyer",
+            "Invoker"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dawnbreaker",
+            "Timbersaw"
+          ],
+          "pos4": [
+            "Bounty Hunter",
+            "Techies",
+            "Mirana"
+          ],
+          "pos5": [
+            "Undying",
+            "Crystal Maiden",
+            "Disruptor"
+          ]
+        },
+        "v3Top3": [
+          "Bounty Hunter",
+          "Techies",
+          "Mirana"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round-1 opening recommends hard support / support",
+        "opaqueKey": "0cd5f0ce676c",
+        "round": 1,
+        "bans": [
+          "Juggernaut",
+          "Undying",
+          "Shadow Fiend",
+          "Invoker",
+          "Rubick",
+          "Legion Commander",
+          "Phantom Lancer",
+          "Zeus",
+          "Pudge",
+          "Lion",
+          "Magnus",
+          "Drow Ranger",
+          "Anti-Mage",
+          "Hoodwink",
+          "Techies",
+          "Dark Willow"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 4,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Spectre",
+            "Lifestealer",
+            "Sven"
+          ],
+          "pos2": [
+            "Storm Spirit",
+            "Outworld Destroyer",
+            "Tinker"
+          ],
+          "pos3": [
+            "Slardar",
+            "Enigma",
+            "Underlord"
+          ],
+          "pos4": [
+            "Mirana",
+            "Bounty Hunter",
+            "Skywrath Mage"
+          ],
+          "pos5": [
+            "Crystal Maiden",
+            "Lich",
+            "Winter Wyvern"
+          ]
+        },
+        "v3Top3": [
+          "Crystal Maiden",
+          "Lich",
+          "Winter Wyvern"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "simulator target differs from the declared precedence",
+        "opaqueKey": "7ee777d62e2d",
+        "round": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [
+          "Terrorblade"
+        ],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Earth Spirit",
+            "Invoker",
+            "Ember Spirit"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dawnbreaker",
+            "Night Stalker"
+          ],
+          "pos4": [
+            "Mirana",
+            "Bounty Hunter",
+            "Techies"
+          ],
+          "pos5": [
+            "Undying",
+            "Disruptor",
+            "Crystal Maiden"
+          ]
+        },
+        "v3Top3": [
+          "Undying",
+          "Disruptor",
+          "Crystal Maiden"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "late open initiation/catch gap",
+        "opaqueKey": "d2efa9cbb017",
+        "round": 2,
+        "bans": [
+          "Wraith King",
+          "Earthshaker",
+          "Skywrath Mage",
+          "Shadow Fiend",
+          "Mirana",
+          "Sniper",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Windranger",
+          "Spirit Breaker",
+          "Silencer",
+          "Ogre Magi",
+          "Lina",
+          "Slark",
+          "Zeus",
+          "Queen of Pain"
+        ],
+        "ownPicks": [
+          "Io",
+          "Keeper of the Light",
+          "Razor"
+        ],
+        "revealedEnemy": [
+          "Techies",
+          "Spectre"
+        ],
+        "boardRecommendedPosition": 4,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Juggernaut",
+            "Morphling",
+            "Anti-Mage"
+          ],
+          "pos4": [
+            "Rubick",
+            "Lion",
+            "Pudge"
+          ]
+        },
+        "v3Top3": [
+          "Juggernaut",
+          "Morphling",
+          "Anti-Mage"
+        ],
+        "precedenceWouldPick": "pos4 (PHASE)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "mono-damage team",
+        "opaqueKey": "60ee3769982d",
+        "round": 3,
+        "bans": [
+          "Rubick",
+          "Anti-Mage",
+          "Zeus",
+          "Invoker",
+          "Necrophos",
+          "Lina",
+          "Phantom Assassin",
+          "Earthshaker",
+          "Mirana",
+          "Lifestealer",
+          "Spectre",
+          "Axe",
+          "Hoodwink",
+          "Snapfire",
+          "Ogre Magi",
+          "Winter Wyvern"
+        ],
+        "ownPicks": [
+          "Venomancer",
+          "Queen of Pain",
+          "Nature's Prophet",
+          "Phoenix"
+        ],
+        "revealedEnemy": [
+          "Terrorblade",
+          "Lion",
+          "Techies",
+          "Legion Commander"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Storm Spirit",
+            "Outworld Destroyer",
+            "Keeper of the Light"
+          ]
+        },
+        "v3Top3": [
+          "Storm Spirit",
+          "Outworld Destroyer",
+          "Keeper of the Light"
+        ],
+        "precedenceWouldPick": "pos2 (SINGLE_POSITION)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round 2 after rival reveals",
+        "opaqueKey": "49ac0b3f1872",
+        "round": 2,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [
+          "Terrorblade",
+          "Earth Spirit"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven"
+        ],
+        "boardRecommendedPosition": 3,
+        "boardTop3ByPosition": {
+          "pos3": [
+            "Dawnbreaker",
+            "Tidehunter",
+            "Slardar"
+          ],
+          "pos4": [
+            "Bounty Hunter",
+            "Techies",
+            "Rubick"
+          ],
+          "pos5": [
+            "Winter Wyvern",
+            "Lich",
+            "Ringmaster"
+          ]
+        },
+        "v3Top3": [
+          "Winter Wyvern",
+          "Lich",
+          "Ringmaster"
+        ],
+        "precedenceWouldPick": "pos5 (COUNTER_WINDOW)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round 3 closing pick",
+        "opaqueKey": "f579422e7113",
+        "round": 3,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Bounty Hunter"
+        ],
+        "ownPicks": [
+          "Terrorblade",
+          "Earth Spirit",
+          "Dawnbreaker",
+          "Techies"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven",
+          "Axe",
+          "Mirana"
+        ],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos5": [
+            "Lich",
+            "Winter Wyvern",
+            "Disruptor"
+          ]
+        },
+        "v3Top3": [
+          "Lich",
+          "Winter Wyvern",
+          "Disruptor"
+        ],
+        "precedenceWouldPick": "pos5 (SINGLE_POSITION)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      }
+    ]
+  },
+  "harnessFailures": []
+}

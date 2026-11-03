@@ -106,7 +106,15 @@ export function computeRoleImpact(input: RoleImpactInput): RoleImpactResult {
 
   const result = computeJointRoleAssignment(heroes);
   if (result.rejected === "IMPOSSIBLE_ASSIGNMENT") {
-    const impactByHero = new Map(candidates.map((heroId) => [heroId, UNRESOLVED_FALLBACK]));
+    const impactByHero = new Map(
+      candidates.map((heroId) => {
+        const candidateInput = candidateInputs.find((c) => c.heroId === heroId);
+        const impact = candidateInput
+          ? classifyMarginal(candidateInput.belief.probabilities, candidateInput.belief.entropy)
+          : UNRESOLVED_FALLBACK;
+        return [heroId, impact];
+      }),
+    );
     return {
       impactByHero,
       evidenceByHero,

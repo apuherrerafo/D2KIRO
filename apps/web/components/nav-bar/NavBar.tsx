@@ -13,9 +13,11 @@ interface NavLinkDef {
 // cuenta + pool + Simulador de Draft. `/live-draft`, `/team-groups` y `/heroes` salen del array
 // pero sus rutas, componentes y tests quedan intactos: siguen alcanzables por URL directa.
 // Reversible -- volver a agregarlos es editar este array.
+// TSK-219: "Draft en vivo" vuelve -- ya no depende de un motor local, funciona en el sitio desplegado.
 export function buildNavLinks(): NavLinkDef[] {
   return [
     { href: "/simulator", label: "Simulador de Draft" },
+    { href: "/live-draft", label: "Draft en vivo" },
     { href: "/hero-pool", label: "Mi pool" },
     { href: "/meta", label: "Meta" },
     { href: "/settings", label: "Configuración" },
@@ -50,19 +52,29 @@ function navLinkClassName(isActive: boolean): string {
 // RootLayout, nunca duplicado por página. Resuelve el reporte de producto ("cada pantalla es una
 // isla, no sé qué sigue después de guardar el pool") dejando siempre visibles las rutas reales
 // del sitio, con la actual marcada.
-export function NavBar() {
+// TSK-244: the public landing at `/` brings its own nav; the app shell is for signed-in visitors there.
+export function isHiddenForVisitor(signedIn: boolean, pathname: string | null): boolean {
+  return !signedIn && pathname === "/";
+}
+
+export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
   const pathname = usePathname();
   const navLinks = buildNavLinks();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
 
+  const hiddenForVisitor = isHiddenForVisitor(signedIn, pathname);
+
   useEffect(() => {
+    if (hiddenForVisitor) return;
     fetch("/api/auth/session", { cache: "no-store" })
       .then(async (response) => response.ok ? response.json() as Promise<AccountProfile> : null)
       .then(setProfile)
       .catch(() => setProfile(null));
-  }, []);
+  }, [hiddenForVisitor]);
 
   const label = profile === null ? null : profileLabel(profile);
+
+  if (hiddenForVisitor) return null;
 
   return (
     <nav className="flex items-center gap-1 border-b border-surface-border bg-surface-raised px-4">

@@ -1,0 +1,229 @@
+"use client";
+
+import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { CAPTURE_NOT_ENABLED, DOTA_NOT_RUNNING, GSI_DRAFT_PARTIAL, LIVE_PHASE_LABELS, teamPositionName } from "../constants";
+import { STATUS_PILL_BAD, STATUS_PILL_MUTED, STATUS_PILL_OK, STATUS_PILL_WARN } from "../styles";
+import type { LiveCaptureStatus } from "../types";
+
+// CONNECTION / CAPTURE / SIDE del draft en vivo, más el aviso de pick detectado y el de captura
+// degradada o parcial. Nunca un estado silencioso: cada problema de captura se dice en llano, con su
+// acción -- y en lenguaje de jugador (TSK-219): sin herramientas de desarrollo, puertos ni procesos.
+
+interface Pill {
+  className: string;
+  text: string;
+}
+
+/** The Companion when it is alive, else null: an old heartbeat is never presented as current. */
+export function activeCompanion(status: LiveCaptureStatus | null) {
+  const companion = status?.companion ?? null;
+  if (companion === null || !companion.active) return null;
+  return companion;
+}
+
+/** What the Companion on the Player's PC knows when Dota is NOT talking to the session yet. */
+function companionDotaPill(status: LiveCaptureStatus | null): Pill | null {
+  const companion = activeCompanion(status);
+  if (companion === null || companion.dota === "connected") return null;
+  if (companion.restartNeeded) return { className: STATUS_PILL_WARN, text: "● Reinicia Dota 2 una vez" };
+  if (companion.dota === "waiting") return { className: STATUS_PILL_WARN, text: "● Dota abierto · esperando datos" };
+  return { className: STATUS_PILL_MUTED, text: "● Companion conectado · abre Dota 2" };
+}
+
+/** One line of setup guidance from the Companion's reading; null when Dota is already talking or there is no live Companion. */
+export function companionGuidance(status: LiveCaptureStatus | null): string | null {
+  if (status?.connection === "connected") return null;
+  const pill = companionDotaPill(status);
+  if (pill === null) return null;
+  return pill.text.replace("● ", "");
+}
+
+export function connectionPill(status: LiveCaptureStatus | null): Pill {
+  const fromCompanion = status?.connection === "connected" ? null : companionDotaPill(status);
+  if (fromCompanion !== null) return fromCompanion;
+  if (status === null || status.connection === "waiting") return { className: STATUS_PILL_MUTED, text: "● Esperando Dota..." };
+  if (status.connection === "stale") return { className: STATUS_PILL_WARN, text: "● Reconectando..." };
+  if (status.captureDetail === DOTA_NOT_RUNNING) return { className: STATUS_PILL_WARN, text: "● Dota 2 no está abierto" };
+  return { className: STATUS_PILL_OK, text: "● Dota conectado" };
+}
+
+export function capturePill(status: LiveCaptureStatus | null): Pill {
+  const companionExplains = status?.connection !== "connected" && companionDotaPill(status) !== null;
+  if (status !== null && status.captureDetail === CAPTURE_NOT_ENABLED && !companionExplains) return { className: STATUS_PILL_BAD, text: "● Captura deshabilitada" };
+  if (status === null || status.draftPhase === "waiting") return { className: STATUS_PILL_MUTED, text: "● Esperando selección de héroes..." };
+  if (status.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
+  if (status.captureDetail === GSI_DRAFT_PARTIAL) return { className: STATUS_PILL_WARN, text: "● Hero Selection · captura parcial" };
+  return { className: STATUS_PILL_OK, text: "● Hero Selection" };
+}
+
+const VISUAL_UNAVAILABLE: Pill = { className: STATUS_PILL_MUTED, text: "● Draft automático no disponible" };
+const VISUAL_PREPARING: Pill = { className: STATUS_PILL_MUTED, text: "● Draft automático preparando..." };
+
+/** Draft automático (retratos de la pantalla de Dota: nunca un frame, sólo hechos). El Player nunca gestiona un proceso interno. */
+export function visualPill(status: LiveCaptureStatus | null): Pill {
+  const visual = status?.visual ?? null;
+  // The helper says VISUAL_OK again as soon as the draft is over: a draft it read badly must not turn into "all good".
+  if (status?.draftPhase === "ended" && visual?.draft && visual.draft.health !== "ok") return { className: STATUS_PILL_WARN, text: "● Draft terminado · lectura incompleta" };
+  const reporting = visual !== null && visual.active && visual.health !== "lost";
+  if (!reporting) {
+    // Reporting that it lost Dota's window is not "getting ready": say so, whatever the Companion says about the process.
+    if (visual !== null && visual.active && visual.health === "lost") return VISUAL_UNAVAILABLE;
+    // The Companion on the Player's PC says what is happening with the helper: getting ready is not a failure.
+    const helper = activeCompanion(status)?.visual ?? null;
+    if (helper === "downloading" || helper === "restarting" || helper === "running") return VISUAL_PREPARING;
+    return VISUAL_UNAVAILABLE;
+  }
+  if (status?.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
+  if (status?.draftPhase !== "hero_selection") return { className: STATUS_PILL_OK, text: "● Draft automático activo · esperando selección de héroes" };
+  const detected = Math.min(status.picks, 10);
+  // The helper is healthy but the picks it gave do not add up (a pick of a round is missing): never presented as complete.
+  if (status.recommendation?.reason === "FACTS_UNRESOLVED") return { className: STATUS_PILL_WARN, text: `● Draft automático incompleto · ${detected}/10 héroes detectados` };
+  if (visual.health === "degraded") {
+    // The helper has not proven it read the whole draft: never presented as complete.
+    if (visual.detail === "VISUAL_LAYOUT_UNVERIFIED" && detected === 0) return VISUAL_PREPARING;
+    return { className: STATUS_PILL_WARN, text: `● Draft automático incompleto · ${detected}/10 héroes detectados` };
+  }
+  return { className: STATUS_PILL_OK, text: `● ${detected}/10 héroes detectados` };
+}
+
+/** D2KIRO Companion: the local background app that keeps Dota connected (heartbeat every 15 s). */
+export function companionPill(status: LiveCaptureStatus | null, linkExpired = false): Pill {
+  // An expired link is its own state: never dressed up as "the PC is off".
+  if (linkExpired) return { className: STATUS_PILL_WARN, text: "● Conexión de D2KIRO vencida" };
+  const companion = activeCompanion(status);
+  if (companion !== null) return { className: STATUS_PILL_OK, text: "● Companion conectado" };
+  if (status?.companion) return { className: STATUS_PILL_WARN, text: "● Companion sin señal · ¿está prendida la PC?" };
+  return { className: STATUS_PILL_MUTED, text: "● Companion no detectado" };
+}
+
+const GSI_PHASE_KEYS: Readonly<Record<string, string>> = Object.freeze({ idle: "MENU", loading: "LOADING", draft: "HERO_SELECTION", match: "MATCH" });
+
+/** Dota lifecycle: the Companion's local reading when alive, else the GSI the session received. */
+export function phasePill(status: LiveCaptureStatus | null): Pill {
+  const companion = activeCompanion(status);
+  let key: string | null = null;
+  if (companion !== null && companion.dota === "connected") key = companion.phase;
+  else if (status?.gsi?.active) key = GSI_PHASE_KEYS[status.gsi.phase] ?? null;
+  if (key === null) return { className: STATUS_PILL_MUTED, text: "—" };
+  return { className: "text-body text-content-primary", text: LIVE_PHASE_LABELS[key] ?? "—" };
+}
+
+export function isCaptureDegraded(status: LiveCaptureStatus | null): boolean {
+  if (status === null) return false;
+  return status.connection === "stale" || status.captureHealth === "degraded" || status.captureHealth === "lost";
+}
+
+function sideText(status: LiveCaptureStatus | null): string {
+  if (status?.localSide === "radiant") return "Radiant";
+  if (status?.localSide === "dire") return "Dire";
+  return "—";
+}
+
+function StatusItem({ label, pill }: { label: string; pill: Pill }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-caption font-semibold text-content-muted">{label}</span>
+      <span className={pill.className}>{pill.text}</span>
+    </div>
+  );
+}
+
+interface DetectedPickProps {
+  status: LiveCaptureStatus | null;
+  heroCatalog: Map<number, HeroMeta>;
+  /** The Dota link's credential has expired (known from link.expiresAt, not from the engine). */
+  linkExpired?: boolean;
+}
+
+function DetectedPick({ status, heroCatalog }: DetectedPickProps) {
+  const pick = status?.lastDetectedPick;
+  if (!pick || status?.localSide !== pick.side) return null;
+  const hero = heroCatalog.get(pick.heroId)?.localizedName ?? `Héroe ${pick.heroId}`;
+  const where = pick.position === null ? "Posición sin informar" : teamPositionName(pick.position);
+  return (
+    <div className="rounded-lg border border-accent-primary bg-surface-overlay p-3" role="status" data-testid="live-pick-detected">
+      <span className="text-caption font-semibold text-accent-primary">TEAM PICK DETECTED</span>
+      <span className="ml-2 text-body text-content-primary">{where} → {hero}</span>
+    </div>
+  );
+}
+
+function yesNo(seen: boolean): string {
+  if (seen) return "sí";
+  return "no";
+}
+
+/** True when Dota reports only part of the draft: no recommendation may be built on it. */
+export function isDraftPartial(status: LiveCaptureStatus | null): boolean {
+  return isCaptureDegraded(status) && status?.captureDetail === GSI_DRAFT_PARTIAL;
+}
+
+/** The engine's own verdict (it also enforces it); an older engine that says nothing falls back to the partial-capture rule. */
+export function isRecommendationBlocked(status: LiveCaptureStatus | null): boolean {
+  if (status?.recommendation !== undefined) return !status.recommendation.available;
+  return isDraftPartial(status);
+}
+
+/** Exactly what this player's Dota reported -- nothing is presented as captured when it was not. Never asks for manual entry. */
+function PartialCaptureNotice({ status }: { status: LiveCaptureStatus }) {
+  const seen = status.gsi?.draft;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-capture-partial">
+      <span className="text-caption font-semibold text-signal-warning">Draft automático incompleto</span>
+      <span className="text-caption text-content-secondary">D2KIRO todavía no está recibiendo todo el draft de esta partida. No hay recomendación hasta tener el draft completo.</span>
+      <span className="text-caption text-content-muted" data-testid="live-capture-capabilities">
+        Dota informa — bando: {yesNo(seen?.side === true)} · tu héroe: {yesNo(seen?.ownHero === true)} · bans: {yesNo(seen?.bans === true)} · picks aliados: {yesNo(seen?.allyPicks === true)} · picks rivales: {yesNo(seen?.enemyPicks === true)}
+      </span>
+    </div>
+  );
+}
+
+function DegradedNotice({ status }: { status: LiveCaptureStatus | null }) {
+  if (!isCaptureDegraded(status)) return null;
+  // A live Companion that says "abre Dota 2" / "esperando datos" already explains the silence: no second, red alert.
+  if (status?.connection !== "connected" && companionDotaPill(status) !== null) return null;
+  if (status?.captureDetail === GSI_DRAFT_PARTIAL) return <PartialCaptureNotice status={status} />;
+  if (status?.captureDetail === CAPTURE_NOT_ENABLED) {
+    return (
+      <div className="flex flex-col gap-1 rounded-lg border border-signal-negative bg-surface-overlay p-3" role="alert" data-testid="live-capture-not-enabled">
+        <span className="text-caption font-semibold text-signal-negative">Captura degradada · {CAPTURE_NOT_ENABLED}</span>
+        <span className="text-caption text-content-secondary">Dota no está enviando datos a D2KIRO. Mira «Opciones avanzadas de conexión» en Conexión con Dota.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-capture-degraded">
+      <span className="text-caption font-semibold text-signal-warning">Reconectando con Dota...</span>
+      <span className="text-caption text-content-secondary">El draft no se perdió. La conexión se recupera sola y el Team Coach se recalcula igual.</span>
+    </div>
+  );
+}
+
+/** The helper is up but the heroes it read do not add up yet: say so in plain words, with no recommendation meanwhile. */
+function UnresolvedNotice({ status }: { status: LiveCaptureStatus | null }) {
+  if (!status || status.draftPhase !== "hero_selection" || status.recommendation?.reason !== "FACTS_UNRESOLVED") return null;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-draft-unresolved">
+      <span className="text-caption font-semibold text-signal-warning">Draft automático incompleto</span>
+      <span className="text-caption text-content-secondary">D2KIRO todavía está leyendo algunos héroes del draft. No hay recomendación hasta que la lectura sea consistente.</span>
+    </div>
+  );
+}
+
+export function LiveCaptureStatusBar({ status, heroCatalog, linkExpired = false }: DetectedPickProps) {
+  return (
+    <div className="flex flex-col gap-3" data-testid="live-capture-status">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-3">
+        <StatusItem label="COMPANION" pill={companionPill(status, linkExpired)} />
+        <StatusItem label="CONNECTION" pill={connectionPill(status)} />
+        <StatusItem label="PHASE" pill={phasePill(status)} />
+        <StatusItem label="CAPTURE" pill={capturePill(status)} />
+        <StatusItem label="DRAFT AUTOMÁTICO" pill={visualPill(status)} />
+        <StatusItem label="SIDE" pill={{ className: "text-body text-content-primary", text: sideText(status) }} />
+      </div>
+      <DegradedNotice status={status} />
+      <DetectedPick status={status} heroCatalog={heroCatalog} />
+      <UnresolvedNotice status={status} />
+    </div>
+  );
+}

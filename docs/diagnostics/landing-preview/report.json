@@ -1,0 +1,2729 @@
+{
+  "base": "http://localhost:3100",
+  "runs": [
+    {
+      "run": "chromium",
+      "viewport": "d1440",
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 35,
+        "imgsTotal": 35
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 416,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 10660,
+        "frames": 270,
+        "framesOver50ms": 0,
+        "worstMs": 33
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.0653,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-reduced",
+      "viewport": "d1440",
+      "reduced": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 416,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 10660,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.055,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-blocked",
+      "viewport": "d1440",
+      "blockValve": true,
+      "skipDeep": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": []
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 0,
+        "imgsTotal": 0
+      },
+      "cls": 0.0029,
+      "log": {
+        "console": [
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED"
+        ],
+        "failed": [
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/pudge.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/invoker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/phantom_assassin.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earthshaker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/tiny.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/sniper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/puck.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earth_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/crystal_maiden.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/queenofpain.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/void_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/viper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/obsidian_destroyer.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/ember_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/juggernaut.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/mars.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/lion.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/shadow_shaman.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/snapfire.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/storm_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/axe.png net::ERR_FAILED"
+        ],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium",
+      "viewport": "d1366",
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 284,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 9571,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.0829,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-reduced",
+      "viewport": "d1366",
+      "reduced": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 112,
+            "h": 63,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 284,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 9571,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.0715,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-blocked",
+      "viewport": "d1366",
+      "blockValve": true,
+      "skipDeep": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": []
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 0,
+        "imgsTotal": 0
+      },
+      "cls": 0.0038,
+      "log": {
+        "console": [
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED"
+        ],
+        "failed": [
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/pudge.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/invoker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/phantom_assassin.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earthshaker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/tiny.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/sniper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/puck.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earth_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/crystal_maiden.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/queenofpain.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/void_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/viper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/obsidian_destroyer.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/ember_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/juggernaut.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/mars.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/lion.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/shadow_shaman.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/snapfire.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/storm_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/axe.png net::ERR_FAILED"
+        ],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium",
+      "viewport": "m844",
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 34,
+            "h": 34,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 55,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 224,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 11500,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.3183,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-reduced",
+      "viewport": "m844",
+      "reduced": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 34,
+            "h": 34,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 55,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 224,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 11536,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.3462,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-blocked",
+      "viewport": "m844",
+      "blockValve": true,
+      "skipDeep": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": []
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 0,
+        "imgsTotal": 0
+      },
+      "cls": 0,
+      "log": {
+        "console": [
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED"
+        ],
+        "failed": [
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/pudge.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/invoker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/phantom_assassin.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earthshaker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/tiny.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/sniper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/puck.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earth_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/crystal_maiden.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/queenofpain.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/void_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/viper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/obsidian_destroyer.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/ember_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/juggernaut.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/mars.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/lion.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/shadow_shaman.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/snapfire.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/storm_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/axe.png net::ERR_FAILED"
+        ],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium",
+      "viewport": "m664",
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 26,
+            "h": 26,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 55,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 9704,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.3918,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-reduced",
+      "viewport": "m664",
+      "reduced": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": [
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 256,
+            "h": 144,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 32,
+            "h": 32,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 40,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 26,
+            "h": 26,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 20,
+            "h": 20,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 40,
+            "h": 23,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 48,
+            "h": 48,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          },
+          {
+            "loading": "auto",
+            "w": 36,
+            "h": 36,
+            "ok": true
+          }
+        ]
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 33,
+        "imgsTotal": 33
+      },
+      "anchors": [
+        {
+          "id": "memory",
+          "exists": true,
+          "top": 55,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "counterfactual",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "proposition",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        },
+        {
+          "id": "waitlist",
+          "exists": true,
+          "top": 56,
+          "scrollMargin": "56px",
+          "navH": 57
+        }
+      ],
+      "scroll": {
+        "docH": 9740,
+        "frames": 271,
+        "framesOver50ms": 0,
+        "worstMs": 17
+      },
+      "waitlist": {
+        "claimsOnList": false,
+        "says": "Early access Take it into your next draft. D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens. Email Preview only, not sent Preview only, not sent This is a preview. Your email was not sent or stored, and nobody will write to you from it. Preview build: nothing you type here leaves this page."
+      },
+      "cls": 0.3941,
+      "log": {
+        "console": [],
+        "failed": [],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    },
+    {
+      "run": "chromium-blocked",
+      "viewport": "m664",
+      "blockValve": true,
+      "skipDeep": true,
+      "status": 200,
+      "structure": {
+        "title": "D2KIRO — Draft coach for Dota 2",
+        "h1": [
+          "Draft data in.Your next call out."
+        ],
+        "landmarks": {
+          "nav": 1,
+          "main": 1,
+          "footer": 2
+        },
+        "anchors": [
+          {
+            "href": "#memory",
+            "exists": true
+          },
+          {
+            "href": "#counterfactual",
+            "exists": true
+          },
+          {
+            "href": "#proposition",
+            "exists": true
+          }
+        ],
+        "sections": [
+          "hero",
+          "memory",
+          "counterfactual",
+          "proposition",
+          "waitlist"
+        ],
+        "overflowX": 0,
+        "images": []
+      },
+      "heroSeats": {
+        "openLabels": 2,
+        "imgsLoaded": 0,
+        "imgsTotal": 0
+      },
+      "cls": 0.0001,
+      "log": {
+        "console": [
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED",
+          "error: Failed to load resource: net::ERR_FAILED"
+        ],
+        "failed": [
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/pudge.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/invoker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/phantom_assassin.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earthshaker.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/tiny.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/sniper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/puck.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/earth_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/crystal_maiden.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/queenofpain.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/void_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/viper.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/obsidian_destroyer.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/ember_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/juggernaut.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/mars.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/lion.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/shadow_shaman.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/snapfire.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/storm_spirit.png net::ERR_FAILED",
+          "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/axe.png net::ERR_FAILED"
+        ],
+        "nonGet": [],
+        "pageErrors": []
+      }
+    }
+  ]
+}

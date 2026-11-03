@@ -1,0 +1,338 @@
+import "@/test-support/happy-dom";
+
+import { act, cleanup, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, test } from "bun:test";
+import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { LiveCaptureStatusBar } from "./components/LiveCaptureStatusBar";
+import { LiveTeamCoachView } from "./components/LiveTeamCoachView";
+import { useLiveTeamCoachStore } from "./live-store";
+import type { LiveCaptureStatus, TeamCoachBoardData } from "./types";
+import { liveDraftChangeKey, useLiveTeamCoach } from "./use-live-team-coach";
+
+afterEach(cleanup);
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+function status(overrides: Partial<LiveCaptureStatus> = {}): LiveCaptureStatus {
+  return {
+    schema: "live-capture-status/v1",
+    sessionId: "live-session-1",
+    connection: "connected",
+    lastEventAt: "2026-10-01T00:00:00.000Z",
+    captureHealth: "ok",
+    captureDetail: "HERO_SELECTION",
+    draftPhase: "hero_selection",
+    localSide: "radiant",
+    lastDetectedPick: null,
+    bans: 0,
+    picks: 0,
+    deferredPicks: 0,
+    rejectedFacts: 0,
+    ...overrides,
+  };
+}
+
+function board(stateIdentity: string, filledPos3: number | null = null): TeamCoachBoardData {
+  return {
+    schema: "team-coach-board/v1",
+    sessionId: "live-session-1",
+    stateIdentity,
+    currentDecision: { recommendedPosition: 1, recommendedHeroId: 11, targetBasis: "DETERMINISTIC_DEFAULT", reason: "fixture", actionablePositions: [1, 2, 3, 4, 5].filter((p) => p !== 3 || filledPos3 === null) as (1 | 2 | 3 | 4 | 5)[], roundCapacity: 2 },
+    positions: ([1, 2, 3, 4, 5] as const).map((position) => {
+      const filled = position === 3 && filledPos3 !== null;
+      return {
+        position,
+        eligibleNow: !filled,
+        alreadyFilled: filled,
+        filledHeroId: filled ? filledPos3 : null,
+        state: filled ? "FILLED" : "RANKED",
+        primaryHeroId: filled ? null : position * 10 + 1,
+        top: filled ? [] : [1, 2, 3].map((k) => ({ heroId: position * 10 + k, rank: k, score: 10 - k, reasons: ["fixture"], isPrimary: k === 1 })),
+        stateIdentity,
+        note: null,
+      };
+    }),
+    unboundOwnHeroIds: [],
+  };
+}
+
+class FakeLiveEngine {
+  readonly requests: { url: string; method: string; body: unknown }[] = [];
+  current = status();
+  currentBoard = board("s0");
+  /** 409 = the engine refuses to rank this draft (live_draft_incomplete). */
+  boardHttp = 200;
+
+  fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    this.requests.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null });
+    if (url.endsWith("/api/session/protocol/live")) return json({ sessionId: "live-session-1", status: this.current }, 201);
+    if (url.endsWith("/live-status")) return json(this.current);
+    if (url.endsWith("/team-recommendations")) return this.boardHttp === 409 ? json({ error: "live_draft_incomplete", reason: "FACTS_UNRESOLVED", completeness: "PARTIAL" }, 409) : json(this.currentBoard);
+    if (url.endsWith("/live-observation")) return json({ accepted: true, changed: true, status: this.current }, 202);
+    if (url.endsWith("/api/session/protocol/live-session-1")) {
+      return json({ view: { schema: "draft-protocol-perspective/v1", sessionId: "live-session-1", status: "ACTIVE", viewerSide: "radiant", bannedHeroes: [], ownPicks: [], enemyPicks: [], rankedAp: { phase: "PICK_ROUND_1", banResolutionComplete: true }, captainsMode: null }, legalActions: [], simulator: null, ownAssignedPositions: [], canYield: false });
+    }
+    if (url.endsWith("/api/heroes")) return json([]);
+    if (url.endsWith("/api/telemetry/error")) return json({}, 202);
+    throw new Error(`fetch not mocked: ${url}`);
+  };
+
+  count(suffix: string): number {
+    return this.requests.filter((entry) => entry.url.endsWith(suffix)).length;
+  }
+}
+
+describe("useLiveTeamCoach", () => {
+  test("abre/reclama la sesión, y recalcula el board SÓLO cuando cambia el draft (nunca por un heartbeat)", async () => {
+    const engine = new FakeLiveEngine();
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    expect(engine.count("/api/session/protocol/live")).toBe(1);
+
+    // Heartbeats only (lastEventAt moves): several polls, zero recomputes.
+    engine.current = status({ lastEventAt: "2026-10-01T00:00:05.000Z" });
+    const statusPolls = engine.count("/live-status");
+    await waitFor(() => expect(engine.count("/live-status")).toBeGreaterThan(statusPolls + 3));
+    expect(engine.count("/team-recommendations")).toBe(1);
+
+    // Dota registers a pick: the key changes -> the board is recomputed on the next poll (recálculo visible).
+    engine.currentBoard = board("s1", 129);
+    engine.current = status({ picks: 1, lastDetectedPick: { side: "radiant", heroId: 129, position: 3, source: "overwolf", at: "2026-10-01T00:00:06.000Z" } });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s1"));
+    expect(engine.count("/team-recommendations")).toBe(2);
+    hook.unmount();
+  });
+
+  test("el fallback manual manda el MISMO tipo de hecho que el capturador", async () => {
+    const engine = new FakeLiveEngine();
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 60_000 }));
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board).not.toBeNull());
+    await act(async () => hook.result.current.report({ type: "pick", side: "radiant", heroId: 129, position: 3 }));
+    expect(engine.requests.find((entry) => entry.url.endsWith("/live-observation"))!.body).toEqual({ type: "pick", side: "radiant", heroId: 129, position: 3 });
+    hook.unmount();
+  });
+
+  test("la clave de cambio ignora el heartbeat y sí ve picks/bans/lado", () => {
+    expect(liveDraftChangeKey(status({ lastEventAt: "a" }))).toBe(liveDraftChangeKey(status({ lastEventAt: "b" })));
+    expect(liveDraftChangeKey(status({ picks: 1 }))).not.toBe(liveDraftChangeKey(status()));
+    expect(liveDraftChangeKey(status({ localSide: "dire" }))).not.toBe(liveDraftChangeKey(status()));
+  });
+
+  test("Team Context entra en la clave: mismo draft, distinto contexto => clave distinta", () => {
+    const all = { "1": true, "2": true, "3": true, "4": true, "5": true };
+    const none = status();
+    const teamA = status({ teamContext: { teamGroupId: 1, positions: all } });
+    const teamB = status({ teamContext: { teamGroupId: 2, positions: { ...all } } });
+    const cleared = status({ teamContext: { teamGroupId: null, positions: { "1": false, "2": false, "3": false, "4": false, "5": false } } });
+    expect(liveDraftChangeKey(teamA)).not.toBe(liveDraftChangeKey(none));
+    expect(liveDraftChangeKey(teamA)).not.toBe(liveDraftChangeKey(teamB));
+    expect(liveDraftChangeKey(teamA)).not.toBe(liveDraftChangeKey(cleared));
+    expect(liveDraftChangeKey(teamA)).toBe(liveDraftChangeKey(status({ teamContext: { teamGroupId: 1, positions: { ...all } } })));
+  });
+
+  test("elegir un preset recalcula el board SIN ningún pick/ban nuevo", async () => {
+    const engine = new FakeLiveEngine();
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    const statusPolls = engine.count("/live-status");
+    await waitFor(() => expect(engine.count("/live-status")).toBeGreaterThan(statusPolls + 2));
+    expect(engine.count("/team-recommendations")).toBe(1);
+
+    engine.currentBoard = board("with-team");
+    engine.current = status({ teamContext: { teamGroupId: 7, positions: { "1": true, "2": true, "3": true, "4": true, "5": true } } });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("with-team"));
+    expect(engine.count("/team-recommendations")).toBe(2);
+
+    engine.current = status();
+    await waitFor(() => expect(engine.count("/team-recommendations")).toBe(3));
+    hook.unmount();
+  });
+});
+
+describe("recomendación bloqueada por el motor (draft incompleto o inconsistente)", () => {
+  const blocked = (reason: "FACTS_UNRESOLVED" | "CAPTURE_PARTIAL" | "SLOTS_UNREAD") => ({ completeness: "PARTIAL" as const, recommendation: { available: false, reason } });
+
+  test("no pide el board mientras el motor lo bloquea, y lo pide en cuanto el draft vuelve a ser consistente", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ picks: 3, ...blocked("FACTS_UNRESOLVED") });
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(engine.count("/live-status")).toBeGreaterThan(3));
+    expect(engine.count("/team-recommendations")).toBe(0);
+    expect(useLiveTeamCoachStore.getState().board).toBeNull();
+
+    engine.current = status({ picks: 4, completeness: "PARTIAL", recommendation: { available: true, reason: null } });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    expect(engine.count("/team-recommendations")).toBe(1);
+    hook.unmount();
+  });
+
+  test("un 409 del motor (el draft se volvió incompleto entre el poll y el pedido) no se muestra como error: sin board, sin alerta, y se reintenta", async () => {
+    const engine = new FakeLiveEngine();
+    engine.boardHttp = 409;
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(engine.count("/team-recommendations")).toBeGreaterThan(1));
+    expect(useLiveTeamCoachStore.getState().boardStatus).toBe("idle");
+    expect(useLiveTeamCoachStore.getState().board).toBeNull();
+    engine.boardHttp = 200;
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    hook.unmount();
+  });
+
+  test("un cambio de héroes con el MISMO conteo (revertir X, confirmar Y) cambia la clave: el board no queda con el héroe viejo", () => {
+    expect(liveDraftChangeKey(status({ picks: 3, factsRevision: 7 }))).not.toBe(liveDraftChangeKey(status({ picks: 3, factsRevision: 9 })));
+    expect(liveDraftChangeKey(status({ picks: 3, factsRevision: 7, lastEventAt: "a" }))).toBe(liveDraftChangeKey(status({ picks: 3, factsRevision: 7, lastEventAt: "b" })));
+  });
+
+  test("con el veredicto del motor, el modo debug tampoco muestra un board que nunca va a cargar", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ picks: 3, ...blocked("CAPTURE_PARTIAL"), captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL" });
+    const view = render(<LiveTeamCoachView sessionId="live-session-1" debugManualEntry />);
+    act(() => {
+      useLiveTeamCoachStore.getState().setCaptureStatus(engine.current);
+    });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().captureStatus?.recommendation?.available).toBe(false));
+    expect(view.queryByTestId("team-coach-board")).toBeNull();
+    view.unmount();
+  });
+
+  test("bloqueo y desbloqueo cambian la clave aunque el conteo de picks no cambie", () => {
+    expect(liveDraftChangeKey(status({ picks: 3, ...blocked("FACTS_UNRESOLVED") }))).not.toBe(liveDraftChangeKey(status({ picks: 3 })));
+  });
+
+  test("la vista oculta el Team Coach, dice 'incompleto' en llano y no usa jerga interna", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ picks: 3, deferredPicks: 1, ...blocked("FACTS_UNRESOLVED") });
+    const view = render(<LiveTeamCoachView sessionId="live-session-1" />);
+    // A ranked board is already in the store (an earlier, consistent moment): the engine's verdict still hides it.
+    act(() => {
+      useLiveTeamCoachStore.getState().setBoard(board("stale"), "ready");
+      useLiveTeamCoachStore.getState().setCaptureStatus(engine.current);
+    });
+    await waitFor(() => expect(view.getByTestId("live-draft-unresolved")).toBeTruthy());
+    expect(view.queryByTestId("team-coach-board")).toBeNull();
+    expect(view.getByTestId("live-draft-unresolved").textContent).toContain("Draft automático incompleto");
+    const text = view.container.textContent ?? "";
+    expect(text).not.toMatch(/sealed|sellad|revele su ronda/i);
+    view.unmount();
+  });
+});
+
+const HEROES = new Map<number, HeroMeta>([[129, { id: 129, name: "npc_dota_hero_mars", localizedName: "Mars", imgUrl: "https://cdn.cloudflare.steamstatic.com/mars.png", primaryAttr: "str", attackType: "Melee", roles: [] }]]);
+
+describe("LiveCaptureStatusBar", () => {
+  test("CONNECTION / CAPTURE / SIDE y TEAM PICK DETECTED Pos3 → Mars", () => {
+    const view = render(<LiveCaptureStatusBar status={status({ lastDetectedPick: { side: "radiant", heroId: 129, position: 3, source: "overwolf", at: "x" } })} heroCatalog={HEROES} />);
+    const text = view.getByTestId("live-capture-status").textContent ?? "";
+    expect(text).toContain("CONNECTION");
+    expect(text).toContain("● Dota conectado");
+    expect(text).toContain("● Hero Selection");
+    expect(text).toContain("Radiant");
+    expect(view.getByTestId("live-pick-detected").textContent).toContain("TEAM PICK DETECTED");
+    expect(view.getByTestId("live-pick-detected").textContent).toContain("Pos3 Offlane → Mars");
+  });
+
+  test("DOTA_CAPTURE_NOT_ENABLED: apunta a las opciones avanzadas, sin pedir entrada manual", () => {
+    const view = render(<LiveCaptureStatusBar status={status({ captureHealth: "degraded", captureDetail: "DOTA_CAPTURE_NOT_ENABLED", draftPhase: "waiting" })} heroCatalog={HEROES} />);
+    const alert = view.getByTestId("live-capture-not-enabled").textContent ?? "";
+    expect(alert).toContain("DOTA_CAPTURE_NOT_ENABLED");
+    expect(alert).toContain("Opciones avanzadas de conexión");
+    expect(alert).not.toContain("gamestateintegration");
+    expect(alert).not.toMatch(/a mano|manual/i);
+  });
+});
+
+describe("Companion vivo + Dota cerrado/esperando: una sola explicación", () => {
+  const companion = (overrides: Record<string, unknown>) =>
+    ({ version: "0.1.0", active: true, dota: "not_running", restartNeeded: false, phase: "MENU", lastSeenAgeMs: 1_000, ...overrides }) as never;
+
+  test("conexión vencida + Companion que dice 'abre Dota 2': ni 'Reconectando con Dota' ni 'Captura deshabilitada'", () => {
+    const stale = status({ connection: "stale", captureHealth: "lost", draftPhase: "waiting", companion: companion({ dota: "not_running" }) });
+    const view = render(<LiveCaptureStatusBar status={stale} heroCatalog={HEROES} />);
+    expect(view.queryByTestId("live-capture-degraded")).toBeNull();
+    expect(view.queryAllByRole("alert")).toHaveLength(0);
+    expect(view.getByTestId("live-capture-status").textContent).toContain("● Companion conectado · abre Dota 2");
+    expect(view.getByTestId("live-capture-status").textContent).not.toContain("Reconectando");
+    view.unmount();
+  });
+
+  test("captura no habilitada + Companion con Dota abierto: sin alerta roja de captura deshabilitada", () => {
+    const off = status({ connection: "waiting", captureHealth: "degraded", captureDetail: "DOTA_CAPTURE_NOT_ENABLED", draftPhase: "waiting", companion: companion({ dota: "waiting" }) });
+    const view = render(<LiveCaptureStatusBar status={off} heroCatalog={HEROES} />);
+    expect(view.queryByTestId("live-capture-not-enabled")).toBeNull();
+    expect(view.getByTestId("live-capture-status").textContent).not.toContain("Captura deshabilitada");
+    view.unmount();
+  });
+
+  test("sin Companion vivo la alerta de reconexión sigue apareciendo (no se esconde un fallo real)", () => {
+    const view = render(<LiveCaptureStatusBar status={status({ connection: "stale", captureHealth: "lost" })} heroCatalog={HEROES} />);
+    expect(view.getByTestId("live-capture-degraded")).toBeTruthy();
+    view.unmount();
+  });
+});
+
+describe("LiveTeamCoachView -- sin entrada manual para el Player", () => {
+  test("captura degradada: se muestra, el board NO acepta clics y no hay entrada manual; el estado no se pierde", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1 });
+    engine.currentBoard = board("s1", 129);
+    const original = globalThis.fetch;
+    globalThis.fetch = engine.fetch as typeof fetch;
+    try {
+      const view = render(<LiveTeamCoachView sessionId="live-session-1" />);
+      await waitFor(() => expect(view.getByTestId("live-capture-degraded")).toBeTruthy());
+      await waitFor(() => expect(view.getByTestId("team-coach-column-3").getAttribute("data-state")).toBe("FILLED"));
+      expect(view.queryByTestId("live-manual-entry")).toBeNull();
+      expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
+      view.unmount();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
+
+describe("useLiveTeamCoach -- a failed board is retried (Greptile TSK-219)", () => {
+  test("board request fails once with the draft unchanged -> the next poll fetches it again", async () => {
+    const engine = new FakeLiveEngine();
+    const base = engine.fetch;
+    let failures = 1;
+    engine.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/team-recommendations") && failures > 0) {
+        failures -= 1;
+        engine.requests.push({ url: String(input), method: "GET", body: null });
+        return json({ error: "boom" }, 503);
+      }
+      return base(input, init);
+    };
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().boardStatus).toBe("ready"));
+    expect(engine.count("/team-recommendations")).toBe(2);
+    hook.unmount();
+  });
+});
+
+describe("LiveTeamCoachView -- debugManualEntry (solo desarrollo)", () => {
+  test("con el flag de debug, el board acepta clics y la entrada manual queda abierta; sin él, nunca", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1 });
+    engine.currentBoard = board("s1", 129);
+    const original = globalThis.fetch;
+    globalThis.fetch = engine.fetch as typeof fetch;
+    try {
+      const view = render(<LiveTeamCoachView sessionId="live-session-1" debugManualEntry />);
+      await waitFor(() => expect(view.getByTestId("live-capture-degraded")).toBeTruthy());
+      await waitFor(() => expect(view.getByTestId("team-coach-column-3").getAttribute("data-state")).toBe("FILLED"));
+      expect((view.getByTestId("live-manual-entry") as HTMLDetailsElement).open).toBe(true);
+      await act(async () => {
+        fireEvent.click(view.getByRole("button", { name: "Elegir Héroe 51 como Pos5 Hard Support" }));
+      });
+      await waitFor(() => expect(engine.requests.some((entry) => entry.url.endsWith("/live-observation"))).toBe(true));
+      expect(engine.requests.find((entry) => entry.url.endsWith("/live-observation"))!.body).toEqual({ type: "pick", side: "radiant", heroId: 51, position: 5 });
+      view.unmount();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});

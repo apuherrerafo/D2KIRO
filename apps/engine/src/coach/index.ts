@@ -1,0 +1,11 @@
+// AP Ranked Roles V1 / Wave 2 -- Coach orchestration public surface.
+export * from "./observable-state";
+export * from "./hero-card";
+export * from "./personal-hero-view";
+export * from "./reveal-strategy";
+export * from "./recommendation-output-v3";
+export * from "./recommendation-output-v4";
+export * from "./current-human-decision";
+export * from "./safe-core";
+export * from "./orchestrator";
+export * from "./team-coach-board";

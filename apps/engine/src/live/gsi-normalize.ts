@@ -1,0 +1,344 @@
+import { createHash } from "node:crypto";
+import type { HeroId, TeamSide } from "../draft-protocol/types";
+import type { LiveObservation } from "./live-capture";
+
+// Valve Game State Integration (Dota 2) -> the live capture's facts. Pure, no I/O.
+//
+// A GSI payload is EXTERNAL input that also carries personal data (`player.steamid`,
+// `player.accountid`, `player.name`, `map.matchid`) and the link credential (`auth.token`). This
+// module reads ONLY an allowlist: the game state, our side, our own hero id, the draft block's
+// pick/ban hero ids, and the PRESENCE (never the value) of match telemetry fields. Identity is never
+// read -- the owner of a live session is the account that generated the link, server side.
+// `map.matchid` is reduced to a one-way hash in memory, only to notice "this is a different match".
+//
+// Draft visibility is NOT assumed: a player's client may send an empty `draft` block during Ranked All
+// Pick (Valve populates it for spectators). Whatever is missing is reported as missing, so the UI says
+// "partial capture -- enter the rest by hand" instead of inventing picks.
+//
+// Bans have a second, positive-only door: the `events[]` array. A Ranked All Pick client with an empty
+// `draft` block still emits one `CHAT_MESSAGE_HERO_BANNED` event per ban (hero id in `value`). Receiving that
+// event proves the hero IS banned; NOT receiving it proves nothing -- a late join, a dropped payload and a
+// client that never sends events all look the same. So an absent event is "ban knowledge unknown", never
+// "no bans" and never "the ban set is complete".
+
+export type GsiPhase = "idle" | "loading" | "draft" | "match";
+
+export interface GsiDraftCapabilities {
+  /** The `draft` block carried any team data. */
+  draftBlock: boolean;
+  side: boolean;
+  ownHero: boolean;
+  bans: boolean;
+  allyPicks: boolean;
+  enemyPicks: boolean;
+}
+
+export interface GsiUpdate {
+  /** Allowlisted `map.game_state` (DOTA_GAMERULES_STATE_*), null when absent (main menu heartbeat). */
+  gameState: string | null;
+  phase: GsiPhase;
+  side: TeamSide | null;
+  ownHeroId: HeroId | null;
+  /** Pick/ban hero ids from the draft block; null when the client sent no draft data. */
+  draft: { bans: HeroId[]; picks: { side: TeamSide; heroId: HeroId }[] } | null;
+  /**
+   * Heroes PROVEN banned by `CHAT_MESSAGE_HERO_BANNED` events in this payload (deduped, in order). Positive
+   * evidence only: empty means "this payload states no ban", never "no hero is banned".
+   */
+  eventBans: HeroId[];
+  /** One-way hash of `map.matchid` (never the id itself); null when absent. */
+  matchKey: string | null;
+  capabilities: GsiDraftCapabilities;
+  /** Match telemetry capability labels PRESENT in this payload (values never kept). */
+  telemetry: string[];
+  /**
+   * One-way hash of the inventory (slot -> item name), only to notice "the items changed" between two
+   * updates (diagnostics). Never the items themselves; null when the payload carries no item names.
+   */
+  itemsKey: string | null;
+  /**
+   * STRUCTURAL capability labels (fixed vocabulary, `GSI_STRUCTURE_LABELS`): which sections / roster-like
+   * shapes this payload carries. Presence only -- never a key name from the payload, a value, a hero id or a
+   * count of anything but the three fixed thresholds. Discovery only: no label means "usable for coaching".
+   */
+  structure: GsiStructureLabel[];
+}
+
+/**
+ * Closed vocabulary of structural findings. A payload can only ever switch these labels on; nothing it says
+ * (key names, ids, names, values) reaches the output, so the diagnostic cannot leak identity by construction.
+ */
+export const GSI_STRUCTURE_LABELS = [
+  "section.provider", "section.map", "section.player", "section.hero", "section.abilities", "section.items",
+  "section.draft", "section.allplayers", "section.buildings", "section.wearables", "section.minimap",
+  "section.roshan", "section.couriers", "section.neutralitems", "section.league",
+  "draft.team2", "draft.team3", "draft.pick_ban_slots", "draft.activeteam",
+  "roster.team_keyed", "roster.player_entries", "roster.multi_entries", "roster.full_entries",
+  "roster.hero_fields", "roster.team_fields",
+] as const;
+export type GsiStructureLabel = (typeof GSI_STRUCTURE_LABELS)[number];
+
+const DRAFT_STATES = new Set(["DOTA_GAMERULES_STATE_HERO_SELECTION", "DOTA_GAMERULES_STATE_STRATEGY_TIME"]);
+const LOADING_STATES = new Set(["DOTA_GAMERULES_STATE_INIT", "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD", "DOTA_GAMERULES_STATE_CUSTOM_GAME_SETUP"]);
+const GAME_STATE = /^DOTA_GAMERULES_STATE_[A-Z_]{1,48}$/;
+// Valve team numbers: DOTA_TEAM_GOODGUYS = 2 (Radiant), DOTA_TEAM_BADGUYS = 3 (Dire).
+const DRAFT_TEAM_SIDE: Record<string, TeamSide> = { team2: "radiant", team3: "dire" };
+const DRAFT_SLOT_KEY = /^(pick|ban)(\d{1,2})_id$/;
+const BAN_EVENT_TYPE = "CHAT_MESSAGE_HERO_BANNED";
+/** A real ranked draft emits ~16 ban events: past these bounds an `events` array is not one, so a hostile payload cannot make us scan or parse without limit. */
+const MAX_EVENTS_SCANNED = 256;
+const MAX_EVENT_DATA_CHARS = 512;
+
+type Json = Record<string, unknown>;
+
+function isObject(value: unknown): value is Json {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function heroIdOf(value: unknown): HeroId | null {
+  const n = typeof value === "string" && /^\d{1,3}$/.test(value) ? Number(value) : value;
+  return typeof n === "number" && Number.isInteger(n) && n > 0 && n < 1000 ? n : null;
+}
+
+function phaseOf(gameState: string | null): GsiPhase {
+  if (gameState === null) return "idle";
+  if (DRAFT_STATES.has(gameState)) return "draft";
+  if (LOADING_STATES.has(gameState)) return "loading";
+  return "match";
+}
+
+function readDraft(block: Json): GsiUpdate["draft"] {
+  const bans: HeroId[] = [];
+  const picks: { side: TeamSide; heroId: HeroId }[] = [];
+  // Only pick/ban slots count as draft data: an empty `team2: {}` (or one with only `home_team`) says nothing.
+  let teamData = false;
+  for (const [teamKey, team] of Object.entries(block)) {
+    const side = DRAFT_TEAM_SIDE[teamKey];
+    if (!side || !isObject(team)) continue;
+    const slots = Object.keys(team)
+      .map((key) => ({ key, match: key.match(DRAFT_SLOT_KEY) }))
+      .filter((entry): entry is { key: string; match: RegExpMatchArray } => entry.match !== null)
+      .sort((a, b) => Number(a.match[2]) - Number(b.match[2]));
+    if (slots.length > 0) teamData = true;
+    for (const { key, match } of slots) {
+      const heroId = heroIdOf(team[key]);
+      if (heroId === null) continue;
+      if (match[1] === "ban") bans.push(heroId);
+      else picks.push({ side, heroId });
+    }
+  }
+  return teamData ? { bans, picks } : null;
+}
+
+/**
+ * `events[]` -> the heroes proven banned. Dota wraps every chat event as `{ event_type: "generic_event", data: "<JSON text>" }`
+ * with `data = { type: "CHAT_MESSAGE_HERO_BANNED", value: <hero id>, ... }`; the other fields (player ids, time) are never
+ * read. Only a valid hero id of a ban event survives: any other event, malformed `data`, a non-integer or out-of-range
+ * value and every repeat is dropped without a trace. Never throws.
+ */
+function readBanEvents(events: unknown): HeroId[] {
+  if (!Array.isArray(events)) return [];
+  const bans: HeroId[] = [];
+  for (const event of events.slice(0, MAX_EVENTS_SCANNED)) {
+    if (!isObject(event) || typeof event.data !== "string" || event.data.length > MAX_EVENT_DATA_CHARS) continue;
+    let data: unknown;
+    try {
+      data = JSON.parse(event.data);
+    } catch {
+      continue;
+    }
+    if (!isObject(data) || data.type !== BAN_EVENT_TYPE) continue;
+    // Strict on purpose: in this event the hero id is a JSON number (a numeric string is a draft-block quirk).
+    const heroId = typeof data.value === "number" ? heroIdOf(data.value) : null;
+    if (heroId !== null && !bans.includes(heroId)) bans.push(heroId);
+  }
+  return bans;
+}
+
+function hashMatch(value: unknown): string | null {
+  const id = typeof value === "string" || typeof value === "number" ? String(value) : null;
+  if (id === null || !/^\d{1,20}$/.test(id) || /^0+$/.test(id)) return null;
+  return createHash("sha256").update(`d2k-gsi-match/v1|${id}`).digest("hex").slice(0, 16);
+}
+
+interface TelemetryProbe {
+  label: string;
+  section: "map" | "hero" | "player" | "items" | "abilities";
+  test: (section: Json) => boolean;
+}
+
+function has(key: string, kind: "number" | "boolean" = "number") {
+  return (section: Json) => typeof section[key] === kind;
+}
+
+function anyChild(test: (child: Json) => boolean) {
+  return (section: Json) => Object.values(section).some((child) => isObject(child) && test(child));
+}
+
+// Capability discovery only: which fields this client sends. No coaching is built on any of them yet.
+const TELEMETRY_PROBES: TelemetryProbe[] = [
+  { label: "clock_time", section: "map", test: has("clock_time") },
+  { label: "game_time", section: "map", test: has("game_time") },
+  { label: "hero_level", section: "hero", test: has("level") },
+  { label: "hero_health", section: "hero", test: has("health") },
+  { label: "hero_mana", section: "hero", test: has("mana") },
+  { label: "hero_alive", section: "hero", test: has("alive", "boolean") },
+  { label: "hero_respawn", section: "hero", test: has("respawn_seconds") },
+  { label: "hero_buyback", section: "hero", test: (s) => typeof s.buyback_cost === "number" || typeof s.buyback_cooldown === "number" },
+  { label: "kda", section: "player", test: (s) => ["kills", "deaths", "assists"].every((key) => typeof s[key] === "number") },
+  { label: "last_hits", section: "player", test: has("last_hits") },
+  { label: "denies", section: "player", test: has("denies") },
+  { label: "gold", section: "player", test: has("gold") },
+  { label: "gpm", section: "player", test: has("gpm") },
+  { label: "xpm", section: "player", test: has("xpm") },
+  { label: "net_worth", section: "player", test: (s) => typeof s.net_worth === "number" || typeof s.networth === "number" },
+  { label: "items", section: "items", test: anyChild((item) => typeof item.name === "string") },
+  { label: "item_cooldowns", section: "items", test: anyChild((item) => typeof item.cooldown === "number") },
+  { label: "abilities", section: "abilities", test: anyChild((ability) => typeof ability.name === "string") },
+  { label: "ability_levels", section: "abilities", test: anyChild((ability) => typeof ability.level === "number") },
+  { label: "ability_cooldowns", section: "abilities", test: anyChild((ability) => typeof ability.cooldown === "number") },
+];
+
+function readTelemetry(body: Json): string[] {
+  const labels: string[] = [];
+  for (const probe of TELEMETRY_PROBES) {
+    const section = body[probe.section];
+    if (isObject(section) && probe.test(section)) labels.push(probe.label);
+  }
+  return labels;
+}
+
+const ITEM_SLOT = /^(slot|stash|teleport|neutral)\d{1,2}$/;
+const ITEM_NAME = /^[a-z0-9_]{1,64}$/;
+
+function hashItems(items: unknown): string | null {
+  if (!isObject(items)) return null;
+  const slots: string[] = [];
+  for (const [slot, item] of Object.entries(items)) {
+    if (!ITEM_SLOT.test(slot) || !isObject(item) || typeof item.name !== "string" || !ITEM_NAME.test(item.name)) continue;
+    slots.push(`${slot}=${item.name}`);
+  }
+  if (slots.length === 0) return null;
+  return createHash("sha256").update(`d2k-gsi-items/v1|${slots.sort().join(",")}`).digest("hex").slice(0, 16);
+}
+
+const SECTION_LABELS = new Set<string>(GSI_STRUCTURE_LABELS.filter((label) => label.startsWith("section.")).map((label) => label.slice("section.".length)));
+const PLAYER_ENTRY_KEY = /^player\d{1,2}$/;
+const ROSTER_SECTIONS = ["player", "hero", "allplayers"] as const;
+const FULL_ROSTER_ENTRIES = 10;
+
+/** Player-like children of a section: `playerN` directly, or under `team2` / `team3`. */
+function rosterEntries(section: Json): { entries: Json[]; teamKeyed: boolean } {
+  const entries: Json[] = [];
+  let teamKeyed = false;
+  for (const [key, child] of Object.entries(section)) {
+    if (!isObject(child)) continue;
+    if (PLAYER_ENTRY_KEY.test(key)) entries.push(child);
+    else if (key in DRAFT_TEAM_SIDE) {
+      teamKeyed = true;
+      for (const [innerKey, inner] of Object.entries(child)) if (PLAYER_ENTRY_KEY.test(innerKey) && isObject(inner)) entries.push(inner);
+    }
+  }
+  return { entries, teamKeyed };
+}
+
+function hasHeroField(entry: Json): boolean {
+  return heroIdOf(entry.id) !== null || heroIdOf(entry.hero_id) !== null;
+}
+
+function hasTeamField(entry: Json): boolean {
+  return entry.team_name === "radiant" || entry.team_name === "dire" || entry.team === 2 || entry.team === 3;
+}
+
+function readStructure(body: Json): GsiStructureLabel[] {
+  const found = new Set<GsiStructureLabel>();
+  for (const [key, value] of Object.entries(body)) {
+    if (SECTION_LABELS.has(key) && isObject(value)) found.add(`section.${key}` as GsiStructureLabel);
+  }
+  if (isObject(body.draft)) {
+    if (isObject(body.draft.team2)) found.add("draft.team2");
+    if (isObject(body.draft.team3)) found.add("draft.team3");
+    if (Object.values(body.draft).some((team) => isObject(team) && Object.keys(team).some((key) => DRAFT_SLOT_KEY.test(key)))) found.add("draft.pick_ban_slots");
+    if ("activeteam" in body.draft) found.add("draft.activeteam");
+  }
+  for (const name of ROSTER_SECTIONS) {
+    const section = body[name];
+    if (!isObject(section)) continue;
+    const { entries, teamKeyed } = rosterEntries(section);
+    if (teamKeyed) found.add("roster.team_keyed");
+    if (entries.length >= 1) found.add("roster.player_entries");
+    if (entries.length >= 2) found.add("roster.multi_entries");
+    if (entries.length >= FULL_ROSTER_ENTRIES) found.add("roster.full_entries");
+    if (entries.some(hasHeroField)) found.add("roster.hero_fields");
+    if (entries.some(hasTeamField)) found.add("roster.team_fields");
+  }
+  return GSI_STRUCTURE_LABELS.filter((label) => found.has(label));
+}
+
+/** How many draft facts one update states (bans + picks + our own hero): growing between updates = the draft progressing. */
+export function draftFactCount(update: GsiUpdate): number {
+  const blockBans = update.draft?.bans ?? [];
+  const eventOnlyBans = update.eventBans.filter((heroId) => !blockBans.includes(heroId)).length;
+  return blockBans.length + eventOnlyBans + (update.draft?.picks.length ?? 0) + (update.ownHeroId === null ? 0 : 1);
+}
+
+/** External input -> the allowlisted facts of one GSI update. Never throws, never returns a raw value outside the allowlist. */
+export function normalizeGsi(payload: unknown): GsiUpdate {
+  const body = isObject(payload) ? payload : {};
+  const map = isObject(body.map) ? body.map : {};
+  const player = isObject(body.player) ? body.player : {};
+  const hero = isObject(body.hero) ? body.hero : {};
+  const gameState = typeof map.game_state === "string" && GAME_STATE.test(map.game_state) ? map.game_state : null;
+  const side = player.team_name === "radiant" || player.team_name === "dire" ? player.team_name : null;
+  const ownHeroId = heroIdOf(hero.id);
+  const draft = isObject(body.draft) ? readDraft(body.draft) : null;
+  const eventBans = readBanEvents(body.events);
+
+  const allyPicks = side !== null && draft !== null && draft.picks.some((pick) => pick.side === side);
+  const enemyPicks = side !== null && draft !== null && draft.picks.some((pick) => pick.side !== side);
+  return {
+    gameState,
+    phase: phaseOf(gameState),
+    side,
+    ownHeroId,
+    draft,
+    eventBans,
+    matchKey: hashMatch(map.matchid),
+    capabilities: {
+      draftBlock: draft !== null,
+      side: side !== null,
+      ownHero: ownHeroId !== null,
+      bans: (draft !== null && draft.bans.length > 0) || eventBans.length > 0,
+      allyPicks,
+      enemyPicks,
+    },
+    telemetry: readTelemetry(body),
+    itemsKey: hashItems(body.items),
+    structure: readStructure(body),
+  };
+}
+
+/**
+ * The draft facts one update states, in application order (side first, so own picks are recognised).
+ * Only during hero selection / strategy time: outside the draft a hero id is the match hero, not a pick.
+ */
+export function observationsFromGsi(update: GsiUpdate, patch: string): LiveObservation[] {
+  if (update.phase !== "draft") return [];
+  // Hero selection already shown by the game = the Player needs recommendations NOW, not after the first
+  // lock. A player's GSI may never say when bans end, so the pick phase opens immediately. Safe: every
+  // rebuild replays all bans before ban resolution closes, so a ban reported later still lands first.
+  const observations: LiveObservation[] = [{ type: "draft_started", patch }, { type: "bans_closed" }];
+  if (update.side !== null) observations.push({ type: "side", side: update.side });
+  for (const heroId of update.draft?.bans ?? []) observations.push({ type: "ban", heroId });
+  // Ban events state bans and nothing else -- none of them closes the set. The fact layer dedupes by hero, so the
+  // same event repeated (or also present in the draft block) is still one ban.
+  for (const heroId of update.eventBans) observations.push({ type: "ban", heroId });
+  for (const pick of update.draft?.picks ?? []) observations.push({ type: "pick", side: pick.side, heroId: pick.heroId, position: null });
+  // Our own hero: the game only creates it once the pick is locked. No position -- GSI does not say it.
+  if (update.ownHeroId !== null && update.side !== null) observations.push({ type: "pick", side: update.side, heroId: update.ownHeroId, position: null, viaLocalHero: true });
+  // ...and it stays IDENTITY evidence, not just one more allied pick: GSI is the only source that says which hero is the
+  // local Player's. It is the current state of every update (a change replaces it, none clears it), and only counts
+  // once our side is known -- without a side the hero cannot be placed on our team.
+  observations.push({ type: "local_hero", heroId: update.side !== null ? update.ownHeroId : null });
+  return observations;
+}

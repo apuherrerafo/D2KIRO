@@ -63,7 +63,7 @@ async function createSession(routes: ReturnType<typeof createProtocolSessionRout
 describe("createProtocolSessionRoutes -- GET .../recommendations (R1 S5)", () => {
   test("devuelve un RecommendationSet/v2 válido con basedOn/decision/recommendations", async () => {
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([1, 2, 3]) });
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([1, 2, 3, 5]) });
     const sessionId = await createSession(routes);
     // Ranked All Pick needs BAN_RESOLUTION_COMPLETE before any sealed slot is open.
     await routes.postCommand(jsonRequest({ command: { type: "BAN_RESOLUTION_COMPLETE" } }), sessionId);

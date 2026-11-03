@@ -1,0 +1,161 @@
+{
+  "schema": "empirical-snapshot-provenance/v1",
+  "snapshotId": "W5-EMP-001",
+  "frozenAt": "2026-09-21T04:57:24.011Z",
+  "source": {
+    "name": "OpenDota",
+    "endpoints": [
+      "GET /heroes",
+      "GET /heroStats",
+      "GET /heroes/{id}/matchups"
+    ],
+    "queryParameters": "none -- no patch, rank or time-window parameter is sent",
+    "apiKey": false
+  },
+  "rulesetTarget": {
+    "patch": "7.41f",
+    "meaning": "product target; NOT a claim about what the data measured"
+  },
+  "patchClaim": {
+    "label": "7.41e",
+    "verified": false,
+    "basis": "caller-supplied constant stamped at ingestion (CURRENT_PATCH); the source reports no patch",
+    "appliesTo": "hero_patch_stats.patch only; hero_matchups has no patch column",
+    "labelsFound": [
+      "7.41e"
+    ]
+  },
+  "synchronization": {
+    "syncRuns": [
+      {
+        "id": 1,
+        "source": "opendota",
+        "startedAt": "2026-09-17T05:11:18.244Z",
+        "finishedAt": "2026-09-17T05:11:18.915Z",
+        "status": "ok",
+        "rowsWritten": 1143
+      },
+      {
+        "id": 2,
+        "source": "opendota",
+        "startedAt": "2026-09-18T01:07:38.493Z",
+        "finishedAt": "2026-09-18T01:11:52.461Z",
+        "status": "ok",
+        "rowsWritten": 17127
+      },
+      {
+        "id": 3,
+        "source": "opendota",
+        "startedAt": "2026-09-19T20:45:06.790Z",
+        "finishedAt": null,
+        "status": "running",
+        "rowsWritten": 0
+      }
+    ],
+    "interruptedRunPresent": true,
+    "tables": {
+      "heroes": {
+        "rows": 127,
+        "retrievedFrom": "2026-09-19T20:45:07.201Z",
+        "retrievedTo": "2026-09-19T20:45:07.201Z"
+      },
+      "hero_patch_stats": {
+        "rows": 1016,
+        "retrievedFrom": "2026-09-19T20:45:07.458Z",
+        "retrievedTo": "2026-09-19T20:45:07.459Z"
+      },
+      "hero_matchups": {
+        "rows": 15982,
+        "retrievedFrom": "2026-09-18T01:11:38.894Z",
+        "retrievedTo": "2026-09-19T20:49:59.597Z"
+      }
+    },
+    "matchupRetrievalGroups": [
+      {
+        "syncId": 2,
+        "heroes": 8,
+        "retrievedFrom": "2026-09-18T01:11:38.894Z",
+        "retrievedTo": "2026-09-18T01:11:52.447Z"
+      },
+      {
+        "syncId": 3,
+        "heroes": 119,
+        "retrievedFrom": "2026-09-19T20:45:08.054Z",
+        "retrievedTo": "2026-09-19T20:49:59.597Z"
+      }
+    ],
+    "retrievalWindow": {
+      "from": "2026-09-18T01:11:38.894Z",
+      "to": "2026-09-19T20:49:59.597Z"
+    }
+  },
+  "observationWindow": null,
+  "observationWindowNote": "not reported by OpenDota and not recorded by the sync; unknown, NOT assumed equal to any patch",
+  "sample": {
+    "heroStatsBracketDefinition": "OpenDota /heroStats `<tier>_pick`/`<tier>_win`, tier 1..8 labelled herald..immortal by the project; the MMR span of each tier is not recorded here",
+    "brackets": [
+      {
+        "bracket": "ancient",
+        "totalPicks": 6501673,
+        "totalWins": 3250837
+      },
+      {
+        "bracket": "archon",
+        "totalPicks": 9182289,
+        "totalWins": 4591145
+      },
+      {
+        "bracket": "crusader",
+        "totalPicks": 6543512,
+        "totalWins": 3271756
+      },
+      {
+        "bracket": "divine",
+        "totalPicks": 4512115,
+        "totalWins": 2256062
+      },
+      {
+        "bracket": "guardian",
+        "totalPicks": 3755860,
+        "totalWins": 1877930
+      },
+      {
+        "bracket": "herald",
+        "totalPicks": 1148030,
+        "totalWins": 574015
+      },
+      {
+        "bracket": "immortal",
+        "totalPicks": 0,
+        "totalWins": 0
+      },
+      {
+        "bracket": "legend",
+        "totalPicks": 9754883,
+        "totalWins": 4877441
+      }
+    ],
+    "matchupSampleDefinition": "per (hero, opposing hero) aggregate games/wins from /heroes/{id}/matchups; no bracket split, window unknown"
+  },
+  "rowCounts": {
+    "heroes": 127,
+    "hero_patch_stats": 1016,
+    "hero_matchups": 15982,
+    "matchupHeroesDistinct": 127
+  },
+  "hashes": {
+    "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+    "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+    "sourceFileSha256": "4ed064a36cf1aadc89c7c02e07c09c744a9b5e856346c39af8d17dc5a495e532",
+    "logicalFingerprintScope": "heroes(id,localized_name,roles) + hero_patch_stats(hero_id,patch,bracket,picks,wins) + hero_matchups(hero_id,vs_hero_id,games,wins); independent of file layout and meta_sync"
+  },
+  "limitations": [
+    "The patch label is applied by our ingestion, not reported by OpenDota: it is UNVERIFIED and must not be read as \"data is from that patch\".",
+    "The ruleset target (7.41f) and the data label (7.41e) are different things; equality or inequality between them proves nothing about the data.",
+    "The observation window OpenDota aggregated over is unknown: nothing here dates the games themselves.",
+    "hero_matchups carries no patch and no bracket: it can never be attributed to a patch, even in principle.",
+    "A sync run is recorded as not finished: the frozen rows are the union of what was committed before it stopped and earlier complete runs (each hero's matchups are written in one transaction, so a hero's block is internally consistent, but blocks were retrieved at different times).",
+    "hero_matchups was retrieved in 2 separate groups (see synchronization.matchupRetrievalGroups).",
+    "Bracket(s) with zero recorded picks for every hero: immortal."
+  ]
+}

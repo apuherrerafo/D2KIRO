@@ -284,6 +284,25 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     expect(JSON.stringify(revealedSetX)).not.toBe(JSON.stringify(revealedSetY));
   });
 
+  // AP Ranked Roles V1 / Wave 2 -- found by the Coach hidden-twin acceptance test. The existing twin
+  // test above never made OUR recommended action close the round, so the one-ply lookahead was never
+  // asked to simulate a reveal. When it IS (the enemy holds sealed picks and our top action fills the
+  // last open slot), the kernel reveals those picks inside the counterfactual state -- which used to
+  // feed `deferred` (identity, opponent response, steal) and so leaked the hidden hero.
+  test("hidden twin (acción que CIERRA la ronda): rival sellado-oculto X vs Y -> RecommendationSetV2 COMPLETO byte-idéntico", async () => {
+    const fill = (hidden: [number, number]) => {
+      let state = apRound1State("hidden-twin-closing");
+      state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: hidden[0] }).state;
+      state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: hidden[1] }).state;
+      return applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 4 }).state;
+    };
+    // Radiant's remaining open slot (1): ANY recommended hero fills the round's last slot and closes it.
+    const setX = await buildFor(fill([9, 10]), "radiant", [1, 2, 3], { seed: "fixed-twin-seed" });
+    const setY = await buildFor(fill([11, 12]), "radiant", [1, 2, 3], { seed: "fixed-twin-seed" });
+    expect(setX.decision.actionCount).toBe(1);
+    expect(JSON.stringify(setX)).toBe(JSON.stringify(setY));
+  });
+
   test("hidden twins: dos sesiones con el mismo pick propio y el mismo rival sellado-pero-oculto son idénticas en basedOn -- y divergen tras el reveal", async () => {
     const stateA = apRound1State("twin-a");
     const stateB = apRound1State("twin-b");
@@ -503,7 +522,7 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
           ...options,
           heroPositions: HERO_POSITIONS,
           heroCapabilities: [],
-          heroCounters: new Map(),
+          heroCounters: new Map(), heroSynergies: new Map(),
         });
         if (suggestionSet === undefined) suggestionSet = result;
         return result;
@@ -549,7 +568,7 @@ describe("buildRecommendationSetV2 -- rendimiento real (V6 real, sin mocks, Bloc
   };
 
   const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
-    buildSuggestions(state, PERF_META, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+    buildSuggestions(state, PERF_META, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map() });
 
   /** Captain's Mode, step 2 (actor "first"=radiant, same as step 1) -- our own top recommendation
    * is evaluated here, so applying it (inside buildRecommendationSetV2's S6 lookahead) advances
@@ -625,7 +644,7 @@ describe("buildRecommendationSetV2 -- CM real ban materializes steal end to end 
   // Identical wiring to the performance block's `realComputeSuggestions` -- no mock, no stub, no
   // fabricated SuggestionSet anywhere between this function and V6's own mix.ts.
   const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
-    buildSuggestions(state, CM_META, { ...options, heroPositions: CM_HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+    buildSuggestions(state, CM_META, { ...options, heroPositions: CM_HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map() });
 
   test("CM real ban -> el héroe que el V6 real recomienda banear queda excluido del universo real del rival y el steal queda MATERIALIZED", async () => {
     const ready = cmReadyState("s6-real-steal-repair", CM_HERO_IDS);

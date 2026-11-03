@@ -1,0 +1,243 @@
+[
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "d0",
+  "hero": 29
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "d1",
+  "hero": 22
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "d2",
+  "hero": 20
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "d3",
+  "hero": 31
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "d4",
+  "hero": 6
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "r0",
+  "hero": 44
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "r1",
+  "hero": 47
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "r2",
+  "hero": 49
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "r3",
+  "hero": 26
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "bot",
+  "slot": "r4",
+  "hero": 37
+ },
+ {
+  "session": "5cac470b",
+  "epoch": "human",
+  "slot": "d4",
+  "hero": 30,
+  "note": "locks on the last saved frame (029, label T: excluded from the per-cell tables, counted by the session replay)"
+ },
+ {
+  "session": "65964acb",
+  "epoch": "human",
+  "slot": "d0",
+  "hero": 30
+ },
+ {
+  "session": "65964acb",
+  "epoch": "human",
+  "slot": "d1",
+  "hero": 39
+ },
+ {
+  "session": "65964acb",
+  "epoch": "human",
+  "slot": "d3",
+  "hero": 100
+ },
+ {
+  "session": "65964acb",
+  "epoch": "human",
+  "slot": "r1",
+  "hero": 110
+ },
+ {
+  "session": "65964acb",
+  "epoch": "human",
+  "slot": "r3",
+  "hero": 86
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "d0",
+  "hero": 36
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "d1",
+  "hero": 26
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "d2",
+  "hero": 42
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "d3",
+  "hero": 20
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "d4",
+  "hero": 8
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "r0",
+  "hero": 39
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "r1",
+  "hero": 2
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "r2",
+  "hero": 22
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "r3",
+  "hero": 31
+ },
+ {
+  "session": "824903f3",
+  "epoch": "bot",
+  "slot": "r4",
+  "hero": 18
+ },
+ {
+  "session": "824903f3",
+  "epoch": "human",
+  "slot": "d1",
+  "hero": 5
+ },
+ {
+  "session": "824903f3",
+  "epoch": "human",
+  "slot": "d2",
+  "hero": 101
+ },
+ {
+  "session": "824903f3",
+  "epoch": "human",
+  "slot": "r3",
+  "hero": 88
+ },
+ {
+  "session": "824903f3",
+  "epoch": "human",
+  "slot": "r4",
+  "hero": 120
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "d0",
+  "hero": 8
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "d1",
+  "hero": 7
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "d2",
+  "hero": 47
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "d3",
+  "hero": 30
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "d4",
+  "hero": 26
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "r0",
+  "hero": 41
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "r1",
+  "hero": 37
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "r2",
+  "hero": 22
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "r3",
+  "hero": 42
+ },
+ {
+  "session": "ed6ae5ff",
+  "epoch": "bot",
+  "slot": "r4",
+  "hero": 31
+ }
+]

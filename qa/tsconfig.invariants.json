@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["invariants/**/*.ts", "scenarios/**/*.ts", "mvp/oracles/coach-primary-action-oracle.ts"]
+}

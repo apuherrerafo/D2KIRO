@@ -103,7 +103,66 @@ function buildExplanation(fill: number, safety: number, t: number, ownCount: num
   return "Encaja parcialmente en lo que le falta a tu equipo";
 }
 
-export function createPositionFitScorer(positions: HeroPositions): SignalScorer {
+// AP Solo Mid data/signal repair, blocker 1 (2026-09): with `targetPosition === 2`, the question
+// this signal answers changes from "what does my team still need, anywhere" to "how strong is the
+// evidence this hero works AS Mid" -- admission (`isCandidateAdmittedForPosition`) already answers
+// "can it enter"; this answers "how good is it once admitted", and the two must not collapse into
+// the same formula (a hero can clear the admission floor and still be a weak Mid relative to
+// another admitted candidate).
+//
+// Deliberately reads the RAW match count at `targetPosition`, never `shareInfo().vector` (the
+// share renormalized over only the positions that survived `MIN_POSITION_MATCHES`) -- that
+// renormalization is exactly the artifact the Dota Judge review traced Snapfire/Io/Earth Spirit's
+// inflated scores to (docs/diagnostics/ap-solo-mid-dota-judge.md §2): a hero's Mid evidence must
+// not move because its Support matches changed, and a raw count naturally can't, while a share of
+// a shrinking/growing denominator always would.
+//
+// TARGET_EVIDENCE_SATURATION_MATCHES: ~p90 of real position-2 matches in hero-positions.json at
+// collection time (7.41e, Dota2ProTracker 7000+ MMR) -- data-derived, not invented, and not tuned
+// per hero. Beyond this many recorded Mid matches, more volume stops adding more evidence; below
+// it, evidence scales linearly with how many games back the claim.
+const TARGET_EVIDENCE_SATURATION_MATCHES = 3000;
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+// "2340" -> "2.340": el jugador lee la cantidad real de partidas, no sólo el adjetivo del escalón.
+function formatMatchCount(matches: number): string {
+  return String(matches).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function targetEvidenceExplanation(raw: number, position: Position, matches: number): string {
+  const label = POSITION_LABELS[position];
+  const evidence = `${formatMatchCount(matches)} partidas de alto MMR`;
+  if (raw >= 0.66) return `Evidencia sólida de que funciona como ${label} (${evidence})`;
+  if (raw >= 0.33) return `Evidencia moderada de que funciona como ${label} (${evidence})`;
+  return `Evidencia limitada de que funciona como ${label} (${evidence})`;
+}
+
+function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, positions: HeroPositions): SignalContribution {
+  const targetShare = (positions[candidate] ?? []).find((share) => share.position === targetPosition);
+  if (!targetShare) {
+    return {
+      signal: "position_fit",
+      raw: null,
+      weighted: 0,
+      explanation: `Sin evidencia suficiente de ${POSITION_LABELS[targetPosition]} para este héroe`,
+      sampleSize: 0,
+    };
+  }
+
+  const raw = clamp01(targetShare.matches / TARGET_EVIDENCE_SATURATION_MATCHES);
+  return {
+    signal: "position_fit",
+    raw,
+    weighted: 0,
+    explanation: targetEvidenceExplanation(raw, targetPosition, targetShare.matches),
+    sampleSize: targetShare.matches,
+  };
+}
+
+export function createPositionFitScorer(positions: HeroPositions, targetPosition?: Position): SignalScorer {
   // TSK-060: `buildSuggestions` llama a `score()` una vez por candidato (~120 héroes) sobre el
   // MISMO `state` -- `coverage`/`need` no dependen del candidato, así que recalcularlos en cada
   // llamada es trabajo O(candidatos × picks propios) que en realidad es O(picks propios). Un
@@ -144,6 +203,13 @@ export function createPositionFitScorer(positions: HeroPositions): SignalScorer 
           explanation: "Sin datos de posición para este héroe este parche",
           sampleSize: 0,
         };
+      }
+
+      // Wave 5 Personal View repair: every targetPosition (1..5) gets the target-aware formula.
+      // The no-target case (team opening / general draft need) falls through to the legacy
+      // fill/safety formula below, unchanged.
+      if (targetPosition !== undefined) {
+        return scoreForTargetPosition(candidate, targetPosition, positions);
       }
 
       const own = ownPicks(state);

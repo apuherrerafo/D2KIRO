@@ -29,6 +29,8 @@ export interface SignalContribution {
   // a este usuario ahora mismo" (pool nunca configurado) es distinto de `raw: null` ("hay hueco de
   // datos") -- no cuenta para computeConfidence ni dispara partial_signals (mix.ts, TSK-023).
   applicable?: boolean;
+  // Wave 5 Hardening (H1): true if candidate counters at least one revealed enemy (positive matchup or curated counter)
+  hasRevealedEnemyCounterEvidence?: boolean;
 }
 
 export interface SignalScorer {

@@ -1,0 +1,68 @@
+{
+  "result": "PASS",
+  "head": "6c9e5fffe8531a3f6d034af285fef911be2d09a4",
+  "failures": [],
+  "soak": {
+    "drafts": 600,
+    "completed": 600,
+    "states": 3094,
+    "replayMismatches": 0,
+    "badStatuses": 0,
+    "byPolicy": [
+      {
+        "policy": "follow-coach",
+        "drafts": 200,
+        "completed": 200,
+        "states": 1047
+      },
+      {
+        "policy": "varied",
+        "drafts": 200,
+        "completed": 200,
+        "states": 1033
+      },
+      {
+        "policy": "deviate",
+        "drafts": 200,
+        "completed": 200,
+        "states": 1014
+      }
+    ]
+  },
+  "twins": {
+    "compared": 345,
+    "identical": 345,
+    "mismatches": 0,
+    "skippedCollision": 33,
+    "divergedAfterReveal": 198,
+    "revealChecks": 198,
+    "twistCases": 99
+  },
+  "separation": {
+    "states": 416,
+    "teamIdentical": 416,
+    "teamMismatches": 0,
+    "personalDiffers": 200,
+    "poolMembershipDiffers": 200,
+    "poolBadgeOnTeamList": 0
+  },
+  "fallback": {
+    "states": 15,
+    "previouslyAbortedNowComplete": 19,
+    "previouslyAborted": 19
+  },
+  "safeCore": {
+    "raw": 3,
+    "wave4aPopulation": 3
+  },
+  "performance": {
+    "samples": 3094,
+    "p50": 8.598100000002887,
+    "p95": 40.72590000000491,
+    "p99": 52.97019999999611,
+    "max": 71.37970000000132,
+    "overBudget": 0,
+    "overCutoff": 0,
+    "coldFirst": 58.20839999999998
+  }
+}

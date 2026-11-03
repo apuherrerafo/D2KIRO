@@ -1,0 +1,266 @@
+/* DS V1.1 · Motion Canonical V1 — demo skins for the canonical motions. Contract (Motion.test.tsx):
+   no colour literal, no remote asset, durations only through var(--m-*), NOTHING loops (the only infinite
+   animation in the system is the neutral busy track under aria-busy, owned by primitives.css), blur and
+   backdrop-filter are never animated, and every motion has a reduced-motion end state at the bottom.
+   Local custom properties are --cm-* only. Board chrome (sections, rules) reuses canonical.css `dsc-*`. */
+
+.cm-budget { display: grid; gap: 24px; min-width: 0; }
+.cm-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); min-width: 0; }
+.cm-demo { background: var(--r3-panel); border: 1px solid var(--r3-line); display: grid; gap: 12px; min-width: 0; padding: 16px; }
+.cm-demo-title { font: 600 14px/1.3 var(--f-plex); margin: 0; }
+.cm-state-line { color: var(--r3-muted); font: 400 12px/1.4 var(--f-plex); margin: 0; min-height: 2.8em; }
+.cm-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.cm-instrument {
+  background: transparent; border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); cursor: pointer;
+  font: 500 12px/1 var(--f-plex); min-height: 32px; padding: 0 12px; touch-action: manipulation;
+  transition: border-color var(--m-fast) var(--m-ease-out), background-color var(--m-fast) var(--m-ease-out);
+}
+@media (hover: hover) { .cm-instrument:hover { border-color: var(--r3-ink); } }
+.cm-instrument[aria-pressed="true"] { border-color: var(--r3-ink); font-weight: 700; }
+.cm-instrument:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 3px; }
+@media (pointer: coarse) { .cm-instrument { min-height: 44px; } }
+
+/* shared corners (acquire, hover, Coach attention): four open ticks in ink */
+.cm-corners { inset: 0; pointer-events: none; position: absolute; }
+.cm-corners i { border-color: var(--r3-ink); border-style: solid; border-width: 0; height: 8px; position: absolute; width: 8px; }
+.cm-corners i:nth-child(1) { border-left-width: 2px; border-top-width: 2px; left: -4px; top: -4px; }
+.cm-corners i:nth-child(2) { border-right-width: 2px; border-top-width: 2px; right: -4px; top: -4px; }
+.cm-corners i:nth-child(3) { border-bottom-width: 2px; border-right-width: 2px; bottom: -4px; right: -4px; }
+.cm-corners i:nth-child(4) { border-bottom-width: 2px; border-left-width: 2px; bottom: -4px; left: -4px; }
+
+/* ───────── 1 · attention acquisition ───────── */
+.cm-acquire-anatomy { background: var(--r3-raise); border: 1px solid var(--r3-line); display: grid; gap: 4px; justify-items: start; padding: 20px 16px 16px; position: relative; }
+.cm-acquire { min-width: 0; }
+.cm-acquire .cm-corners { opacity: 0; }
+.cm-acquire[data-acquired="true"][data-source="strategic"] .cm-acquire-anatomy { border-color: var(--r3-ink); }
+.cm-acquire[data-acquired="true"][data-source="strategic"] .cm-corners { opacity: 1; }
+.cm-acquire[data-acquired="true"][data-motion-granted="false"] .cm-corners { opacity: 1; }
+.cm-acquire[data-source="default"] .cm-corners { display: none; }
+.cm-acquire-notch { background: var(--r3-bg); border: 1px solid var(--r3-line-strong); color: var(--r3-muted); font: 600 11px/1 var(--f-plex); left: 12px; padding: 3px 8px; position: absolute; top: -8px; visibility: hidden; }
+.cm-acquire[data-acquired="true"] .cm-acquire-notch { visibility: visible; }
+.cm-acquire[data-acquired="true"][data-source="strategic"] .cm-acquire-notch { color: var(--r3-ink); }
+.cm-acquire-name { font: 700 16px/1.15 var(--f-syne); }
+.cm-acquire-value { font: 600 30px/1 var(--f-plex); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.cm-acquire-label { color: var(--r3-muted); font: 500 12px/1.25 var(--f-plex); }
+
+/* ───────── 2 · focus transfer ───────── */
+.cm-attn { display: grid; grid-auto-rows: 1fr; list-style: none; margin: 0; padding: 0 0 0 12px; position: relative; }
+.cm-attn::before {
+  background: var(--r3-ink); border-radius: 2px; content: ""; height: calc(100% / var(--cm-rows)); left: 0; position: absolute; top: 0; width: 3px;
+  transform: translateY(calc(var(--cm-focus) * 100%)); transition: transform var(--m-spring-snappy-duration) var(--m-spring-snappy);
+}
+.cm-attn-row {
+  align-items: center; border-bottom: 1px solid var(--r3-line); color: var(--r3-muted); display: flex; font: 400 13px/1 var(--f-plex);
+  justify-content: space-between; min-height: 32px; padding: 0 8px;
+  transition: color var(--m-fast) var(--m-ease-out);
+}
+.cm-attn-row b { font: 600 13px/1 var(--f-plex); font-variant-numeric: tabular-nums; }
+.cm-attn-row[data-focus="true"] { color: var(--r3-ink); }
+.cm-attn-row[data-focus="true"] b { font-weight: 700; }
+
+/* ───────── 3 · gather / scatter ───────── */
+.cm-stage { background: var(--r3-raise); border: 1px solid var(--r3-line); container-type: size; height: 172px; overflow: hidden; position: relative; }
+.cm-gather-target {
+  background: var(--r3-panel); border: 1px solid var(--r3-line-strong); display: grid; gap: 2px; justify-items: center; left: calc(var(--cm-x) * 1%); padding: 6px 10px;
+  position: absolute; top: calc(var(--cm-y) * 1%); transform: translate(-50%, -50%); transition: border-color var(--m-medium) var(--m-ease-out); z-index: 1;
+}
+.cm-gather-target:not(.cm-gather-target--glass) b { font: 600 18px/1 var(--f-plex); font-variant-numeric: tabular-nums; }
+.cm-gather-target:not(.cm-gather-target--glass) span { color: var(--r3-muted); font: 500 11px/1 var(--f-plex); }
+.cm-gather-target[data-attention="true"] { border-color: var(--r3-spec-cyan); }
+.cm-gather-marker {
+  background: var(--r3-ink); height: 6px; left: 0; opacity: .7; position: absolute; top: 0; width: 6px;
+  transform: translate(calc(var(--cm-x) * 1cqw + var(--cm-dx) * 1px - 3px), calc(var(--cm-y) * 1cqh + var(--cm-dy) * 1px - 3px));
+  transition: transform var(--m-spring-snappy-duration) var(--m-spring-snappy), opacity var(--m-medium) var(--m-ease-out), background-color var(--m-medium) var(--m-ease-out);
+}
+.cm-gather-marker[data-kind="loss"] { background: var(--r3-muted); border-radius: 50%; }
+.cm-gather[data-dir="in"] .cm-gather-marker { transition-delay: calc(var(--cm-i) * var(--cm-stagger)), 0s, 0s; }
+.cm-gather[data-step="attention"] .cm-gather-marker { background: var(--r3-spec-cyan); opacity: 1; }
+.cm-gather[data-step="attention"] .cm-gather-marker[data-kind="loss"] { background: var(--r3-spec-pink); }
+.cm-gather[data-step="resolved"] .cm-gather-marker { opacity: .9; transition-timing-function: var(--m-spring-settle), var(--m-ease-out), var(--m-ease-out); transition-duration: var(--m-spring-settle-duration), var(--m-medium), var(--m-medium); }
+.cm-gather[data-quiet="true"] .cm-gather-marker { transition-delay: 0s; transition-duration: 0s; }
+.cm-gather-count { bottom: 6px; color: var(--r3-ink); font: 500 11px/1 var(--f-plex); opacity: 0; position: absolute; right: 10px; transition: opacity var(--m-medium) var(--m-ease-out); }
+.cm-gather-count[data-visible="true"] { opacity: 1; }
+
+/* ───────── 4 · spectral displacement (Coach only) ───────── */
+.cm-displace-anchor {
+  background: var(--r3-panel); border: 1px solid var(--r3-line); color: var(--r3-muted); font: 500 11px/1 var(--f-plex); left: calc(var(--cm-x) * 1%); padding: 6px 8px;
+  position: absolute; top: calc(var(--cm-y) * 1%); transform: translate(-50%, -50%); transition: color var(--m-medium) var(--m-ease-out), border-color var(--m-medium) var(--m-ease-out); white-space: nowrap;
+}
+.cm-displace-anchor[data-active="true"] { border-color: var(--r3-ink); color: var(--r3-ink); }
+.cm-presence { background: var(--r3-spec-cyan); display: block; height: 11px; left: calc(var(--cm-x) * 1%); pointer-events: none; position: absolute; rotate: 45deg; top: calc(var(--cm-y) * 1% - 28px); width: 11px; z-index: 2; }
+.cm-ghost { background: var(--r3-spec-cyan); height: 6px; left: -3px; opacity: 0; pointer-events: none; position: absolute; rotate: 45deg; top: -31px; width: 6px; }
+
+/* ───────── 5 · live state change ───────── */
+.cm-live {
+  align-items: center; background: var(--r3-raise); border: 1px solid var(--r3-line); display: flex; flex-wrap: wrap; gap: 8px 12px; min-height: 48px; overflow: hidden; padding: 8px 12px; position: relative;
+  transition: border-color var(--m-medium) var(--m-ease-out);
+}
+.cm-live[data-live="true"] { border-color: color-mix(in srgb, var(--r3-spec-cyan) 45%, var(--r3-line)); }
+.cm-live[data-source="default"] { border-color: var(--r3-line-strong); }
+.cm-live-dot { border: 1.5px solid var(--r3-neutral); border-radius: 50%; flex: none; height: 9px; position: relative; transition: background-color var(--m-fast) var(--m-ease-out), border-color var(--m-fast) var(--m-ease-out); width: 9px; }
+.cm-live[data-live="true"] .cm-live-dot { background: var(--r3-spec-cyan); border-color: var(--r3-spec-cyan); }
+.cm-live[data-live="true"][data-source="default"] .cm-live-dot { background: var(--r3-neutral); border-color: var(--r3-neutral); }
+.cm-live-ring { border: 1.5px solid var(--r3-spec-cyan); border-radius: 50%; inset: -1.5px; opacity: 0; position: absolute; }
+.cm-live-label { color: var(--r3-muted); font: 500 12px/1 var(--f-plex); }
+.cm-live[data-live="true"] .cm-live-label { color: var(--r3-ink); }
+.cm-live-value { font: 600 18px/1 var(--f-plex); font-variant-numeric: tabular-nums; margin-left: auto; }
+.cm-live-change { align-items: baseline; display: inline-flex; gap: 8px; }
+.cm-live-change > span:last-child { color: var(--r3-muted); font: 500 11px/1 var(--f-plex); }
+.cm-live-source { border: 1px solid var(--r3-line); color: var(--r3-muted); font: 500 11px/1 var(--f-plex); padding: 3px 6px; }
+.cm-live-sweep { background: var(--r3-spec-cyan); bottom: 0; height: 2px; left: 0; opacity: 0; position: absolute; transform: scaleX(0); transform-origin: left; width: 100%; }
+
+/* ───────── 6 · number / delta ───────── */
+.cm-num { background: var(--r3-raise); border: 1px solid var(--r3-line); display: grid; gap: 8px; justify-items: start; padding: 14px; }
+.cm-num-label { color: var(--r3-muted); font: 500 12px/1.25 var(--f-plex); }
+.cm-num-value { display: inline-block; font: 600 30px/1 var(--f-plex); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.cm-num-change { align-items: baseline; display: inline-flex; gap: 8px; }
+.cm-num-before { color: var(--r3-muted); font: 500 11px/1.2 var(--f-plex); }
+.cm-num-bar { background: var(--r3-line); height: 6px; position: relative; width: 100%; }
+.cm-num-fill { background: var(--r3-ink); inset: 0; position: absolute; transform: scaleX(calc(var(--cm-w) / 100)); transform-origin: left; transition: transform var(--m-spring-settle-duration) var(--m-spring-settle); }
+.cm-num-ghost { background: var(--r3-muted); bottom: -3px; left: calc(var(--cm-w) * 1%); opacity: 0; position: absolute; top: -3px; width: 2px; z-index: 1; }
+
+/* ───────── 7 · data reorder ───────── */
+.cm-rank { display: grid; list-style: none; margin: 0; padding: 0; }
+.cm-rank-row { align-items: center; border-bottom: 1px solid var(--r3-line); display: grid; gap: 8px; grid-template-columns: 20px minmax(0, 1fr) auto 44px; min-height: 40px; position: relative; }
+.cm-rank-pos { color: var(--r3-muted); font: 600 13px/1 var(--f-plex); font-variant-numeric: tabular-nums; }
+.cm-rank-name { background: transparent; border: 0; color: var(--r3-muted); cursor: pointer; font: 500 13px/1.2 var(--f-plex); min-height: 40px; padding: 0; text-align: left; }
+.cm-rank-name[aria-pressed="true"] { color: var(--r3-ink); font-weight: 700; }
+.cm-rank-name:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 3px; }
+.cm-rank-score { color: var(--r3-muted); font: 500 11px/1 var(--f-plex); white-space: nowrap; }
+.cm-rank-score b { color: var(--r3-ink); font: 600 13px/1 var(--f-plex); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.cm-rank-slot { display: inline-flex; justify-content: flex-end; }
+.cm-rank[data-held="true"] { outline: 1px dashed var(--r3-line-strong); outline-offset: 4px; }
+
+/* ───────── 8 · perimeter travel ───────── */
+.cm-travel { display: grid; gap: 8px 12px; grid-template-columns: auto 1fr auto; grid-template-rows: auto 1fr auto; min-height: 128px; padding: 10px 12px; }
+.cm-travel-zone { color: var(--r3-muted); font: 500 11px/1.3 var(--f-plex); transition: color var(--m-medium) var(--m-ease-out); }
+.cm-travel-zone[data-active="true"] { color: var(--r3-ink); font-weight: 600; }
+.cm-travel-zone--top { grid-column: 1 / -1; text-align: center; }
+.cm-travel-zone--left { align-self: center; grid-column: 1; grid-row: 2; }
+.cm-travel-zone--right { align-self: center; grid-column: 3; grid-row: 2; text-align: right; }
+.cm-travel-zone--bottom { grid-column: 1 / -1; grid-row: 3; text-align: center; }
+.cm-travel-core { align-items: baseline; align-self: center; display: inline-flex; gap: 8px; grid-column: 2; grid-row: 2; justify-self: center; }
+.cm-travel-core b { font: 600 26px/1 var(--f-plex); font-variant-numeric: tabular-nums; }
+/* Canonical perimeter: opacity-only flash (the study's stroke bloom 2 → 7 px is gone). */
+.r3-perimeter[data-canonical="true"] .r3-perimeter-flash { animation-name: cm-perimeter-flash; stroke-width: 3; }
+@keyframes cm-perimeter-flash { 0% { opacity: 0; } 12% { opacity: .85; } 100% { opacity: 0; } }
+
+/* ───────── 9 · target brackets ───────── */
+.cm-targets { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px; position: relative; }
+.cm-target-option {
+  background: var(--r3-raise); border: 1px solid var(--r3-line); color: var(--r3-muted); cursor: pointer; font: 500 12px/1 var(--f-plex); min-height: 44px; touch-action: manipulation;
+  transition: color var(--m-fast) var(--m-ease-out), border-color var(--m-fast) var(--m-ease-out);
+}
+.cm-target-option[aria-pressed="true"] { border-color: var(--r3-line-strong); color: var(--r3-ink); font-weight: 600; }
+.cm-target-option:focus-visible { outline: 0; }
+.cm-target-brackets {
+  height: var(--cm-opt-h, 44px); left: 8px; pointer-events: none; position: absolute; top: 8px; width: calc((100% - 16px - 24px) / 4); z-index: 1;
+  transform: translateX(calc(var(--cm-target) * (100% + 8px))); transition: transform var(--m-spring-snappy-duration) var(--m-spring-snappy);
+}
+.cm-target-brackets b { background: var(--r3-spec-cyan); height: 4px; left: -2px; opacity: 0; position: absolute; top: -2px; width: 4px; }
+.cm-targets[data-source="focus"] .cm-target-brackets .cm-corners i { border-color: var(--r3-focus); }
+.cm-targets[data-source="focus"] .cm-target-brackets b { opacity: 1; }
+
+/* ───────── budget ───────── */
+.cm-owner { font: 500 13px/1.3 var(--f-plex); margin: 0; }
+.cm-budget-log { color: var(--r3-muted); display: grid; font: 400 12px/1.4 var(--f-plex); gap: 4px; list-style: none; margin: 0; min-height: 5.6em; padding: 0; }
+
+/* ───────── board tables ───────── */
+.cm-table-wrap { overflow-x: auto; }
+.cm-table { border-collapse: collapse; font: 400 12px/1.45 var(--f-plex); min-width: 640px; width: 100%; }
+.cm-table :is(th, td) { border-bottom: 1px solid var(--r3-line); padding: 8px; text-align: left; vertical-align: top; }
+.cm-table thead th { color: var(--r3-muted); font-weight: 600; }
+.cm-table tbody th { font-weight: 600; white-space: nowrap; }
+.cm-spec { display: grid; gap: 6px 16px; grid-template-columns: max-content minmax(0, 1fr); margin: 0; }
+.cm-spec dt { color: var(--r3-muted); font: 600 11px/1.4 var(--f-plex); }
+.cm-spec dd { font: 400 12px/1.45 var(--f-plex); margin: 0; min-width: 0; }
+.cm-spec [data-status="PROVISIONAL"] { font-weight: 700; }
+.cm-chip { border: 1px solid var(--r3-line-strong); display: inline-block; font: 600 11px/1 var(--f-plex); margin-right: 8px; padding: 3px 6px; }
+.cm-chip[data-status="PROVISIONAL"] { border-style: dashed; }
+.cm-list { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+.cm-list li { font: 400 13px/1.45 var(--f-plex); max-width: 84ch; }
+.cm-card { border-top: 1px solid var(--r3-line); display: grid; gap: 16px; padding-top: 16px; }
+.cm-card-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.cm-card-head h3 { font: 700 16px/1.15 var(--f-syne); margin: 0; }
+
+/* ═════════ In Canonical Skin ═════════
+   Composition only: these rules place the REAL canonical primitives (Glass, Metric, Delta, HeroDraftSlot,
+   ActionPrimary, LiveModule, PerimeterFrame, cx-target) on a lit environment. No skin is redrawn: the spectral
+   fill, the stroke, the glass recipe and the brackets all come from the primitives themselves. */
+
+/* Surface level 0 for glass: bounded spectral light (≤ --cx-ghost + 10 %, so muted text keeps its contrast) + a ghost
+   numeral. Static — never animated, never a glow on a timer. */
+.cm-skin-stage { isolation: isolate; min-width: 0; overflow: hidden; padding: 28px 18px 20px; position: relative; }
+.cm-skin-stage--flush { padding: 0; }
+.cm-skin-body { position: relative; z-index: 1; }
+.cm-light { border-radius: 50%; height: 170px; pointer-events: none; position: absolute; width: 230px; z-index: 0; }
+.cm-light--pink { background: radial-gradient(closest-side, color-mix(in srgb, var(--r3-spec-pink) calc(var(--cx-ghost) + 10%), transparent), transparent); left: -50px; top: -30px; }
+.cm-light--cyan { background: radial-gradient(closest-side, color-mix(in srgb, var(--r3-spec-cyan) calc(var(--cx-ghost) + 10%), transparent), transparent); bottom: -50px; right: -40px; }
+.cm-light--lime { background: radial-gradient(closest-side, color-mix(in srgb, var(--r3-spec-lime) var(--cx-ghost), transparent), transparent); right: 22%; top: -70px; }
+.cm-ghost-num { font-size: 150px; right: 6%; top: 8px; }
+/* Centred composition (glass sits in the middle of the stage): the lights sit BEHIND it, so the material is perceivable. */
+.cm-skin-stage--center .cm-light--pink { bottom: auto; left: 30%; right: auto; top: 14%; }
+.cm-skin-stage--center .cm-light--cyan { bottom: auto; left: 46%; right: auto; top: 30%; }
+.cm-skin-stage--center .cm-light--lime { left: auto; right: 28%; top: 6%; }
+.cm-skin-stage--flush .cm-skin-body { padding: 18px 16px; }
+
+/* 1 · attention acquisition — a real recommended slot + the one Primary on glass level 4 */
+.cm-acquire-glass { align-items: center; display: grid; gap: 28px; grid-template-columns: minmax(132px, 168px) minmax(0, 1fr); padding: 18px 16px 14px; }
+.cm-acquire-slot { min-width: 0; }
+.cm-acquire-side { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.cm-acquire-note { color: var(--r3-muted); font: 500 11px/1.2 var(--f-plex); }
+/* A denied claim / default source: the recommended state is shown at once, its own acquire does not run. */
+.cm-acquire[data-motion-granted="false"] .chm-slot[data-state="recommended"] .chm-slot-frame i { animation: none; }
+
+/* 2 · focus transfer, 5 · number, 7 · reorder — the L2 dense data surface: raise + ring + canonical corner ticks */
+.cm-l2.r3-perimeter { background: var(--r3-raise); }
+.cm-l2 .cm-attn { padding-left: 16px; padding-right: 8px; }
+.cm-l2 .cm-attn::before { background: var(--r3-spec-fill-v); left: 6px; width: 3px; }
+.cm-l2 .cm-attn-row { padding: 0 4px; }
+.cm-num-skin { display: grid; gap: 10px; justify-items: start; padding: 14px 16px 16px; }
+.cm-num-skin .cm-num-bar { width: 100%; }
+.cm-l2 .cm-rank { padding: 4px 12px; }
+.cm-rank-icon { display: inline-flex; }
+.cm-l2 .cm-rank-row { grid-template-columns: 20px auto minmax(0, 1fr) auto 44px; }
+
+/* 3 · gather / scatter — the value is a real glass slab over the lit environment */
+.cm-skin-stage .cm-stage { background: transparent; border: 0; }
+.cm-gather-target--glass { background: none; border: 0; padding: 0; }
+.cm-gather-target--glass[data-attention="true"] .cm-gather-glass { box-shadow: inset 0 1px 0 var(--cx-glass-hi), inset 0 0 0 1px var(--r3-spec-cyan), var(--cx-glass-shade), var(--cx-glass-shadow); }
+.cm-gather-glass { padding: 8px 14px; }
+
+/* 4 · spectral displacement — the recovered spectral presence; anchors are canonical cx-target (selected = spectral segment) */
+.cm-presence.r3-presence { box-shadow: none; height: 11px; width: 11px; }
+.cm-ghost.r3-presence-ghost { animation: none; height: 6px; opacity: 0; width: 6px; }
+.cm-displace-anchor.cx-target { color: var(--r3-muted); display: block; min-height: 0; padding: 7px 10px; }
+.cm-displace-anchor.cx-target[data-state="selected"] { color: var(--r3-ink); }
+.cm-displace-anchor.cx-target .cx-target-seg { left: 8%; right: 8%; transform-origin: left; width: auto; }
+.cm-anchor-label { font: 500 11px/1 var(--f-plex); }
+
+/* 5 · live state — the real LiveModule */
+.cm-live-host { min-width: 0; }
+.cm-live-host .r3b-live { max-width: 100%; }
+
+/* 8 · perimeter travel — transparent frame so the stroke and the lit environment both read; the core is glass */
+.cm-skin-stage .cm-travel.r3-perimeter { background: transparent; border-radius: 6px; margin-inline: auto; max-width: 560px; }
+.cm-travel-core--glass { align-self: center; grid-column: 2; grid-row: 2; justify-self: center; padding: 10px 14px; }
+.cm-skin-stage .cm-travel-zone[data-active="true"] { color: var(--r3-ink); }
+
+/* 9 · target brackets — each option is a cx-target; the brackets run on top of it */
+.cm-targets { --cm-opt-h: 44px; }
+.cm-targets:has(.cm-target-option--canonical) { --cm-opt-h: 64px; }
+.cm-target-option--canonical { align-content: center; background: var(--r3-raise); border: 0; color: var(--r3-ink); cursor: pointer; font: inherit; justify-items: start; min-height: 64px; text-align: left; touch-action: manipulation; }
+.cm-target-option--canonical[aria-pressed="true"] { font-weight: inherit; }
+
+/* ───────── reduced motion: same state, nothing travels ───────── */
+[data-motion="reduced"] :is(.cm-gather-marker, .cm-num-fill, .cm-target-brackets, .cm-live-dot, .cm-live) { transition-duration: 0ms; }
+[data-motion="reduced"] .cm-attn::before { transition: none; }
+[data-motion="reduced"] .cm-gather-target[data-attention="true"] { outline: 2px solid var(--r3-spec-cyan); outline-offset: 2px; }
+[data-motion="reduced"] .cm-displace-anchor[data-active="true"] { outline: 2px solid var(--r3-ink); outline-offset: 2px; }
+[data-motion="reduced"] .cm-live[data-live="true"]:not([data-source="default"]) .cm-live-sweep { opacity: 1; transform: scaleX(1); }
+[data-motion="reduced"] .cm-num-ghost { opacity: .6; }
+[data-motion="reduced"] .r3-perimeter[data-canonical="true"] .r3-perimeter-flash { animation: none; }
+[data-motion="reduced"] .r3-perimeter[data-canonical="true"] .r3-perimeter-segment { transition: opacity var(--m-fast) linear; }
+@media (prefers-reduced-motion: reduce) {
+  .cm-budget *, .cm-budget *::before, .cm-budget *::after { animation: none !important; transition-duration: 0ms !important; }
+}

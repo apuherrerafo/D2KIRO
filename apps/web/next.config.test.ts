@@ -31,6 +31,7 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/simulator/sessions/:sessionId/state");
     expect(sources).toContain("/engine/api/team-groups");
     expect(sources).toContain("/engine/api/team-groups/:id");
+    expect(sources).toContain("/engine/api/team-groups/:id/members/:memberId/pools/:position");
 
     // TSK-214: estas cinco entraron a la allowlist a propósito. Antes este test afirmaba lo
     // contrario (regla de TSK-037/038: "el draft en vivo nunca pasa por /engine"), que asumía un
@@ -42,15 +43,52 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/command");
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/bot-selection");
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/simulator-authority");
+    // Wave 5 (product certification): the browser calls both of these (protocol-client.ts / coach-client.ts). The
+    // Own-Flex assignment call was missing from the allowlist and 404ed through the proxy in the real product.
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/recommendations");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/position-assignment");
+    // Team Coach Board + live Dota capture (features/team-coach/client.ts): without these the board 404s through the proxy.
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/team-recommendations");
+    expect(sources).toContain("/engine/api/session/protocol/live");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/live-status");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/live-observation");
+    // TSK-219: the browser may read/revoke its Dota GSI link, but NEVER reach the token-issuing route.
+    expect(sources).toContain("/engine/api/live/gsi-link");
+    expect(sources).toContain("/engine/api/live/team-group");
+    expect(sources).toContain("/engine/api/live/human-position");
+    expect(sources.some((source) => source.includes("gsi-link/issue") || source.includes("/api/live/gsi/"))).toBe(false);
     expect(sources).toContain("/engine/api/session/:sessionId/feedback");
     expect(sources).toContain("/engine/api/session/:sessionId/draft-paths");
     expect(sources).toContain("/engine/api/v1/draft/pro-recommendations");
     expect(sources).toContain("/engine/api/pro-drafter/low-confidence-report");
+    expect(sources).toContain("/engine/api/telemetry/error");
 
     expect(sources.some((source) => source.includes(":path*"))).toBe(false);
     // Sigue fuera y no se negocia: es el camino del capturador, exige `x-capture-token`, y ese
     // secreto no vive ni puede vivir en el navegador.
     expect(sources).not.toContain("/engine/ingest/draft-event");
     expect(sources).not.toContain("/engine/api/settings");
+  });
+
+  test("enruta /engine/api/session/protocol/:sessionId/yield al motor", async () => {
+    const rewrites = await loadRewrites();
+    const yieldRewrite = rewrites.find(
+      (rewrite) => rewrite.source === "/engine/api/session/protocol/:sessionId/yield",
+    );
+
+    expect(yieldRewrite).toBeDefined();
+    expect(yieldRewrite?.destination).toBe(
+      `${process.env.ENGINE_INTERNAL_URL ?? "http://127.0.0.1:4000"}/api/session/protocol/:sessionId/yield`,
+    );
+  });
+
+  test("enruta /engine/api/telemetry/error al endpoint de telemetría del motor", async () => {
+    const rewrites = await loadRewrites();
+    const telemetryRewrite = rewrites.find((rewrite) => rewrite.source === "/engine/api/telemetry/error");
+
+    expect(telemetryRewrite).toBeDefined();
+    expect(telemetryRewrite?.destination).toBe(
+      `${process.env.ENGINE_INTERNAL_URL ?? "http://127.0.0.1:4000"}/api/telemetry/error`,
+    );
   });
 });

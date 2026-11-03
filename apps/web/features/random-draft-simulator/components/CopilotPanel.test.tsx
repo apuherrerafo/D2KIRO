@@ -1,15 +1,16 @@
 import "@/test-support/happy-dom";
 
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
+import type { CoachOutput } from "../coach-client";
 import { NOT_COMPUTED, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CopilotPanel } from "./CopilotPanel";
 
 afterEach(cleanup);
 
-function singleAction(hero: number, score: number): RecommendationV2 {
+function singleAction(hero: number, score: number, position: 1 | 2 | 3 | 4 | 5 | null = null): RecommendationV2 {
   return {
-    actions: [{ slot: { side: "radiant", slotIndex: 0 }, hero }],
+    actions: [{ slot: { side: "radiant", slotIndex: 0, position }, hero }],
     score,
     confidence: "media",
     roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 0.6, 2: 0.1, 3: 0.1, 4: 0.1, 5: 0.1 }, entropy: 1.8 } },
@@ -18,11 +19,17 @@ function singleAction(hero: number, score: number): RecommendationV2 {
   };
 }
 
-function compound(heroA: number, heroB: number, score: number): RecommendationV2 {
+function compound(
+  heroA: number,
+  heroB: number,
+  score: number,
+  positionA: 1 | 2 | 3 | 4 | 5 | null = null,
+  positionB: 1 | 2 | 3 | 4 | 5 | null = null,
+): RecommendationV2 {
   return {
     actions: [
-      { slot: { side: "radiant", slotIndex: 0 }, hero: heroA },
-      { slot: { side: "radiant", slotIndex: 1 }, hero: heroB },
+      { slot: { side: "radiant", slotIndex: 0, position: positionA }, hero: heroA },
+      { slot: { side: "radiant", slotIndex: 1, position: positionB }, hero: heroB },
     ],
     score,
     confidence: "alta",
@@ -76,10 +83,139 @@ test("recomendaciones compuestas (legacy: null): se muestran como dupla, nunca v
   expect(view.queryAllByRole("button", { name: "Ver señales" })).toHaveLength(0);
 });
 
+test("UX-02: con Coach presente expone los paquetes V2 en columnas por POSICIÓN antes del primer lock", () => {
+  const set = recommendationSet({
+    decision: {
+      actor: "radiant",
+      actionKind: "PICK",
+      controlledSlots: [{ side: "radiant", slotIndex: 0, position: 5 }, { side: "radiant", slotIndex: 1, position: 4 }],
+      actionCount: 2,
+    },
+    recommendations: [compound(1, 2, 199, 5, 4), compound(3, 4, 180, 5, 4)],
+  });
+  const catalog = new Map([
+    [1, { ...HERO_CATALOG.get(7)!, id: 1, localizedName: "Hero 1" }],
+    [2, { ...HERO_CATALOG.get(7)!, id: 2, localizedName: "Hero 2" }],
+    [3, { ...HERO_CATALOG.get(7)!, id: 3, localizedName: "Hero 3" }],
+    [4, { ...HERO_CATALOG.get(7)!, id: 4, localizedName: "Hero 4" }],
+  ]);
+  const view = render(
+    <CopilotPanel
+      recommendations={set}
+      coach={fixtureCoach({ personalHeroView: { position: 5, positionLabel: "Hard support", heroes: [] } })}
+      heroCatalog={catalog}
+      previewStatus="ready"
+      playerPosition={5}
+      partyPositions={[5, 4]}
+      roundPickState={{ round: 1, lockedPositions: [] }}
+    />,
+  );
+
+  expect(view.getByText("2 posiciones en juego en esta ronda")).toBeDefined();
+  expect(view.getByText("Paquetes V2 de ronda")).toBeDefined();
+  const pos5 = within(view.getByTestId("recommendation-column-position-5"));
+  const pos4 = within(view.getByTestId("recommendation-column-position-4"));
+  expect(pos5.getByText("Pos5 Hard Support")).toBeDefined();
+  expect(pos5.getByText("YOU · Vista personal / Hero Pool")).toBeDefined();
+  expect(pos4.getByText("Pos4 Support")).toBeDefined();
+  expect(pos4.getByText("PARTY · Recomendación por rol · sin Hero Pool personal")).toBeDefined();
+  expect(pos4.queryByText("Tu pool")).toBeNull();
+  expect(pos5.getByText("Hero 1")).toBeDefined();
+  expect(pos4.getByText("Hero 2")).toBeDefined();
+});
+
+test("UX-02: la segunda ronda presenta Pos3 Offlane y Pos1 Carry antes del primer lock, leídos del motor", () => {
+  const set = recommendationSet({
+    decision: {
+      actor: "radiant",
+      actionKind: "PICK",
+      controlledSlots: [{ side: "radiant", slotIndex: 0, position: 3 }, { side: "radiant", slotIndex: 1, position: 1 }],
+      actionCount: 2,
+    },
+    recommendations: [compound(1, 2, 199, 3, 1)],
+  });
+  const view = render(
+    <CopilotPanel
+      recommendations={set}
+      heroCatalog={new Map()}
+      previewStatus="ready"
+      playerPosition={1}
+      partyPositions={[3, 1]}
+      roundPickState={{ round: 2, lockedPositions: [] }}
+    />,
+  );
+
+  expect(within(view.getByTestId("recommendation-column-position-3")).getByText("Pos3 Offlane")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-position-1")).getByText("Pos1 Carry")).toBeDefined();
+});
+
+test("UX-02: tras el primer lock conserva la columna bloqueada como sustituida y reemplaza sólo la restante", () => {
+  const initial = recommendationSet({
+    decision: {
+      actor: "radiant",
+      actionKind: "PICK",
+      controlledSlots: [{ side: "radiant", slotIndex: 0, position: 5 }, { side: "radiant", slotIndex: 1, position: 4 }],
+      actionCount: 2,
+    },
+    recommendations: [compound(1, 2, 199, 5, 4)],
+  });
+  const catalog = new Map([
+    [1, { ...HERO_CATALOG.get(7)!, id: 1, localizedName: "Initial Pos5" }],
+    [2, { ...HERO_CATALOG.get(7)!, id: 2, localizedName: "Initial Pos4" }],
+    [8, { ...HERO_CATALOG.get(7)!, id: 8, localizedName: "Recomputed Pos4" }],
+  ]);
+  const view = render(
+    <CopilotPanel
+      recommendations={initial}
+      heroCatalog={catalog}
+      previewStatus="ready"
+      playerPosition={5}
+      partyPositions={[5, 4]}
+      roundPickState={{ round: 1, lockedPositions: [] }}
+    />,
+  );
+  const remaining = recommendationSet({
+    decision: { actor: "radiant", actionKind: "PICK", controlledSlots: [{ side: "radiant", slotIndex: 1, position: 4 }], actionCount: 1 },
+    recommendations: [{ ...singleAction(8, 90, 4), actions: [{ slot: { side: "radiant", slotIndex: 1, position: 4 }, hero: 8 }] }],
+  });
+
+  view.rerender(
+    <CopilotPanel
+      recommendations={remaining}
+      heroCatalog={catalog}
+      previewStatus="ready"
+      playerPosition={5}
+      partyPositions={[5, 4]}
+      roundPickState={{ round: 1, lockedPositions: [5], lockedHeroesByPosition: { 5: 1 } }}
+    />,
+  );
+
+  expect(within(view.getByTestId("recommendation-column-position-5")).getByText("Héroe y posición bloqueados")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-position-5")).getByText("Initial Pos5")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-position-4")).getByText("Recomendaciones iniciales sustituidas · recálculo actual")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-position-4")).getByText("Recomputed Pos4")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-position-4")).queryByText("Initial Pos4")).toBeNull();
+});
+
 test("degradaciones se muestran siempre que existan, ninguna se calla en silencio", () => {
-  const set = recommendationSet({ degradations: [{ reason: "stale_meta", detail: "El meta tiene más de 24 horas." }] });
+  const set = recommendationSet({ degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }] });
   const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
-  expect(view.getByText("El meta tiene más de 24 horas.")).toBeDefined();
+  expect(view.getByText("Datos de meta desactualizados")).toBeDefined();
+  expect(view.container.textContent).not.toMatch(/V6|flag|stale_meta/);
+});
+
+test("una lista de contradicciones vacía no renderiza ningún aviso", () => {
+  const set = recommendationSet({ degradations: [{ reason: "ROLE_ASSIGNMENT_IMPOSSIBLE", detail: "confirmaciones de posición contradictorias: []" }] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.container.textContent).not.toContain("contradictorias");
+  expect(view.container.textContent).not.toContain("[]");
+  expect(view.container.textContent).not.toContain("contradicen");
+});
+
+test("contradicciones reales se avisan en lenguaje llano", () => {
+  const set = recommendationSet({ degradations: [{ reason: "ROLE_ASSIGNMENT_IMPOSSIBLE", detail: 'confirmaciones de posición contradictorias: [{"position":1,"heroIds":[8,67]}]' }] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getByText("Hay posiciones confirmadas que se contradicen entre sí")).toBeDefined();
 });
 
 test("sin recomendaciones (p. ej. CM fail-closed): estado explícito, nunca un panel en blanco", () => {
@@ -169,4 +305,100 @@ test("posición sugerida y riesgos de la recomendación top se muestran cuando e
   const view = render(<CopilotPanel recommendations={set} heroCatalog={HERO_CATALOG} previewStatus="ready" />);
   expect(view.getByText("Posición sugerida: Support")).toBeDefined();
   expect(view.getByText(/Pocas partidas recientes con este héroe\./)).toBeDefined();
+});
+
+function fixtureCoach(overrides: Partial<CoachOutput> = {}): CoachOutput {
+  return {
+    schema: "recommendation-output/v3",
+    sessionId: "copilot-ui",
+    primaryAction: { strategy: { kind: "REVEAL_POSITION", position: 5, rationale: "prior" }, label: "Sugerencia: Pos 5" },
+    shortlist: [{ heroId: 7, position: 5, roleStatus: "LIKELY", confidence: "media", badges: [], rationale: "r", score: 10, isFromPool: false }],
+    meta: {
+      round: 1,
+      phase: "PICK_ROUND_1",
+      ownPicksRemaining: 5,
+      confidence: "media",
+      decisionContext: "team_opening",
+      trigger: "DRAFT_PICKS_STARTED",
+      revision: 1,
+      basedOn: { stateIdentity: "id-1", evidenceVersion: "v" },
+    },
+    ...overrides,
+  };
+}
+
+test("PB-R1: cuando recommendations y nested coach contienen la misma degradación, se renderiza exactamente una vez", () => {
+  const set = recommendationSet({
+    degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }],
+  });
+  const coach = fixtureCoach({
+    meta: {
+      ...fixtureCoach().meta,
+      degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }],
+    },
+  });
+
+  const view = render(<CopilotPanel recommendations={set} coach={coach} heroCatalog={new Map()} previewStatus="ready" />);
+
+  // El usuario debe ver cada degradación exactamente una vez
+  const matching = view.getAllByText("Datos de meta desactualizados");
+  expect(matching).toHaveLength(1);
+
+  // CopilotPanel es el single rendering owner
+  expect(view.getByTestId("copilot-degradations")).toBeDefined();
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
+});
+
+test("PB-R1: cuando recommendations y coach tienen degradaciones distintas, ambas se muestran exactamente una vez", () => {
+  const set = recommendationSet({
+    degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }],
+  });
+  const coach = fixtureCoach({
+    meta: {
+      ...fixtureCoach().meta,
+      degradations: [{ reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" }],
+    },
+  });
+
+  const view = render(<CopilotPanel recommendations={set} coach={coach} heroCatalog={new Map()} previewStatus="ready" />);
+
+  expect(view.getAllByText("Datos de meta desactualizados")).toHaveLength(1);
+  expect(view.getAllByText("Datos de meta del parche no disponibles (señal no votante)")).toHaveLength(1);
+
+  // Single rendering owner
+  expect(view.getByTestId("copilot-degradations")).toBeDefined();
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
+});
+
+test("PB-R1: coach con degradaciones sin degradaciones en recommendations es renderizado por CopilotPanel exactamente una vez", () => {
+  const set = recommendationSet({ degradations: [] });
+  const coach = fixtureCoach({
+    meta: {
+      ...fixtureCoach().meta,
+      degradations: [{ reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" }],
+    },
+  });
+
+  const view = render(<CopilotPanel recommendations={set} coach={coach} heroCatalog={new Map()} previewStatus="ready" />);
+
+  expect(view.getAllByText("Datos de meta del parche no disponibles (señal no votante)")).toHaveLength(1);
+  expect(view.getByTestId("copilot-degradations")).toBeDefined();
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
+});
+
+test("riesgos del motor: el jugador no ve términos internos (stale_meta, snapshot, V6, enums)", () => {
+  const set = recommendationSet({
+    recommendations: [{
+      ...singleAction(7, 72),
+      risks: [
+        { kind: "degraded_meta", detail: "meta snapshot stale (stale_meta)" },
+        { kind: "low_evidence", detail: "evidenceCoverage baja en la señal V6 subyacente" },
+        { kind: "unresolved_role", detail: "sin evidencia de posición para al menos un héroe de la acción" },
+      ],
+    }],
+  });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={HERO_CATALOG} previewStatus="ready" />);
+  const text = view.container.textContent ?? "";
+  expect(text).not.toMatch(/stale_meta|snapshot|evidenceCoverage|V6|degraded_meta|low_evidence|unresolved_role/);
+  expect(text).toContain("Los datos de meta no están al día");
 });

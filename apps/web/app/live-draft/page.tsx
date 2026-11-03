@@ -1,32 +1,28 @@
-import { randomUUID } from "node:crypto";
 import { connection } from "next/server";
-import { DraftView } from "@/features/draft";
+import { LiveDotaView, LiveTeamCoachView } from "@/features/team-coach";
 import { isDraftLiveEnabled } from "./live-config";
 
 export const dynamic = "force-dynamic";
 
 interface DraftPageProps {
-  searchParams: Promise<{ session?: string }>;
+  searchParams: Promise<{ session?: string | string[]; setup?: string | string[] }>;
 }
 
-// Sin ?session en la URL, cada carga de página arranca con una sesión propia -- evita heredar
-// estado acumulado de una corrida anterior del simulador (TSK-016; antes "local" era el único
-// valor posible, así que dos corridas seguidas compartían la misma sesión en memoria del motor).
+function single(value: string | string[] | undefined): string | null {
+  if (typeof value === "string") return value;
+  return null;
+}
+
+// Draft REAL de Dota con el Team Coach Board (mismo componente que /simulator).
+//
+// TSK-219: el camino normal es Dota GSI -> este sitio (Railway): la cuenta conecta Dota una vez
+// ("Conectar Dota" -> archivo de configuración) y la vista sigue la sesión en vivo de esa cuenta.
+// `?session=<id>` sólo existe para la captura LOCAL de desarrollo (`dev:live`, motor en la misma PC,
+// DRAFT_LIVE_ENABLED distinto de "false"); en el despliegue se ignora.
 export default async function DraftPage({ searchParams }: DraftPageProps) {
   await connection();
-  if (!isDraftLiveEnabled()) return <DraftUnavailablePage />;
-  const { session } = await searchParams;
-  return <DraftView sessionId={session ?? randomUUID()} />;
-}
-
-function DraftUnavailablePage() {
-  return (
-    <main className="flex min-h-screen flex-col gap-3 bg-surface-base p-6">
-      <span className="text-heading text-content-primary">Draft en vivo local</span>
-      <p className="max-w-2xl text-body text-content-secondary">
-        El draft en vivo necesita el motor corriendo en tu PC, en la misma red que el capturador. No está disponible en esta
-        instancia.
-      </p>
-    </main>
-  );
+  const params = await searchParams;
+  const localSession = single(params.session);
+  if (isDraftLiveEnabled() && localSession !== null) return <LiveTeamCoachView sessionId={localSession} />;
+  return <LiveDotaView setupError={single(params.setup)} />;
 }

@@ -23,7 +23,17 @@ function randomPersistedConfig(caseIndex: number): PersistedConfig {
   const listSize = caseIndex % 5; // 0-4
   const personalBanList: HeroId[] = Array.from({ length: listSize }, (_, i) => i + 1);
   const partySize = PARTY_SIZES[caseIndex % PARTY_SIZES.length]!;
-  return { userSide, playerPosition: ((caseIndex % 5) + 1) as 1 | 2 | 3 | 4 | 5, personalBanList, partySize };
+  const playerPosition = ((caseIndex % 5) + 1) as 1 | 2 | 3 | 4 | 5;
+  let partyPositions: (1 | 2 | 3 | 4 | 5)[] | undefined;
+  if (partySize === 2) {
+    const other = ((playerPosition % 5) + 1) as 1 | 2 | 3 | 4 | 5;
+    partyPositions = [playerPosition, other];
+  } else if (partySize === 3) {
+    const other1 = ((playerPosition % 5) + 1) as 1 | 2 | 3 | 4 | 5;
+    const other2 = (((playerPosition + 1) % 5) + 1) as 1 | 2 | 3 | 4 | 5;
+    partyPositions = [playerPosition, other1, other2];
+  }
+  return { userSide, playerPosition, personalBanList, partySize, partyPositions };
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +70,9 @@ test("validatePersistedConfig retorna null para estructuras inválidas sin lanza
     { userSide: "radiant", personalBanList: [1, 2, 3, 4, 5] },
     { userSide: "radiant", personalBanList: [1, -2, 3] },
     { userSide: "radiant", personalBanList: [1, 2.5, 3] },
+    { userSide: "radiant", playerPosition: 5, personalBanList: [], partySize: 4 },
+    { userSide: "radiant", playerPosition: 5, personalBanList: [], partySize: 2, partyPositions: [1, 1] },
+    { userSide: "radiant", playerPosition: 5, personalBanList: [], partySize: 2, partyPositions: [1, 2] }, // playerPosition 5 not in partyPositions
   ];
 
   for (const invalid of invalidCases) {

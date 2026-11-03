@@ -5,9 +5,10 @@ import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types"
 import { createArchetypeFitScorer } from "./archetype-fit";
 import { createCounterScorer } from "./counter";
 import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
+import { loadHeroSynergies, type CuratedSynergy } from "./hero-synergies";
 import { heroPoolFitScorer } from "./hero-pool-fit";
-import { loadHeroPositions, type HeroPositions } from "./hero-positions";
-import { patchMetaScorer } from "./patch-meta";
+import { isCandidateAdmittedForPosition, loadHeroPositions, type HeroPositions } from "./hero-positions";
+import { lowMidTotals, MIN_PATCH_GAMES, patchMetaReady, patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
@@ -23,6 +24,7 @@ import {
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V6 } from "./weights";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
+import { computeMetaReadiness, type MetaReadiness } from "../meta/readiness";
 
 export interface Suggestion {
   hero: HeroId;
@@ -44,7 +46,13 @@ export interface SuggestionEvidence {
   text: string;
 }
 
-export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available";
+export type DegradationFlag =
+  | "stale_meta"
+  | "partial_signals"
+  | "unconfirmed_state"
+  | "unknown_format"
+  | "no_signal_available"
+  | "patch_meta_data_not_ready";
 
 // TSK-032: comparación explícita entre el pick #1 y el #2 -- "por qué le gana a la otra opción",
 // no solo la explicación independiente de cada sugerencia (`reason`). `signal` es la señal que
@@ -67,11 +75,21 @@ export interface SuggestionSet {
   /** Internal provenance transport for RecommendationSet/v2. Non-enumerable at runtime, so the
    * legacy suggestions/v1 wire response remains byte-identical. */
   functionalEvidence?: FunctionalRecommendationEvidence;
+  /** Phase B readiness and provenance semantics report. Non-enumerable at runtime. */
+  readiness?: MetaReadiness;
 }
 
 export interface BuildSuggestionsOptions {
   metaIsStale?: boolean;
+  metaReadiness?: MetaReadiness;
   now?: () => number; // inyectable para pruebas de rendimiento determinísticas
+  /**
+   * Cuántos candidatos devuelve. Por defecto TOP_N (6: el grid 2×3 del Copilot). El Team Coach pide más para que, después de sacar lo que
+   * ya no está disponible (baneados, elegidos) o no tiene motivo, le sigan quedando 5 que mostrar: "subir los de atrás". Es el MISMO
+   * ranking, solo más largo: ni el orden ni los puntajes cambian. Solo aplica fuera de la apertura de equipo.
+   */
+  limit?: number;
+
   // TSK-045 (Fase 3, SPEC.md §10.2, costura S10): ausente -> carga hero-positions.json real
   // (loadHeroPositions()). Las pruebas inyectan su propio fixture -- nunca dependen del archivo
   // real, que se regenera por parche.
@@ -84,6 +102,10 @@ export interface BuildSuggestionsOptions {
   // (loadHeroCounters()). Las pruebas inyectan su propio Map -- nunca dependen del archivo real,
   // que se cura por parche.
   heroCounters?: Map<HeroId, CuratedCounter[]>;
+  // Sinergias de pareja (base de conocimiento, 2026-10, familia S9): ausente -> carga
+  // signals/hero-synergies.json real (loadHeroSynergies()). Las pruebas inyectan su propio Map; un
+  // Map vacío deja `team_synergy` idéntico al de antes de existir este dato.
+  heroSynergies?: Map<HeroId, CuratedSynergy[]>;
   targetPosition?: 1 | 2 | 3 | 4 | 5;
   usePersonalPool?: boolean;
   // El simulador abre una composición completa bajo el control del capitán. No tiene sentido
@@ -117,6 +139,10 @@ export interface BuildSuggestionsOptions {
   // decision.ts's `eligibleHeroIds`, derivado de legalGameplayActions), este campo sólo le dice a
   // V6 sobre qué universo rankear.
   candidateHeroIds?: readonly HeroId[];
+  // Step 1B-B (Party5 hard pools): `candidateHeroIds` es un pool configurado por el jugador y ES la
+  // admisión final -- se salta el filtro de credibilidad posicional de `targetPosition`. El pool
+  // controla la admisión; nunca provee identidad ni cambia ningún peso o señal. Ausente -> idéntico.
+  candidateUniverseIsAdmission?: boolean;
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -136,6 +162,7 @@ const STATIC_SCORERS: SignalScorer[] = [patchMetaScorer, heroPoolFitScorer];
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
 const MODULE_HERO_CAPABILITIES: HeroCapabilities[] = loadHeroCapabilities();
 const MODULE_HERO_COUNTERS: Map<HeroId, CuratedCounter[]> = loadHeroCounters();
+const MODULE_HERO_SYNERGIES: Map<HeroId, CuratedSynergy[]> = loadHeroSynergies();
 const TOP_N = 6;
 const HARD_CUTOFF_MS = 500;
 
@@ -237,7 +264,7 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 export function structurallyApplicableSignals(
   state: DraftState,
   meta: MetaSnapshot,
-  options: BuildSuggestionsOptions,
+  options: BuildSuggestionsOptions = {},
 ): Set<SignalId> {
   const applicable = new Set<SignalId>();
   const facts = observedDraftFacts(state);
@@ -285,28 +312,37 @@ export function structurallyApplicableSignals(
 // (`StateWeightedContribution`) y Task 16 (`AvailableSignalsReport`).
 export type NonVotingReason = "data_not_ready" | "not_structurally_applicable";
 
+// AP Solo Mid data/signal repair (Dota Judge root cause 1, 2026-09): `patch_meta` votaba `false`
+// siempre -- un literal hardcodeado (`return false`) cuya justificación en el código citaba datos
+// de parche stale (`"7.35d"`/`""`) que ya no describen la base real (`hero_patch_stats`: 1016/1016
+// filas en `7.41e`, sincronizado el mismo día que corrió el playtest que encontró el defecto). El
+// gate seguía apagado por una razón que había expirado. `patchMetaReady` reemplaza el literal por
+// una condición verificable: ¿el dataset tiene cobertura real para EL PARCHE del estado actual?
+// Nunca `true` hardcodeado tampoco -- un parche equivocado o un dataset roto/disperso lo apagan
+// igual.
+export { patchMetaReady };
+
+
 // `dataReady` -- flag explícito y verificable por señal: ¿los datos que la señal necesita son
 // confiables/frescos/completos? INDEPENDIENTE de structural applicability y de la calibración.
 // NUNCA se deriva de `raw`: una señal puede traer `raw` numérico y aun así no estar lista
-// (`patch_meta` con `patchStats` >= 500 partidas pero de un parche stale), y `raw:null` NO implica
-// `dataReady=false` (es un hueco de dato para ESE candidato, ortogonal a si la señal participa).
+// (`patch_meta` con `patchStats` >= 500 partidas pero de un parche que no es `state.patch`), y
+// `raw:null` NO implica `dataReady=false` (es un hueco de dato para ESE candidato, ortogonal a si
+// la señal participa).
 //
-// `patch_meta`: contrato R0 EXACTO (requisito 3.3) -- `structurallyApplicable=true`,
-// `dataReady=false`, `raw=null` aceptable, `votes=false`, `weighted=0`,
-// `nonVotingReason="data_not_ready"`. La data de parche está stale/mezclada/incompleta (audit
-// §4.3: `"7.35d"`/`""` 1016/1016, 81/127 matchups, meta muerto desde 2026-07-29). R0 **no**
-// enciende `patch_meta` ni ninguna señal con `dataReady=false` -- su activación real es una fase
-// posterior validada, medida contra el baseline aceptado (R0.2B). Antes de Task 12 esto era un
-// filtro ad-hoc por literal (`.filter((id) => id !== "patch_meta")`); ahora es un gate nombrado.
+// `patch_meta`: `structurallyApplicable=true` siempre; `dataReady` sale de `patchMetaReady` (arriba)
+// -- verificable, nunca un literal. Antes de Task 12 esto era un filtro ad-hoc por literal
+// (`.filter((id) => id !== "patch_meta")`); Task 12 lo volvió un gate nombrado; este repair lo hizo
+// una condición real en vez de una constante apagada a mano.
 //
 // Resto de señales: sus datos ya se validan en el borde de sus loaders/scorers (S9/S10, familia
-// S9) y en R0 se consideran listos (`default: true`). El split estructura/`dataReady` de
-// `hero_pool_fit` queda DIFERIDO -- ver la NOTA en `structurallyApplicableSignals`; con `default:
-// true` aquí el comportamiento es byte-idéntico porque la estructura ya lo gatea por pool presente.
-export function dataReady(signal: SignalId, _meta: MetaSnapshot): boolean {
+// S9) y se consideran listos (`default: true`). El split estructura/`dataReady` de `hero_pool_fit`
+// queda DIFERIDO -- ver la NOTA en `structurallyApplicableSignals`; con `default: true` aquí el
+// comportamiento es byte-idéntico porque la estructura ya lo gatea por pool presente.
+export function dataReady(signal: SignalId, state: DraftState, meta: MetaSnapshot): boolean {
   switch (signal) {
     case "patch_meta":
-      return false; // R0: no encender hasta reparar los datos de parche en una fase posterior
+      return patchMetaReady(state, meta);
     default:
       return true;
   }
@@ -320,10 +356,10 @@ export function dataReady(signal: SignalId, _meta: MetaSnapshot): boolean {
 export function votingSignals(
   state: DraftState,
   meta: MetaSnapshot,
-  options: BuildSuggestionsOptions,
+  options: BuildSuggestionsOptions = {},
 ): Set<SignalId> {
   const applicable = structurallyApplicableSignals(state, meta, options);
-  return new Set([...applicable].filter((signal) => dataReady(signal, meta)));
+  return new Set([...applicable].filter((signal) => dataReady(signal, state, meta)));
 }
 
 // Etiqueta de no-voto por señal (CP3: "toda señal que no vota se etiqueta con `nonVotingReason`").
@@ -337,7 +373,7 @@ export function nonVotingReason(
   options: BuildSuggestionsOptions,
 ): NonVotingReason | null {
   if (!structurallyApplicableSignals(state, meta, options).has(signal)) return "not_structurally_applicable";
-  if (!dataReady(signal, meta)) return "data_not_ready";
+  if (!dataReady(signal, state, meta)) return "data_not_ready";
   return null; // vota
 }
 
@@ -412,7 +448,7 @@ export function buildAvailableSignalsReport(
     const report: SignalStatusReport = {
       signal,
       structurallyApplicable,
-      dataReady: dataReady(signal, meta),
+      dataReady: dataReady(signal, state, meta),
       calibrated: isCalibrated(signal, calibration),
       votes,
     };
@@ -437,9 +473,9 @@ export function buildAvailableSignalsReport(
 }
 
 function confidenceFromCoverage(evidenceCoverage: number, metaIsStale: boolean): Suggestion["confidence"] {
+  if (evidenceCoverage < 0.5) return "baja";
   if (evidenceCoverage >= 0.75 && !metaIsStale) return "alta";
-  if (evidenceCoverage >= 0.5 || metaIsStale) return "media";
-  return "baja";
+  return "media";
 }
 
 // ---------- R0.3 / Task 13 (design §4.3 "Data Models" (b), requisito 3.1, CP2/CP4/CP10): fuente única ----------
@@ -467,6 +503,7 @@ export interface StateWeightedContribution {
   sampleSize: number;
   applicable?: boolean;
   evidenceConfidence?: number;
+  hasRevealedEnemyCounterEvidence?: boolean;
 }
 
 export interface ScoredCandidate {
@@ -491,6 +528,7 @@ function toSignalContribution(c: StateWeightedContribution): SignalContribution 
   };
   if (c.applicable !== undefined) base.applicable = c.applicable;
   if (c.evidenceConfidence !== undefined) base.evidenceConfidence = c.evidenceConfidence;
+  if (c.hasRevealedEnemyCounterEvidence !== undefined) base.hasRevealedEnemyCounterEvidence = c.hasRevealedEnemyCounterEvidence;
   return base;
 }
 
@@ -545,6 +583,7 @@ function mixCandidateByState(
       sampleSize: c.sampleSize,
       ...(c.applicable !== undefined ? { applicable: c.applicable } : {}),
       evidenceConfidence: c.evidenceConfidence,
+      ...(c.hasRevealedEnemyCounterEvidence !== undefined ? { hasRevealedEnemyCounterEvidence: c.hasRevealedEnemyCounterEvidence } : {}),
     };
   });
   return { hero, score, contributions, evidenceCoverage, guessingIndex: 1 - evidenceCoverage };
@@ -577,6 +616,17 @@ function reconcileWeightedToScore(
 
 // El único neutro del pipeline (§16.7 punto 3): si una señal está en `A(S)` pero NINGÚN candidato
 // del estado tiene `raw` para ella, su `μ` es 50. Nunca se escribe en `raw`.
+//
+// AP Solo Mid data/signal repair (Dota Judge root cause 3, Task B): para `counter` específicamente,
+// `μ` se topa en 50 (el neutro real -- `raw:0` en `RAW_RANGE.counter` normaliza justo ahí). Sin este
+// tope, un estado donde los pocos candidatos con dato de contrapick resultan ser positivos (ninguno
+// negativo) produce un `μ` por ENCIMA de 50, y un candidato sin ningún dato de contrapick ("unknown")
+// terminaba puntuando más que un candidato con evidencia real pero débil (caso medido: relleno 25.4
+// vs Earth Spirit +0.02 real = 22.6 -- "no saber" superaba a "saber algo bueno pero chico"). Taparlo
+// en 50 hace que UNKNOWN nunca reciba una ventaja artificial sobre evidencia conocida (positiva o
+// negativa): como techo, nunca puede superar a un candidato con contrapick genuinamente positivo, y
+// sigue reflejando fielmente un estado con evidencia predominantemente negativa (el tope sólo actúa
+// hacia arriba). No se toca ninguna otra señal -- root cause 3 es exclusivamente sobre `counter`.
 function stateMeansFor(
   scored: { signals: SignalContribution[] }[],
   available: Set<SignalId>,
@@ -590,7 +640,9 @@ function stateMeansFor(
         values.push(contribution.normalized);
       }
     }
-    means[signal] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 50;
+    let mean = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 50;
+    if (signal === "counter") mean = Math.min(mean, 50);
+    means[signal] = mean;
   }
   return means;
 }
@@ -739,9 +791,10 @@ function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSugg
     candidates = candidates.filter((hero) => allowed.has(hero));
   }
   if (options.teamOpening || options.targetPosition === undefined) return candidates;
+  if (options.candidateUniverseIsAdmission === true && options.candidateHeroIds) return candidates;
 
   const positions = options.heroPositions ?? MODULE_HERO_POSITIONS;
-  candidates = candidates.filter((hero) => positions[hero]?.some((share) => share.position === options.targetPosition));
+  candidates = candidates.filter((hero) => isCandidateAdmittedForPosition(hero, options.targetPosition!, positions));
   if (!options.usePersonalPool) return candidates;
 
   const personalPool = new Set(meta.heroPool?.map((entry) => entry.hero) ?? []);
@@ -783,6 +836,7 @@ function functionalRecommendationEvidence(
   heroCapabilities: readonly HeroCapabilities[],
   heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]>,
   isTeamOpening: boolean,
+  effectiveMetaIsStale: boolean = options.metaIsStale === true,
 ): FunctionalRecommendationEvidence {
   const candidateHeroes = new Set(raw.map((candidate) => candidate.hero));
   const candidates = [...candidateHeroes].sort((a, b) => a - b);
@@ -803,7 +857,7 @@ function functionalRecommendationEvidence(
     positions: (heroPositions[hero] ?? []).map((entry) => ({ position: entry.position, matches: entry.matches })),
   }));
   if (!isTeamOpening) {
-    return { metaIsStale: options.metaIsStale === true, signalEvidence, heroPositions: positions, teamOpening: null, partyPreferredPositions: [] };
+    return { metaIsStale: effectiveMetaIsStale, signalEvidence, heroPositions: positions, teamOpening: null, partyPreferredPositions: [] };
   }
 
   // Names of a candidate and of a banned counter are the only MetaHeroInfo fields read by the
@@ -815,7 +869,7 @@ function functionalRecommendationEvidence(
   ]).filter((hero) => bannedSet.has(hero));
   const namedHeroes = new Set([...candidates, ...referencedBannedCounters]);
   return {
-    metaIsStale: options.metaIsStale === true,
+    metaIsStale: effectiveMetaIsStale,
     signalEvidence,
     heroPositions: positions,
     teamOpening: {
@@ -843,8 +897,15 @@ function functionalRecommendationEvidence(
   };
 }
 
-function attachFunctionalEvidence(suggestionSet: SuggestionSet, evidence: FunctionalRecommendationEvidence): SuggestionSet {
+function attachFunctionalEvidence(
+  suggestionSet: SuggestionSet,
+  evidence: FunctionalRecommendationEvidence,
+  readiness?: MetaReadiness,
+): SuggestionSet {
   Object.defineProperty(suggestionSet, "functionalEvidence", { value: evidence, enumerable: false });
+  if (readiness) {
+    Object.defineProperty(suggestionSet, "readiness", { value: readiness, enumerable: false });
+  }
   return suggestionSet;
 }
 
@@ -855,8 +916,22 @@ export function buildSuggestions(
 ): SuggestionSet {
   const now = options.now ?? Date.now;
   const start = now();
+
+  const readiness = options.metaReadiness ?? computeMetaReadiness({
+    state,
+    meta,
+    now,
+    syncedAt: options.metaIsStale === false ? new Date(now()).toISOString() : null,
+  });
+  const effectiveMetaIsStale =
+    options.metaIsStale === true ||
+    readiness.syncFreshness.isStale === true ||
+    readiness.metaIsStale === true;
+
   const degraded: DegradationFlag[] = [];
-  if (options.metaIsStale) degraded.push("stale_meta");
+  if (effectiveMetaIsStale) {
+    degraded.push("stale_meta");
+  }
   if (state.quality.unconfirmed.length > 0) degraded.push("unconfirmed_state");
   if (state.format === "unknown") degraded.push("unknown_format");
 
@@ -872,19 +947,29 @@ export function buildSuggestions(
   const baseScorers = options.teamOpening ? STATIC_SCORERS.filter((scorer) => scorer.id !== "hero_pool_fit") : STATIC_SCORERS;
   // position_fit, team_synergy y archetype_fit no pueden ser singletons de módulo: dependen de
   // datos inyectables (heroPositions/heroCapabilities/archetypeIntent). Se construyen por llamada.
+  // Blocker 1 (AP Solo Mid data/signal repair, 2026-09): same condition candidatePool() already
+  // uses to decide whether targetPosition governs admission at all -- team-opening composition
+  // never has a single human target, so it keeps the legacy fill/safety formula regardless of what
+  // `targetPosition` happens to hold.
+  const positionFitTarget = options.teamOpening ? undefined : options.targetPosition;
   const scorers: SignalScorer[] = [
     ...baseScorers,
     createCounterScorer(heroCounters),
-    createPositionFitScorer(heroPositions),
-    createTeamSynergyScorer(heroCapabilities),
+    createPositionFitScorer(heroPositions, positionFitTarget),
+    createTeamSynergyScorer(heroCapabilities, options.heroSynergies ?? MODULE_HERO_SYNERGIES),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
   ];
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
   const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
   const emptyFunctionalEvidence = () =>
-    functionalRecommendationEvidence([], meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening);
+    functionalRecommendationEvidence([], meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening, effectiveMetaIsStale);
 
+  const applicable = structurallyApplicableSignals(state, meta, options);
   const voting = votingSignals(state, meta, options);
+  if (applicable.has("patch_meta") && !voting.has("patch_meta")) {
+    degraded.push("patch_meta_data_not_ready");
+  }
+
   if (voting.size === 0) {
     degraded.push("no_signal_available");
     return attachFunctionalEvidence({
@@ -896,7 +981,7 @@ export function buildSuggestions(
       comparison: null,
       degraded,
       computedInMs: now() - start,
-    }, emptyFunctionalEvidence());
+    }, emptyFunctionalEvidence(), readiness);
   }
 
   const candidates = candidatePool(state, meta, options);
@@ -910,7 +995,7 @@ export function buildSuggestions(
       comparison: null,
       degraded,
       computedInMs: now() - start,
-    }, emptyFunctionalEvidence());
+    }, emptyFunctionalEvidence(), readiness);
   }
 
   const legacyMix = options._legacyMixMode === true;
@@ -975,15 +1060,14 @@ export function buildSuggestions(
   } else {
     // Conjunto que efectivamente vota y entra en la redistribución: `votes == (structurallyApplicable
     // AND dataReady)` (Task 12 / design §4.3a-b). Igual para todo candidato del estado. NO depende
-    // de la calibración -- ni como estructura (Task 11) ni como readiness. `patch_meta` queda fuera
-    // porque `dataReady("patch_meta") === false` (audit §4.3), no por un filtro por literal: así la
-    // salida observable de producción no cambia respecto a pre-R0 (donde `patch_meta` tampoco votaba:
-    // sólo entraba vía el acoplamiento a `calibration.signals.patch_meta`, ya retirado). Una señal
-    // aplicable pero no lista NO entra a `denom` ni a `stateMean`.
+    // de la calibración -- ni como estructura (Task 11) ni como readiness. `patch_meta` sale de
+    // `patchMetaReady(state, meta)` (AP Solo Mid data/signal repair): vota cuando el dataset cubre
+    // de verdad `state.patch`, no por un filtro por literal. Una señal aplicable pero no lista NO
+    // entra a `denom` ni a `stateMean`.
     const applicableSet = structurallyApplicableSignals(state, meta, options);
     // `voting` was computed above as the canonical degenerate-state predicate.
     const readyBySignal: Partial<Record<SignalId, boolean>> = {};
-    for (const id of applicableSet) readyBySignal[id] = dataReady(id, meta);
+    for (const id of applicableSet) readyBySignal[id] = dataReady(id, state, meta);
     const denom = [...voting].reduce((sum, id) => sum + SCORING_WEIGHTS_V6[id], 0);
     const wPrime: Partial<Record<SignalId, number>> = {};
     for (const id of voting) wPrime[id] = denom > 0 ? SCORING_WEIGHTS_V6[id] / denom : 0;
@@ -1029,7 +1113,7 @@ export function buildSuggestions(
     : diversifyEquivalentCandidates(scored, options.diversitySeed).map((entry) => ({ ...entry, openingReason: null }));
   // TSK-192: 6 recomendaciones en apertura y en picks normales (el Copilot del Simulador las
   // muestra en grid 2×3).
-  const limit = TOP_N;
+  const limit = teamOpening ? TOP_N : Math.max(TOP_N, options.limit ?? TOP_N);
   const suggestions: Suggestion[] = ranked.slice(0, limit).map((entry, index) => {
     const roleReason = targetPositionReason(entry.hero, options.teamOpening ? {} : options) ?? flexibilityReason(entry.hero, heroPositions);
     // Fuente única -> vista de cable. `reason`/`comparison`/`evidence` se derivan de
@@ -1053,8 +1137,8 @@ export function buildSuggestions(
       .filter(Boolean)
       .join(" "),
     confidence: legacyMix
-      ? computeConfidence(signals, options.metaIsStale ?? false)
-      : confidenceFromCoverage(entry.evidenceCoverage, options.metaIsStale ?? false),
+      ? computeConfidence(signals, effectiveMetaIsStale)
+      : confidenceFromCoverage(entry.evidenceCoverage, effectiveMetaIsStale),
     evidenceCoverage: entry.evidenceCoverage,
     guessingIndex: entry.guessingIndex,
     evidence: buildEvidence(entry.contributions, roleReason, decisionPolicy, entry.openingReason),
@@ -1070,5 +1154,5 @@ export function buildSuggestions(
     comparison: buildComparison(suggestions),
     degraded,
     computedInMs: now() - start,
-  }, functionalRecommendationEvidence(raw, meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening));
+  }, functionalRecommendationEvidence(raw, meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening, effectiveMetaIsStale), readiness);
 }

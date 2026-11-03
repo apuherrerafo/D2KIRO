@@ -1,6 +1,9 @@
 import { captainsModeStepDefinition, legalGameplayActions } from "../draft-protocol";
 import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/types";
 import type { RecommendationDecision, RecommendationDegradation, RecommendationSlot } from "./types";
+import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
+import type { Position } from "../draft-protocol/roles/role-belief";
+import { deriveHumanActionability, humanDecisionSlots, type HumanActionability } from "./human-actionability";
 
 // R1 S5 -- LEGAL ACTION FIRST. This module derives WHAT is being decided (decision.ts) and WHICH
 // heroes are legally nameable right now (the "hero universe"), from `legalGameplayActions(state)`
@@ -31,30 +34,44 @@ function emptyDecision(actor: TeamSide, phase: string | null): RecommendationDec
   return { actor, actionKind: null, phase, round: null, step: null, controlledSlots: [], actionCount: 0 };
 }
 
-function deriveRankedAllPick(state: DraftProtocolState, actor: TeamSide): LegalDecision {
+function deriveRankedAllPick(
+  state: DraftProtocolState,
+  actor: TeamSide,
+  controlledRosterSlots?: readonly number[],
+  isSimulator: boolean = false,
+  humanOpenPositions?: readonly Position[],
+  humanActionability?: HumanActionability,
+): LegalDecision {
   const rankedAp = state.rankedAp!;
   const degradations: RecommendationDegradation[] = [];
   if (state.degradation) degradations.push({ reason: state.degradation.reason, detail: state.degradation.detail });
 
+  const partyContext = rankedAp.partyContext;
   const openSlotsForActor = legalGameplayActions(state).filter(
     (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === actor,
   );
+  // PD-026/PD-027 + WP1 -- target unfilled HUMAN-controlled positions, never a round-seat mapping
+  // (the fixed chronology<->position table `POSITION_FOR_ROSTER_SEAT` is deleted repo-wide). A
+  // simulator session's decision covers exactly the round's human capacity; positions are never
+  // zipped onto slots (human-actionability.ts) -- eligibility travels whole on the decision.
   let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
-
-  // Blocker 5 (independent architecture review): an open round slot on `actor`'s side is not
-  // automatically ONE THIS SESSION MAY ACT FOR -- a party may control only some of its own side's
-  // roster slots (participants.ts's controlled/external split), and this recommendation must never
-  // propose an action for an "external" slot (a real teammate this session doesn't drive), even
-  // though that slot's pick genuinely is open right now. `OpenSlot.slotIndex` is a round-scoped
-  // ordinal with no mapping to a roster position (this file's own header doc), so "which N of the
-  // open slots are ours" has no real per-slot identity to recover -- only a COUNT to respect: cap
-  // to `partyContext.controlledSlots.length`, keeping the lowest slotIndexes first (the same
-  // ascending, arbitrary-but-stable convention build.ts already uses to assign compound actions to
-  // slots). `partyContext === null` means no party information was ever threaded (a legacy/no-party
-  // session) -- unrestricted, byte-identical to behavior before this fix.
-  const partyContext = rankedAp.partyContext;
-  if (partyContext && partyContext.side === actor) {
+  const actionability = isSimulator
+    ? (humanActionability ?? (humanOpenPositions !== undefined
+        ? deriveHumanActionability({ humanOpenPositions, openOwnRoundSlots: openSlotsForActor.length, yieldedCurrentRound: false, draftComplete: state.status === "COMPLETE" })
+        : null))
+    : null;
+  if (actionability) {
+    controlledSlots = humanDecisionSlots(actionability, controlledSlots);
+  } else if (humanOpenPositions !== undefined) {
+    controlledSlots = controlledSlots.slice(0, humanOpenPositions.length);
+  } else if (controlledRosterSlots !== undefined && rankedAp.round) {
+    const controlled = new Set(controlledRosterSlots);
+    controlledSlots = controlledSlots.filter((slot) => {
+      const rosterSlot = rosterSlotForRoundSlot(rankedAp.round!.round, slot.slotIndex);
+      return rosterSlot !== null && controlled.has(rosterSlot);
+    });
+  } else if (partyContext && partyContext.side === actor) {
     controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
   }
 
@@ -74,6 +91,7 @@ function deriveRankedAllPick(state: DraftProtocolState, actor: TeamSide): LegalD
       step: null,
       controlledSlots,
       actionCount: controlledSlots.length,
+      ...(actionability ? { humanActionability: actionability } : {}),
     },
     eligibleHeroIds: null,
     degradations,
@@ -132,8 +150,15 @@ function deriveCaptainsMode(state: DraftProtocolState, actor: TeamSide): LegalDe
 
 /** LEGAL ACTION FIRST -- the only entry point build.ts uses to learn what is decidable and which
  * heroes may legally be named for it. Pure: reads state, never mutates, never calls the network. */
-export function deriveLegalDecision(state: DraftProtocolState, actor: TeamSide): LegalDecision {
-  if (state.rankedAp) return deriveRankedAllPick(state, actor);
+export function deriveLegalDecision(
+  state: DraftProtocolState,
+  actor: TeamSide,
+  controlledRosterSlots?: readonly number[],
+  isSimulator: boolean = false,
+  humanOpenPositions?: readonly Position[],
+  humanActionability?: HumanActionability,
+): LegalDecision {
+  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots, isSimulator, humanOpenPositions, humanActionability);
   if (state.captainsMode) return deriveCaptainsMode(state, actor);
   return { decision: emptyDecision(actor, null), eligibleHeroIds: null, degradations: [{ reason: "RULESET_LOAD_FAILED", detail: "estado de protocolo sin ranked_ap ni captains_mode" }] };
 }

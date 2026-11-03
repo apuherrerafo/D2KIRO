@@ -38,9 +38,29 @@ afterEach(() => {
 });
 
 describe("proxy de sesión y token interno", () => {
-  test("deja públicas login, auth y healthz", async () => {
-    for (const path of ["/login", "/api/auth/steam/login", "/healthz"]) {
+  test("deja públicas la landing (/), login, auth y healthz", async () => {
+    for (const path of ["/", "/login", "/access-denied", "/api/auth/steam/login", "/healthz"]) {
       expect((await proxy(new NextRequest(`http://localhost:3000${path}`))).status).toBe(200);
+    }
+  });
+
+  test("TSK-219: sólo la ingesta GSI de Dota es pública; la descarga del cfg y la gestión del enlace exigen sesión", async () => {
+    configureAuth();
+    const ingest = await proxy(new NextRequest(`http://localhost:3000/api/live/gsi/${"A".repeat(43)}`, { method: "POST" }));
+    expect(ingest.status).toBe(200);
+    expect(ingest.headers.get("x-middleware-request-x-account-token")).toBeNull();
+    // local visual capture shares the door (and the link credential), and only that prefix
+    const visual = await proxy(new NextRequest(`http://localhost:3000/api/live/visual/${"A".repeat(43)}`, { method: "POST" }));
+    expect(visual.status).toBe(200);
+    expect(visual.headers.get("x-middleware-request-x-account-token")).toBeNull();
+    // the D2KIRO Companion heartbeat shares it too -- but its personal installer download needs a session
+    const companion = await proxy(new NextRequest(`http://localhost:3000/api/live/companion/${"A".repeat(43)}`, { method: "POST" }));
+    expect(companion.status).toBe(200);
+    expect(companion.headers.get("x-middleware-request-x-account-token")).toBeNull();
+    for (const path of ["/api/live/gsi-config", "/api/live/gsi-installer", "/api/live/gsi-uninstaller", "/api/live/companion-installer", "/api/live/companion", "/api/live/gsi", "/api/live/visual", "/engine/api/live/gsi-link", "/live-draft"]) {
+      const response = await proxy(new NextRequest(`http://localhost:3000${path}`, { method: "POST" }));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
     }
   });
 

@@ -25,10 +25,17 @@ eval/snapshots/*.sqlite-wal
 eval/snapshots/*.sqlite-shm
 !eval/snapshots/S1.sqlite
 
+# Certification remediation (Phase A, A1): frozen EMPIRICAL snapshots for Wave 5 certification packets (meta tables only,
+# no accounts/pools -- see scripts/eval/freeze-empirical-snapshot.ts). Immutable; each carries a `<id>.provenance.json`.
+!eval/snapshots/W5-EMP-*.sqlite
+
 # TSK-217: artefactos del E2E (copia de la base, cookie sellada, trazas)
 e2e/.tmp/
 test-results/
 playwright-report/
+artifacts/qa/latest/
+.qa-auth/
+artifacts/qa/staging/
 .next-e2e/
 
 # R1 S7 (final blocker repair, Blocker 3): salida RUNTIME de "bun run verify:r1" -- nunca debe
@@ -36,4 +43,29 @@ playwright-report/
 # (sin este prefijo) siguen trackeados como snapshot histórico/documentación de la ola que construyó
 # este programa -- ya no son el destino de escritura de cada corrida.
 docs/r1/generated/
+
+# Bytecode de Python generado por los hooks de scripts/hooks/ (nunca se versiona)
 __pycache__/
+*.pyc
+
+# STRATZ raw snapshots (unresolved commercial/redistribution permissions)
+data/raw/
+*.stratz-raw.json
+
+# Live Dota capture (bun run dev:live): per-run session id + capture token for the local Overwolf
+# capturer, and the runner's log. Never committed, never sent anywhere but 127.0.0.1.
+.local/
+scripts/live/overwolf-capture/local/
+
+# visual capture lab: downloaded portraits, real screenshots and calibration stay local
+scripts/live/visual-capture/local/
+# live recordings (JSONL + screenshots) and replay reports: the Player's own frames, tens of MB, never committed
+scripts/live/visual-capture/artifacts/
+scripts/live/visual-capture/replay-*.json
+scripts/live/visual-capture/__pycache__/
+scripts/live/visual-capture/**/__pycache__/
+
+# D2KIRO Companion: the generated installer, and raw GSI captures if ever copied into the repo
+# (raw payloads carry the local SteamID/name; they live in %LOCALAPPDATA%\D2KIRO\Companion\diagnostics).
+scripts/live/companion/out/
+gsi-raw-*.jsonl

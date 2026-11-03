@@ -87,6 +87,10 @@ export class SessionStore {
     return this.states.size;
   }
 
+  has(sessionId: string): boolean {
+    return this.states.has(sessionId);
+  }
+
   apply(envelope: DraftEventEnvelope, now = Date.now()): { state: DraftState; rejected?: RejectionReason } {
     const result = applyDraftEvent(this.get(envelope.sessionId, now), envelope);
     const previous = this.states.get(envelope.sessionId);

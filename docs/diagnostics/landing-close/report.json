@@ -1,0 +1,454 @@
+[
+ {
+  "viewport": "desktop-1440",
+  "docH": 10671,
+  "vh": 900,
+  "overflowX": 0,
+  "counterfactual": {
+   "top": 6068,
+   "bottom": 8780,
+   "h": 2712
+  },
+  "proposition": {
+   "top": 8780,
+   "bottom": 10187,
+   "h": 1407
+  },
+  "waitlist": {
+   "top": 10187,
+   "bottom": 10570,
+   "h": 383
+  },
+  "footer": {
+   "top": 10570,
+   "bottom": 10671,
+   "h": 101
+  },
+  "cta": {
+   "top": 10406,
+   "bottom": 10446,
+   "h": 40
+  },
+  "small": [
+   {
+    "tag": "A",
+    "text": "Memory",
+    "w": 48,
+    "h": 33
+   },
+   {
+    "tag": "A",
+    "text": "For you",
+    "w": 44,
+    "h": 33
+   },
+   {
+    "tag": "A",
+    "text": "What you get",
+    "w": 78,
+    "h": 33
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 95,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Watch a draft play out",
+    "w": 152,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Pause",
+    "w": 40,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "1 · Draft opens",
+    "w": 88,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "2 · Enemy reveals",
+    "w": 104,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "3 · Thin evidence",
+    "w": 100,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "4 · You lock a pick",
+    "w": 106,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Replay",
+    "w": 67,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   }
+  ],
+  "tops": {
+   "proposition": 8780,
+   "waitlist": 10187
+  }
+ },
+ {
+  "viewport": "desktop-1366",
+  "docH": 9582,
+  "vh": 768,
+  "overflowX": 0,
+  "counterfactual": {
+   "top": 5335,
+   "bottom": 7691,
+   "h": 2356
+  },
+  "proposition": {
+   "top": 7691,
+   "bottom": 9098,
+   "h": 1407
+  },
+  "waitlist": {
+   "top": 9098,
+   "bottom": 9481,
+   "h": 383
+  },
+  "footer": {
+   "top": 9481,
+   "bottom": 9582,
+   "h": 101
+  },
+  "cta": {
+   "top": 9317,
+   "bottom": 9357,
+   "h": 40
+  },
+  "small": [
+   {
+    "tag": "A",
+    "text": "Memory",
+    "w": 48,
+    "h": 33
+   },
+   {
+    "tag": "A",
+    "text": "For you",
+    "w": 44,
+    "h": 33
+   },
+   {
+    "tag": "A",
+    "text": "What you get",
+    "w": 78,
+    "h": 33
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 95,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Watch a draft play out",
+    "w": 152,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Pause",
+    "w": 40,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "1 · Draft opens",
+    "w": 88,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "2 · Enemy reveals",
+    "w": 104,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "3 · Thin evidence",
+    "w": 100,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "4 · You lock a pick",
+    "w": 106,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Replay",
+    "w": 67,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   }
+  ],
+  "tops": {
+   "proposition": 7691,
+   "waitlist": 9098
+  }
+ },
+ {
+  "viewport": "mobile-390",
+  "docH": 12028,
+  "vh": 844,
+  "overflowX": 0,
+  "counterfactual": {
+   "top": 6444,
+   "bottom": 9240,
+   "h": 2797
+  },
+  "proposition": {
+   "top": 9240,
+   "bottom": 11408,
+   "h": 2168
+  },
+  "waitlist": {
+   "top": 11408,
+   "bottom": 11881,
+   "h": 473
+  },
+  "footer": {
+   "top": 11881,
+   "bottom": 12028,
+   "h": 147
+  },
+  "cta": {
+   "top": 11756,
+   "bottom": 11796,
+   "h": 40
+  },
+  "small": [
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 95,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Watch a draft play out",
+    "w": 152,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Pause",
+    "w": 40,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "1 · Draft opens",
+    "w": 88,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "2 · Enemy reveals",
+    "w": 104,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "3 · Thin evidence",
+    "w": 100,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "4 · You lock a pick",
+    "w": 106,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Replay",
+    "w": 67,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   }
+  ],
+  "tops": {
+   "proposition": 9240,
+   "waitlist": 11408
+  }
+ },
+ {
+  "viewport": "mobile-390-short",
+  "docH": 10233,
+  "vh": 664,
+  "overflowX": 0,
+  "counterfactual": {
+   "top": 5264,
+   "bottom": 7445,
+   "h": 2181
+  },
+  "proposition": {
+   "top": 7445,
+   "bottom": 9613,
+   "h": 2168
+  },
+  "waitlist": {
+   "top": 9613,
+   "bottom": 10086,
+   "h": 473
+  },
+  "footer": {
+   "top": 10086,
+   "bottom": 10233,
+   "h": 147
+  },
+  "cta": {
+   "top": 9961,
+   "bottom": 10001,
+   "h": 40
+  },
+  "small": [
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 95,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Watch a draft play out",
+    "w": 152,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Pause",
+    "w": 40,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "1 · Draft opens",
+    "w": 88,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "2 · Enemy reveals",
+    "w": 104,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "3 · Thin evidence",
+    "w": 100,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "4 · You lock a pick",
+    "w": 106,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Replay",
+    "w": 67,
+    "h": 30
+   },
+   {
+    "tag": "BUTTON",
+    "text": "Join the waitlist",
+    "w": 156,
+    "h": 40
+   }
+  ],
+  "tops": {
+   "proposition": 7445,
+   "waitlist": 9613
+  }
+ },
+ {
+  "viewport": "desktop-1440-reduced",
+  "overflowX": 0
+ },
+ {
+  "viewport": "mobile-390-reduced",
+  "overflowX": 0
+ },
+ {
+  "viewport": "desktop-1440-wheel",
+  "wheelSteps": 98,
+  "frames": 344,
+  "p50": 16.7,
+  "p95": 16.8,
+  "worst": 50.1,
+  "over50": 1,
+  "longTasks": []
+ },
+ {
+  "viewport": "mobile-390-wheel",
+  "wheelSteps": 112,
+  "frames": 385,
+  "p50": 16.7,
+  "p95": 16.7,
+  "worst": 50,
+  "over50": 0,
+  "longTasks": []
+ }
+]

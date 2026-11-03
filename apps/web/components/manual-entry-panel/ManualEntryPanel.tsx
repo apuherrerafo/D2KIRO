@@ -81,7 +81,7 @@ export function ManualEntryPanel({ sessionId, heroes, banned, picks, onClose }: 
     }
     setSubmitting(false);
     if (result === null) {
-      setError("Elegí un lado (Radiant/Dire) antes de pickear.");
+      setError("Elige un lado (Radiant/Dire) antes de pickear.");
       return;
     }
     if (!result.accepted) {

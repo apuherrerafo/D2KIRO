@@ -3,6 +3,7 @@
 import { memo, useState } from "react";
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
+import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { SignalBreakdown } from "@/components/signal-breakdown/SignalBreakdown";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
@@ -51,11 +52,25 @@ interface SuggestionCardProps {
   // (DraftView.handleQuickPick es async) o nada -- la tarjeta normaliza los dos casos con
   // Promise.resolve() para saber cuándo terminó, sin obligar al padre a exponer su propio flag.
   onPick?: (hero: HeroId) => void | Promise<void>;
+  sessionId?: string;
+  targetPosition?: number | null;
+  stateIdentity?: string | null;
+  rulesetVersion?: string | null;
 }
 
 // <Dominio><Cosa>: una sugerencia de pick, con sus señales expandibles (SignalBreakdown) — una
 // sugerencia de confianza baja se muestra igual, marcada como tal, nunca se oculta.
-export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMeta, isPrimary, compact = false, onPick }: SuggestionCardProps) {
+export const SuggestionCard = memo(function SuggestionCard({
+  suggestion,
+  heroMeta,
+  isPrimary,
+  compact = false,
+  onPick,
+  sessionId,
+  targetPosition,
+  stateIdentity,
+  rulesetVersion,
+}: SuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -124,6 +139,15 @@ export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMet
             <SignalBreakdown signals={suggestion.signals} />
           </div>
         )}
+        {Boolean(sessionId) && (
+          <RecommendationFeedback
+            sessionId={sessionId!}
+            heroId={suggestion.hero}
+            targetPosition={targetPosition}
+            stateIdentity={stateIdentity}
+            rulesetVersion={rulesetVersion}
+          />
+        )}
       </div>
     );
   }
@@ -156,6 +180,15 @@ export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMet
         </button>
       </div>
       {expanded && <SignalBreakdown signals={suggestion.signals} />}
+      {Boolean(sessionId) && (
+        <RecommendationFeedback
+          sessionId={sessionId!}
+          heroId={suggestion.hero}
+          targetPosition={targetPosition}
+          stateIdentity={stateIdentity}
+          rulesetVersion={rulesetVersion}
+        />
+      )}
     </div>
   );
 });

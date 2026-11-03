@@ -3,7 +3,7 @@ import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { DraftPathSet } from "@/features/draft-paths/types";
 import type { CalculatePoolResult, HeroPoolEntry, HeroPoolPutEntry } from "@/features/hero-pool/types";
 import type { ProDrafterRequest, ProRecommendationsResponse } from "@/features/pro-drafter/types";
-import type { TeamGroupEntry, TeamGroupPutBody } from "@/features/team-groups/types";
+import type { MemberPositionPool, SaveMemberPoolArgs, TeamGroupEntry, TeamGroupPutBody } from "@/features/team-groups/types";
 import { ENGINE_HTTP_BASE_URL } from "./engine-url";
 
 export interface MetaSyncAttempt {
@@ -59,9 +59,19 @@ export const engineApi = createApi({
       query: (body) => ({ url: "/api/team-groups", method: "POST", body }),
       invalidatesTags: ["TeamGroups"],
     }),
+    // Un rechazo (409) también invalida: el editor vuelve a leer lo guardado para mostrar la versión vigente.
     updateTeamGroup: builder.mutation<TeamGroupEntry, { id: number; body: TeamGroupPutBody }>({
       query: ({ id, body }) => ({ url: `/api/team-groups/${id}`, method: "PUT", body }),
-      invalidatesTags: ["TeamGroups"],
+      invalidatesTags: () => ["TeamGroups"],
+    }),
+    // Hero Pools V2: el ÚNICO camino de escritura de un pool (jugador + posición), con compare-and-set por `expectedVersion`.
+    saveMemberPositionPool: builder.mutation<MemberPositionPool, SaveMemberPoolArgs>({
+      query: ({ teamGroupId, memberId, position, heroPool, expectedVersion }) => ({
+        url: `/api/team-groups/${teamGroupId}/members/${memberId}/pools/${position}`,
+        method: "PUT",
+        body: { heroPool, expectedVersion },
+      }),
+      invalidatesTags: () => ["TeamGroups"],
     }),
     deleteTeamGroup: builder.mutation<void, number>({
       query: (id) => ({ url: `/api/team-groups/${id}`, method: "DELETE" }),
@@ -104,6 +114,7 @@ export const {
   useGetTeamGroupsQuery,
   useCreateTeamGroupMutation,
   useUpdateTeamGroupMutation,
+  useSaveMemberPositionPoolMutation,
   useDeleteTeamGroupMutation,
   useGetDraftPathsQuery,
   usePostProRecommendationsMutation,

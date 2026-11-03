@@ -27,12 +27,15 @@ export function buildShortlist(
   suggestionSet: SuggestionSet,
   eligibleHeroIds: readonly HeroId[] | null,
   excluded: ReadonlySet<HeroId>,
+  /** Ancho del shortlist. Por defecto SHORTLIST_SIZE (8). El ranking POR POSICIÓN del Team Coach lo ensancha (`candidateLimit`) para poder
+   * seguir mostrando 5 tarjetas después de sus filtros; nunca cambia el orden de V6, solo cuántos candidatos pasan. */
+  size: number = SHORTLIST_SIZE,
 ): ShortlistEntry[] {
   const eligible = eligibleHeroIds === null ? null : new Set(eligibleHeroIds);
   const filtered = suggestionSet.suggestions.filter(
     (suggestion) => !excluded.has(suggestion.hero) && (eligible === null || eligible.has(suggestion.hero)),
   );
-  return filtered.slice(0, SHORTLIST_SIZE).map((suggestion) => ({ hero: suggestion.hero, suggestion }));
+  return filtered.slice(0, Math.max(SHORTLIST_SIZE, size)).map((suggestion) => ({ hero: suggestion.hero, suggestion }));
 }
 
 export interface CompoundCandidate {

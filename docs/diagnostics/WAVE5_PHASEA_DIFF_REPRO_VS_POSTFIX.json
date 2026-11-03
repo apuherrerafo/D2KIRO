@@ -1,0 +1,12 @@
+{
+  "a": "WAVE5_DOTA_JUDGE_POST_FIX.json",
+  "b": "WAVE5_DOTA_JUDGE_PHASEA_REPRO.json",
+  "identityDifferences": [
+    "(one packet carries no evidence identity: the systems cannot be compared)"
+  ],
+  "changes": [],
+  "scenariosCompared": 13,
+  "scenariosOnDifferentDrafts": [],
+  "pointsCompared": 24,
+  "pointsChanged": 0
+}

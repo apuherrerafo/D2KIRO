@@ -71,6 +71,14 @@ function noOpponentDecisionResult(
   };
 }
 
+/** Ranked All Pick only: did applying our action turn opponent selections from sealed into confirmed (revealed)? */
+function revealsOpponentSealedPicks(before: DraftProtocolState, after: DraftProtocolState, opponentSide: TeamSide): boolean {
+  if (!before.rankedAp || !after.rankedAp) return false;
+  const confirmedBefore = before.rankedAp.confirmedPicks.filter((pick) => pick.side === opponentSide).length;
+  const confirmedAfter = after.rankedAp.confirmedPicks.filter((pick) => pick.side === opponentSide).length;
+  return confirmedAfter > confirmedBefore;
+}
+
 export async function computeOnePlyLookahead(input: OnePlyLookaheadInput): Promise<OnePlyLookaheadResult> {
   const { state, actor, patch, computeSuggestions, seed, topRecommendation } = input;
   const opponentSide = opponentSideOf(actor);
@@ -80,6 +88,16 @@ export async function computeOnePlyLookahead(input: OnePlyLookaheadInput): Promi
   const applied = applyOwnCandidateAction(state, actor, topRecommendation.actions);
   if (!applied.ok) {
     degradations.push({ reason: "NO_ACTION_FOR_ACTOR", detail: `S6 no pudo simular la acción propia (${applied.reason})` });
+    return { ...deferredFieldsNotComputed(), degradations };
+  }
+
+  // HIDDEN-INFORMATION GUARD (AP Ranked Roles V1 / Wave 2). If our hypothetical action fills the
+  // round's last open slot, the kernel closes the round and REVEALS the selections the opponent still
+  // holds sealed -- information this side does not have. Every value derived from that counterfactual
+  // (identity, opponent response, steal) would then vary with the hidden hero. Whether the round
+  // would close is itself visible (open-slot count), so the honest answer is "not computed" -- the
+  // same NOT_COMPUTED sentinel used elsewhere -- never a lookahead built on a reveal we have not seen.
+  if (revealsOpponentSealedPicks(state, applied.state, opponentSide)) {
     return { ...deferredFieldsNotComputed(), degradations };
   }
 

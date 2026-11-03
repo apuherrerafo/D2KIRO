@@ -1,78 +1,154 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// TSK-217: el smoke que faltaba. Reproduce el draft exacto que el usuario corrió en Railway el
-// 2026-08-30 — el que devolvió Wraith King en las 3 rondas con el tablero congelado — y falla si
-// vuelve a pasar. Ningún test del proyecto abría la app hasta ahora: el harness de Fase 9 mide el
-// motor offline, así que el bug vivió semanas en la capa de transporte sin que nada lo viera.
-
-const ROUND_PICKS = [2, 2, 1]; // BLIND_ROUND_SPECS: Ranked All Pick 7.35d-7.37
-
-// Los nombres visibles de los héroes salen del <span> que renderiza DraftHeroSlot.
 async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
   const rows = page.locator(`[data-testid="${testId}"]`);
   const names: string[] = [];
-  for (let i = 0; i < await rows.count(); i++) {
-    names.push(...(await rows.nth(i).locator("span").allInnerTexts()));
-  }
+  for (let i = 0; i < await rows.count(); i++) names.push(...(await rows.nth(i).locator("span").allInnerTexts()));
   return names.map((name) => name.trim()).filter((name) => name.length > 0);
 }
 
-// Espera SEMÁNTICA, no un timeout a ciegas: entre ronda y ronda el simulador revela los picks,
-// emite sus eventos al motor y hace una pausa de revelación. Esperar el encabezado de la ronda
-// que toca es lo que hace la prueba estable — una espera fija se rompe en cuanto el motor tarda
-// un poco más (medido: falló con 20 s justo al entrar a la ronda 3, con el draft perfectamente
-// sano en 4+4 picks).
-async function playRound(page: Page, round: number, picks: number): Promise<void> {
-  await expect(page.getByText(new RegExp(`Ronda ${round}\\b`))).toBeVisible({ timeout: 60_000 });
-  for (let i = 0; i < picks; i++) {
-    // El grid de héroes seleccionables: botones habilitados con `title` = nombre del héroe.
-    const hero = page.locator("button[title]:not([disabled])").first();
-    await expect(hero).toBeVisible({ timeout: 60_000 });
-    await hero.click();
-  }
-}
-
-test("un draft completo de 3 rondas: el tablero avanza y nadie repite héroe", async ({ page }) => {
+// AP Ranked Roles V1 / Wave 1: the Player picks a side and a personal position, then controls all
+// five own-team selections through the real browser flow (bans -> R1 -> R2 -> R3 -> complete).
+async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: string): Promise<void> {
   await page.goto("/simulator");
-
-  // El gate de auth es el real: si la cookie sellada no sirviera, esto terminaría en /login.
-  // El panel de configuración sólo se renderiza con sesión válida.
-  await expect(page.locator("#player-position")).toBeVisible({ timeout: 60_000 });
-  expect(page.url()).toContain("/simulator");
-
-  // La página se sirve renderizada desde el servidor: el <select> existe en el DOM antes de que
-  // React lo hidrate, y un `change` disparado en esa ventana no llega a ningún handler. Se
-  // reintenta hasta que el botón se habilita, que es la señal real de que el estado se aplicó.
   const startButton = page.getByRole("button", { name: "Iniciar Draft" });
-  await expect(async () => {
-    await page.selectOption("#player-position", "1");
-    await expect(startButton).toBeEnabled({ timeout: 2_000 });
-  }).toPass({ timeout: 60_000 });
-
+  // Neither side nor position is preselected: starting is impossible until both are chosen.
+  await expect(startButton).toBeDisabled({ timeout: 60_000 });
+  await page.getByRole("group", { name: "Tu lado" }).getByRole("button", { name: side, exact: true }).click();
+  await expect(startButton).toBeDisabled();
+  await page.getByRole("group", { name: "Tu posición personal" }).getByRole("button", { name: position }).click();
+  await expect(startButton).toBeEnabled();
   await startButton.click();
 
-  for (const [index, picksThisRound] of ROUND_PICKS.entries()) {
-    await playRound(page, index + 1, picksThisRound);
+  // Product Semantics Recovery -- Party5 Round 1 visual acceptance contract: 2 pick slots available,
+  // 5 human positions pending, ONE current decision (one target line, one candidate section), no
+  // "elegí 5 héroes" quota, no "TU <POS> AHORA" personal panel, no legacy V2 body under the Coach.
+  await expect(page.getByTestId("round-capacity")).toHaveText(/Ronda 1 · 2 espacios de pick disponibles/, { timeout: 60_000 });
+  await expect(page.getByTestId("pending-human-positions")).toHaveText("Posiciones humanas pendientes: Pos1 Pos2 Pos3 Pos4 Pos5");
+  await expect(page.getByText(/elige 5 héroes/)).toHaveCount(0);
+  await expect(page.getByTestId("resolved-bans")).toBeVisible();
+  await expect(page.getByTestId("current-decision-panel")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("current-decision-target")).toHaveCount(1);
+  await expect(page.getByTestId("current-decision-candidates")).toHaveCount(1);
+  await expect(page.getByTestId("coach-personal-hero-view")).toHaveCount(0);
+  await expect(page.getByText(/^TU .+ AHORA$/)).toHaveCount(0);
+  await expect(page.getByTestId("round-recommendation-columns")).toHaveCount(0);
+  await expect(page.getByTestId("coach-panel")).toHaveCount(0);
+  // COHERENCE-013 / PSR-002 / TSK-251 in the real browser.
+  // OLD_ASSERTION: with no navigation `current-decision-viewed` never renders (viewed === recommended) and the
+  //   highlighted position is the recommended one.
+  // WHY_OBSOLETE: TSK-251 (d3f3266) made the FIRST view the Player's own position, while the Coach may recommend
+  //   another open one (Party5 opening habit); "Estas viendo PosN · Coach sugiere PosM" is the explicit notice.
+  // NEW_PRODUCT_CONTRACT: without navigation the viewed position is the Player's personal one; the notice renders
+  //   IFF viewed != recommended; the selector highlights the VIEWED position (BlindRoundPanel `selectedTarget`);
+  //   the recommendation is an open position and never moves with the view.
+  const personal = position.match(/\d/)?.[0] ?? "";
+  const target = await page.getByTestId("current-decision-target").getAttribute("data-target-position");
+  expect(["1", "2", "3", "4", "5"]).toContain(target);
+  const viewedNotice = page.getByTestId("current-decision-viewed");
+  if (target === personal) {
+    await expect(viewedNotice).toHaveCount(0);
+  } else {
+    await expect(viewedNotice).toHaveCount(1);
+    await expect(viewedNotice).toHaveAttribute("data-viewed-position", personal);
+    await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${target}`);
+  }
+  const viewedButton = page.getByRole("group", { name: "Posición para el próximo pick" }).getByRole("button", { name: new RegExp(`Pos${personal} `) });
+  await expect(viewedButton).toHaveClass(/border-accent-primary/);
+  await expect(page.getByTestId("current-decision-candidates")).toContainText(`Pos${personal} `);
+
+  // Any hero at any time: the first selectable hero, repeatedly, until the draft completes. A pick
+  // that collides with the (hidden) enemy pick is handled by the engine: ban + repick.
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (await page.getByText("Draft completo").isVisible()) break;
+    const hero = page.locator("button[title]:not([disabled])").first();
+    if (await hero.isVisible().catch(() => false)) await hero.click().catch(() => undefined);
+    await page.waitForTimeout(500);
   }
 
-  // Fin del draft: el resumen aparece solo cuando la fase llega a `complete`. Si el tablero se
-  // congela, nunca llega -- este `toBeVisible` es la primera red de seguridad.
-  await expect(page.getByText("Draft completo")).toBeVisible({ timeout: 60_000 });
-
-  const userPicks = await heroNamesIn(page, "summary-user-picks");
-  const botPicks = await heroNamesIn(page, "summary-bot-picks");
-
-  // El síntoma exacto del bug reportado: el bot devolvía [WK, Spectre, WK, Spectre, WK].
-  expect(botPicks).toHaveLength(5);
-  expect(new Set(botPicks).size).toBe(5);
-
-  expect(userPicks).toHaveLength(5);
-  expect(new Set(userPicks).size).toBe(5);
-
-  // Y ningún héroe puede estar en los dos lados a la vez.
-  expect(new Set([...userPicks, ...botPicks]).size).toBe(10);
-
-  // TSK-215: si el transporte hubiera fallado en algún punto, el banner estaría en pantalla y
-  // cualquier conclusión sobre el draft sería inválida.
+  await expect(page.getByText("Draft completo")).toBeVisible({ timeout: 90_000 });
+  const own = await heroNamesIn(page, "summary-user-picks");
+  const enemy = await heroNamesIn(page, "summary-bot-picks");
+  expect(own).toHaveLength(5);
+  expect(enemy).toHaveLength(5);
+  expect(new Set([...own, ...enemy]).size).toBe(10);
   await expect(page.getByText("El motor no está recibiendo este draft.")).toHaveCount(0);
+}
+
+test("AP Ranked Roles: Radiant + Midlane completa 5+5 con los 5 picks del Player", async ({ page }) => {
+  await playFullDraft(page, "Radiant", "Posición 2 — Midlane");
+});
+
+test("AP Ranked Roles: Dire + Carry completa 5+5 con los 5 picks del Player", async ({ page }) => {
+  await playFullDraft(page, "Dire", "Posición 1 — Carry");
+});
+
+test("AP Ranked Roles: Dire + Hard support (posición al final) completa 5+5", async ({ page }) => {
+  await playFullDraft(page, "Dire", "Posición 5 — Hard support");
+});
+
+async function decisionHeroIds(page: Page): Promise<string[]> {
+  return page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-hero-id") ?? ""));
+}
+
+// Product Semantics Recovery -- Party5 visual acceptance contract, after the first pick (not Pos1):
+// the binding appears, round capacity decreases, the target recomputes among the remaining four
+// positions, the previous cards disappear, and no allied bot acts.
+test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo recalculado entre las 4 restantes, sin cartas viejas", async ({ page }) => {
+  await page.goto("/simulator");
+  const startButton = page.getByRole("button", { name: "Iniciar Draft" });
+  await expect(startButton).toBeDisabled({ timeout: 60_000 });
+  await page.getByRole("group", { name: "Tu lado" }).getByRole("button", { name: "Radiant", exact: true }).click();
+  await page.getByRole("group", { name: "Tu posición personal" }).getByRole("button", { name: "Posición 2 — Midlane" }).click();
+  await startButton.click();
+
+  await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "2", { timeout: 60_000 });
+  const target = page.getByTestId("current-decision-target");
+  await expect(target).toBeVisible({ timeout: 60_000 });
+  const firstTarget = Number(await target.getAttribute("data-target-position"));
+  const chosen = firstTarget === 5 ? 4 : 5; // deliberately not Pos1, and a navigation away from the Coach's recommendation
+
+  // Selector navigation (PSR-002). OLD_ASSERTION: the banner's data-target-position became `chosen`.
+  // WHY_OBSOLETE: that conflated "the Coach recommends" with "the Player is inspecting".
+  // NEW_PRODUCT_CONTRACT: navigation moves only the VIEWED position; the recommendation is untouched.
+  const selector = page.getByRole("group", { name: "Posición para el próximo pick" });
+  await selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) }).click();
+  const viewed = page.getByTestId("current-decision-viewed");
+  await expect(viewed).toHaveAttribute("data-viewed-position", String(chosen), { timeout: 30_000 });
+  await expect(viewed).toContainText(`Estás viendo Pos${chosen}`);
+  await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${firstTarget}`);
+  await expect(target).toHaveAttribute("data-target-position", String(firstTarget)); // recommendation did not move
+  await expect(page.getByTestId("current-decision-candidates")).toContainText(`Pos${chosen} `);
+  const cardsBefore = await decisionHeroIds(page);
+
+  // TSK-237: a hero from the "Buscar otro héroe" search, never the Team Coach candidate cards (the
+  // first of those is the Pos1 recommendation, which would consume Pos1 instead of the viewed Pos).
+  // The full 127-hero grid no longer exists: the search is the manual path.
+  const manualSearch = page.getByTestId("other-hero-search");
+  await manualSearch.locator("summary").click();
+  await manualSearch.locator("button:not([disabled])").first().click();
+
+  await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1", { timeout: 30_000 });
+  await expect(page.getByTestId("pending-human-positions")).not.toContainText(`Pos${chosen}`);
+  await expect(target).toBeVisible({ timeout: 30_000 });
+  const nextTarget = Number(await target.getAttribute("data-target-position"));
+  expect(nextTarget).not.toBe(chosen);
+  expect([1, 2, 3, 4, 5].filter((position) => position !== chosen)).toContain(nextTarget);
+  const cardsAfter = await decisionHeroIds(page);
+  // The previous (Pos`chosen`) card set is gone: a new target owns the list now. A flex hero may
+  // legitimately be credible at both positions, so the check is on the set, not on each hero.
+  expect(cardsAfter).not.toEqual(cardsBefore);
+  // OLD_ASSERTION: after a real pick `current-decision-viewed` is absent (navigation resets to the recomputed recommendation).
+  // WHY_OBSOLETE: TSK-251 (d3f3266) -- the reset view is the Player's OWN position (Pos2) while it is open, not the recommendation.
+  // NEW_PRODUCT_CONTRACT: a real pick drops the manual navigation (the viewed position is no longer `chosen`); the view returns to the
+  //   Player's personal position, and the "viewing X / Coach suggests Y" notice renders IFF that differs from the recomputed recommendation.
+  const personalAfter = 2; // chosen is 4 or 5, so the personal Midlane stays open
+  const viewedAfter = page.getByTestId("current-decision-viewed");
+  if (nextTarget === personalAfter) {
+    await expect(viewedAfter).toHaveCount(0);
+  } else {
+    await expect(viewedAfter).toHaveAttribute("data-viewed-position", String(personalAfter), { timeout: 30_000 });
+    await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${nextTarget}`);
+  }
+  await expect(page.getByText("ALLY BOT", { exact: true })).toHaveCount(0); // Party5: no allied bot exists to act
 });

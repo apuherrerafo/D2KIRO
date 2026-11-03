@@ -1,0 +1,109 @@
+{
+  "path": "apps/engine/src/signals/hero-positions.json",
+  "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78",
+  "schema": "hero-position-observations/v1",
+  "format": "hero-position-observations/v1",
+  "denominatorCorrected": true,
+  "source": "api.stratz.com/graphql (STRATZ GraphQL heroStats.winDay, offline snapshot)",
+  "bracketClaim": "IMMORTAL",
+  "gameMode": "ALL_PICK_RANKED",
+  "patchClaim": {
+    "verified": false,
+    "note": "STRATZ GraphQL API does not assert patch in winDay; product ruleset target is 7.41f"
+  },
+  "rulesetTarget": "7.41f",
+  "patch": "7.41f",
+  "retrievedAt": {
+    "from": "2026-09-22T05:21:38.864Z",
+    "to": "2026-09-22T05:21:38.864Z"
+  },
+  "selectedBucketIds": [
+    1789084800,
+    1789171200,
+    1789257600,
+    1789344000,
+    1789430400,
+    1789516800,
+    1789603200
+  ],
+  "bucketSelection": {
+    "currentUtcDayBucket": 1790035200,
+    "currentUtcDayDate": "2026-09-22",
+    "selectedBucketIds": [
+      1789084800,
+      1789171200,
+      1789257600,
+      1789344000,
+      1789430400,
+      1789516800,
+      1789603200
+    ],
+    "excludedBuckets": [
+      {
+        "bucketId": 1788998400,
+        "date": "2026-09-10",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      },
+      {
+        "bucketId": 1788912000,
+        "date": "2026-09-09",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      },
+      {
+        "bucketId": 1788825600,
+        "date": "2026-09-08",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      },
+      {
+        "bucketId": 1788739200,
+        "date": "2026-09-07",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      },
+      {
+        "bucketId": 1788652800,
+        "date": "2026-09-06",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      },
+      {
+        "bucketId": 1788566400,
+        "date": "2026-09-05",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      },
+      {
+        "bucketId": 1788480000,
+        "date": "2026-09-04",
+        "reason": "prior closed UTC bucket (outside 7-day observation window)"
+      }
+    ]
+  },
+  "completeness": "authoritative completeness closed by comparing unfiltered total winDay against P1-P5 winDay across selected closed buckets; unassigned rate is <= 0.1% (max 27 across 7 days for any hero); absent P1-P5 cells are bounded in [0, unassignedMatches] (< 200, zero whenever exact identity holds)",
+  "completenessEvidence": {
+    "identityFormula": "totalPopulationMatches = sum(P1..P5) + unassignedMatches",
+    "totalPopulationMatches": 540910,
+    "totalKnownPositionMatches": 540622,
+    "unassignedMatches": 288,
+    "unassignedRate": 0.0005324360799393614,
+    "exactHeroDayMatches": 695,
+    "totalHeroDayComparisons": 889,
+    "absentPositionsBoundedByUnassigned": true,
+    "maxHeroUnassignedMatches": 27
+  },
+  "admissionFloorMatches": 200,
+  "datasetGenerator": "scripts/positions/import-observations.ts@stratz-v2",
+  "rawSnapshotSha256": "c324fc1bbe3ec36e1c20dc0e8c63cf1a6640b48bd0e9475b263fdd7cffa4fb1c",
+  "heroCount": 127,
+  "observationRowCount": 633,
+  "belowFloorRowCount": 362,
+  "population": {
+    "totalPopulationMatches": 540910,
+    "totalKnownPositionMatches": 540622,
+    "totalUnassignedMatches": 288,
+    "identityVerifiedAgainstProvenance": true
+  },
+  "generatedAt": null,
+  "generatedAtNote": "pure re-derivation of the dataset's own provenance + mechanically counted rows -- no wall-clock timestamp, so two runs over the same dataset are byte-identical",
+  "generatorVersion": "scripts/positions/metadata-twin.ts@1",
+  "rowCount": 127,
+  "schemaVersion": 1,
+  "sampleWindow": null
+}

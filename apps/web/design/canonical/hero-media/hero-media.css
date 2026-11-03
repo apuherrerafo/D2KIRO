@@ -1,0 +1,285 @@
+/* Canonical Hero Media — DS V1.1 skin (Council A + C, CONSENSUS).
+   Consumes the canonical tokens (--r3-* from the lab theme, --cx-* from canonical/tokens.css), so it must
+   render inside a `.r3-page` scope. Recognition first: the portrait art is never covered by glass, glow or
+   a state colour — every state lives OUTSIDE the image. No invented glyphs; neutral fallbacks are honest.
+   Removed from V1: amber / emerald / violet states, uppercase tracked names and badges, the infinite
+   `chm-pulse`, the hover lift, the 45–100 % scrim. */
+
+/* ───────── Hero Portrait ───────── */
+.chm-portrait {
+  --chm-rail: var(--cx-attr-str);
+  --chm-portrait-w: 240px;
+
+  aspect-ratio: 16 / 9;
+  background: var(--r3-raise);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--r3-line);
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: column;
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  width: var(--chm-portrait-w);
+}
+
+.chm-portrait[data-size="xs"] { --chm-portrait-w: 56px; border-radius: 2px; }
+.chm-portrait[data-size="sm"] { --chm-portrait-w: 112px; }
+.chm-portrait[data-size="md"] { --chm-portrait-w: 176px; }
+.chm-portrait[data-size="lg"] { --chm-portrait-w: 256px; }
+.chm-portrait[data-size="xl"] { --chm-portrait-w: 352px; }
+.chm-portrait[data-size="fill"] { --chm-portrait-w: 100%; width: 100%; }
+
+/* Dota attribute hues are game semantics, not brand. Universal = all three (no violet). */
+.chm-portrait[data-attr="str"] { --chm-rail: var(--cx-attr-str); }
+.chm-portrait[data-attr="agi"] { --chm-rail: var(--cx-attr-agi); }
+.chm-portrait[data-attr="int"] { --chm-rail: var(--cx-attr-int); }
+.chm-portrait:is([data-attr="all"], [data-attr="uni"]) {
+  --chm-rail: linear-gradient(90deg, var(--cx-attr-str) 0 33.3%, var(--cx-attr-agi) 0 66.6%, var(--cx-attr-int) 0);
+}
+
+.chm-portrait-img {
+  display: block;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+/* Scrim only behind the name: the bottom third, never the face. */
+.chm-portrait-shade {
+  background: linear-gradient(180deg, transparent 64%, color-mix(in srgb, var(--cx-plate-scrim) 72%, transparent) 86%, var(--cx-plate-scrim) 100%);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+/* No art = no scrim: the honest placeholder is not darkened. */
+.chm-portrait[data-art="fallback"] .chm-portrait-shade { display: none; }
+
+.chm-portrait-rail {
+  background: var(--chm-rail);
+  bottom: 0;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  z-index: 4;
+}
+.chm-portrait[data-size="xs"] .chm-portrait-rail { height: 2px; }
+
+.chm-portrait-plate {
+  align-items: flex-end;
+  bottom: 7px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  left: 8px;
+  position: absolute;
+  right: 8px;
+  z-index: 3;
+}
+.chm-portrait[data-size="sm"] .chm-portrait-plate { bottom: 5px; left: 6px; right: 6px; }
+.chm-portrait[data-size="lg"] .chm-portrait-plate { bottom: 10px; left: 12px; right: 12px; }
+.chm-portrait[data-size="xl"] .chm-portrait-plate { bottom: 14px; left: 16px; right: 16px; }
+
+/* Sentence case, Plex Sans: a proper name, not a HUD label. */
+.chm-portrait-name {
+  color: var(--cx-plate-ink);
+  font: 600 13px/1.1 var(--f-plex);
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chm-portrait[data-size="sm"] .chm-portrait-name { font-size: 11px; }
+.chm-portrait[data-size="lg"] .chm-portrait-name { font-size: 15px; }
+.chm-portrait[data-size="xl"] .chm-portrait-name { font: 700 19px/1.05 var(--f-syne); letter-spacing: -.01em; }
+
+/* Neutral missing-art state (no skull, no invented glyph). */
+.chm-portrait-fallback {
+  align-items: center;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--r3-ink) 6%, transparent) 6px 7px),
+    var(--r3-panel);
+  box-sizing: border-box;
+  display: flex;
+  height: 100%;
+  inset: 0;
+  justify-content: center;
+  padding: 12px;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+.chm-portrait-fallback-badge {
+  border-bottom: 1px dashed var(--r3-line-strong);
+  color: var(--r3-muted);
+  font: 500 11px/1.4 var(--f-plex);
+}
+
+/* Intentional empty seat: dashed, quiet, neutral. Reads as "not picked yet", never as a missing asset. */
+.chm-portrait-empty {
+  align-items: center;
+  background: var(--r3-panel);
+  box-sizing: border-box;
+  color: var(--r3-muted);
+  display: flex;
+  font: 500 11px/1.4 var(--f-plex);
+  height: 100%;
+  inset: 0;
+  justify-content: center;
+  outline: 1px dashed var(--r3-neutral);
+  outline-offset: -1px;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+/* Lit = strategic attention: a spectral outline outside the art, nothing on it. */
+.chm-portrait[data-lit="true"] { outline: 1.5px solid var(--r3-spec-cyan); outline-offset: 2px; }
+
+.chm-portrait[data-banned="true"] { filter: grayscale(1) brightness(.62); }
+.chm-portrait[data-banned="true"]::after {
+  background: linear-gradient(135deg, transparent 49%, var(--r3-down) 49.5% 50.5%, transparent 51%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
+}
+
+/* ───────── Hero Icon ───────── */
+.chm-icon {
+  --chm-icon-size: 40px;
+
+  aspect-ratio: 1;
+  background: var(--r3-raise);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--r3-line);
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: var(--chm-icon-size);
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  width: var(--chm-icon-size);
+}
+
+.chm-icon[data-size="xs"] { --chm-icon-size: 20px; border-radius: 2px; }
+.chm-icon[data-size="sm"] { --chm-icon-size: 28px; }
+.chm-icon[data-size="md"] { --chm-icon-size: 36px; }
+.chm-icon[data-size="lg"] { --chm-icon-size: 48px; border-radius: 4px; }
+.chm-icon[data-size="xl"] { --chm-icon-size: 64px; border-radius: 4px; }
+
+.chm-icon-img { display: block; height: 100%; object-fit: cover; width: 100%; }
+
+.chm-icon-fallback {
+  align-items: center;
+  background: var(--r3-panel);
+  color: var(--r3-muted);
+  display: flex;
+  font: 600 calc(var(--chm-icon-size) * .42)/1 var(--f-plex);
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.chm-icon[data-banned="true"] { filter: grayscale(1) brightness(.6); }
+.chm-icon[data-lit="true"] { outline: 1.5px solid var(--r3-spec-cyan); outline-offset: 2px; }
+
+/* ───────── Hero Draft Slot ───────── */
+.chm-slot {
+  --chm-slot-w: 240px;
+
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  width: var(--chm-slot-w);
+}
+.chm-slot[data-size="sm"] { --chm-slot-w: 140px; gap: 6px; }
+.chm-slot[data-size="md"] { --chm-slot-w: 200px; }
+.chm-slot[data-size="lg"] { --chm-slot-w: 260px; }
+.chm-slot[data-size="fill"] { --chm-slot-w: 100%; width: 100%; }
+.chm-slot[data-interactive="true"] { cursor: pointer; }
+.chm-slot[data-state="banned"] { cursor: not-allowed; }
+
+.chm-slot-header { align-items: center; display: flex; gap: 8px; justify-content: space-between; min-height: 20px; width: 100%; }
+.chm-slot-role { color: var(--r3-muted); font: 500 12px/1.2 var(--f-plex); }
+.chm-slot-state-badge { color: var(--r3-muted); font: 600 11px/1 var(--f-plex); white-space: nowrap; }
+.chm-slot-state-badge[data-state="selected"], .chm-slot-state-badge[data-state="confirmed"] { color: var(--r3-ink); }
+.chm-slot-state-badge[data-state="banned"] { color: var(--r3-down); }
+.chm-slot-state-badge[data-state="unknown"] { color: var(--r3-muted); }
+/* Recommended hangs from the portrait as the 3B notch (status attached to the surface). */
+.chm-slot-state-badge[data-state="recommended"] {
+  background: var(--r3-panel); box-shadow: inset 0 0 0 1px var(--r3-line-strong); clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+  color: var(--r3-ink); padding: 5px 12px 5px 8px;
+}
+
+.chm-slot-media { border-radius: 4px; position: relative; }
+.chm-slot-media::after { border-radius: 6px; content: ""; inset: -3px; pointer-events: none; position: absolute; }
+
+/* Brackets (hover / focus / acquire) sit outside the art. */
+.chm-slot-frame { inset: -8px; pointer-events: none; position: absolute; }
+.chm-slot-frame i {
+  border-color: var(--r3-ink); border-style: solid; border-width: 0; height: 8px; opacity: 0; position: absolute; width: 8px;
+  transition: opacity var(--m-fast) var(--m-ease-out), translate var(--m-spring-snappy-duration) var(--m-spring-snappy);
+}
+.chm-slot-frame i:nth-child(1) { --tx: -4px; --ty: -4px; border-left-width: 1.5px; border-top-width: 1.5px; left: 0; top: 0; }
+.chm-slot-frame i:nth-child(2) { --tx: 4px; --ty: -4px; border-right-width: 1.5px; border-top-width: 1.5px; right: 0; top: 0; }
+.chm-slot-frame i:nth-child(3) { --tx: 4px; --ty: 4px; border-bottom-width: 1.5px; border-right-width: 1.5px; bottom: 0; right: 0; }
+.chm-slot-frame i:nth-child(4) { --tx: -4px; --ty: 4px; border-bottom-width: 1.5px; border-left-width: 1.5px; bottom: 0; left: 0; }
+.chm-slot-frame i { translate: var(--tx) var(--ty); }
+.chm-slot-frame b { background: var(--r3-spec-cyan); height: 4px; left: -2px; opacity: 0; position: absolute; top: -2px; width: 4px; }
+
+/* Hover → inspect / select: ink brackets close in. Pointer-only, never carries unique information. */
+@media (hover: hover) { .chm-slot[data-interactive="true"]:hover .chm-slot-frame i { opacity: 1; translate: 0 0; } }
+.chm-slot[data-preview="hover"] .chm-slot-frame i { opacity: 1; translate: 0 0; }
+/* Contact: the brackets contract 1.5 px, no hue change. */
+.chm-slot[data-interactive="true"]:active .chm-slot-frame i { opacity: 1; translate: calc(var(--tx) * -.375) calc(var(--ty) * -.375); transition-duration: var(--m-instant); }
+
+/* Focus → the canonical form: ring on the media + brackets + node. (0,4,0) beats the lab ring. */
+:is(html, .r3-page) .chm-slot.chm-slot:focus-visible { outline: none; }
+.chm-slot:is(:focus-visible, [data-preview="focus"]) .chm-slot-media { outline: 2px solid var(--r3-focus); outline-offset: 3px; }
+.chm-slot:is(:focus-visible, [data-preview="focus"]) .chm-slot-frame i { opacity: 1; translate: 0 0; }
+.chm-slot:is(:focus-visible, [data-preview="focus"]) .chm-slot-frame b { opacity: 1; }
+
+/* Selected → one spectral segment under the art (62 % of the edge, the perimeter language). */
+.chm-slot-seg { background: var(--r3-spec-fill); bottom: -6px; height: 2px; left: 19%; opacity: 0; position: absolute; transform: scaleX(.4); transition: opacity var(--m-medium) var(--m-ease-out), transform var(--m-spring-snappy-duration) var(--m-spring-snappy); width: 62%; }
+.chm-slot[data-state="selected"] .chm-slot-seg { opacity: 1; transform: scaleX(1); }
+
+/* Recommended → 1 px spectral edge outset + one acquire (brackets close once and dissolve). */
+.chm-slot[data-state="recommended"] .chm-slot-media::after {
+  -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0); -webkit-mask-composite: xor;
+  background: linear-gradient(115deg, var(--r3-spec-pink), var(--r3-spec-cyan) 38%, transparent 64%, var(--r3-spec-lime) 100%);
+  mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); padding: 1px;
+}
+.chm-slot[data-state="recommended"] .chm-slot-frame i { animation: chm-acquire var(--m-slow) var(--m-ease-out) both; border-color: var(--r3-spec-cyan); }
+@keyframes chm-acquire {
+  from { opacity: 1; translate: calc(var(--tx) * 2) calc(var(--ty) * 2); }
+  to { opacity: 0; translate: 0 0; }
+}
+
+/* Confirmed / locked in → closed ink perimeter. Spectral drains to ink. Human lock: the lock glyph is unresolved — draw none. */
+.chm-slot[data-state="confirmed"] .chm-slot-media::after { box-shadow: 0 0 0 1.5px var(--r3-ink); }
+
+/* Unknown → dashed, neutral, still. */
+.chm-slot[data-state="unknown"] .chm-portrait { background: var(--r3-panel); box-shadow: none; outline: 1px dashed var(--r3-neutral); outline-offset: -1px; }
+.chm-slot[data-state="unknown"] .chm-portrait-rail { display: none; }
+
+/* ───────── reduced motion: same states, nothing travels ───────── */
+[data-motion="reduced"] :is(.chm-slot-frame i, .chm-slot-seg) { transition-duration: 0ms !important; }
+[data-motion="reduced"] .chm-slot[data-state="recommended"] .chm-slot-frame i { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.chm-slot-frame i, .chm-slot-seg) { transition-duration: 0ms !important; }
+  .chm-slot[data-state="recommended"] .chm-slot-frame i { animation: none; }
+}

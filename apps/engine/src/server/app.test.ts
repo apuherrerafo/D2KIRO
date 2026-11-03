@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { createHmac } from "node:crypto";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { accounts, draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
+import { accounts, draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, recommendationFeedback, settings, teamGroups, teamMembers } from "../db/schema";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { OpenDotaClient } from "../meta/opendota-client";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -75,14 +75,21 @@ function createTestDb() {
     );
     CREATE TABLE team_members (
       id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL,
-      slot INTEGER NOT NULL, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL
+      slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL
     );
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
     CREATE TABLE draft_feedback (
       id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, comment TEXT NOT NULL,
       draft_state TEXT NOT NULL, suggestions TEXT, created_at TEXT NOT NULL
     );
+    CREATE TABLE recommendation_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, hero_id INTEGER NOT NULL,
+      target_position INTEGER, rating TEXT NOT NULL, reason TEXT, comment TEXT,
+      state_identity TEXT, ruleset_id TEXT, ruleset_version TEXT, account_id INTEGER,
+      created_at TEXT NOT NULL
+    );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, accounts, heroPool, teamGroups, teamMembers, draftFeedback } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, accounts, heroPool, teamGroups, teamMembers, draftFeedback, recommendationFeedback } });
   // TSK-095 (Fase 5): bridge temporal de las rutas HTTP de hero-pool -- `getSoleAccountId` necesita
   // una cuenta real para que las pruebas de GET/PUT /api/hero-pool ya existentes se comporten
   // exactamente igual que antes de esta fase (TSK-098 la reemplaza con el accountId real del token).
@@ -388,11 +395,9 @@ describe("servidor Bun (TSK-010)", () => {
         patch: "7.41e",
         localSide: "radiant",
         adapterKind: "simulator",
-        partyContext: {
-          partySize: 5,
-          side: "radiant",
-          controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
-        },
+        // PD-026/PD-027: Own Team truth is controlledPositions, never chronological roster seats.
+        partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+        controlledPositions: [1, 2, 3, 4, 5],
       }),
     });
     expect(created.status).toBe(201);
@@ -890,6 +895,56 @@ describe("cuentas HTTP multi-tenant (TSK-098)", () => {
     expect((await unauthorized)[0]?.type).toBe("error");
     expect(await closed).toBe(1008);
   });
+
+  test("las sesiones de protocolo exigen identidad y propiedad en toda su superficie HTTP", async () => {
+    const otherAccountId = 555555555;
+    testDb.insert(accounts).values({ steamAccountId: otherAccountId, personalBaselineWinrate: null, createdAt: "2026-07-27T00:00:00.000Z" }).run();
+    const body = {
+      rulesetId: "dota2/ranked-all-pick",
+      patch: "7.41e",
+      localSide: "radiant",
+      adapterKind: "simulator",
+      partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+      controlledPositions: [1, 2, 3, 4, 5],
+      humanPosition: 1,
+      simulatorSeed: "AUTHFIX1",
+    };
+    const create = (headers?: HeadersInit) => fetch(`${baseUrl}/api/session/protocol`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+
+    const created = await create(accountHeader(999999999));
+    const { sessionId } = await created.json() as { sessionId: string };
+    const statuses = {
+      create: { owner: created.status, unauthenticated: (await create()).status },
+      recommendations: {
+        owner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/recommendations`, { headers: accountHeader(999999999) })).status,
+        unauthenticated: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/recommendations`)).status,
+        nonOwner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/recommendations`, { headers: accountHeader(otherAccountId) })).status,
+      },
+      resolveBans: {
+        owner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/resolve-bans`, { method: "POST", headers: accountHeader(999999999) })).status,
+        unauthenticated: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/resolve-bans`, { method: "POST" })).status,
+        nonOwner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/resolve-bans`, { method: "POST", headers: accountHeader(otherAccountId) })).status,
+      },
+      autoDrive: {
+        owner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/auto-drive`, { method: "POST", headers: accountHeader(999999999) })).status,
+        unauthenticated: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/auto-drive`, { method: "POST" })).status,
+        nonOwner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/auto-drive`, { method: "POST", headers: accountHeader(otherAccountId) })).status,
+      },
+    };
+
+    expect(statuses).toEqual({
+      create: { owner: 201, unauthenticated: 401 },
+      recommendations: { owner: 200, unauthenticated: 401, nonOwner: 403 },
+      // 400 means the owner reached the route and its body validation; auth failures occur first.
+      resolveBans: { owner: 400, unauthenticated: 401, nonOwner: 403 },
+      // 409 is the protocol's legitimate initial-state response: owner authentication reached the route.
+      autoDrive: { owner: 409, unauthenticated: 401, nonOwner: 403 },
+    });
+  });
 });
 
 // TSK-073 (spec §2.3): describe aparte, con su propia app y una tabla de turnos SINTÉTICA
@@ -1230,11 +1285,9 @@ describe("R1 S7 final blocker repair -- seams de test no se activan con variable
             patch: "7.41e",
             localSide: "radiant",
             adapterKind: "simulator",
-            partyContext: {
-              partySize: 5,
-              side: "radiant",
-              controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
-            },
+            // PD-026/PD-027: Own Team truth is controlledPositions, never chronological roster seats.
+            partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+            controlledPositions: [1, 2, 3, 4, 5],
           }),
         });
         const { sessionId } = (await created.json()) as { sessionId: string };

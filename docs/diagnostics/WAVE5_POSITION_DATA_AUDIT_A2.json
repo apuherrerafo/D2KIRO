@@ -1,0 +1,109 @@
+{
+  "schema": "wave5-position-data-audit/v1",
+  "inputs": {
+    "positionsFile": {
+      "path": "apps/engine/src/signals/hero-positions.json",
+      "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78",
+      "format": "hero-position-observations/v1"
+    },
+    "snapshotUsedForNamesOnly": "eval/snapshots/W5-EMP-001.sqlite",
+    "packet": {
+      "file": "WAVE5_DOTA_JUDGE_POST_FIX.json",
+      "gitHead": "6c9e5fffe8531a3f6d034af285fef911be2d09a4"
+    }
+  },
+  "method": "For each hero: S = sum of the listed (>= floor) positions, k = 5 - listed positions, each unlisted count is in [0, floor-1]. True share of a listed position is in [m/(S+k*(floor-1)), m/S]; m/S is what the legacy code used. Dominance can never be overturned; share admissions can only be overturned, never added.",
+  "universeByPosition": [
+    {
+      "position": 1,
+      "legacy": 36,
+      "guaranteed": 36,
+      "unproven": 0
+    },
+    {
+      "position": 2,
+      "legacy": 30,
+      "guaranteed": 30,
+      "unproven": 0
+    },
+    {
+      "position": 3,
+      "legacy": 37,
+      "guaranteed": 37,
+      "unproven": 0
+    },
+    {
+      "position": 4,
+      "legacy": 28,
+      "guaranteed": 28,
+      "unproven": 0
+    },
+    {
+      "position": 5,
+      "legacy": 36,
+      "guaranteed": 36,
+      "unproven": 0
+    }
+  ],
+  "unprovenAdmissions": [],
+  "reviewNamedHeroesCoveredByUnproven": [],
+  "reviewNamedHeroesNotCovered": [
+    "Chaos Knight",
+    "Riki",
+    "Marci",
+    "Silencer",
+    "Earthshaker",
+    "Razor",
+    "Necrophos",
+    "Venomancer",
+    "Pugna",
+    "Enchantress",
+    "Gyrocopter",
+    "Dark Willow",
+    "Hoodwink"
+  ],
+  "heroesWithoutPositionEvidence": [],
+  "packetExposure": {
+    "entriesGraded": 202,
+    "total": {
+      "dominant": 179,
+      "proven-by-share": 21,
+      "unproven-by-share": 0,
+      "not-admitted": 2
+    },
+    "bySurface": {
+      "personal ranking": {
+        "dominant": 83,
+        "proven-by-share": 15,
+        "unproven-by-share": 0,
+        "not-admitted": 2
+      },
+      "team shortlist": {
+        "dominant": 96,
+        "proven-by-share": 6,
+        "unproven-by-share": 0,
+        "not-admitted": 0
+      }
+    },
+    "unprovenOrWorse": [
+      {
+        "scenario": "S01",
+        "point": "S01/decision",
+        "surface": "personal ranking",
+        "hero": "Io",
+        "position": 1,
+        "grade": "not-admitted",
+        "shareRange": "13.9%–13.9%"
+      },
+      {
+        "scenario": "S12",
+        "point": "S12/decision",
+        "surface": "personal ranking",
+        "hero": "Marci",
+        "position": 3,
+        "grade": "not-admitted",
+        "shareRange": "19.4%–19.4%"
+      }
+    ]
+  }
+}

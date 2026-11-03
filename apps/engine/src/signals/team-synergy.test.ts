@@ -63,14 +63,47 @@ describe("createTeamSynergyScorer", () => {
     expect(scorer.score(state, WAVECLEARER.hero, { heroes: {}, matchups: {} }).raw).toBeNull();
   });
 
-  test("candidato sin entrada en capabilities.json -> raw: 0, nunca null (es un hueco de dato del candidato, no del equipo)", () => {
+  test("candidato sin entrada en capabilities.json -> raw: null (dato insuficiente, nunca 0)", () => {
     const scorer = createTeamSynergyScorer([INITIATOR]);
     const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
 
     const result = scorer.score(state, 999, { heroes: {}, matchups: {} });
 
-    expect(result.raw).toBe(0);
+    expect(result.raw).toBeNull();
     expect(result.explanation).toContain("Sin datos de capacidades");
+  });
+
+  test("héroes con capacidades no curadas / CAPABILITY_DATA_UNAVAILABLE (131, 145, 155) reciben raw: null y nunca raw: 0", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
+
+    for (const heroId of [131, 145, 155]) {
+      const result = scorer.score(state, heroId, { heroes: {}, matchups: {} });
+      expect(result.raw).toBeNull();
+      expect(result.explanation).toContain("Sin datos de capacidades");
+    }
+  });
+
+  test("equipo propio con solo héroes uncurated / capacidades no disponibles -> raw: null (no asume que carecen de todo)", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    // Radiant solo tiene Ringmaster (131), sin capacidades en la lista inyectada
+    const state = draftState({ picks: { radiant: [131], dire: [] } });
+
+    const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
+
+    expect(result.raw).toBeNull();
+    expect(result.explanation).toContain("Sin picks propios con capacidades tácticas conocidas");
+  });
+
+  test("equipo propio con mezcla de conocido y desconocido: evalúa sobre lo conocido sin fallar", () => {
+    const scorer = createTeamSynergyScorer([WAVECLEARER, INITIATOR]);
+    // Radiant tiene WAVECLEARER y Ringmaster (131)
+    const state = draftState({ picks: { radiant: [WAVECLEARER.hero, 131], dire: [] } });
+
+    const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.explanation).toContain("initiation");
   });
 
   test("equipo sin iniciación: candidato que la aporta puntúa más que uno que repite algo ya cubierto", () => {
@@ -140,4 +173,60 @@ describe("createTeamSynergyScorer", () => {
   // nueva (WeakMap local al closure) por cada llamada a buildSuggestions -- dos instancias nunca
   // comparten cache entre sí porque cada una tiene la suya propia, la clase de bug queda eliminada
   // por construcción, no por un chequeo en runtime.
+});
+
+// Sinergia de PAREJA (base de conocimiento, 2026-10). Fixtures sintéticos, nunca hero-synergies.json real.
+describe("createTeamSynergyScorer con sinergias de pareja", () => {
+  const META = { heroes: { 10: { id: 10, localizedName: "Héroe Iniciador" } }, matchups: {} };
+  const PAIRS = new Map([
+    [WAVECLEARER.hero, [{ with: INITIATOR.hero, why: "Su combo se potencia." }]],
+    [INITIATOR.hero, [{ with: WAVECLEARER.hero, why: "Su combo se potencia." }]],
+  ]);
+  const withInitiator = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
+
+  // Números fijos de ANTES de las parejas (medidos con el scorer previo, 2026-10-27). Se comparan contra
+  // el mapa vacío y contra parejas cuyo compañero NO está en mi equipo: si el bono se filtrara, falla.
+  const PRE_PAIRS = {
+    [WAVECLEARER.hero]: { raw: 1 / 7, explanation: "Aporta waveclear que a tu equipo le falta" },
+    [SCALER.hero]: { raw: 1 / 7, explanation: "Aporta muy buen scaling que a tu equipo le falta" },
+    999: { raw: null, explanation: "Sin datos de capacidades tácticas para este héroe" },
+  };
+  const UNPICKED_PAIRS = new Map([
+    [WAVECLEARER.hero, [{ with: SCALER.hero, why: "No elegido" }]],
+    [SCALER.hero, [{ with: WAVECLEARER.hero, why: "No elegido" }]],
+    [999, [{ with: SCALER.hero, why: "No elegido" }]],
+  ]);
+
+  test("CANDADO de regresión cero: sin parejas propias, raw y frase son los números fijos de antes", () => {
+    for (const synergies of [new Map(), UNPICKED_PAIRS]) {
+      const scorer = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER], synergies);
+      for (const [candidate, expected] of Object.entries(PRE_PAIRS)) {
+        const result = scorer.score(withInitiator, Number(candidate), META);
+        expect(result.raw).toBe(expected.raw);
+        expect(result.explanation).toBe(expected.explanation);
+      }
+    }
+  });
+
+  test("pareja con un héroe propio suma 1/7 y lo explica con el porqué", () => {
+    const plain = createTeamSynergyScorer([INITIATOR, WAVECLEARER]).score(withInitiator, WAVECLEARER.hero, META);
+    const paired = createTeamSynergyScorer([INITIATOR, WAVECLEARER], PAIRS).score(withInitiator, WAVECLEARER.hero, META);
+    expect(paired.raw).toBeCloseTo((plain.raw ?? 0) + 1 / 7, 10);
+    expect(paired.explanation).toBe(`${plain.explanation}. Sinergia con Héroe Iniciador: Su combo se potencia`);
+  });
+
+  test("la pareja solo cuenta si el compañero está en MI equipo, no en el rival", () => {
+    const enemyHasIt = draftState({ picks: { radiant: [SCALER.hero], dire: [INITIATOR.hero] } });
+    const plain = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER]).score(enemyHasIt, WAVECLEARER.hero, META);
+    const paired = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER], PAIRS).score(enemyHasIt, WAVECLEARER.hero, META);
+    expect(paired).toEqual(plain);
+  });
+
+  test("el bono tiene tope de 2/7 y raw nunca pasa de 1", () => {
+    const many = new Map([[42, [1, 2, 3, 4].map((h) => ({ with: h, why: "x" }))]]);
+    const state = draftState({ picks: { radiant: [1, 2, 3, 4], dire: [] } });
+    const caps = [1, 2, 3, 4, 42].map((hero) => capability({ hero }));
+    const result = createTeamSynergyScorer(caps, many).score(state, 42, { heroes: {}, matchups: {} });
+    expect(result.raw).toBeCloseTo(2 / 7, 10);
+  });
 });

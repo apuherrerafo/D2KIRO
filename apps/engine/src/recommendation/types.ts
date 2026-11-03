@@ -3,6 +3,9 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DegradationFlag } from "../signals/mix";
 import type { SignalContribution, SignalId } from "../signals/types";
 import type { DraftDecisionContext } from "../drafter/decision-context";
+import type { MetaReadiness } from "../meta/readiness";
+import type { HumanActionability } from "./human-actionability";
+
 
 // R1 S5 -- RecommendationSet/v2 canonical contract. This is the ONE recommendation truth for
 // kernel-backed (draft-protocol) sessions: PerspectiveDraftView + legalGameplayActions + S4 role
@@ -213,9 +216,11 @@ export type RecommendationActionKind = "BAN" | "PICK";
 export interface RecommendationSlot {
   side: TeamSide;
   /** Ruleset-specific slot numbering: AP round-scoped open-slot index (types.ts's OpenSlot), or
-   * the CM step number for the single CM decision "slot". Never a roster position (0..4) -- see
-   * decision.ts's header comment for why that mapping does not exist in the kernel today. */
+   * the CM step number for the single CM decision "slot". In simulator sessions with known role
+   * mapping, `position` indicates the explicit Dota position (1..5) associated with this slot. */
   slotIndex: number;
+  /** Explicit roster seat position (1..5) associated with this slot if known, or null/undefined. */
+  position?: Position | null;
 }
 
 export interface RecommendationDecision {
@@ -231,6 +236,13 @@ export interface RecommendationDecision {
   /** Every slot currently open AND legal for `actor` right now -- the compound universe. */
   controlledSlots: readonly RecommendationSlot[];
   actionCount: number;
+  /**
+   * Product Semantics Recovery WP1 -- present only for AP Simulator sessions with
+   * `controlledPositions`: which human positions are eligible, separately from how many picks fit
+   * this round. When present, `controlledSlots` holds exactly `roundCapacity` slots and never
+   * narrows `eligiblePositions` (see human-actionability.ts).
+   */
+  humanActionability?: HumanActionability;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -317,6 +329,7 @@ export type RecommendationDegradationReason =
   | "NO_ACTION_FOR_ACTOR"
   | "ROLE_ASSIGNMENT_IMPOSSIBLE"
   | "NO_LEGAL_HERO_UNIVERSE"
+  | "COMPOUND_FALLBACK_SINGLE_STEP"
   | "SNAPSHOT_UNAVAILABLE";
 
 export interface RecommendationDegradation {
@@ -333,4 +346,5 @@ export interface RecommendationSetV2 {
   degradations: readonly RecommendationDegradation[];
   deferred: RecommendationDeferredFields;
   decisionContext: DraftDecisionContext | "no_action";
+  readiness?: MetaReadiness;
 }

@@ -1,0 +1,7 @@
+fileType: momentic/module/v2
+id: d2kiro-auth-staging
+name: authenticated-staging
+steps:
+  - authLoad: ../../../.qa-auth/staging-storage-state.json
+  - navigate: /simulator
+  - waitForUrl: /simulator

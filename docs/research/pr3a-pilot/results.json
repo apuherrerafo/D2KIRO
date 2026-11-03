@@ -1,0 +1,142 @@
+{
+  "perMatch": [
+    {
+      "id": "9057084643",
+      "status": "certified",
+      "code": null,
+      "checks": 21,
+      "failed": []
+    },
+    {
+      "id": "9056988862",
+      "status": "certified",
+      "code": null,
+      "checks": 21,
+      "failed": []
+    },
+    {
+      "id": "9056844521",
+      "status": "certified",
+      "code": null,
+      "checks": 21,
+      "failed": []
+    },
+    {
+      "id": "9056685103",
+      "status": "certified",
+      "code": null,
+      "checks": 21,
+      "failed": []
+    },
+    {
+      "id": "9056536159",
+      "status": "certified",
+      "code": null,
+      "checks": 21,
+      "failed": []
+    }
+  ],
+  "batchChecks": [
+    {
+      "name": "lote: 5 originales + 1 repetida idéntica -> certificadas == esperadas, 1 duplicado descartado, 0 conflictos",
+      "ok": true,
+      "detail": "cert=5 dup=1 conf=0 notCert=0"
+    },
+    {
+      "name": "lote: cada certificada trazable (certification.matchId == provenance.sourceMatchId)",
+      "ok": true
+    },
+    {
+      "name": "lote: ids certificados == ids esperados",
+      "ok": true
+    },
+    {
+      "name": "lote: misma partida con contenido distinto -> descartada entera (conflicto), no se elige una",
+      "ok": true
+    }
+  ],
+  "integration": [
+    {
+      "name": "PR #49 loader: todos los certificados cargan, 0 rechazados",
+      "ok": true,
+      "detail": "status=ok n=5 rej=0"
+    },
+    {
+      "name": "PR #50: todos los certificados son elegibles (procedencia verificable), 0 excluidos",
+      "ok": true,
+      "detail": "{\"indexedRecords\":5,\"eligibleRecords\":5,\"excludedByEvidenceClass\":0,\"excludedUnverifiedProvenance\":0,\"duplicatesDropped\":0,\"matchedRecords\":5,\"directMatches\":1,\"partialMatches\":3,\"contrastMatches\":1}"
+    },
+    {
+      "name": "PR #50: la búsqueda por 2 aliados de un registro lo recupera",
+      "ok": true,
+      "detail": "status=ok matched=5"
+    }
+  ],
+  "controlChecks": [
+    {
+      "name": "control: liga fuera del catálogo",
+      "ok": true,
+      "detail": "got=quarantined:LEAGUE_NOT_IN_CATALOG want=quarantined:LEAGUE_NOT_IN_CATALOG"
+    },
+    {
+      "name": "control: liga amateur en catálogo",
+      "ok": true,
+      "detail": "got=rejected:LEAGUE_TIER_NOT_ELIGIBLE want=rejected:LEAGUE_TIER_NOT_ELIGIBLE"
+    },
+    {
+      "name": "control: tier del payload contradice al catálogo",
+      "ok": true,
+      "detail": "got=quarantined:LEAGUE_TIER_CONTRADICTION want=quarantined:LEAGUE_TIER_CONTRADICTION"
+    },
+    {
+      "name": "control: detail.leagueid distinto del resumen",
+      "ok": true,
+      "detail": "got=quarantined:LEAGUE_ID_CONTRADICTION want=quarantined:LEAGUE_ID_CONTRADICTION"
+    },
+    {
+      "name": "control: game_mode != 2",
+      "ok": true,
+      "detail": "got=rejected:GAME_MODE_NOT_CAPTAINS_MODE want=rejected:GAME_MODE_NOT_CAPTAINS_MODE"
+    },
+    {
+      "name": "control: secuencia con un turno intercambiado de bando",
+      "ok": true,
+      "detail": "got=quarantined:RECORD_VALIDATION_FAILED want=quarantined:RECORD_VALIDATION_FAILED"
+    },
+    {
+      "name": "control: héroe repetido",
+      "ok": true,
+      "detail": "got=quarantined:RECORD_VALIDATION_FAILED want=quarantined:RECORD_VALIDATION_FAILED"
+    },
+    {
+      "name": "control: hueco en order",
+      "ok": true,
+      "detail": "got=quarantined:CM_SEQUENCE_INVALID want=quarantined:CM_SEQUENCE_INVALID"
+    },
+    {
+      "name": "control: sin picks_bans",
+      "ok": true,
+      "detail": "got=quarantined:PICKS_BANS_MISSING want=quarantined:PICKS_BANS_MISSING"
+    },
+    {
+      "name": "control: sin radiant_win -> unknown (no Dire por defecto)",
+      "ok": true
+    },
+    {
+      "name": "control: parche string no se acepta como exact",
+      "ok": true
+    },
+    {
+      "name": "control: position_est duplicada en un bando -> ese bando sin posiciones",
+      "ok": true
+    }
+  ],
+  "totals": {
+    "evaluated": 5,
+    "certified": 5,
+    "falseCertified": [],
+    "falseRejected": [],
+    "failedChecks": 0
+  },
+  "failed": []
+}

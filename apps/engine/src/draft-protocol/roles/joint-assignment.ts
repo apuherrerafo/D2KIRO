@@ -71,6 +71,34 @@ function generateInjectivePositionSequences(count: number): Position[][] {
   return results;
 }
 
+function findViolatingSubset(
+  entries: readonly { heroId: HeroId; allowed: readonly Position[] }[],
+  size: number,
+): { positions: readonly Position[]; heroIds: readonly HeroId[] } | null {
+  function combinations(start: number, chosen: number[]): number[][] {
+    if (chosen.length === size) return [chosen];
+    const res: number[][] = [];
+    for (let i = start; i < entries.length; i++) {
+      res.push(...combinations(i + 1, [...chosen, i]));
+    }
+    return res;
+  }
+  for (const indices of combinations(0, [])) {
+    const subset = indices.map((i) => entries[i]!);
+    const unionPositions = new Set<Position>();
+    for (const item of subset) {
+      for (const p of item.allowed) unionPositions.add(p);
+    }
+    if (unionPositions.size < subset.length) {
+      return {
+        positions: [...unionPositions].sort((a, b) => a - b),
+        heroIds: subset.map((s) => s.heroId),
+      };
+    }
+  }
+  return null;
+}
+
 function emptyResult(
   rejected?: "TOO_MANY_HEROES" | "IMPOSSIBLE_ASSIGNMENT",
   conflicts?: readonly { position: Position; heroIds: readonly HeroId[] }[],
@@ -118,9 +146,45 @@ export function computeJointRoleAssignment(heroes: readonly JointAssignmentHeroI
       if (position === undefined) continue;
       confirmedByPosition.set(position, [...(confirmedByPosition.get(position) ?? []), hero.heroId]);
     }
-    const conflicts = [...confirmedByPosition.entries()]
+    let conflicts = [...confirmedByPosition.entries()]
       .filter(([, heroIds]) => heroIds.length > 1)
       .map(([position, heroIds]) => ({ position, heroIds }));
+
+    if (conflicts.length === 0) {
+      const exclusiveByPosition = new Map<Position, HeroId[]>();
+      for (const hero of heroes) {
+        const allowed = POSITIONS.filter((p) => hero.belief.probabilities[p] > 0);
+        if (allowed.length === 1) {
+          const position = allowed[0]!;
+          exclusiveByPosition.set(position, [...(exclusiveByPosition.get(position) ?? []), hero.heroId]);
+        }
+      }
+      conflicts = [...exclusiveByPosition.entries()]
+        .filter(([, heroIds]) => heroIds.length > 1)
+        .map(([position, heroIds]) => ({ position, heroIds }));
+    }
+
+    if (conflicts.length === 0) {
+      const heroAllowed = heroes.map((h) => ({
+        heroId: h.heroId,
+        allowed: POSITIONS.filter((p) => h.belief.probabilities[p] > 0),
+      }));
+      for (let size = 2; size <= heroes.length; size++) {
+        const found = findViolatingSubset(heroAllowed, size);
+        if (found) {
+          conflicts = found.positions.map((position) => ({ position, heroIds: [...found.heroIds] }));
+          break;
+        }
+      }
+    }
+
+    if (conflicts.length === 0) {
+      const unassignable = heroes.filter((h) => POSITIONS.every((p) => h.belief.probabilities[p] === 0));
+      if (unassignable.length > 0) {
+        conflicts = [{ position: 1, heroIds: unassignable.map((h) => h.heroId) }];
+      }
+    }
+
     return emptyResult("IMPOSSIBLE_ASSIGNMENT", conflicts);
   }
 

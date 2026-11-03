@@ -1,4 +1,4 @@
-import type { DegradationFlag, DraftArchetype, ScreenState, SignalId, SuggestionConfidence } from "./types";
+import type { DraftArchetype, KnownDegradationFlag, ScreenState, SignalId, SuggestionConfidence } from "./types";
 
 // img_url de héroe: se valida que el host esté en esta lista antes de renderizar — nunca una
 // URL arbitraria tomada directo de la respuesta de la API (.claude/rules/web.md, security.md).
@@ -15,12 +15,13 @@ export const MAX_PICKS_PER_SIDE = 5;
 // validación real.
 export const CAPTAINS_MODE_RESERVE_TIME_MS = 130000;
 
-export const DEGRADATION_LABELS: Record<DegradationFlag, string> = {
+export const DEGRADATION_LABELS: Record<KnownDegradationFlag, string> = {
   stale_meta: "Los datos de héroes/parche tienen más de 24 horas — puede no reflejar el meta actual.",
   partial_signals: "El cálculo se cortó antes de terminar — algunas señales pueden faltar.",
   unconfirmed_state: "Hay picks o bans sin confirmar en la captura — revisa el tablero.",
   unknown_format: "No se detectó el formato del draft — las sugerencias no ajustan por modo de juego.",
   no_signal_available: "No hay señales disponibles para votar",
+  patch_meta_data_not_ready: "Datos de meta del parche no disponibles (señal no votante)",
 };
 
 export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {
@@ -57,7 +58,7 @@ export const SCREEN_STATE_GUIDANCE: Record<ScreenState, string> = {
   desconectado:
     "No hay conexión con el motor de sugerencias en este momento. El último draft conocido sigue visible abajo, atenuado -- no se perdió nada. Si el motor no está corriendo, reconectar no va a funcionar hasta que lo levantes.",
   esperando_draft:
-    "Todavía no se detectó ningún draft en curso. Con un capturador automático conectado a una partida real, esto se llena solo. En este ambiente de pruebas, usa \"Entrada manual\" para marcar los picks y bans tú mismo, o probá el simulador (All Pick vs bot) desde el menú de arriba.",
+    "Todavía no se detectó ningún draft en curso. Con un capturador automático conectado a una partida real, esto se llena solo. En este ambiente de pruebas, usa \"Entrada manual\" para marcar los picks y bans tú mismo, o prueba el simulador (All Pick vs bot) desde el menú de arriba.",
   activo:
     "El draft está en curso. La sugerencia principal y las 2 alternativas se recalculan solas después de cada pick o ban -- no hace falta refrescar la página.",
   degradado:

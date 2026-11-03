@@ -1,0 +1,69 @@
+{
+  "1440x900-A-hero": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "1440x900-A-forming": {
+    "handoff": "0.27",
+    "beat": "handoff",
+    "scrollY": 512
+  },
+  "1440x900-A-rest": {
+    "beat": "hold:match-01",
+    "handoff": "1"
+  },
+  "1440x900-A-hero-after": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "1440x900-B-ember": {
+    "step": "hold",
+    "lock": "Ember Spirit locked · Pos 2"
+  },
+  "1440x900-B-before-bridge": {
+    "step": "hold",
+    "lock": "Ember Spirit locked · Pos 2"
+  },
+  "1440x900-B-after-bridge": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "1440x900-B-hero-end": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "1366x768-A-hero": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "1366x768-A-forming": {
+    "handoff": "0.28",
+    "beat": "handoff",
+    "scrollY": 644
+  },
+  "1366x768-A-rest": {
+    "beat": "hold:match-01",
+    "handoff": "1"
+  },
+  "1366x768-A-hero-after": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "390x844-A-hero": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  },
+  "390x844-A-forming": {
+    "handoff": "0.27",
+    "beat": "handoff",
+    "scrollY": 925
+  },
+  "390x844-A-rest": {
+    "beat": "hold:match-01",
+    "handoff": "1"
+  },
+  "390x844-A-hero-after": {
+    "step": "hold",
+    "lock": "Puck locked · Pos 2"
+  }
+}

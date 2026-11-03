@@ -64,10 +64,12 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       team_group_id INTEGER NOT NULL,
       slot INTEGER NOT NULL,
+      position INTEGER,
       name TEXT NOT NULL,
       hero_pool TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
   `);
   return drizzle(sqlite, { schema: { accounts, heroes, heroMatchups, settings, heroPool, teamGroups, teamMembers } });
 }
@@ -240,8 +242,8 @@ test("createTeamGroup guarda un equipo con miembros y getTeamGroups lo lista com
     partySize: 3,
     updatedAt: "2026-07-29",
     members: [
-      { slot: 1, name: "Ana", heroPool: [1, 2], updatedAt: "2026-07-29" },
-      { slot: 2, name: "Bruno", heroPool: [3], updatedAt: "2026-07-29" },
+      { slot: 1, position: null, name: "Ana", heroPool: [1, 2], updatedAt: "2026-07-29" },
+      { slot: 2, position: null, name: "Bruno", heroPool: [3], updatedAt: "2026-07-29" },
     ],
   });
 
@@ -258,8 +260,8 @@ test("replaceTeamGroup reemplaza datos y miembros completos", () => {
     partySize: 3,
     updatedAt: "2026-07-29",
     members: [
-      { slot: 1, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" },
-      { slot: 2, name: "Bruno", heroPool: [2], updatedAt: "2026-07-29" },
+      { slot: 1, position: 3, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" },
+      { slot: 2, position: null, name: "Bruno", heroPool: [2], updatedAt: "2026-07-29" },
     ],
   });
 
@@ -267,7 +269,7 @@ test("replaceTeamGroup reemplaza datos y miembros completos", () => {
     accountId: 111, name: "Stack ranked",
     partySize: 2,
     updatedAt: "2026-07-30",
-    members: [{ slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
+    members: [{ slot: 1, position: 4, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
   });
 
   expect(updated).toEqual({
@@ -276,7 +278,7 @@ test("replaceTeamGroup reemplaza datos y miembros completos", () => {
     name: "Stack ranked",
     partySize: 2,
     updatedAt: "2026-07-30",
-    members: [{ id: 3, teamGroupId: saved.id, slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
+    members: [{ id: 3, teamGroupId: saved.id, slot: 1, position: 4, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30", positionPools: [{ position: 4, heroPool: [3, 4], version: 1, updatedAt: "2026-07-30" }] }],
   });
 });
 
@@ -287,7 +289,7 @@ test("deleteTeamGroup borra el equipo y sus miembros", () => {
     accountId: 111, name: "Temporal",
     partySize: 2,
     updatedAt: "2026-07-29",
-    members: [{ slot: 1, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" }],
+    members: [{ slot: 1, position: null, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" }],
   });
 
   expect(deleteTeamGroup(db, saved.id, 111)).toBe(true);
