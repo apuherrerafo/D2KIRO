@@ -54,8 +54,8 @@ describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los 
     expect(result.state).toBe("UNRANKED_POSITIONAL");
   });
 
-  test("AHORA: pidiendo margen, suben los de atrás y la columna llega a 5 tarjetas, en el orden de V6", async () => {
-    const result = await cardsFor(20);
+  test("AHORA: pidiendo todo el universo, suben los de atrás y la columna llega a 5 tarjetas, en el orden de V6", async () => {
+    const result = await cardsFor(HEROES.length);
     if (result.state !== "RANKED") throw new Error(`esperaba RANKED, salió ${result.state}`);
     expect(result.cards).toHaveLength(5);
     expect(result.cards.map((card) => card.rank)).toEqual([1, 2, 3, 4, 5]);
@@ -65,7 +65,7 @@ describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los 
   });
 });
 
-describe("la lista es una fila que avanza (pedir TODO el universo, no un tope)", () => {
+describe("la fila avanza cuando un héroe sale del juego (mecanismo del shortlist; la ruta pide el universo en protocol-sessions.team-board.test.ts)", () => {
   test("si un héroe sale del juego (baneado), la fila corre: los de atrás suben y siguen siendo 5, en el mismo orden de V6", async () => {
     const before = await cardsFor(HEROES.length);
     const after = await cardsFor(HEROES.length, [9]);
@@ -76,4 +76,3 @@ describe("la lista es una fila que avanza (pedir TODO el universo, no un tope)",
   });
 
 });
-
