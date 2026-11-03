@@ -41,7 +41,12 @@ function totalPicks(stats: HeroPatchStat[] | undefined): number {
 function detectCurrentPatch(patchStats: Record<HeroId, HeroPatchStat[]>): string {
   const counts = new Map<string, number>();
   for (const stats of Object.values(patchStats)) {
-    for (const stat of stats) counts.set(stat.patch, (counts.get(stat.patch) ?? 0) + 1);
+    for (const stat of stats) {
+      // Un patch vacío (restos de la sync antigua en una base ya existente) nunca es un parche real: el motor
+      // rechaza un draft con patch "" (400), así que no puede competir por ser el "actual".
+      if (stat.patch.trim().length === 0) continue;
+      counts.set(stat.patch, (counts.get(stat.patch) ?? 0) + 1);
+    }
   }
   let best: string | null = null;
   let bestCount = 0;
