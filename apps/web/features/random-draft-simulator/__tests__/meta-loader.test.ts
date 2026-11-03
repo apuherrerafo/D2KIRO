@@ -38,6 +38,35 @@ test("loadMetaSnapshot arma MetaSnapshot, metaBanPool (pick rate desc) y current
   expect(result.meta.patchStats?.[2]).toEqual([{ patch: "7.37d", bracket: "all", picks: 500, wins: 260 }]);
 });
 
+test("loadMetaSnapshot ignora filas con patch vacío aunque empaten en cantidad (base de producción con restos de la sync vieja)", async () => {
+  // Producción tenía 1016 filas con patch "" (sync antigua) y 1016 con "7.41e": el empate hacía ganar a "" y el
+  // motor rechazaba el draft con 400 (patch vacío). El patch vacío nunca es un parche real.
+  mockFetch(
+    [{ id: 1, localizedName: "Hero Uno", roles: ["Carry"] }],
+    {
+      "1": [
+        { patch: "", bracket: "all", picks: 900, wins: 450 },
+        { patch: "7.41e", bracket: "all", picks: 800, wins: 400 },
+      ],
+    },
+  );
+
+  const result = await loadMetaSnapshot();
+
+  expect(result.currentPatch).toBe("7.41e");
+});
+
+test("loadMetaSnapshot retorna 'unknown' si todos los patch son vacíos o solo espacios", async () => {
+  mockFetch(
+    [{ id: 1, localizedName: "Hero Uno", roles: [] }],
+    { "1": [{ patch: "", bracket: "all", picks: 10, wins: 5 }, { patch: "   ", bracket: "all", picks: 10, wins: 5 }] },
+  );
+
+  const result = await loadMetaSnapshot();
+
+  expect(result.currentPatch).toBe("unknown");
+});
+
 test("loadMetaSnapshot retorna currentPatch:'unknown' sin patchStats", async () => {
   mockFetch([{ id: 1, localizedName: "Hero Uno", roles: [] }], {});
 
