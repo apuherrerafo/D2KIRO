@@ -73,8 +73,12 @@ const MAX_BAN_BONUS = 6;
 const OPENING_SHARE_DIVISOR = 4;
 /** Bono por cada rival que ya se ve y al que le gana, según el nivel del counter. */
 const BEATS_BONUS: Record<CounterLevel, number> = { hard: 3, medium: 2 };
-/** Bono por combinar con algún aliado que ya elegiste (una sola vez). */
+/** Bono por combinar con el primer aliado que ya elegiste. */
 const SYNERGY_BONUS = 3;
+/** Bono por cada aliado ya elegido ADICIONAL con el que también combina (pick 3 mira a tus picks 1 y 2, y así). */
+const SYNERGY_EXTRA_ALLY_BONUS = 1;
+/** Cuántos aliados distintos cuentan para la sinergia: a partir de ahí no suma más (el tope general sigue mandando). */
+const MAX_SYNERGY_ALLIES = 3;
 /**
  * Bono por "robar" un counter de un pick tuyo (una sola vez, el mejor). Fuerte 4 > pareja 3 > medium 2: con una pareja se suman hasta el
  * tope (pareja + robo fuerte 7 -> 6, pareja + robo medium 5), así el orden es pareja+robo, robo fuerte, pareja sola, robo medium.
@@ -280,9 +284,10 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
   if (!blockingHardFree) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
   for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
   const penalty = revealedCounterPenalty(heroId, input);
-  // La sinergia suma UNA vez y solo si no hay un counter revelado: no tapa a un counter (un Axe en tu línea no se
-  // compensa con una pareja).
-  if (synergiesWithOwn(heroId, input).length > 0 && penalty === 0) bonus += SYNERGY_BONUS;
+  // La sinergia sube con cuántos de tus picks ya elegidos combinan con el héroe (el primero +3, cada otro +1, hasta 3
+  // aliados) y solo si no hay un counter revelado: no tapa a un counter (un Axe en tu línea no se compensa con una pareja).
+  const partners = new Set(synergiesWithOwn(heroId, input).map((synergy) => synergy.with)).size;
+  if (partners > 0 && penalty === 0) bonus += SYNERGY_BONUS + SYNERGY_EXTRA_ALLY_BONUS * (Math.min(partners, MAX_SYNERGY_ALLIES) - 1);
   // El robo: una sola vez, el mejor (las notas vienen con el fuerte primero). `stealsOf` ya calla si hay un counter rival revelado.
   const [bestSteal] = stealsOf(heroId, input);
   if (bestSteal) bonus += STEAL_BONUS[bestSteal.level];

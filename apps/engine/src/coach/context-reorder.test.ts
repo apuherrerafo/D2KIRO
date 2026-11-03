@@ -144,6 +144,17 @@ describe("el rival YA sacó un counter: baja, pero no al fondo de oficio", () =>
     expect(synergiesWithOwn(ANTI_MAGE, { ownPicks: new Set(), heroSynergies: ORACLE_PAIR })).toEqual([]);
     expect(contextBonus(ANTI_MAGE, ctx({ ownPicks: new Set([ORACLE]), heroSynergies: ORACLE_PAIR }))).toBe(3);
   });
+
+  test("la sinergia sube con cuántos de tus picks combinan: 1 = +3, 2 = +4, 3 = +5, y no pasa de 3 aliados ni del tope", () => {
+    const pairs = (withs: number[]) => new Map<number, readonly CuratedSynergy[]>([[ANTI_MAGE, withs.map((with_) => ({ with: with_, why: "x" }))]]);
+    const bonusWith = (picked: number[], partners: number[]) => contextBonus(ANTI_MAGE, ctx({ ownPicks: new Set(picked), heroSynergies: pairs(partners) }));
+    expect(bonusWith([ORACLE], [ORACLE, DAZZLE, EMBER, STORM])).toBe(3);
+    expect(bonusWith([ORACLE, DAZZLE], [ORACLE, DAZZLE, EMBER, STORM])).toBe(4);
+    expect(bonusWith([ORACLE, DAZZLE, EMBER], [ORACLE, DAZZLE, EMBER, STORM])).toBe(5);
+    expect(bonusWith([ORACLE, DAZZLE, EMBER, STORM], [ORACLE, DAZZLE, EMBER, STORM])).toBe(5); // el cuarto aliado ya no suma
+    expect(bonusWith([ORACLE, DAZZLE], [ORACLE])).toBe(3); // combina con 1 de los 2 picks: cuenta 1
+    expect(bonusWith([], [ORACLE, DAZZLE])).toBe(0); // sin picks tuyos a la vista, nada
+  });
 });
 
 describe("reorderByContext", () => {
