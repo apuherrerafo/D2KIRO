@@ -106,3 +106,10 @@ test("regresión: un candidate de otro dataset es incomparable → BLOQUEA, nunc
   expect(r.out).toContain("incomparable");
   expect(r.status).toBe(1);
 });
+
+test("cableado: el job intelligence-ci corre ci-gate.ts y ya no el gate.ts a secas (que se compara contra sí mismo)", () => {
+  const yml = readFileSync(".github/workflows/ci.yml", "utf8");
+  const job = yml.slice(yml.indexOf("  intelligence-ci:"), yml.indexOf("  r1-certification:"));
+  expect(job).toContain("bun run scripts/eval/ci-gate.ts");
+  expect(job).not.toContain("scripts/eval/gate.ts --enforce");
+});
