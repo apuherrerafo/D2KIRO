@@ -240,7 +240,7 @@ async function main(argv: string[]): Promise<number> {
         reused("web_typecheck", "bun x tsc --noEmit", "already required+green in CI job 'test' (needs:)"),
         reused("web_lint", "bun run lint", "already required+green in CI job 'test' (needs:)"),
         reused("verify_simplicity", "bash scripts/verify-simplicity.sh", "already required+green in CI job 'verify-simplicity' (needs:)"),
-        reused("engine_quality_gate", "bun run scripts/eval/gate.ts --enforce", "already required+green in CI job 'intelligence-ci' (needs:)"),
+        reused("engine_quality_gate", "bun run scripts/eval/ci-gate.ts", "already required+green in CI job 'intelligence-ci' (needs:)"),
       ]
     : [
         gate("root_tests", "required", "bun run test"),
@@ -248,7 +248,7 @@ async function main(argv: string[]): Promise<number> {
         gate("web_typecheck", "required", "bun x tsc --noEmit", resolve(ROOT, "apps/web")),
         gate("web_lint", "required", "bun run lint", resolve(ROOT, "apps/web")),
         gate("verify_simplicity", "required", "bash scripts/verify-simplicity.sh"),
-        gate("engine_quality_gate", "required", "bun run scripts/eval/gate.ts --enforce"),
+        gate("engine_quality_gate", "required", "bun run scripts/eval/ci-gate.ts"),
       ];
 
   // R1-specific certification categories.
