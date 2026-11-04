@@ -22,7 +22,6 @@ export type GroundKind =
   | "COUNTER_REVEALED" //     le gana a un rival YA revelado (counter curado con porqué)
   | "SYNERGY_PAIR" //         hace pareja curada (con porqué) con un aliado YA elegido
   | "STEAL" //                le quita un counter a un pick tuyo ya elegido
-  | "COUNTER_STATS" //        counter estadístico contra un rival ya revelado (la señal `counter` lo marca con evidencia suficiente)
   | "COMPOSITION_CRITICAL" // llena un hueco CRÍTICO y demostrable de la composición (ventana de cierre, picks propios curados)
   | "ARCHETYPE_INTENT" //     la intención de draft que el jugador eligió (`archetype_fit` votó con datos)
   | "PATCH_META"; //          el meta vigente con evidencia suficiente: el winrate supera 50 % con evidencia suficiente (`winrateClearlyAboveEven`)
@@ -99,10 +98,9 @@ export function evaluateEligibility(candidate: HeroCandidate, input: Eligibility
   if (context.synergies.length > 0) grounds.push({ kind: "SYNERGY_PAIR", text: "Hace pareja con un aliado ya elegido", shownByContext: true });
   if (context.steals.length > 0) grounds.push({ kind: "STEAL", text: "Le quita un counter a un pick tuyo", shownByContext: true });
 
-  const counter = signalOf(candidate, "counter");
-  if (counter && votedWithData(counter) && (counter.raw ?? 0) > 0 && counter.hasRevealedEnemyCounterEvidence === true && !counter.explanation.startsWith("Sin ")) {
-    grounds.push({ kind: "COUNTER_STATS", text: counter.explanation, shownByContext: false });
-  }
+  // El counter ESTADÍSTICO (winrate del enfrentamiento contra un rival ya revelado) NO es fundamento: no nombra un mecanismo y, con el umbral actual del
+  // scorer (>= 40 partidas y delta contraído >= 0,04), la mayoría es indistinguible del azar (medido: 206 de 282 tarjetas solo-estadística). Un counter
+  // cuenta únicamente si es una relación curada con porqué (COUNTER_REVEALED). Decisión conservadora, pendiente de confirmar con el dueño del producto.
   const composition = compositionGround(candidate, input.composition);
   if (composition) grounds.push(composition);
   const intent = signalOf(candidate, "archetype_fit");
@@ -133,8 +131,8 @@ export function describeGrounds(grounds: readonly Ground[]): { rationale: string
 export function badgesFromGrounds(grounds: readonly Ground[]): HeroBadge[] {
   const badges = new Set<HeroBadge>();
   for (const ground of grounds) {
-    if (ground.kind === "COUNTER_REVEALED" || ground.kind === "COUNTER_STATS") badges.add("COUNTER");
-    if (ground.kind === "SYNERGY_PAIR" || ground.kind === "COMPOSITION_CRITICAL") badges.add("SYNERGY");
+    if (ground.kind === "COUNTER_REVEALED") badges.add("COUNTER");
+    if (ground.kind === "SYNERGY_PAIR") badges.add("SYNERGY"); // la composición NO es sinergia: su fundamento va en la frase, sin la etiqueta "Sinergia"
     if (ground.kind === "PATCH_META") badges.add("META");
   }
   return [...badges];

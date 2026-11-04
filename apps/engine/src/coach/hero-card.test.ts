@@ -274,7 +274,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     expect(evaluateEligibility(cand!, eligibilityOf()).grounds).toEqual([]);
   });
 
-  test("counter estadístico contra un rival ya revelado: la frase es la del counter (no la de posición, aunque pese más) y gana la etiqueta COUNTER", () => {
+  test("counter estadístico contra un rival ya revelado: NO es fundamento (ni da etiqueta COUNTER ni frase), aunque pese más que la posición", () => {
     const hero: HeroFixture = {
       heroId: 7,
       signals: [
@@ -283,10 +283,11 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       ],
       impact: resolvedImpact(1),
     };
+    // Contrato (2026-11-04): el counter ESTADÍSTICO no es fundamento (no nombra un mecanismo y la mayoría es indistinguible del azar).
     const { card, grounds } = cardOf(hero, eligibilityOf([94]));
-    expect(grounds.map((ground) => ground.kind)).toEqual(["COUNTER_STATS"]);
-    expect(card.badges).toContain("COUNTER");
-    expect(card.rationale).toBe("Fuerte contra Medusa");
+    expect(grounds).toEqual([]);
+    expect(card.badges).not.toContain("COUNTER");
+    expect(card.rationale).toBe("");
   });
 
   test("una señal de counter sin evidencia contra un rival visible (flag ausente, raw bajo o negativo) NO es fundamento ni da etiqueta COUNTER", () => {
@@ -303,15 +304,16 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     }
   });
 
-  test("el texto de ban-relief que acompaña al counter se conserva, y nombra al rival que ganó la etiqueta", () => {
+  test("el texto de ban-relief de un counter estadístico tampoco lo vuelve fundamento", () => {
     const hero: HeroFixture = {
       heroId: 15,
       signals: [signal("counter", 0.19, 22, { hasRevealedEnemyCounterEvidence: true, explanation: "Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling" })],
       impact: resolvedImpact(3),
     };
-    const { card } = cardOf(hero, eligibilityOf([5]));
-    expect(card.badges).toContain("COUNTER");
-    expect(card.rationale).toBe("Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling");
+    const { card, grounds } = cardOf(hero, eligibilityOf([5]));
+    expect(grounds).toEqual([]);
+    expect(card.badges).not.toContain("COUNTER");
+    expect(card.rationale).toBe("");
   });
 
   describe("pareja curada, composición e intención como fundamento", () => {

@@ -105,6 +105,17 @@ interface PrimaryActionProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+// Contrato de elegibilidad (2026-11-04): la frase de una acción a nivel de POSICIÓN ("prior de apertura", "con evidencia débil", "la composición apunta…") no es
+// un fundamento verificable, así que no se muestra como razón. Solo se dice la razón de una acción sobre un héroe concreto o el aviso de colisión de roles.
+function PrimaryRationale({ strategy, isCollision }: { strategy: CoachStrategy; isCollision: boolean }) {
+  if (strategy.kind !== "REVEAL_HERO" && !isCollision) return null;
+  return (
+    <span className="text-caption text-content-secondary" data-testid="coach-primary-rationale">
+      {strategy.rationale}
+    </span>
+  );
+}
+
 function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
   const { strategy, label } = coach.primaryAction;
   const isCollision = coach.roleCollision?.infeasible ?? false;
@@ -133,9 +144,7 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
         {label}
       </span>
       <NamedHero strategy={strategy} heroCatalog={heroCatalog} />
-      <span className="text-caption text-content-secondary" data-testid="coach-primary-rationale">
-        {strategy.rationale}
-      </span>
+      <PrimaryRationale strategy={strategy} isCollision={isCollision} />
       {strategy.kind === "REVEAL_HERO" && Boolean(coach.sessionId) && (
         <RecommendationFeedback
           sessionId={coach.sessionId}

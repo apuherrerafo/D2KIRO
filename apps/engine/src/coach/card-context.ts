@@ -81,8 +81,9 @@ function cachedStrengthIndex(heroCounters: ContextReorderInput["heroCounters"]):
 function reasonedOpening(heroId: HeroId, input: ContextReorderInput): BanOpening {
   const opening = banOpeningOf(heroId, input);
   const entries = input.heroCounters?.get(heroId) ?? [];
-  const openedBy = opening.openedBy.filter((note) => entries.some((entry) => entry.vs === note.heroId && isReasonedWhy(entry.why)));
-  return { ...opening, openedBy };
+  const reasoned = (note: { heroId: HeroId }): boolean => entries.some((entry) => entry.vs === note.heroId && isReasonedWhy(entry.why));
+  // "Ojo: X, Y siguen libres" es una advertencia con la misma exigencia: solo con un porqué de Dota (una atribución no se muestra).
+  return { ...opening, openedBy: opening.openedBy.filter(reasoned), stillFree: opening.stillFree.filter(reasoned) };
 }
 
 /**

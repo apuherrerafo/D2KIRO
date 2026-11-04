@@ -420,6 +420,14 @@ test("contractOnly: el cuerpo V2 crudo (single-action y duplas) no se muestra au
   expect(viewEmpty.queryByText("Sin candidatos para el estado actual del draft.")).toBeNull();
 });
 
+test("contractOnly con el Coach sin salida (ningún héroe elegible) y el cálculo terminado: pantalla sin héroes y SIN 'Calculando recomendación…' eterno", () => {
+  const done = render(<CopilotPanel contractOnly recommendations={recommendationSet({ recommendations: [] })} coach={null} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(done.queryByText("Calculando recomendación...")).toBeNull();
+  done.unmount();
+  const loading = render(<CopilotPanel contractOnly recommendations={null} coach={null} heroCatalog={new Map()} previewStatus="loading" />);
+  expect(loading.getByText("Calculando recomendación...")).toBeDefined(); // mientras de verdad calcula, sí se dice
+});
+
 test("contractOnly: el resaltado de la grilla no sale del V2 crudo (conjunto vacío sin Coach)", () => {
   const seen: number[][] = [];
   function capture(heroIds: ReadonlySet<number>) {

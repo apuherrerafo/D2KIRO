@@ -350,8 +350,9 @@ describe("RB-3 -- badge semantics (Round 1 blind, S01)", () => {
     playRoundOne(h, [20, 11], [40, 41]);
     const shortlist = (await ask(2))!.output!.shortlist;
     const byHero = new Map(shortlist.map((card) => [card.heroId, card.badges]));
-    expect(byHero.get(30)).toContain("COUNTER");
-    expect(byHero.get(31)).not.toContain("COUNTER");
+    // Contrato 2026-11-04: la estadística sola NO es fundamento ni da etiqueta COUNTER; el alivio de baneo solo tampoco.
+    expect(byHero.get(30) ?? []).not.toContain("COUNTER");
+    expect(byHero.get(31) ?? []).not.toContain("COUNTER");
   });
 
   test("S15: rival revelado con ventaja estadística <= 0 compensada por alivio de baneo -> NO emite COUNTER", async () => {
@@ -362,9 +363,9 @@ describe("RB-3 -- badge semantics (Round 1 blind, S01)", () => {
     playRoundOne(h, [20, 11], [40, 41]);
     const shortlist = (await ask(2))!.output!.shortlist;
     const byHero = new Map(shortlist.map((card) => [card.heroId, card.badges]));
-    expect(byHero.get(30)).toContain("COUNTER");
+    expect(byHero.get(30) ?? []).not.toContain("COUNTER"); // la estadística sola ya no es fundamento
     // El loophole está cerrado: hero 31 NO emite COUNTER
-    expect(byHero.get(31)).not.toContain("COUNTER");
+    expect(byHero.get(31) ?? []).not.toContain("COUNTER");
 
     // Con evidencia curada positiva separada contra el rival 40, SÍ emite COUNTER
     const curated = new Map<number, CuratedCounter[]>([[40, [hard(31)]]]);

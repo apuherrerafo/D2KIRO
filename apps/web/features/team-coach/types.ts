@@ -62,7 +62,7 @@ export interface TeamCoachSteal {
 export interface TeamCoachCandidate {
   heroId: HeroId;
   rank: number;
-  /** `null` for an unranked positional alternative. */
+  /** V6 score of the card; kept nullable on the wire for older engines (the contract no longer emits score-less alternatives). */
   score: number | null;
   reasons: string[];
   /** Opcional: un motor anterior no lo manda. Ausente = sin riesgos conocidos. */

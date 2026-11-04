@@ -24,14 +24,14 @@ import { displayBeliefs, type CoachOpportunity, type CoachTrigger, type RoleBeli
 //                            not emit it today) or DETERMINISTIC_DEFAULT (no priority -- a stable initial
 //                            view, never presented as advice). User navigation is NOT a basis.
 //   viewedPosition        -- the position the Player is inspecting; the ONE position `candidates` belong to
-//   candidates.state      -- RANKED | UNRANKED_POSITIONAL | UNAVAILABLE: exactly one candidate
-//                            provenance, with the degradations of THAT result only
+//   candidates.state      -- always RANKED; `cards` holds ONLY heroes with a verifiable ground (recommendation-eligibility.ts) and may be
+//                            empty: no ground, no card -- never filler, never an "exploration" list. Carries the degradations of THAT result only
 //   personalPoolApplied   -- the Personal Hero Pool influenced these candidates (only possible when
 //                            targetPosition is the Player's personal position)
 //
 // STRUCTURAL GUARANTEES (tested in current-human-decision.test.ts / coherence gates):
-//   - A RANKED result carries rank/score/confidence; an UNRANKED_POSITIONAL result has NO such fields
-//     at all, so a response cannot say "ranking unavailable" while presenting ranked cards.
+//   - Every card carries rank/score/confidence AND the ground(s) that justified it (rationale/badges come from them). A ranking that
+//     is not trustworthy (invalidating degradation) yields ZERO cards, so a response cannot say "ranking unavailable" while presenting cards.
 //   - A RANKED result never carries a degradation that invalidates ranking.
 //   - NO_HUMAN_ACTION carries no target and no candidates.
 
@@ -95,8 +95,7 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
 export type CandidateResult =
-  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };
-  ;
+  { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };;
 
 export type CurrentHumanDecision =
   | {

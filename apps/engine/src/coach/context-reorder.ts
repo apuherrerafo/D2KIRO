@@ -100,6 +100,39 @@ export function isReasonedWhy(why: string): boolean {
   const trimmed = why.trim();
   return trimmed.length > 0 && !trimmed.startsWith(UNREASONED_PREFIX);
 }
+const REASONED_COUNTERS_CACHE = new WeakMap<object, ReadonlyMap<HeroId, readonly CuratedCounter[]>>();
+const REASONED_SYNERGIES_CACHE = new WeakMap<object, ReadonlyMap<HeroId, readonly CuratedSynergy[]>>();
+
+/**
+ * Los counters curados SIN las atribuciones "Lo dicen: …": lo que el Coach le muestra al jugador (riesgos, ventana de counter, Safe Core) tiene que
+ * traer un porqué verificable (contrato de elegibilidad, 2026-11-04). NO toca V6 ni el bono de orden: solo lo que se MUESTRA o se usa como razón.
+ */
+export function reasonedCounters(counters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined {
+  if (!counters) return undefined;
+  const cached = REASONED_COUNTERS_CACHE.get(counters);
+  if (cached) return cached;
+  const filtered = new Map<HeroId, readonly CuratedCounter[]>();
+  for (const [victim, entries] of counters) {
+    const kept = entries.filter((entry) => isReasonedWhy(entry.why));
+    if (kept.length > 0) filtered.set(victim, kept);
+  }
+  REASONED_COUNTERS_CACHE.set(counters, filtered);
+  return filtered;
+}
+
+/** Las parejas curadas SIN las atribuciones "Lo dicen: …" (misma regla que `reasonedCounters`). */
+export function reasonedSynergies(synergies: ReadonlyMap<HeroId, readonly CuratedSynergy[]> | undefined): ReadonlyMap<HeroId, readonly CuratedSynergy[]> | undefined {
+  if (!synergies) return undefined;
+  const cached = REASONED_SYNERGIES_CACHE.get(synergies);
+  if (cached) return cached;
+  const filtered = new Map<HeroId, readonly CuratedSynergy[]>();
+  for (const [hero, entries] of synergies) {
+    const kept = entries.filter((entry) => isReasonedWhy(entry.why));
+    if (kept.length > 0) filtered.set(hero, kept);
+  }
+  REASONED_SYNERGIES_CACHE.set(synergies, filtered);
+  return filtered;
+}
 /** Un robo que protege a dos picks tuyos se muestra una sola vez nombrando hasta este número. */
 const MAX_STEALS_LISTED = 2;
 /** Tope del bono positivo en la escala de V6 (0-100): el contexto sube a héroes parejos, nunca pisa diferencias grandes. */

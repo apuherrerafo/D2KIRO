@@ -8,7 +8,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
-import { alliesAnswering, type BanOpening } from "./context-reorder";
+import { alliesAnswering, reasonedCounters, reasonedSynergies, type BanOpening } from "./context-reorder";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
 import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { revealedEnemyHeroes } from "./hero-card";
@@ -58,7 +58,7 @@ export interface TeamCoachCandidate {
   heroId: HeroId;
   /** Rank inside THIS list (1 = first). The order is V6's score plus the capped context bonus (context-reorder.ts). */
   rank: number;
-  /** V6 score; `null` for an unranked positional alternative (no score exists). */
+  /** V6 score of the card (every candidate shown has a ground; there are no score-less alternatives any more). */
   score: number | null;
   reasons: string[];
   /** Revealed enemies that counter this hero (curated, hard first, at most 2). Empty when none: never invented. */
@@ -246,7 +246,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       rank: card.rank,
       score: card.score,
       reasons: card.hideRationale ? [] : [card.rationale],
-      risks: risksOf(card.heroId, revealedEnemies, input.heroCounters, ownPickSet),
+      risks: risksOf(card.heroId, revealedEnemies, reasonedCounters(input.heroCounters), ownPickSet),
       strengths,
       opening,
       synergies,
@@ -290,7 +290,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         phase: view.rankedAp?.phase ?? null,
         columns: ranked,
         revealedEnemies: revealedEnemyHeroes(view),
-        heroCounters: input.heroCounters,
+        heroCounters: reasonedCounters(input.heroCounters), // una ventana de counter "Lo dicen: …" no es una razón para fijar la posición ni el héroe
         playerPoolsByPosition: context.playerPoolsByPosition,
         unavailable,
         occupancy: context.ownPositionOccupancy,
@@ -320,8 +320,8 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     view,
     openPositions,
     heroPositions: input.heroPositions,
-    heroCounters: input.heroCounters,
-    heroSynergies: input.heroSynergies,
+    heroCounters: reasonedCounters(input.heroCounters),
+    heroSynergies: reasonedSynergies(input.heroSynergies),
     poolFor: (position) => configuredPoolForPosition(context.playerPoolsByPosition, position),
   });
   const board: TeamCoachBoard = {
@@ -394,15 +394,19 @@ function deriveTeamDecision(
     return { recommendedPosition: null, recommendedHeroId: null, targetBasis: null, reason: "", actionablePositions: [...actionable], roundCapacity: actionability.roundCapacity };
   }
   // >= 2 open positions (or live): LivePositionPriorityV1. One open position: the target function V4 uses on its own.
-  const target = priority ?? selectDecisionTarget({ eligiblePositions: actionable, playerPersonalPosition: personal, viablePositions: targetField });
+  // El objetivo SOLO se elige entre las columnas con héroe elegible (`targetField`): no son "posiciones con el pool agotado", son columnas sin nada que mostrar.
+  const target = priority ?? selectDecisionTarget({ eligiblePositions: targetField, playerPersonalPosition: personal });
   const column = columns.find((candidate) => candidate.position === target.targetPosition);
   const primary = column?.top.find((candidate) => candidate.isPrimary) ?? null;
   const heroReason = primary?.reasons[0] ?? "";
+  // Solo una razón ESTRATÉGICA real (ventana de counter, último héroe del pool) se dice; "no hay prioridad / orden por fase" no es un motivo y
+  // no se muestra (dueño del producto, 2026-11-04: nada de mensajes que expliquen falta de información).
+  const targetReason = target.targetBasis === "STRATEGIC" ? target.targetRationale : "";
   return {
     recommendedPosition: target.targetPosition,
     recommendedHeroId: primary?.heroId ?? null,
     targetBasis: target.targetBasis,
-    reason: [target.targetRationale, heroReason].filter((part) => part.length > 0).join(" "),
+    reason: [targetReason, heroReason].filter((part) => part.length > 0).join(" "),
     actionablePositions: [...actionable],
     roundCapacity: actionability.roundCapacity,
   };

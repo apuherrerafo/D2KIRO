@@ -110,7 +110,7 @@ describe("CRITICAL_GAP -- candado de regresión cero: no toca el ranking ni el r
     expect(shape(withCaps.cards)).toEqual(shape(without.cards));
     // 7 (no llena el hueco) queda idéntico; 8 (inicia) gana el fundamento de composición: etiqueta y frase salen de él.
     expect([withCaps.cards[0]?.badges, withCaps.cards[0]?.rationale]).toEqual([without.cards[0]?.badges, without.cards[0]?.rationale]);
-    expect(withCaps.cards[1]?.badges).toContain("SYNERGY");
+    expect(withCaps.cards[1]?.badges).not.toContain("SYNERGY"); // cubrir un hueco no es sinergia: la etiqueta no se usa
     expect(withCaps.cards[1]?.rationale).toContain("iniciar peleas");
     expect(without.cards.map((card) => card.risks)).toEqual([[], []]);
     expect(withCaps.cards[0]?.risks.map((risk) => risk.kind)).toEqual(["CRITICAL_GAP"]);

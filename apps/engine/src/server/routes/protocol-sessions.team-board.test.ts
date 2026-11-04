@@ -99,7 +99,8 @@ describe("GET .../team-recommendations -- Team Coach Board", () => {
     expect(body.currentDecision.recommendedPosition).toBe(5);
     expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetRationale).toBe(body.currentDecision.reason.slice(0, decision.targetRationale.length));
+    // El tablero ya no explica un orden por fase con texto ("no hay prioridad"): su `reason` es solo la frase del héroe recomendado.
+    expect(body.currentDecision.reason).not.toMatch(/ventaja|prioridad|orden por fase/);
     expect(body.positions.filter((column) => column.position === body.currentDecision.recommendedPosition)).toHaveLength(1);
     const recommendedColumn = body.positions.find((column) => column.position === body.currentDecision.recommendedPosition)!;
     expect(body.currentDecision.recommendedHeroId).toBe(recommendedColumn.primaryHeroId);

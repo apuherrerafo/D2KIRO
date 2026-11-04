@@ -80,7 +80,8 @@ describe("Coach orchestration over the real kernel", () => {
   });
 
   test("REVEAL CAMBIA EL CONSEJO: tras revelarse el héroe rival 9 el héroe que lo contrarresta aparece con su insignia COUNTER; antes no", async () => {
-    const h = harness({ sessionId: "reveal" });
+    // El counter que cuenta es una relación curada con porqué contra un rival YA revelado (el estadístico no es fundamento).
+    const h = harness({ sessionId: "reveal", heroCounters: new Map([[9, [{ vs: HERO_COUNTERING_ENEMY_9, level: "hard" as const, why: "Lo silencia y lo deja sin hechizos" }]]]) });
     h.seal(h.side, 0, 1);
     h.seal(h.enemy, 0, 9);
     const preReveal = await h.compute();

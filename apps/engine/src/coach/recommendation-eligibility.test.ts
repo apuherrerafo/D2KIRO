@@ -6,6 +6,10 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { winrateClearlyAboveEven } from "../signals/patch-meta";
 import { deriveCandidateResult } from "./current-human-decision";
+import { eligibilityInputOf } from "./eligibility-input";
+import { extractHeroCandidates } from "./hero-card";
+import { deriveOpportunity } from "./recommendation-output-v3";
+import { evaluateEligibility } from "./recommendation-eligibility";
 import { hidden, known, recSet, resolvedImpact, revealed, signal, view, type HeroFixture } from "./test.fixtures";
 
 // CONTRATO DE ELEGIBILIDAD (dueño del producto, 2026-11-03), una prueba por regla. Solo se muestran héroes con al menos un fundamento
@@ -133,7 +137,7 @@ describe("lo que SÍ es fundamento: verificable, con su porqué, y la tarjeta lo
     const result = derive([only(A, 70), only(B, 90)], { view: closing, heroCapabilities: capabilities });
     expect(shown(result)).toEqual([A]); // A llena "iniciar peleas"; B no llena ningún hueco crítico
     expect(result.cards[0]?.rationale).toContain("iniciar peleas");
-    expect(result.cards[0]?.badges).toContain("SYNERGY");
+    expect(result.cards[0]?.badges).not.toContain("SYNERGY"); // cubrir un hueco no es sinergia: sin etiqueta "Sinergia", el fundamento va en la frase
     // Con un solo pick propio todo "falta", pero eso no es una necesidad demostrable: nadie pasa por composición.
     const early = view("PICK_ROUND_1", [known(801)], [hidden()]);
     expect(shown(derive([only(A, 70)], { view: early, heroCapabilities: capabilities }))).toEqual([]);
@@ -153,9 +157,11 @@ describe("lo que SÍ es fundamento: verificable, con su porqué, y la tarjeta lo
     const meta = (raw: number, games: number) => signal("patch_meta", raw, 4, { sampleSize: games, explanation: `Winrate de ${(raw * 100).toFixed(1)}% este parche en bracket bajo/medio` });
     expect(shown(derive([only(A, 80, [meta(0.54, 5000)])]))).toEqual([A]);
     expect(shown(derive([only(A, 80, [meta(0.54, 500)])]))).toEqual([]);
+    expect(shown(derive([only(A, 80, [meta(0.505, 270_000)])]))).toEqual([]); // significativo pero irrelevante: con muestras enormes casi todo "supera 50 %"
     expect(shown(derive([only(A, 80, [meta(0.49, 50_000)])]))).toEqual([]);
     expect(winrateClearlyAboveEven(0.54, 5000)).toBe(true);
     expect(winrateClearlyAboveEven(0.54, 500)).toBe(false);
+    expect(winrateClearlyAboveEven(0.505, 270_000)).toBe(false);
   });
 
   test("la frase y las etiquetas salen de los fundamentos: el meta se dice con su cifra y NUNCA aparece 'Por su posición'", () => {
@@ -174,6 +180,43 @@ describe("lo que SÍ es fundamento: verificable, con su porqué, y la tarjeta lo
   });
 });
 
+describe("ramas del contrato que no pueden colarse por otro camino", () => {
+  const statCounter = (explanation: string, raw = 0.12) => signal("counter", raw, 5, { explanation, hasRevealedEnemyCounterEvidence: true, sampleSize: 400 });
+
+  test("la señal `counter` NO habilita por una relación curada 'Lo dicen: …': la marca de evidencia nace del counter duro curado y su frase sería la atribución", () => {
+    const counters = new Map([[ENEMY, [counter(A, UNREASONED)]]]);
+    const fromCurated = statCounter(`Le ganas a Enemy: ${UNREASONED}`);
+    expect(shown(derive([only(A, 90, [fromCurated])], { view: withEnemy(), heroCounters: counters }))).toEqual([]);
+  });
+
+  test("counter ESTADÍSTICO contra un rival ya revelado (sin relación curada) NO es fundamento: no nombra un mecanismo y la mayoría es indistinguible del azar", () => {
+    const fromStats = statCounter("Fuerte contra Enemy (58.0% en 400 partidas)");
+    for (const state of [withEnemy(), firstPick()]) expect(shown(derive([only(A, 90, [fromStats])], { view: state }))).toEqual([]);
+  });
+
+  test("el meta con la instantánea degradada (degraded_meta) no es evidencia vigente, aunque el winrate y la muestra sobren", () => {
+    const meta = signal("patch_meta", 0.58, 4, { sampleSize: 20_000, explanation: "Winrate de 58.0% este parche en bracket bajo/medio" });
+    const stale: HeroFixture = { ...only(A, 80, [meta]) };
+    const set = recSet([stale]);
+    const degraded = { ...set, recommendations: set.recommendations.map((rec) => ({ ...rec, risks: [{ kind: "degraded_meta" as const, detail: "meta viejo" }] })) };
+    const result = deriveCandidateResult({ targetPosition: 1, targetRanking: degraded as never, view: firstPick(), heroPositions: POSITIONS, personalPoolApplied: false });
+    expect(result.cards).toEqual([]);
+  });
+
+  test("la intención con explicación 'Sin …' (sin datos) no habilita", () => {
+    expect(shown(derive([only(A, 80, [signal("archetype_fit", 0.8, 5, { explanation: "Sin datos de capacidades" })])]))).toEqual([]);
+  });
+
+  test("el robo (le quita un counter a un pick tuyo) es fundamento, con su porqué curado", () => {
+    const stolen = 777;
+    const counters = new Map([[stolen, [counter(A, "Una vez fuera, su silencio ya no te corta el combo")]]]);
+    const positions: HeroPositions = { ...POSITIONS, [A]: [{ position: 1, matches: 5000 }] };
+    const result = deriveCandidateResult({ targetPosition: 1, targetRanking: recSet([only(A, 80)]), view: view("PICK_ROUND_2", [known(stolen)], [hidden()]), heroPositions: positions, heroCounters: counters, personalPoolApplied: false });
+    expect(shown(result)).toEqual([A]);
+    expect(result.cards[0]?.context.steals.length).toBeGreaterThan(0);
+  });
+});
+
 describe("fallbacks: un ranking degradado nunca se rescata con héroes sin fundamento", () => {
   test("ranking inválido (NO_LEGAL_HERO_UNIVERSE, SNAPSHOT_UNAVAILABLE): cero tarjetas, aunque los héroes tengan fundamento en V6", () => {
     const counters = new Map([[A, [counter(BANNED, WHY)]]]);
@@ -189,5 +232,31 @@ describe("fallbacks: un ranking degradado nunca se rescata con héroes sin funda
       expect(result.cards).toEqual([]);
       expect(result.degradations.map((entry) => entry.reason)).toEqual([reason]);
     }
+  });
+});
+
+describe("Safe Core ('Ventana de core') también pasa por el contrato: nombra a un héroe", () => {
+  const BAN_A = 801;
+  const BAN_B = 802;
+  const run = (why: string, withContract: boolean) => {
+    const counters = new Map([[A, [counter(BAN_A, why), counter(BAN_B, why)]]]);
+    const state = firstPick([BAN_A, BAN_B]);
+    const candidates = extractHeroCandidates(recSet([only(A, 90)]), POSITIONS);
+    const eligible = (candidate: (typeof candidates)[number]) => evaluateEligibility(candidate, eligibilityInputOf(state, { heroCounters: counters, heroPositions: POSITIONS }, candidate.position)).grounds.length > 0;
+    return deriveOpportunity(candidates, state, counters, withContract ? eligible : undefined);
+  };
+
+  test("la ventana con counters que traen porqué (el ban abre al héroe) sale; con solo 'Lo dicen: …' NO (la evidencia de la ventana ya no sale de atribuciones)", () => {
+    expect(run(WHY, true)?.heroId).toBe(A);
+    expect(run(UNREASONED, false)).toBeNull();
+    expect(run(UNREASONED, true)).toBeNull();
+  });
+
+  test("y el héroe de la ventana pasa por el MISMO contrato de elegibilidad: si no tiene fundamento, no se nombra", () => {
+    const counters = new Map([[A, [counter(BAN_A, WHY), counter(BAN_B, WHY)]]]);
+    const state = firstPick([BAN_A, BAN_B]);
+    const candidates = extractHeroCandidates(recSet([only(A, 90)]), POSITIONS);
+    expect(deriveOpportunity(candidates, state, counters, () => true)?.heroId).toBe(A);
+    expect(deriveOpportunity(candidates, state, counters, () => false)).toBeNull();
   });
 });

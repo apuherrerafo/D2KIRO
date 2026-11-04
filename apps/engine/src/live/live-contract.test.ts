@@ -264,6 +264,7 @@ describe("VERDAD 7 -- PHASE_FALLBACK jamás se presenta como ventaja táctica", 
   test("en el tablero, una decisión por fase nunca sale con base STRATEGIC", async () => {
     const body = await setup("contract-7").board();
     expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
-    expect(body.currentDecision.reason).toContain("no una ventaja");
+    // Contrato (2026-11-04): "orden por fase / posición en duda" no es un motivo y ya no se dice; la decisión por fase sigue sin presentarse como estratégica.
+    expect(body.currentDecision.reason).not.toMatch(/ventaja|prioridad|orden por fase/);
   });
 });

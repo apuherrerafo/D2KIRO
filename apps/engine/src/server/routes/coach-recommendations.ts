@@ -110,7 +110,10 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
           candidateHeroIds,
           teamOpening: false,
           singleSlotEvaluation: true,
-          outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+          // El Coach v3 filtra por el contrato de elegibilidad DESPUÉS de rankear: con el tope de 6 un héroe elegible fuera del top-6 de V6 nunca
+          // llegaría (el tablero y V4 ya piden el universo completo). Una sola plaza: no hay pares que combinar.
+          outputLimit: teamTargetCandidateLimit(candidateHeroIds),
+          candidateLimit: teamTargetCandidateLimit(candidateHeroIds),
         }),
         buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({
           context,
@@ -121,7 +124,8 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
           candidateHeroIds: personalCandidateUniverse(position, heroPositions),
           teamOpening: false,
           singleSlotEvaluation: true,
-          outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+          outputLimit: teamTargetCandidateLimit(personalCandidateUniverse(position, heroPositions)),
+          candidateLimit: teamTargetCandidateLimit(personalCandidateUniverse(position, heroPositions)),
         }),
         // V4: ONE position-agnostic team evaluation (target selection over every eligible position,
         // never the account's pool) and ONE ranking for the chosen target.

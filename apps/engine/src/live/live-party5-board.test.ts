@@ -267,7 +267,7 @@ describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every 
         const lastPoolHero = pool.filter((heroId) => !gone.has(heroId)).length === 1 && pool.includes(decision.recommendedHeroId!);
         expect({ label, truthful: counterWindow || lastPoolHero }).toEqual({ label, truthful: true });
       } else if (decision.targetBasis === "PHASE_FALLBACK") {
-        expect(decision.reason).toContain("no una ventaja");
+        expect(decision.reason).not.toMatch(/ventaja|prioridad|orden por fase/); // contrato 2026-11-04: ya no se explica con texto de falta de prioridad
       } else {
         expect(decision.actionablePositions).toHaveLength(1);
       }

@@ -479,7 +479,7 @@ describe("H. an allied hero with NO exact identity never makes Team Coach sure a
     expect(filledHeroes(body)).toEqual([]);
     for (const entry of body.positions) expect(entry.alreadyFilled).toBe(false);
     expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
-    expect(body.currentDecision.reason).toContain("en duda");
+    expect(body.currentDecision.reason).not.toMatch(/ventaja|prioridad táctica/); // la duda de rol no se afirma como estrategia (y ya no se explica con un mensaje)
     expect(body.currentDecision.reason).not.toContain("Asegurar el pool");
   });
 
@@ -488,7 +488,7 @@ describe("H. an allied hero with NO exact identity never makes Team Coach sure a
     expect(body.currentDecision.actionablePositions.length).toBeGreaterThan(0); // an action IS open: the claim is withheld, not skipped
     expect(filledHeroes(body)).toEqual([]);
     expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
-    expect(body.currentDecision.reason).toContain("en duda");
+    expect(body.currentDecision.reason).not.toMatch(/ventaja|prioridad táctica/); // la duda de rol no se afirma como estrategia (y ya no se explica con un mensaje)
   });
 
   test("the Player's own seat is bound but a teammate is unknown: the remaining positions are STILL in doubt", async () => {
@@ -498,7 +498,7 @@ describe("H. an allied hero with NO exact identity never makes Team Coach sure a
     expect(filledHeroes(body)).toEqual([[2, QUEEN_OF_PAIN]]);
     expect(body.unboundOwnHeroIds).toEqual([OTHER_ALLY]);
     expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
-    expect(body.currentDecision.reason).toContain("en duda");
+    expect(body.currentDecision.reason).not.toMatch(/ventaja|prioridad táctica/); // la duda de rol no se afirma como estrategia (y ya no se explica con un mensaje)
   });
 
   test("a fully-identified team (stated position) is not affected: the lock does not over-fire", async () => {

@@ -330,7 +330,8 @@ export class CoachOrchestrator {
     try {
       const teamSet = await this.deps.buildRecommendationSet(context);
       if (teamSet.decision.actionCount === 0) return null;
-      return deriveOpportunity(extractHeroCandidates(teamSet, heroPositions), context.view, heroCounters);
+      const data = { heroCounters, heroSynergies: this.deps.heroSynergies, heroPositions, heroCapabilities: this.deps.heroCapabilities };
+      return deriveOpportunity(extractHeroCandidates(teamSet, heroPositions), context.view, heroCounters, (candidate) => isEligible(candidate, eligibilityInputOf(context.view, data, candidate.position)));
     } catch {
       return null;
     }

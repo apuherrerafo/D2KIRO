@@ -49,6 +49,15 @@ test("una acción a nivel de posición muestra el rol y NO nombra ningún héroe
   expect(primary.compareDocumentPosition(shortlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
+test("la frase de una acción a nivel de POSICIÓN ('prior de apertura', 'evidencia débil') NO se muestra como razón; la de un héroe concreto sí", () => {
+  const position = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(position.queryByTestId("coach-primary-rationale")).toBeNull();
+  expect(position.container.textContent).not.toContain("Prior de apertura");
+  position.unmount();
+  const hero = render(<CoachPanel coach={coach({ kind: "REVEAL_HERO", heroId: 7, position: 5, rationale: "El counter explica la ventaja." })} heroCatalog={new Map()} />);
+  expect(hero.getByTestId("coach-primary-rationale").textContent).toContain("El counter explica la ventaja.");
+});
+
 test("sólo una acción REVEAL_HERO nombra un héroe", () => {
   const view = render(<CoachPanel coach={coach({ kind: "REVEAL_HERO", heroId: 7, position: 5, rationale: "El counter explica la ventaja." })} heroCatalog={new Map()} />);
   expect(view.getByTestId("coach-named-hero").getAttribute("data-hero-id")).toBe("7");

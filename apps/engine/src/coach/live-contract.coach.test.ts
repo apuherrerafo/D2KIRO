@@ -67,13 +67,11 @@ describe("Coach v3 -- fundamentos verificables sí cuentan, y la tarjeta los dic
     expect(card.rationale).toBe("Hace pareja con un aliado ya elegido");
   });
 
-  test("(b) counter estadístico contra un rival ya revelado: etiqueta COUNTER y la frase del propio counter", () => {
+  test("(b) un counter ESTADÍSTICO contra un rival ya revelado NO es fundamento (no nombra un mecanismo): sin tarjeta", () => {
     const revealedView = view("PICK_ROUND_2", [known(OWN_ALLY)], [{ visibility: "REVEALED", heroId: 94 }]);
     const hero = withSignal(positionOnly(3), signal("counter", 0.08, 18, { hasRevealedEnemyCounterEvidence: true, explanation: "Fuerte contra Medusa" }));
     const output = translateToRecommendationOutputV3(recSet([hero, positionOnly(2)]), POSITION_5, buildCoachObservableState(revealedView), "closing_pick", {});
-    expect(output!.shortlist.map((card) => card.heroId)).toEqual([3]); // el otro héroe solo tiene posición
-    expect(output!.shortlist[0]!.badges).toContain("COUNTER");
-    expect(output!.shortlist[0]!.rationale).toBe("Fuerte contra Medusa");
+    expect(output).toBeNull(); // ninguno de los dos tiene un fundamento verificable: ni tarjeta ni acción principal
   });
 
   test("(b) el meta vigente cuenta SOLO con evidencia suficiente (límite inferior de Wilson > 50 %), no por frecuencia", () => {

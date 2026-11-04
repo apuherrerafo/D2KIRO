@@ -42,10 +42,16 @@ export function patchMetaReady(state: DraftState, meta: MetaSnapshot): boolean {
 // z de un intervalo de confianza de 95 %: una proporción observada solo "supera" un valor si lo supera aun en el extremo bajo razonable.
 const CONFIDENCE_Z = 1.96;
 const EVEN_WINRATE = 0.5;
+/**
+ * Ventaja MÍNIMA que debe sostener el winrate para ser un fundamento (puntos porcentuales sobre 50 %, en el extremo bajo del intervalo). Sin ella, con
+ * las muestras enormes del bracket bajo/medio, 50,5 % sobre 270 000 partidas "supera 50 %" y la mitad del universo cuenta como "meta": significancia
+ * estadística sin relevancia. Magnitud de criterio, pendiente de que el dueño del producto la confirme (medido con meta fresco: mediana 51,7 %).
+ */
+const MIN_META_EDGE = 0.02;
 
 /**
- * ¿El winrate observado supera el 50 % con evidencia suficiente? Límite inferior de Wilson (95 %) > 50 %: depende del tamaño de la muestra, no
- * solo del porcentaje (54 % sobre 500 partidas NO alcanza; 54 % sobre 5 000 sí). Lo usa el contrato de elegibilidad del Coach para decidir si el
+ * ¿El winrate observado supera el 50 % con evidencia suficiente Y con una ventaja que importa? Límite inferior de Wilson (95 %) > 50 % + `MIN_META_EDGE`:
+ * depende del tamaño de la muestra y del efecto, no solo del porcentaje (54 % sobre 500 partidas NO alcanza; 54 % sobre 5 000 sí; 50,5 % sobre 270 000 NO). Lo usa el contrato de elegibilidad del Coach para decidir si el
  * meta vigente es un fundamento (coach/recommendation-eligibility.ts). Pura; no puntúa ni cambia ninguna señal.
  */
 export function winrateClearlyAboveEven(winrate: number, games: number): boolean {
@@ -53,7 +59,7 @@ export function winrateClearlyAboveEven(winrate: number, games: number): boolean
   const z2 = CONFIDENCE_Z * CONFIDENCE_Z;
   const centre = winrate + z2 / (2 * games);
   const margin = CONFIDENCE_Z * Math.sqrt((winrate * (1 - winrate)) / games + z2 / (4 * games * games));
-  return (centre - margin) / (1 + z2 / games) > EVEN_WINRATE;
+  return (centre - margin) / (1 + z2 / games) > EVEN_WINRATE + MIN_META_EDGE;
 }
 
 export const patchMetaScorer: SignalScorer = {
