@@ -29,7 +29,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Hard support (Pos 5)",
-        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5)."
+        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5).",
+        "positionsNamed": [
+          "Hard support (pos 5)"
+        ]
       },
       "top5": [
         {
@@ -114,10 +117,10 @@
         "Ember Spirit"
       ],
       "ownPicks": [
-        "Crystal Maiden",
-        "Bounty Hunter",
-        "Lifestealer",
-        "Tidehunter"
+        "Crystal Maiden (pos 5)",
+        "Bounty Hunter (pos 4)",
+        "Lifestealer (pos 1)",
+        "Tidehunter (pos 3)"
       ],
       "revealedEnemy": [
         "Dark Willow",
@@ -128,7 +131,10 @@
       "sealedEnemySeats": 1,
       "coachAdvice": {
         "label": "Sugerencia: revela Midlane (Pos 2)",
-        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2)."
+        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2).",
+        "positionsNamed": [
+          "Mid (pos 2)"
+        ]
       },
       "top5": [
         {
@@ -206,10 +212,10 @@
         "Centaur Warrunner"
       ],
       "ownPicks": [
-        "Witch Doctor",
-        "Dark Willow",
-        "Night Stalker",
-        "Shadow Fiend"
+        "Witch Doctor (pos 5)",
+        "Dark Willow (pos 4)",
+        "Night Stalker (pos 3)",
+        "Shadow Fiend (pos 1)"
       ],
       "revealedEnemy": [
         "Winter Wyvern",
@@ -220,7 +226,10 @@
       "sealedEnemySeats": 1,
       "coachAdvice": {
         "label": "Sugerencia: revela Midlane (Pos 2)",
-        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2)."
+        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2).",
+        "positionsNamed": [
+          "Mid (pos 2)"
+        ]
       },
       "top5": [
         {
@@ -305,9 +314,9 @@
         "Juggernaut"
       ],
       "ownPicks": [
-        "Crystal Maiden",
-        "Tidehunter",
-        "Earthshaker"
+        "Crystal Maiden (pos 5)",
+        "Tidehunter (pos 3)",
+        "Earthshaker (pos 2)"
       ],
       "revealedEnemy": [
         "Slardar",
@@ -317,7 +326,10 @@
       "sealedEnemySeats": 1,
       "coachAdvice": {
         "label": "Sugerencia: revela Carry (Pos 1)",
-        "rationale": "La composición y el ranking apuntan a Carry (Pos 1)."
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
       },
       "top5": [
         {
@@ -405,7 +417,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Hard support (Pos 5)",
-        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5)."
+        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5).",
+        "positionsNamed": [
+          "Hard support (pos 5)"
+        ]
       },
       "top5": [
         {
@@ -488,8 +503,8 @@
         "Sniper"
       ],
       "ownPicks": [
-        "Tusk",
-        "Doom"
+        "Tusk (pos 5)",
+        "Doom (pos 3)"
       ],
       "revealedEnemy": [
         "Techies",
@@ -498,7 +513,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Carry (Pos 1)",
-        "rationale": "La composición y el ranking apuntan a Carry (Pos 1)."
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
       },
       "top5": [
         {
@@ -578,10 +596,10 @@
         "Magnus"
       ],
       "ownPicks": [
-        "Undying",
-        "Mirana",
-        "Terrorblade",
-        "Queen of Pain"
+        "Undying (pos 5)",
+        "Mirana (pos 4)",
+        "Terrorblade (pos 1)",
+        "Queen of Pain (pos 2)"
       ],
       "revealedEnemy": [
         "Anti-Mage",
@@ -592,7 +610,10 @@
       "sealedEnemySeats": 1,
       "coachAdvice": {
         "label": "Sugerencia: revela Offlane (Pos 3)",
-        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3)."
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
       },
       "top5": [
         {
@@ -680,9 +701,9 @@
         "Winter Wyvern"
       ],
       "ownPicks": [
-        "Dark Willow",
-        "Underlord",
-        "Earthshaker"
+        "Dark Willow (pos 4)",
+        "Underlord (pos 3)",
+        "Earthshaker (pos 2)"
       ],
       "revealedEnemy": [
         "Centaur Warrunner",
@@ -691,7 +712,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Carry (Pos 1)",
-        "rationale": "La composición y el ranking apuntan a Carry (Pos 1)."
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
       },
       "top5": [
         {
@@ -775,13 +799,16 @@
         "Rubick"
       ],
       "ownPicks": [
-        "Spirit Breaker"
+        "Spirit Breaker (pos 4)"
       ],
       "revealedEnemy": [],
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Hard support (Pos 5)",
-        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5)."
+        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5).",
+        "positionsNamed": [
+          "Hard support (pos 5)"
+        ]
       },
       "top5": [
         {
@@ -870,10 +897,10 @@
         "Slark"
       ],
       "ownPicks": [
-        "Undying",
-        "Bounty Hunter",
-        "Earth Spirit",
-        "Terrorblade"
+        "Undying (pos 5)",
+        "Bounty Hunter (pos 4)",
+        "Earth Spirit (pos 2)",
+        "Terrorblade (pos 1)"
       ],
       "revealedEnemy": [
         "Invoker",
@@ -884,7 +911,10 @@
       "sealedEnemySeats": 1,
       "coachAdvice": {
         "label": "Sugerencia: revela Offlane (Pos 3)",
-        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3)."
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
       },
       "top5": [
         {
@@ -972,8 +1002,8 @@
         "Lifestealer"
       ],
       "ownPicks": [
-        "Winter Wyvern",
-        "Zeus"
+        "Winter Wyvern (pos 5)",
+        "Zeus (pos 4)"
       ],
       "revealedEnemy": [
         "Storm Spirit",
@@ -982,7 +1012,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Offlane (Pos 3)",
-        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3)."
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
       },
       "top5": [
         {
@@ -1071,8 +1104,8 @@
         "Jakiro"
       ],
       "ownPicks": [
-        "Techies",
-        "Disruptor"
+        "Techies (pos 4)",
+        "Disruptor (pos 5)"
       ],
       "revealedEnemy": [
         "Doom",
@@ -1081,7 +1114,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Carry (Pos 1)",
-        "rationale": "La composición y el ranking apuntan a Carry (Pos 1)."
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
       },
       "top5": [
         {
@@ -1167,8 +1203,8 @@
         "Underlord"
       ],
       "ownPicks": [
-        "Disruptor",
-        "Dark Willow"
+        "Disruptor (pos 5)",
+        "Dark Willow (pos 4)"
       ],
       "revealedEnemy": [
         "Earthshaker",
@@ -1177,7 +1213,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Midlane (Pos 2)",
-        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2)."
+        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2).",
+        "positionsNamed": [
+          "Mid (pos 2)"
+        ]
       },
       "top5": [
         {
@@ -1263,8 +1302,8 @@
         "Spirit Breaker"
       ],
       "ownPicks": [
-        "Crystal Maiden",
-        "Lion"
+        "Crystal Maiden (pos 5)",
+        "Lion (pos 4)"
       ],
       "revealedEnemy": [
         "Ember Spirit",
@@ -1273,7 +1312,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Carry (Pos 1)",
-        "rationale": "La composición y el ranking apuntan a Carry (Pos 1)."
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
       },
       "top5": [
         {
@@ -1360,8 +1402,8 @@
         "Mirana"
       ],
       "ownPicks": [
-        "Crystal Maiden",
-        "Dark Willow"
+        "Crystal Maiden (pos 5)",
+        "Dark Willow (pos 4)"
       ],
       "revealedEnemy": [
         "Underlord",
@@ -1370,7 +1412,10 @@
       "sealedEnemySeats": 2,
       "coachAdvice": {
         "label": "Sugerencia: revela Offlane (Pos 3)",
-        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3)."
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
       },
       "top5": [
         {

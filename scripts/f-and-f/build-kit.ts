@@ -2,7 +2,8 @@
 // FRIENDS_FAMILY_READY — kit de evaluación humana. Genera, de forma DETERMINISTA, 15 situaciones de draft
 // con el motor ACTUAL (Coach real del simulador) para que 2-3 personas las juzguen por separado.
 //
-//   bun scripts/f-and-f/build-kit.ts   ->  qa/friends-family/{situaciones.html, situaciones.json, manifest.json}
+//   bun scripts/f-and-f/build-kit.ts   ->  qa/friends-family/{situaciones.json, manifest.json (no versionado)}
+//                                          qa/friends-family/paquete-evaluadores/situaciones.html
 //
 // - Los estados salen de drafts reproducibles del simulador (semilla + política). La semilla y la "etiqueta de
 //   cobertura" van SOLO al manifest (para los organizadores). El HTML/JSON de evaluación NO las trae: ni semilla,
@@ -16,6 +17,7 @@ import { SIDES, createLab, loadWorldData, muteLog, playDraft, unmuteLog, type Po
 
 const ROOT = join(import.meta.dir, "../..");
 const OUT = join(ROOT, "qa/friends-family");
+const PACKAGE = join(OUT, "paquete-evaluadores");
 const SEEDS = Array.from({ length: 100 }, (_, i) => `FF${String(i + 1).padStart(3, "0")}`);
 const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 
@@ -72,7 +74,7 @@ export interface EvalScenario {
   ownPicks: string[];
   revealedEnemy: string[];
   sealedEnemySeats: number;
-  coachAdvice: { label: string; rationale: string };
+  coachAdvice: { label: string; rationale: string; positionsNamed: string[] };
   top5: EvalHero[];
 }
 
@@ -94,10 +96,18 @@ function toEval(data: WorldData, state: StateRecord, id: string, side: "radiant"
     side: side === "radiant" ? "Radiant" : "Dire",
     momento: MOMENTO[state.round ?? 1] ?? "Ronda de picks",
     bans: state.banned.map(nm),
-    ownPicks: state.ownPicks.map(nm),
+    // Cada pick propio con el rol que el coach le atribuye (igual que la pantalla real); sin rol, solo el nombre.
+    ownPicks: state.ownPicks.map((h) => {
+      const belief = state.ownBeliefs.find((b) => b.heroId === h);
+      return belief && belief.positions.length > 0 ? `${nm(h)} (${belief.positions.map((p) => `pos ${p}`).join(" / ")})` : nm(h);
+    }),
     revealedEnemy: state.revealedEnemy.map(nm),
     sealedEnemySeats: state.hiddenEnemySlots,
-    coachAdvice: { label: coach.primaryAction.label, rationale: strat.rationale },
+    coachAdvice: {
+      label: coach.primaryAction.label,
+      rationale: strat.rationale,
+      positionsNamed: (strat.position !== undefined ? [strat.position] : strat.possiblePositions ?? []).map((p) => POSITION_NAME[p] ?? `pos ${p}`),
+    },
     top5: cards(state).map((c, i) => ({
       rank: i + 1,
       heroId: c.heroId,
@@ -169,11 +179,11 @@ async function main(): Promise<void> {
 
   const template = readFileSync(join(import.meta.dir, "template.html"), "utf8");
   const html = template.replace("/*__DATA__*/null", () => evalJson.replace(/</g, "\\u003c")).replace("__SCENARIOS_SHA__", manifest.scenariosSha256);
-  mkdirSync(OUT, { recursive: true });
+  mkdirSync(PACKAGE, { recursive: true });
   writeFileSync(join(OUT, "situaciones.json"), evalJson + "\n");
-  writeFileSync(join(OUT, "situaciones.html"), html);
+  writeFileSync(join(PACKAGE, "situaciones.html"), html);
   writeFileSync(join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-  process.stdout.write(`kit generado: ${scenarios.length} situaciones en ${OUT}\nsin cobertura: ${unmatched.length ? unmatched.join(", ") : "(ninguna)"}\n`);
+  process.stdout.write(`kit generado: ${scenarios.length} situaciones en ${OUT} (HTML para evaluadores en ${PACKAGE})\nsin cobertura: ${unmatched.length ? unmatched.join(", ") : "(ninguna)"}\n`);
 }
 
 if (import.meta.main) await main();
