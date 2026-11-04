@@ -524,8 +524,8 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
     degradations: [],
   } as never;
 
-  function derive(view: never) {
-    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view, heroPositions: positions, heroCounters: counters, heroSynergies: synergies, personalPoolApplied: false });
+  function derive(view: never, activePool?: number[]) {
+    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view, heroPositions: positions, heroCounters: counters, heroSynergies: synergies, personalPoolApplied: false, activePool });
     if (result.state !== "RANKED") throw new Error(`se esperaba RANKED, salió ${result.state}`);
     return result.cards[0]!;
   }
@@ -551,18 +551,23 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
     expect(card.context.strengths).toEqual([]);
   });
 
-  test("sin bans, sin rivales revelados ni aliados: contexto vacío (la frase de posición se queda)", () => {
-    const card = derive({ bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never);
+  test("sin bans, sin rivales revelados ni aliados: contexto vacío; el único fundamento es el pool y la frase lo dice (nunca 'Por su posición')", () => {
+    // Contrato de evidencia (2026-11-03): sin pool una tarjeta así ni existiría (ver position-only-contract.test.ts). Con el pool como fundamento
+    // la tarjeta puede estar, pero su frase nombra al pool: la posición no fue lo que la habilitó.
+    const card = derive({ bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never, [HERO]);
     expect(card.context.opening).toEqual({ openedBy: [], stillFree: [] });
     expect(card.context.strengths).toEqual([]);
     expect(card.context.synergies).toEqual([]);
-    expect(card.hideRationale).toBe(false); // sin razón real, la frase de posición se queda
+    expect(card.hideRationale).toBe(false);
+    expect(card.rationale).toBe("Está en el pool de tu compañero para esta posición.");
   });
 
-  test("un counter baneado + otro FUERTE todavía libre: solo 'Ojo' (stillFree) y SIN razón positiva -> la frase de posición se queda (igual que el tablero)", () => {
+  test("un counter baneado + otro FUERTE todavía libre: solo 'Ojo' (stillFree) y SIN razón positiva -> no abre al héroe: sin pool no hay tarjeta; con pool, la frase es la del pool", () => {
     const FREE_HARD = 302;
     const cs: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[HERO, [{ vs: BANNED_COUNTER, level: "hard", why: "fixture" }, { vs: FREE_HARD, level: "hard", why: "fixture" }]]]);
-    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view: { bannedHeroes: [BANNED_COUNTER], ownPicks: [], enemyPicks: [] } as never, heroPositions: positions, heroCounters: cs, personalPoolApplied: false });
+    const input = { targetPosition: 4 as const, targetRanking: ranking, view: { bannedHeroes: [BANNED_COUNTER], ownPicks: [], enemyPicks: [] } as never, heroPositions: positions, heroCounters: cs, personalPoolApplied: false };
+    expect(deriveCandidateResult(input).state).toBe("UNRANKED_POSITIONAL"); // el "Ojo" solo no es un fundamento
+    const result = deriveCandidateResult({ ...input, activePool: [HERO] });
     if (result.state !== "RANKED") throw new Error("se esperaba RANKED");
     const card = result.cards[0]!;
     expect(card.context.opening.openedBy).toEqual([]);

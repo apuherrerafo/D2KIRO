@@ -166,6 +166,11 @@ function membershipOf(candidate: HeroCandidate, input: DeriveCandidateResultInpu
   return isFromPersonalPool(candidate) ? "IN_POOL" : "OUTSIDE_POOL";
 }
 
+/** La razón de una tarjeta habilitada solo por el pool: de quién es el pool (el tuyo o el del compañero con esa posición). */
+function poolReasonOf(input: DeriveCandidateResultInput): string {
+  return input.activePool && input.activePool.length > 0 ? "Está en el pool de tu compañero para esta posición." : "Está en tu pool de héroes.";
+}
+
 function isFromPersonalPool(candidate: HeroCandidate): boolean {
   return candidate.signals.some((signal) => signal.signal === "hero_pool_fit" && signal.explanation.startsWith("En tu pool"));
 }
@@ -190,17 +195,9 @@ function positionalAlternatives(target: Position, view: PerspectiveDraftView, he
 }
 
 /**
- * ¿Ya hay información DEL DRAFT? Un pick revelado (tuyo o del rival). Los bans NO cuentan aquí: en el primer pick el contexto son los
- * bans y ya reordenan la lista (context-reorder.ts); sin nada más que mirar, V6 manda (regla del usuario: "el contexto desempata, no
- * pisa a V6"). Pura.
- */
-export function hasDraftInformation(context: Pick<ContextReorderInput, "ownPicks" | "revealedEnemies">): boolean {
-  return context.ownPicks.size > 0 || context.revealedEnemies.size > 0;
-}
-
-/**
- * Regla del usuario (2026-11-02): una vez que el draft ya dice algo, un héroe cuya ÚNICA razón es "juega ese rol" NO se recomienda
- * (sigue eligible a mano). Tiene motivo cuando algo del draft lo respalda: los bans lo abren (se baneó lo que lo counterea), le gana
+ * CONTRATO DE EVIDENCIA (regla del dueño del producto, 2026-11-03, endurece la del 2026-11-02): la posición es un FILTRO DE ELEGIBILIDAD,
+ * nunca el único motivo para recomendar. Un héroe cuya ÚNICA razón es "juega ese rol" (o "se juega mucho en alto MMR") NO se recomienda --
+ * tampoco en el primer pick (sigue eligible a mano). Tiene motivo cuando algo del draft lo respalda: los bans lo abren (se baneó lo que lo counterea), le gana
  * a un rival ya revelado, hace pareja con un aliado, le quita un counter a un pick tuyo (robo), pertenece a TU pool, o es la intención de draft que el jugador eligió
  * (`archetype_fit` votó con datos). `position_fit`, el parche (`patch_meta`) y FLEX NUNCA cuentan como motivo: votan en casi todos los
  * héroes (Dota-Judge RB-3) y el winrate de rangos bajos favorece a los héroes fáciles. Pura.
@@ -242,9 +239,10 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     const revealedEnemies = revealedEnemyHeroes(view);
-    // Con información del draft: fuera los que solo tienen el rol como razón (siguen eligibles a mano, solo no se recomiendan).
-    // Sin ella (primer pick): manda V6 con el reordenamiento por bans; no hay nada más que pedirle a un héroe.
-    const reasoned = hasDraftInformation(contextInput) ? candidates.filter((candidate) => hasDraftMotive(candidate, input, revealedEnemies, contextInput)) : candidates;
+    // Fuera los que solo tienen el rol como razón, en CUALQUIER momento del draft (siguen eligibles a mano, solo no se recomiendan). En el
+    // primer pick el fundamento posible son los bans (abren a quien lo counterea), el pool y la intención elegida: si ninguno aplica, la columna
+    // cae a exploración (UNRANKED_POSITIONAL) en vez de presentar "lo más jugado" como recomendación.
+    const reasoned = candidates.filter((candidate) => hasDraftMotive(candidate, input, revealedEnemies, contextInput));
     droppedForNoMotive = candidates.length > 0 && reasoned.length === 0;
     if (reasoned.length > 0) {
       // Aviso informativo: se calcula DESPUÉS del orden, no lo cambia (ver card-critical-gap.ts).
@@ -253,6 +251,9 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         const context = cardContextOf(candidate.heroId, contextInput);
+        const positionOnly = card.rationale.startsWith(POSITION_ONLY_PREFIX);
+        // Si el pool fue lo único que lo habilitó, la frase lo dice: "Por su posición" sería una razón que NO decidió esta tarjeta.
+        const poolOnly = positionOnly && membershipOf(candidate, input) === "IN_POOL" && !hasCardContext(context);
         return {
           heroId: card.heroId,
           position: targetPosition,
@@ -261,8 +262,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           confidence: card.confidence,
           roleStatus: card.roleStatus,
           badges: card.badges.filter((badge) => badge !== "YOUR_POOL" && badge !== "OUTSIDE_YOUR_POOL"),
-          rationale: card.rationale,
-          hideRationale: card.rationale.startsWith(POSITION_ONLY_PREFIX) && hasCardContext(context),
+          rationale: poolOnly ? poolReasonOf(input) : card.rationale,
+          hideRationale: positionOnly && hasCardContext(context),
           context,
           // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
@@ -285,7 +286,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       targetPosition,
       alternatives,
       reason: droppedForNoMotive
-        ? `Sin recomendación con motivo para ${positionPhrase(targetPosition)}: ningún héroe tiene en este draft un counter, una sinergia o fuerza en el parche que lo respalde. Se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`
+        ? `Sin recomendación con motivo para ${positionPhrase(targetPosition)}: ningún héroe tiene en este draft un fundamento verificable (un ban que lo abra, un counter, una sinergia o la composición). Se listan héroes legales que se juegan en esa posición como exploración, sin orden de preferencia: no son una recomendación.`
         : `No hay un ranking confiable para ${positionPhrase(targetPosition)}: se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`,
       degradations,
     };

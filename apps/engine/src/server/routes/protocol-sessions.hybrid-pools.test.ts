@@ -32,6 +32,11 @@ const HEROES: Record<number, MetaHeroInfo> = Object.fromEntries(Object.keys(POSI
 const META: MetaSnapshot = { heroes: HEROES, matchups: {} };
 const OWNER_ACCOUNT = 777;
 const OWNER_POOL = [14];
+// Contrato de evidencia (2026-11-03): ni siquiera en el primer pick se recomienda a un héroe solo por su posición. Estas pruebas miden la
+// PREFERENCIA del pool entre héroes por lo demás idénticos, así que todos traen el mismo fundamento del draft: un ban (OPENER) que abre a
+// cualquiera de ellos por igual. Sin ese ban, ningún héroe tendría tarjeta y no habría nada que comparar.
+const OPENER = 9999; // un id que no existe en Dota: el V6 real no cruza con ningún counter curado
+const OPENED_BY_BAN: ReadonlyMap<number, readonly { vs: number; level: "hard"; why: string }[]> = new Map(Object.keys(POSITIONS).map((id) => [Number(id), [{ vs: OPENER, level: "hard" as const, why: "fixture: el ban abre a todos por igual" }]]));
 
 // The same compute the app builds: the real V6 over the snapshot, with the call's pool override applied. The owner's
 // account carries its personal pool in the snapshot (what the cached account overlay does in production).
@@ -51,7 +56,7 @@ async function setup(options: { humanPosition: 1 | 2 | 3 | 4 | 5; pools?: Pools;
     store,
     computeSuggestions: compute,
     heroPositions: POSITIONS,
-    heroCounters: new Map(),
+    heroCounters: OPENED_BY_BAN,
     loadTeamGroup: async () => (options.team ? { id: 1, partySize: 5, members: options.team.map((member, index) => ({ ...member, slot: index + 1 })) } : null),
   });
   const created = await routes.post(new Request("http://127.0.0.1/x", {
@@ -73,7 +78,7 @@ async function setup(options: { humanPosition: 1 | 2 | 3 | 4 | 5; pools?: Pools;
   }), OWNER_ACCOUNT);
   expect(created.status).toBe(201);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [...(options.bans ?? []), OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   async function decide(target: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null = null) {
     const query = target === null ? "format=v4" : `format=v4&target=${target}`;
     const response = await routes.getRecommendations(sessionId, new URL(`http://127.0.0.1/x?${query}`), accountId);

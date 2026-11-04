@@ -7,7 +7,7 @@ import { hidden, known, recSet, resolvedImpact, revealed, roleOnlyHero, signal, 
 
 // Regla del usuario (2026-11-02): una vez que el draft ya dice algo (un pick revelado), un héroe cuya ÚNICA razón es "juega ese rol" NO
 // se recomienda. Motivo = los bans lo abren, le gana a un rival ya revelado, hace pareja con un aliado, está en TU pool, o es la
-// intención de draft elegida. En el primer pick (sin picks a la vista) no se filtra: el contexto son los bans y V6 manda.
+// intención de draft elegida. Vale también en el primer pick (contrato de evidencia, 2026-11-03): ahí el fundamento posible son los bans, el pool o la intención.
 // Fixtures inline: ningún dato curado real (familia S9/S10).
 
 const ENEMY = 900;
@@ -28,7 +28,7 @@ const plain = (heroId: number, weighted: number): HeroFixture => ({ heroId, sign
 const withSynergy = (heroId: number, weighted: number): HeroFixture => ({ heroId, signals: [signal("position_fit", 0.7, weighted - 5), signal("team_synergy", 0.7, 5)], impact: resolvedImpact(1) });
 const withIntent = (heroId: number, weighted: number): HeroFixture => ({ heroId, signals: [signal("position_fit", 0.7, weighted - 5), signal("archetype_fit", 0.7, 5)], impact: resolvedImpact(1) });
 
-const firstPickView = () => view("PICK_ROUND_1", [], [], [BANNED]);
+const firstPickView = (bans: number[] = []) => view("PICK_ROUND_1", [], [], bans);
 const withEnemyView = () => view("PICK_ROUND_2", [known(OTHER)], [revealed(ENEMY)]);
 const withAllyView = (bans: number[] = []) => view("PICK_ROUND_2", [known(ALLY)], [hidden()], bans);
 
@@ -57,9 +57,15 @@ function cardsOf(result: ReturnType<typeof derive>): number[] {
   return result.cards.map((card) => card.heroId);
 }
 
-describe("sin motivo no se recomienda -- una vez que el draft dice algo, el rol solo no alcanza", () => {
-  test("PRIMER PICK (sin picks a la vista): no se filtra; manda V6 con el reordenamiento por bans", () => {
-    expect(cardsOf(derive([roleOnly(1, 90), roleOnly(2, 80), plain(3, 70)], { view: firstPickView() }))).toEqual([1, 2, 3]);
+describe("sin motivo no se recomienda -- el rol solo no alcanza, tampoco en el primer pick", () => {
+  test("PRIMER PICK (sin picks a la vista): rige la misma regla -- con solo el rol no hay recomendación, solo exploración (contrato de evidencia, 2026-11-03)", () => {
+    const result = derive([roleOnly(1, 90), roleOnly(2, 80), plain(3, 70)], { view: firstPickView() });
+    expect(result.state).toBe("UNRANKED_POSITIONAL");
+  });
+
+  test("PRIMER PICK: los bans abren héroes y solo ellos pasan, en el orden de V6", () => {
+    const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[1, [{ vs: BANNED, level: "hard", why: "x" }]], [3, [{ vs: BANNED, level: "hard", why: "x" }]]]);
+    expect(cardsOf(derive([roleOnly(1, 90), roleOnly(2, 80), plain(3, 70)], { view: firstPickView([BANNED]), heroCounters: counters }))).toEqual([1, 3]);
   });
 
   test("con un pick a la vista, un héroe cuya única evidencia es la posición NO sale, aunque tenga el mayor puntaje", () => {

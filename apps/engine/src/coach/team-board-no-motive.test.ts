@@ -31,7 +31,7 @@ function roleOnlyCompute(): ComputeSuggestionsForRecommendation {
 async function boardWith(compute: ComputeSuggestionsForRecommendation, options: { informed?: boolean; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]> } = {}) {
   const informed = options.informed ?? true;
   const h = harness({ adapterKind: "simulator", controlledPositions: ALL, bans: options.bans });
-  if (informed) h.seal(h.side, 0, 8); // un pick propio ya a la vista: desde aquí el draft "dice algo" y el rol solo no alcanza (en el primer pick no se filtra)
+  if (informed) h.seal(h.side, 0, 8); // un pick propio ya a la vista: desde aquí el draft "dice algo" y el rol solo no alcanza
   const context: PerspectiveRecommendationContext = { ...h.store.perspectiveRecommendationContext(h.id)!, playerPoolsByPosition: null };
   const board = await buildTeamCoachBoard({
     context,
@@ -69,7 +69,7 @@ describe("Team Coach Board -- una columna sin ranking nunca nombra un héroe rec
     expect(board.currentDecision.recommendedHeroId).toBeNull();
   });
 
-  test("la tarjeta de solo posición dice 'Por su posición' si no hay nada más; si los bans la abren, la frase de posición se calla y queda el motivo real", async () => {
+  test("si los bans abren a un héroe, la frase de posición se calla y queda el motivo real; el resto de las columnas NO muestra 'Por su posición' en ningún lado (contrato de evidencia, también en el primer pick)", async () => {
     const BANNED = 8;
     const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[3, [{ vs: BANNED, level: "hard", why: "x" }]]]);
     const board = await boardWith(roleOnlyCompute(), { informed: false, bans: [BANNED], heroCounters: counters });
@@ -77,8 +77,12 @@ describe("Team Coach Board -- una columna sin ranking nunca nombra un héroe rec
     const opened = all.find((candidate) => candidate.heroId === 3);
     expect(opened?.opening.openedBy.length).toBeGreaterThan(0);
     expect(opened?.reasons).toEqual([]);
-    const plainCandidate = all.find((candidate) => candidate.opening.openedBy.length === 0 && candidate.strengths.length === 0 && candidate.synergies.length === 0);
-    expect(plainCandidate?.reasons[0]?.startsWith(POSITION_ONLY_PREFIX)).toBe(true);
+    // Nadie más trae fundamento: sus columnas son exploración y ninguna tarjeta se vende con la frase de posición.
+    expect(all.filter((candidate) => candidate.heroId !== 3).length).toBeGreaterThan(0);
+    for (const candidate of all.filter((entry) => entry.heroId !== 3)) {
+      expect(candidate.reasons[0]?.startsWith(POSITION_ONLY_PREFIX)).toBe(false);
+      expect(candidate.reasons[0]?.startsWith("Sin recomendación con motivo")).toBe(true);
+    }
   });
 });
 
