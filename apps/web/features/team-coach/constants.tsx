@@ -18,15 +18,12 @@ export function teamPositionName(position: TeamPosition): string {
 }
 
 export const PICK_NOW_LABEL = "★ ELIGE AHORA";
-export const UNRANKED_FALLBACK_NOTE = "Sin ranking confiable: héroes legales de la posición, sin orden de preferencia.";
 export const BANNER_LABEL = "Recomendado ahora";
 export const GOLDEN_CARD_LABEL = "✦ Card dorada";
 export const GOLDEN_CARD_NOTE = "No está en tu pool de esta posición, pero encaja con lo que ya se ve del draft.";
 export const WHY_LABEL = "¿Por qué?";
 export const PICK_HINT = "También puedes tocar cualquier héroe de las columnas de abajo para elegirlo en esa posición.";
 export const ADVISORY_NOTE = "Es una sugerencia: puedes elegir cualquier posición abierta y cualquier héroe legal, en el orden que quieras.";
-export const DETERMINISTIC_DEFAULT_NOTE = "No hay una prioridad estratégica clara entre tus posiciones: este orden es una vista inicial, no una ventaja.";
-export const PHASE_FALLBACK_NOTE = "Orden por fase del draft (soportes antes que cores): ninguna posición tiene hoy una ventaja táctica sobre las otras.";
 export const CAPTURE_NOT_ENABLED = "DOTA_CAPTURE_NOT_ENABLED";
 export const DOTA_NOT_RUNNING = "DOTA_NOT_RUNNING";
 /** How often the live view asks the engine for capture status (cheap; the board is refetched only on change). */

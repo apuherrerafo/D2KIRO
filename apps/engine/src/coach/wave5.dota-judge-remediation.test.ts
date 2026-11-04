@@ -155,6 +155,9 @@ function scriptedCompute(
         const signals: SignalContribution[] = [
           { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: options.scores[hero] ?? 1, explanation: `posición de ${hero}`, sampleSize: 100 },
           counterContrib,
+          // Contrato de elegibilidad (2026-11-03): el Coach solo lista héroes con un fundamento. Estas pruebas miden RB-1..RB-4, no el contrato, así que todo héroe
+          // del script trae el mismo fundamento mínimo (la intención de draft elegida) -- constante: no mueve ningún orden. El contrato: live-contract.coach.test.ts.
+          { signal: "archetype_fit", raw: 0.7, normalized: 70, evidenceConfidence: 1, weighted: 0.5, explanation: "Encaja con tu draft de Push", sampleSize: 100, applicable: true },
         ];
         return { hero, rank: 1, score: signals.reduce((sum, signal) => sum + signal.weighted, 0), signals, reason: `fixture ${hero}`, confidence: "alta", evidenceCoverage: 0.9, guessingIndex: 0.1 };
       })

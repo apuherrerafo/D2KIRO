@@ -49,9 +49,9 @@ async function cardsFor(candidateLimit: number | undefined, bans: number[] = [])
 }
 
 describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los de atrás)", () => {
-  test("ANTES: con 6 candidatos y los 6 mejores sin motivo, la columna se queda sin recomendación", async () => {
+  test("ANTES: con 6 candidatos y los 6 mejores sin fundamento, la columna queda vacía (sin relleno ni mensaje)", async () => {
     const result = await cardsFor(undefined);
-    expect(result.state).toBe("UNRANKED_POSITIONAL");
+    expect(result.cards).toEqual([]);
   });
 
   test("AHORA: pidiendo todo el universo, suben los de atrás y la columna llega a 5 tarjetas, en el orden de V6", async () => {

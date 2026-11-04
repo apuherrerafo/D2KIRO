@@ -92,6 +92,14 @@ const STEAL_BONUS: Record<CounterLevel, number> = { hard: 4, medium: 2 };
 const STEAL_MIN_GAMES = 1500;
 /** Una razón de la base que solo dice a quién se lo atribuye ("Lo dicen: DotaCoach (7.41f)") no cuenta como razón de Dota. */
 const UNREASONED_PREFIX = "Lo dicen";
+/**
+ * ¿La razón curada de una relación (`why`) dice un PORQUÉ de Dota? Una que solo atribuye la fuente ("Lo dicen: DotaCoach (7.41f)") o que
+ * viene vacía no es un fundamento verificable: no habilita una recomendación ni se muestra como razón (contrato de evidencia, 2026-11-03).
+ */
+export function isReasonedWhy(why: string): boolean {
+  const trimmed = why.trim();
+  return trimmed.length > 0 && !trimmed.startsWith(UNREASONED_PREFIX);
+}
 /** Un robo que protege a dos picks tuyos se muestra una sola vez nombrando hasta este número. */
 const MAX_STEALS_LISTED = 2;
 /** Tope del bono positivo en la escala de V6 (0-100): el contexto sube a héroes parejos, nunca pisa diferencias grandes. */

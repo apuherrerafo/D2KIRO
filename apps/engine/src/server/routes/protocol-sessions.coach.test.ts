@@ -42,7 +42,12 @@ function fakeSuggestions(heroIds: number[]): SuggestionSet {
       hero,
       rank: Math.min(index + 1, 6) as 1 | 2 | 3 | 4 | 5 | 6,
       score: 100 - index,
-      signals: [{ signal: "position_fit" as const, raw: 0.5, normalized: 50, evidenceConfidence: 1, weighted: 100 - index, explanation: "fixture", sampleSize: 50 }],
+      signals: [
+        { signal: "position_fit" as const, raw: 0.5, normalized: 50, evidenceConfidence: 1, weighted: 100 - index, explanation: "fixture", sampleSize: 50 },
+        // Contrato de elegibilidad (2026-11-03): el Coach solo lista héroes con un fundamento. Aquí se mide la superficie HTTP, no el contrato, así que todo
+        // héroe trae el mismo fundamento mínimo (la intención de draft elegida). El contrato: coach/live-contract.coach.test.ts.
+        { signal: "archetype_fit" as const, raw: 0.7, normalized: 70, evidenceConfidence: 1, weighted: 1, explanation: "Encaja con tu draft de Push", sampleSize: 50 },
+      ],
       reason: "fixture",
       confidence: "alta" as const,
       evidenceCoverage: 1,

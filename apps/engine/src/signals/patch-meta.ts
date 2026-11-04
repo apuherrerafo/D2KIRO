@@ -39,6 +39,23 @@ export function patchMetaReady(state: DraftState, meta: MetaSnapshot): boolean {
 }
 
 
+// z de un intervalo de confianza de 95 %: una proporción observada solo "supera" un valor si lo supera aun en el extremo bajo razonable.
+const CONFIDENCE_Z = 1.96;
+const EVEN_WINRATE = 0.5;
+
+/**
+ * ¿El winrate observado supera el 50 % con evidencia suficiente? Límite inferior de Wilson (95 %) > 50 %: depende del tamaño de la muestra, no
+ * solo del porcentaje (54 % sobre 500 partidas NO alcanza; 54 % sobre 5 000 sí). Lo usa el contrato de elegibilidad del Coach para decidir si el
+ * meta vigente es un fundamento (coach/recommendation-eligibility.ts). Pura; no puntúa ni cambia ninguna señal.
+ */
+export function winrateClearlyAboveEven(winrate: number, games: number): boolean {
+  if (games <= 0) return false;
+  const z2 = CONFIDENCE_Z * CONFIDENCE_Z;
+  const centre = winrate + z2 / (2 * games);
+  const margin = CONFIDENCE_Z * Math.sqrt((winrate * (1 - winrate)) / games + z2 / (4 * games * games));
+  return (centre - margin) / (1 + z2 / games) > EVEN_WINRATE;
+}
+
 export const patchMetaScorer: SignalScorer = {
   id: "patch_meta",
   score(state, candidate, meta): SignalContribution {

@@ -151,7 +151,7 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
     const recommendations = V6_ORDER.map((hero, index) => ({
       actions: [{ hero }],
       roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
-      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - Math.floor(index / 4), explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "team_synergy", raw: 1, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 200, applicable: true }] },
+      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - Math.floor(index / 4), explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 5000, applicable: true }] },
       risks: [],
       confidence: "media",
     }));
@@ -203,6 +203,6 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
     if (withSteal.state !== "RANKED") throw new Error(`esperaba RANKED, salió ${withSteal.state}`);
     expect(withSteal.cards.map((card) => card.heroId)).toEqual([108]); // 107 solo tiene el rol: fuera; 108 es robo: entra
     const withoutSteal = deriveCandidateResult({ targetPosition: 1, targetRanking: bareRanking(), view: view([STORM]), heroPositions: positions, heroCounters: undefined, personalPoolApplied: false });
-    expect(withoutSteal.state).toBe("UNRANKED_POSITIONAL"); // sin el robo, nadie tiene motivo
+    expect(withoutSteal.cards).toEqual([]); // sin el robo, nadie tiene motivo
   });
 });

@@ -402,3 +402,34 @@ test("riesgos del motor: el jugador no ve términos internos (stale_meta, snapsh
   expect(text).not.toMatch(/stale_meta|snapshot|evidenceCoverage|V6|degraded_meta|low_evidence|unresolved_role/);
   expect(text).toContain("Los datos de meta no están al día");
 });
+
+// Contrato de elegibilidad (2026-11-03): con `contractOnly` (Simulador y Live Companion) el V2 crudo -- que trae héroes elegidos por posición y popularidad,
+// con confianza "alta" -- no se pinta nunca; solo lo que el motor ya filtró (el Coach). Un Coach sin salida es una pantalla sin héroes, sin mensaje.
+test("contractOnly: el cuerpo V2 crudo (single-action y duplas) no se muestra aunque exista, ni su estado vacío", () => {
+  const single = recommendationSet({ recommendations: [1, 2, 3].map((hero, i) => singleAction(hero, 70 - i)) });
+  const viewSingle = render(<CopilotPanel contractOnly recommendations={single} coach={null} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(viewSingle.queryAllByRole("button", { name: "Ver señales" })).toHaveLength(0);
+  expect(viewSingle.queryByText("Resumen táctico 1.")).toBeNull();
+  viewSingle.unmount();
+  const duo = recommendationSet({ recommendations: [compound(1, 2, 199), compound(3, 4, 180)] });
+  const viewDuo = render(<CopilotPanel contractOnly recommendations={duo} coach={null} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(viewDuo.queryAllByText("Dupla sugerida")).toHaveLength(0);
+  viewDuo.unmount();
+  const empty = recommendationSet({ recommendations: [] });
+  const viewEmpty = render(<CopilotPanel contractOnly recommendations={empty} coach={null} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(viewEmpty.queryByText("Sin candidatos para el estado actual del draft.")).toBeNull();
+});
+
+test("contractOnly: el resaltado de la grilla no sale del V2 crudo (conjunto vacío sin Coach)", () => {
+  const seen: number[][] = [];
+  function capture(heroIds: ReadonlySet<number>) {
+    seen.push([...heroIds]);
+  }
+  render(<CopilotPanel contractOnly recommendations={recommendationSet()} coach={null} heroCatalog={new Map()} previewStatus="ready" onSuggestedHeroIdsChange={capture} />);
+  expect(seen.at(-1)).toEqual([]);
+});
+
+test("sin contractOnly (Captains Mode, que no pasa por el Coach) el V2 se pinta como siempre", () => {
+  const view = render(<CopilotPanel recommendations={recommendationSet({ recommendations: [singleAction(1, 70)] })} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getByText("Resumen táctico 1.")).toBeDefined();
+});

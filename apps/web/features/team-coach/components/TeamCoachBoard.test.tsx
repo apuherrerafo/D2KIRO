@@ -70,31 +70,42 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(reasons).toEqual(["razón 21", "razón 22", "razón 23"]);
   });
 
-  test("columna UNRANKED_POSITIONAL: no se repite la misma frase en los 5 héroes", () => {
-    const view = renderBoard(board([2], 2, { 2: { state: "UNRANKED_POSITIONAL" } }));
-    expect(view.queryAllByTestId("team-coach-candidate-reason")).toHaveLength(0);
+  test("columna RANKED con cero candidatos (ningún héroe con fundamento): no pinta texto ni botones de héroe, solo su encabezado", () => {
+    const empty = column(2, { top: [], primaryHeroId: null });
+    const view = renderBoard({ ...board([2], null), positions: [empty], currentDecision: { ...board([2], null).currentDecision, reason: "" } }, { onPickHero: () => {} });
+    expect(view.getByTestId("team-coach-select-2")).toBeTruthy(); // el encabezado de la posición sigue
+    expect(view.queryAllByTestId("team-coach-candidate")).toHaveLength(0);
+    expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
+    const text = view.getByTestId("team-coach-column-2").textContent ?? "";
+    expect(text).not.toMatch(/Sin candidatos|Sin recomendación|Sin ranking|exploración|sin orden de preferencia/);
   });
 
-  test("columna UNRANKED_POSITIONAL: la exploración no se numera como ranking ('1.', '2.'); la columna con ranking sí", () => {
-    const unranked = column(2, { state: "UNRANKED_POSITIONAL" });
-    unranked.top = unranked.top.map((candidate) => ({ ...candidate, score: null }));
-    const exploration = renderBoard({ ...board([2], 2), positions: [unranked] });
-    expect(exploration.queryByText("1.")).toBeNull();
-    expect(exploration.queryByText("2.")).toBeNull();
-    exploration.unmount();
-    const ranked = renderBoard(board([2], 2));
-    expect(ranked.getByText("1.")).toBeTruthy();
+  test("sin recomendación elegible (posición null y razón vacía): no hay banner, ni '★ ELIGE AHORA', ni acción principal, ni columna destacada", () => {
+    const none = board([1, 2, 3], null);
+    const data = { ...none, currentDecision: { ...none.currentDecision, reason: "" }, positions: none.positions.map((entry) => ({ ...entry, top: [], primaryHeroId: null })) };
+    const view = renderBoard(data, { onPickHero: () => {} });
+    expect(view.queryByTestId("team-coach-decision")).toBeNull();
+    expect(view.queryByTestId("team-coach-no-action")).toBeNull();
+    expect(view.queryByTestId("team-coach-pick-now")).toBeNull();
+    expect(view.queryByTestId("team-coach-pick-recommended")).toBeNull();
   });
 
-  test("columna UNRANKED_POSITIONAL: muestra el porqué exacto que manda el motor ('Sin recomendación con motivo…'); sin porqué, el texto genérico", () => {
-    const withNote = column(2);
-    withNote.state = "UNRANKED_POSITIONAL";
-    withNote.note = "Sin recomendación con motivo para Pos2 Mid: ningún héroe tiene en este draft un counter, una sinergia o fuerza en el parche que lo respalde.";
-    expect(renderBoard({ ...board([2], 2), positions: [withNote] }).getByText(/^Sin recomendación con motivo para Pos2 Mid/)).toBeTruthy();
-    const noNote = column(2);
-    noNote.state = "UNRANKED_POSITIONAL";
-    noNote.note = null;
-    expect(renderBoard({ ...board([2], 2), positions: [noNote] }).getByText(/^Sin ranking confiable/)).toBeTruthy();
+  test("una posición recomendada cuya columna no tiene candidatos NO se destaca (nunca 'ELIGE AHORA' sobre una columna vacía)", () => {
+    const data = board([2, 3], 2, { 2: { top: [], primaryHeroId: null } });
+    const view = renderBoard(data, { onPickHero: () => {} });
+    expect(view.queryByTestId("team-coach-pick-now")).toBeNull();
+    expect(view.queryByTestId("team-coach-decision")).toBeNull();
+  });
+
+  test("con recomendación y candidatos: sí hay banner, '★ ELIGE AHORA' en esa columna y botón de la acción principal", () => {
+    const view = renderBoard(board([2, 3], 2), { onPickHero: () => {} });
+    expect(view.getByTestId("team-coach-decision").getAttribute("data-recommended-position")).toBe("2");
+    expect(view.getAllByTestId("team-coach-pick-now")).toHaveLength(1);
+    expect(view.getByTestId("team-coach-pick-recommended")).toBeTruthy();
+  });
+
+  test("las tarjetas se numeran como ranking ('1.', '2.') porque solo existen listas con fundamento", () => {
+    expect(renderBoard(board([2], 2)).getByText("1.")).toBeTruthy();
   });
 
   test("un rival revelado que counterea al candidato se ve como 'Riesgo (X te counterea): porqué'", () => {
@@ -423,11 +434,13 @@ describe("TeamCoachBoard -- live Party5 P0 (engine mirror)", () => {
     expect(parseTeamCoachBoard(unknown)).toBeNull();
   });
 
-  test("PHASE_FALLBACK says it is a phase order, never a strategic advantage", () => {
+  test("PHASE_FALLBACK no agrega ningún texto que explique falta de prioridad: la recomendación se sostiene en su héroe, no en el orden por fase", () => {
     const data = board();
     data.currentDecision.targetBasis = "PHASE_FALLBACK";
     const view = renderBoard(data);
-    expect(view.getByTestId("team-coach-phase-fallback").textContent).toContain("Orden por fase del draft");
+    expect(view.queryByTestId("team-coach-phase-fallback")).toBeNull();
+    expect(view.container.textContent).not.toContain("Orden por fase del draft");
+    expect(view.container.textContent).not.toContain("prioridad estratégica clara");
   });
 
   test("a position our picks fill without a confirmed hero renders as filled, with the engine's note and no candidates", () => {

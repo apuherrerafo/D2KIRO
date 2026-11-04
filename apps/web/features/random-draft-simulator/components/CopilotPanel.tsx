@@ -398,6 +398,13 @@ export interface CopilotPanelProps {
    * degradation banner are not rendered next to it (COHERENCE-001/010/012).
    */
   currentDecision?: CurrentDecisionOutput | null;
+  /**
+   * Contrato de elegibilidad (dueño del producto, 2026-11-03): el Simulador y el Live Companion solo muestran héroes que el MOTOR decidió que
+   * tienen un fundamento (decisión V4 o Coach v3 ya filtrado). Con `contractOnly` el cuerpo V2 crudo (`LegacyRecommendationBody`, "Dupla
+   * sugerida", "Paquetes V2"), su resaltado y su mensaje de "sin candidatos" NO se muestran: un Coach sin salida es una pantalla sin héroes.
+   * Sin esta marca (Captains Mode, que no pasa por el Coach) el panel se comporta como siempre.
+   */
+  contractOnly?: boolean;
 }
 
 function noop() {
@@ -406,9 +413,10 @@ function noop() {
 }
 
 /** Heroes the Copilot currently points at: the V4 decision's candidates, else the Coach shortlist, else the V2 list. */
-function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: CoachOutput | null, currentDecision: CurrentDecisionOutput | null = null): HeroId[] {
+function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: CoachOutput | null, currentDecision: CurrentDecisionOutput | null = null, contractOnly = false): HeroId[] {
   if (currentDecision) return currentDecisionHeroIds(currentDecision);
   if (coach) return coach.shortlist.map((card) => card.heroId);
+  if (contractOnly) return [];
   return recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
 }
 
@@ -468,14 +476,15 @@ export function CopilotPanel({
   partyPositions,
   roundPickState,
   currentDecision = null,
+  contractOnly = false,
 }: CopilotPanelProps) {
-  const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach, currentDecision).join(",");
+  const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach, currentDecision, contractOnly).join(",");
 
   // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
   // ya usaba la variante Pro-Drafter de este panel antes de esta migración.
   useEffect(() => {
     if (!onSuggestedHeroIdsChange) return;
-    onSuggestedHeroIdsChange(new Set(suggestedHeroIdsOf(recommendations, coach, currentDecision)));
+    onSuggestedHeroIdsChange(new Set(suggestedHeroIdsOf(recommendations, coach, currentDecision, contractOnly)));
     // suggestedHeroKey estabiliza el conjunto derivado y evita un efecto infinito.
   }, [onSuggestedHeroIdsChange, suggestedHeroKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -489,11 +498,13 @@ export function CopilotPanel({
     );
   }
 
-  const hasRecommendations = coach !== null || (recommendations?.recommendations.length ?? 0) > 0;
-  const decisionContext = coach?.meta.decisionContext ?? recommendations?.decisionContext ?? "no_action";
+  // `contractOnly`: lo único que existe es lo que el motor ya filtró (el Coach); el V2 crudo no se mira ni para avisos ni para el estado vacío.
+  const legacy = contractOnly ? null : recommendations;
+  const hasRecommendations = coach !== null || (legacy?.recommendations.length ?? 0) > 0;
+  const decisionContext = coach?.meta.decisionContext ?? legacy?.decisionContext ?? "no_action";
 
   const allDegradations = [
-    ...(recommendations?.degradations ?? []),
+    ...(legacy?.degradations ?? []),
     ...(coach?.meta.degradations ?? []),
   ];
 
@@ -502,14 +513,14 @@ export function CopilotPanel({
       <span className="text-heading text-content-primary">Copilot</span>
       <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations} onRetry={onRetryPreview} />
       {allDegradations.length > 0 && <DegradationsNotice degradations={allDegradations} />}
-      {(recommendations || coach) && <DecisionContextNotice decisionContext={decisionContext} />}
-      {recommendations && !hasRecommendations && previewStatus === "ready" && (
+      {(legacy || coach) && <DecisionContextNotice decisionContext={decisionContext} />}
+      {legacy && !hasRecommendations && previewStatus === "ready" && (
         <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
       )}
       {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} suppressDegradations />}
-      {recommendations && (
+      {legacy && (
         <LegacyRecommendationBody
-          recommendations={recommendations}
+          recommendations={legacy}
           heroCatalog={heroCatalog}
           roundPickState={roundPickState}
           playerPosition={playerPosition}

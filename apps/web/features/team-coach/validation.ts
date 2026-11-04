@@ -87,7 +87,7 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
   );
 }
 
-const COLUMN_STATES = new Set(["RANKED", "UNRANKED_POSITIONAL", "UNAVAILABLE", "FILLED", "WAITING"]);
+const COLUMN_STATES = new Set(["RANKED", "UNAVAILABLE", "FILLED", "WAITING"]);
 
 function isColumn(value: unknown): value is TeamCoachColumn {
   return (

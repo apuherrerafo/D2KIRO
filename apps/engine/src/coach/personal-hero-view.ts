@@ -4,7 +4,7 @@ import type { PerspectiveRecommendationContext } from "../recommendation/perspec
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
-import { credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes } from "./hero-card";
+import { credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 
 // Wave 3 task 20 -- this deliberately consumes its OWN RecommendationSetV2.  It never sees the
 // team set, so deriving "your position" by filtering the team shortlist is structurally impossible.
@@ -61,6 +61,11 @@ export interface PersonalPositionRecommendationDeps {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** The Coach's beliefs about the Player's own visible picks; absent -> the seat is never considered covered. */
   ownRoleBeliefs?: ReadonlyMap<HeroId, RoleBelief>;
+  /**
+   * Contrato de elegibilidad (2026-11-03): ¿este héroe tiene un fundamento verificable en ESTE draft? (`evaluateEligibility`, la misma regla que
+   * la decisión V4 y el tablero). Lo que no lo tiene no entra a la vista personal: la posición y el pool no son fundamento.
+   */
+  isEligible(candidate: HeroCandidate): boolean;
   shortlistSize?: number;
 }
 
@@ -78,6 +83,7 @@ export async function buildPersonalPositionRecommendation(
   const pool = new Set(heroPool);
   const candidates = demoteRevealedHardCountered(extractHeroCandidates(recommendationSet, deps.heroPositions), revealedEnemyHeroes(context.view), deps.heroCounters);
   const heroes = candidates
+    .filter((candidate) => deps.isEligible(candidate))
     .slice(0, deps.shortlistSize ?? 5)
     .map((candidate, index) => ({
       heroId: candidate.heroId,

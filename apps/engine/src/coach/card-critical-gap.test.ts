@@ -19,7 +19,7 @@ const TEAM = [hero(1), hero(2, { damageType: "magical" }), hero(3)];
 const NON_INITIATOR = hero(CANDIDATE);
 const INITIATOR = hero(CANDIDATE, { hasInitiation: true });
 
-const solid: HeroFixture = { heroId: CANDIDATE, signals: [signal("position_fit", 0.7, 19), signal("team_synergy", 0.6, 1)], impact: resolvedImpact(1) }; // patch_meta = motivo propio (regla 2026-11-02), suma 20
+const solid: HeroFixture = { heroId: CANDIDATE, signals: [signal("position_fit", 0.7, 19), signal("patch_meta", 0.6, 1, { sampleSize: 5000 })], impact: resolvedImpact(1) }; // patch_meta = motivo propio (regla 2026-11-02), suma 20
 const candidateOf = () => extractHeroCandidates(recSet([solid]))[0]!;
 const closing = (own = [known(1), known(2), known(3)]) => view("PICK_ROUND_2", own, [hidden(), hidden()]);
 const risksOf = (capabilities: HeroCapabilities[], viewArg = closing()) =>
@@ -95,19 +95,23 @@ describe("CRITICAL_GAP -- lo desconocido nunca se presenta como certeza", () => 
 describe("CRITICAL_GAP -- candado de regresión cero: no toca el ranking ni el resto de la tarjeta", () => {
   const POSITIONS: HeroPositions = { 7: [{ position: 1, matches: 3000 }], 8: [{ position: 1, matches: 3000 }] };
   const heroes: HeroFixture[] = [
-    { heroId: 7, signals: [signal("position_fit", 0.9, 29, { sampleSize: 3000 }), signal("team_synergy", 0.6, 1)], impact: resolvedImpact(1) },
-    { heroId: 8, signals: [signal("position_fit", 0.8, 19, { sampleSize: 3000 }), signal("team_synergy", 0.6, 1)], impact: resolvedImpact(1) },
+    { heroId: 7, signals: [signal("position_fit", 0.9, 29, { sampleSize: 3000 }), signal("patch_meta", 0.6, 1, { sampleSize: 5000 })], impact: resolvedImpact(1) },
+    { heroId: 8, signals: [signal("position_fit", 0.8, 19, { sampleSize: 3000 }), signal("patch_meta", 0.6, 1, { sampleSize: 5000 })], impact: resolvedImpact(1) },
   ];
   const derive = (heroCapabilities: HeroCapabilities[] | undefined) =>
     deriveCandidateResult({ targetPosition: 1, targetRanking: recSet(heroes), view: closing(), heroPositions: POSITIONS, heroCapabilities, personalPoolApplied: false });
 
-  test("con y sin capacidades: orden, puntajes, insignias y razón idénticos; sólo cambian los avisos", () => {
+  test("con y sin capacidades: orden, puntajes y confianza idénticos; cambian los avisos y, para quien LLENA el hueco crítico, un fundamento más", () => {
     const without = derive(undefined);
     // 7 no inicia (el hueco queda abierto para él); 8 sí inicia.
     const withCaps = derive([...TEAM, hero(7), hero(8, { hasInitiation: true })]);
     if (without.state !== "RANKED" || withCaps.state !== "RANKED") throw new Error("expected RANKED");
-    const shape = (cards: typeof without.cards) => cards.map((card) => [card.heroId, card.rank, card.score, card.badges, card.rationale, card.confidence]);
+    const shape = (cards: typeof without.cards) => cards.map((card) => [card.heroId, card.rank, card.score, card.confidence]);
     expect(shape(withCaps.cards)).toEqual(shape(without.cards));
+    // 7 (no llena el hueco) queda idéntico; 8 (inicia) gana el fundamento de composición: etiqueta y frase salen de él.
+    expect([withCaps.cards[0]?.badges, withCaps.cards[0]?.rationale]).toEqual([without.cards[0]?.badges, without.cards[0]?.rationale]);
+    expect(withCaps.cards[1]?.badges).toContain("SYNERGY");
+    expect(withCaps.cards[1]?.rationale).toContain("iniciar peleas");
     expect(without.cards.map((card) => card.risks)).toEqual([[], []]);
     expect(withCaps.cards[0]?.risks.map((risk) => risk.kind)).toEqual(["CRITICAL_GAP"]);
     expect(withCaps.cards[1]?.risks).toEqual([]);

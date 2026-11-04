@@ -8,7 +8,9 @@ import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
+import { eligibilityInputOf } from "./eligibility-input";
 import { credibleHeroesForPosition, extractHeroCandidates } from "./hero-card";
+import { isEligible } from "./recommendation-eligibility";
 import { safeCoreWindowPossible } from "./safe-core";
 import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
@@ -197,6 +199,8 @@ export class CoachOrchestrator {
           heroPositions: this.deps.heroPositions,
           heroCounters: this.deps.heroCounters,
           ownRoleBeliefs: coachState.ownRoleBeliefs,
+          // La vista personal pasa por el MISMO contrato de elegibilidad que la lista del equipo y la decisión V4.
+          isEligible: (candidate) => isEligible(candidate, eligibilityInputOf(view, { heroCounters: this.deps.heroCounters, heroSynergies: this.deps.heroSynergies, heroPositions: this.deps.heroPositions, heroCapabilities: this.deps.heroCapabilities }, candidate.position)),
         })
       : null;
     const decisionContext = deriveDecisionContextFromView(view);
@@ -226,12 +230,15 @@ export class CoachOrchestrator {
           actionRecommendationSet,
           heroPositions: this.deps.heroPositions,
           heroCounters: this.deps.heroCounters,
+          heroSynergies: this.deps.heroSynergies,
+          heroCapabilities: this.deps.heroCapabilities,
           playerPersonalPosition: input.playerPersonalPosition ?? null,
           trigger,
           revision,
         })
       : null;
-    if (output && personal) output.personalHeroView = personal.view;
+    // Una vista personal sin ningún héroe con fundamento no se muestra (salvo "tu asiento ya está cubierto", que es un estado de la sesión).
+    if (output && personal && (personal.view.seatCovered || personal.view.heroes.length > 0)) output.personalHeroView = personal.view;
 
     // Only the newest-started computation may move the session's "latest" bookkeeping forward.
     if (revision > memory.latestRevision) {

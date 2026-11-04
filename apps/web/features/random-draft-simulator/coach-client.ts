@@ -294,7 +294,7 @@ export interface RankedCandidateCard {
    * misma fuente que el tablero del equipo. Opcional para tolerar un motor anterior; ausente = no se pinta nada de esto.
    */
   context?: CardDraftContext;
-  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` ("Por su posición: …") se calla porque hay una razón real en `context`. */
+  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` (la frase genérica del fundamento) se calla porque los chips de `context` ya lo dicen. */
   hideRationale?: boolean;
   /**
    * Espejo de `risks` del motor: avisos a pesar antes de fijar este héroe (hoy sólo CRITICAL_GAP). El motor lo manda siempre
@@ -328,20 +328,16 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 /** Whose pool: the Player's own, or a teammate's saved pool for the position. Mirror of the engine contract. */
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
-export interface PositionalAlternative {
-  heroId: HeroId;
-  position: CoachPosition;
-}
-
 export interface CandidateDegradation {
   reason: string;
   detail: string;
 }
 
-export type CandidateResult =
-  | { state: "RANKED"; targetPosition: CoachPosition; cards: RankedCandidateCard[]; degradations: CandidateDegradation[] }
-  | { state: "UNRANKED_POSITIONAL"; targetPosition: CoachPosition; alternatives: PositionalAlternative[]; reason: string; degradations: CandidateDegradation[] }
-  | { state: "UNAVAILABLE"; targetPosition: CoachPosition; reason: string; degradations: CandidateDegradation[] };
+/**
+ * Contrato de elegibilidad (dueño del producto, 2026-11-03): solo hay tarjetas de héroes con un fundamento real. Un resultado SIN ninguna
+ * es un ranking con `cards: []` -- no existe un estado "exploración" ni "no disponible" con alternativas o mensaje: no se muestra nada.
+ */
+export type CandidateResult = { state: "RANKED"; targetPosition: CoachPosition; cards: RankedCandidateCard[]; degradations: CandidateDegradation[] };
 
 export type ActionableDecision = {
   kind: "ACTIONABLE";
@@ -420,28 +416,15 @@ function cardsAgreeWithPoolState(cards: unknown[], poolState: PoolState): boolea
   return cards.every((card) => isRecord(card) && ((card.poolMembership === "NO_POOL") === (poolState === "NONE")));
 }
 
-/** An unranked alternative carries exactly {heroId, position}: any ranking field is a contract violation. */
-function isPositionalAlternative(value: unknown, target: CoachPosition): value is PositionalAlternative {
-  return isRecord(value) && isHeroId(value.heroId) && value.position === target
-    && Object.keys(value).every((key) => key === "heroId" || key === "position");
-}
-
 function isDegradationList(value: unknown): value is CandidateDegradation[] {
   return Array.isArray(value) && value.every(isCoachDegradation);
 }
 
 function isCandidateResult(value: unknown, target: CoachPosition, poolState: PoolState): value is CandidateResult {
   if (!isRecord(value) || value.targetPosition !== target || !isDegradationList(value.degradations)) return false;
-  if (value.state === "RANKED") {
-    return Array.isArray(value.cards) && value.cards.length > 0 && value.cards.every((card) => isRankedCard(card, target))
-      && cardsAgreeWithPoolState(value.cards, poolState);
-  }
-  if (value.state === "UNRANKED_POSITIONAL") {
-    return typeof value.reason === "string" && Array.isArray(value.alternatives) && value.alternatives.length > 0
-      && value.alternatives.every((alternative) => isPositionalAlternative(alternative, target));
-  }
-  if (value.state === "UNAVAILABLE") return typeof value.reason === "string";
-  return false;
+  if (value.state !== "RANKED") return false;
+  // `cards: []` es válido: ningún héroe tiene fundamento y no se muestra nada.
+  return Array.isArray(value.cards) && value.cards.every((card) => isRankedCard(card, target)) && cardsAgreeWithPoolState(value.cards, poolState);
 }
 
 function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
@@ -493,11 +476,9 @@ export async function fetchCurrentDecision(sessionId: string, viewedPosition: Co
   return output;
 }
 
-/** Heroes the current decision actually shows (ranked cards or positional alternatives), in display order. */
+/** Heroes the current decision actually shows (ranked cards with a real ground), in display order. */
 export function currentDecisionHeroIds(output: CurrentDecisionOutput | null): HeroId[] {
   if (!output || output.decision.kind !== "ACTIONABLE") return [];
   const { candidates } = output.decision;
-  if (candidates.state === "RANKED") return candidates.cards.map((card) => card.heroId);
-  if (candidates.state === "UNRANKED_POSITIONAL") return candidates.alternatives.map((alternative) => alternative.heroId);
-  return [];
+  return candidates.cards.map((card) => card.heroId);
 }

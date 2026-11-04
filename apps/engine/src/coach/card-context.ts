@@ -1,6 +1,6 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
-import { banOpeningOf, stealsOf, synergiesWithOwn, type BanOpening, type ContextReorderInput, type StealNote } from "./context-reorder";
+import { banOpeningOf, isReasonedWhy, stealsOf, synergiesWithOwn, type BanOpening, type ContextReorderInput, type StealNote } from "./context-reorder";
 
 // Lo que una tarjeta de héroe cuenta DEL DRAFT VISIBLE, con una sola fuente para el tablero del equipo y la lista del simulador
 // (antes la lista solo recibía una frase y el tablero armaba esto aparte, así que dos pantallas decían razones distintas del mismo
@@ -45,7 +45,7 @@ export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly Curat
  */
 export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly TeamCoachStrength[]>, excluded: ReadonlySet<HeroId>, revealedEnemies: ReadonlySet<HeroId> = new Set()): TeamCoachStrength[] {
   // Solo lo que el rival YA tiene: contar contra quién gana sobre algo que nadie ha sacado es suponer (decisión del usuario).
-  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId) && revealedEnemies.has(entry.vsHeroId)).map((entry) => ({ ...entry, revealed: true }));
+  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId) && revealedEnemies.has(entry.vsHeroId) && isReasonedWhy(entry.why)).map((entry) => ({ ...entry, revealed: true }));
   const rank = (entry: TeamCoachStrength): number => (entry.level === "hard" ? 0 : 1);
   return usable.sort((a, b) => rank(a) - rank(b)).slice(0, MAX_STRENGTHS_PER_CANDIDATE);
 }
@@ -77,12 +77,24 @@ function cachedStrengthIndex(heroCounters: ContextReorderInput["heroCounters"]):
   return built;
 }
 
+/** Lo que los bans abrieron, SOLO con counters que traen un porqué de Dota (una atribución "Lo dicen: …" no abre nada que se pueda mostrar). */
+function reasonedOpening(heroId: HeroId, input: ContextReorderInput): BanOpening {
+  const opening = banOpeningOf(heroId, input);
+  const entries = input.heroCounters?.get(heroId) ?? [];
+  const openedBy = opening.openedBy.filter((note) => entries.some((entry) => entry.vs === note.heroId && isReasonedWhy(entry.why)));
+  return { ...opening, openedBy };
+}
+
+/**
+ * Todo lo que una tarjeta muestra del draft VISIBLE sale de relaciones curadas con un porqué verificable: es exactamente el conjunto de
+ * fundamentos "de contexto" que habilitan una recomendación (recommendation-eligibility.ts). Una relación sin porqué ni se muestra ni cuenta.
+ */
 export function cardContextOf(heroId: HeroId, input: ContextReorderInput): CardContext {
   const cannotBeEnemy = new Set<HeroId>([...input.banned, ...input.ownPicks]);
   return {
-    opening: banOpeningOf(heroId, input),
+    opening: reasonedOpening(heroId, input),
     strengths: strengthsOf(heroId, cachedStrengthIndex(input.heroCounters), cannotBeEnemy, input.revealedEnemies),
-    synergies: synergiesWithOwn(heroId, input).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
+    synergies: synergiesWithOwn(heroId, input).filter((synergy) => isReasonedWhy(synergy.why)).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
     steals: stealsOf(heroId, input),
   };
 }

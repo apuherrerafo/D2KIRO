@@ -165,6 +165,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
               sobre qué héroes se resaltan en la grilla. AP Ranked Roles V1 / Wave 2: sobre ese V2 el
               motor construye la salida del Coach (acción primaria + shortlist), que este panel muestra. */}
           <CopilotPanel
+            contractOnly
             recommendations={recommendations}
             coach={coach}
             currentDecision={currentDecision}
@@ -210,7 +211,8 @@ function LiveBanEntryPhaseView({ session, heroCatalog }: PhaseViewProps) {
 // LIVE_COMPANION -- fase activa de picks: reporta manualmente lo que el Player observa en el
 // draft real (propio Y rival). Nunca invoca auto-drive/bot-selection -- el Enemy Bot no existe en
 // este modo. El Coach (CopilotPanel) es EXACTAMENTE el mismo componente que SIMULATION usa, sin
-// ninguna bifurcación de cómo se arman/renderizan las recomendaciones.
+// ninguna bifurcación de cómo se arman/renderizan las recomendaciones. `contractOnly`: solo lo que el
+// motor ya filtró por el contrato de elegibilidad (sin cuerpo V2 crudo).
 function LivePendingPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, recommendations, coach, previewStatus } = session.state;
   if (phase.type !== "live_pending" || !draftState) return null;
@@ -231,6 +233,7 @@ function LivePendingPhaseView({ session, heroCatalog }: PhaseViewProps) {
       </div>
       <div className="flex flex-col gap-4">
         <CopilotPanel
+          contractOnly
           recommendations={recommendations}
           coach={coach}
           heroCatalog={heroCatalog}

@@ -2,7 +2,7 @@
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { ADVISORY_NOTE, BANNER_LABEL, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PHASE_FALLBACK_NOTE, PICK_HINT, PICK_NOW_LABEL, UNRANKED_FALLBACK_NOTE, WHY_LABEL, teamPositionName, teamPositionTitle } from "../constants";
+import { ADVISORY_NOTE, BANNER_LABEL, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PICK_HINT, PICK_NOW_LABEL, WHY_LABEL, teamPositionName, teamPositionTitle } from "../constants";
 import {
   BOARD_GRID,
   BOARD_SHELL,
@@ -67,13 +67,6 @@ function DecisionBannerHero({ board, heroCatalog }: DecisionBannerProps) {
   return <HeroLabel heroId={heroId} heroCatalog={heroCatalog} size={32} />;
 }
 
-function DefaultBasisNote({ board }: { board: TeamCoachBoardData }) {
-  if (board.currentDecision.actionablePositions.length < 2) return null;
-  if (board.currentDecision.targetBasis === "PHASE_FALLBACK") return <span className="text-caption text-content-muted" data-testid="team-coach-phase-fallback">{PHASE_FALLBACK_NOTE}</span>;
-  if (board.currentDecision.targetBasis !== "DETERMINISTIC_DEFAULT") return null;
-  return <span className="text-caption text-content-muted">{DETERMINISTIC_DEFAULT_NOTE}</span>;
-}
-
 interface PickRecommendedButtonProps {
   position: TeamPosition;
   heroId: number;
@@ -116,15 +109,21 @@ function DecisionWhy({ board }: { board: TeamCoachBoardData }) {
       <summary className="w-fit text-content-muted hover:text-content-primary">{WHY_LABEL}</summary>
       <div className="flex flex-col gap-1 pt-1">
         <span data-testid="team-coach-reason">{board.currentDecision.reason}</span>
-        <DefaultBasisNote board={board} />
         <span className="text-content-muted">{ADVISORY_NOTE}</span>
       </div>
     </details>
   );
 }
 
+function hasCandidates(board: TeamCoachBoardData, position: TeamPosition): boolean {
+  return (board.positions.find((entry) => entry.position === position)?.top.length ?? 0) > 0;
+}
+
 function DecisionBanner({ board, heroCatalog, onPickHero }: DecisionBannerProps) {
   const position = board.currentDecision.recommendedPosition;
+  // Sin recomendación elegible (el motor manda posición null y razón vacía) no hay banner, ni "ELIGE AHORA", ni acción principal.
+  if (position === null && board.currentDecision.reason === "") return null;
+  if (position !== null && !hasCandidates(board, position)) return null;
   if (position === null) {
     return (
       <div className="rounded-lg border border-surface-border bg-surface-overlay p-3 text-caption text-content-secondary" data-testid="team-coach-no-action">
@@ -320,16 +319,10 @@ function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetail
   );
 }
 
-// Un candidato sin puntaje es exploración (columna UNRANKED_POSITIONAL): lista sin orden de preferencia, así que no se numera como un ranking.
-function CandidateRankMark({ candidate }: { candidate: TeamCoachCandidate }) {
-  if (candidate.score === null) return <span className="text-content-muted">·</span>;
-  return <span className="text-content-muted">{candidate.rank}.</span>;
-}
-
 function CandidateHead({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
   return (
     <span className={CANDIDATE_HEAD}>
-      <CandidateRankMark candidate={candidate} />
+      <span className="text-content-muted">{candidate.rank}.</span>
       <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
       <PlanBadge candidate={candidate} />
     </span>
@@ -380,8 +373,11 @@ function ColumnBody({ column, heroCatalog, onPickHero }: ColumnBodyProps) {
       </div>
     );
   }
+  // Contrato de elegibilidad (2026-11-03): una columna sin ningún héroe con fundamento (RANKED con cero candidatos) no pinta nada: ni lista de
+  // relleno ni mensaje de que falta información. Solo los estados de la sesión (esperando, ocupada, error) conservan su nota.
   if (column.top.length === 0) {
-    return <span className="text-caption text-content-muted">{column.note ?? "Sin candidatos para esta posición ahora."}</span>;
+    if (column.state === "RANKED" || column.note === null) return null;
+    return <span className="text-caption text-content-muted">{column.note}</span>;
   }
   return (
     <>
@@ -430,13 +426,6 @@ function PickNowBadge({ recommended }: { recommended: boolean }) {
   return <span className={PICK_NOW_BADGE} data-testid="team-coach-pick-now">{PICK_NOW_LABEL}</span>;
 }
 
-function UnrankedNote({ column }: { column: TeamCoachColumn }) {
-  if (column.state !== "UNRANKED_POSITIONAL") return null;
-  // El motor trae el porqué exacto (p. ej. "Sin recomendación con motivo para…"): se muestra tal cual y solo si falta se usa el texto genérico.
-  const text = column.note ?? UNRANKED_FALLBACK_NOTE;
-  return <span className="text-caption text-signal-warning">{text}</span>;
-}
-
 interface ColumnProps extends ColumnBodyProps {
   recommended: boolean;
   selected: boolean;
@@ -466,7 +455,6 @@ function Column({ column, heroCatalog, onPickHero, recommended, selected, onSele
         <PickNowBadge recommended={recommended} />
         <span className="text-caption font-semibold text-content-primary">{teamPositionTitle(column.position)}</span>
       </button>
-      <UnrankedNote column={column} />
       <ColumnBody column={column} heroCatalog={heroCatalog} onPickHero={onPickHero} />
     </section>
   );
@@ -549,7 +537,9 @@ function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, o
   if (draftEnded && !board) return <DraftEndedBanner />;
   if (!board) return <BoardPlaceholder status={status} onRetry={onRetry} />;
   // Draft over: the last reading stays as reference, with no recommended position and nothing to pick.
-  const recommended = draftEnded ? null : board.currentDecision.recommendedPosition;
+  // "ELIGE AHORA" solo sobre una columna con al menos un héroe elegible.
+  const decided = board.currentDecision.recommendedPosition;
+  const recommended = draftEnded || decided === null || !hasCandidates(board, decided) ? null : decided;
   const pickHero = draftEnded ? undefined : onPickHero;
   return (
     <>

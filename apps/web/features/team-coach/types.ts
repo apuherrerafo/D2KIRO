@@ -10,7 +10,8 @@ import type { HeroId, TeamSide } from "@/features/draft/types";
 
 export type TeamPosition = 1 | 2 | 3 | 4 | 5;
 
-export type TeamCoachPositionState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAILABLE" | "FILLED" | "WAITING";
+/** RANKED con cero candidatos = ningún héroe con fundamento: la columna no muestra nada. */
+export type TeamCoachPositionState = "RANKED" | "UNAVAILABLE" | "FILLED" | "WAITING";
 /** PHASE_FALLBACK (live, and the simulator with >= 2 open positions): the position was chosen by draft-phase order because nothing tactical distinguishes them. */
 export type TeamCoachTargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT" | "PHASE_FALLBACK";
 

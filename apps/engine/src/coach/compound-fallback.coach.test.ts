@@ -110,7 +110,7 @@ describe("compound fallback -- no feasible pair, legal single step exists", () =
     const reasons = recommendationSet.degradations.map((degradation) => degradation.reason);
     expect(reasons).toContain("NO_LEGAL_HERO_UNIVERSE");
     expect(reasons).not.toContain("COMPOUND_FALLBACK_SINGLE_STEP");
-    expect(output!.shortlist).toEqual([]);
+    expect(output).toBeNull(); // contrato de elegibilidad: sin ningún héroe elegible no hay acción principal ni shortlist
   });
 
   test("5b. universo legal realmente vacío (todo baneado o elegido) -> NO_LEGAL_HERO_UNIVERSE, sin fallback", async () => {
@@ -118,7 +118,7 @@ describe("compound fallback -- no feasible pair, legal single step exists", () =
     const { output, recommendationSet } = await h.compute();
     expect(recommendationSet.recommendations).toEqual([]);
     expect(recommendationSet.degradations.map((degradation) => degradation.reason)).toContain("NO_LEGAL_HERO_UNIVERSE");
-    expect(output!.shortlist).toEqual([]);
+    expect(output).toBeNull(); // contrato de elegibilidad: sin ningún héroe elegible no hay acción principal ni shortlist
   });
 
   test("6. el Player puede ignorar el fallback y elegir otro héroe legal: se acepta y el Coach recomputa normalmente", async () => {

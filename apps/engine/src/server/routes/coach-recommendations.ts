@@ -169,7 +169,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   function teamBoardInput(context: PerspectiveRecommendationContext, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null) {
     const buildTargetRanking = (boardContext: PerspectiveRecommendationContext, position: 1 | 2 | 3 | 4 | 5) =>
       buildTeamTargetRanking(boardContext, position, position === playerPersonalPosition ? accountId : null);
-    return { context, playerPersonalPosition, heroPositions, heroCounters, heroSynergies, buildTargetRanking };
+    return { context, playerPersonalPosition, heroPositions, heroCounters, heroSynergies, heroCapabilities, buildTargetRanking };
   }
   return {
     async recommendTeamBoard(sessionId, playerPersonalPosition, accountId = null) {

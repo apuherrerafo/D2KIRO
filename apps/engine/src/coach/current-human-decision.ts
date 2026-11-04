@@ -7,11 +7,12 @@ import type { RecommendationDegradation, RecommendationSetV2 } from "../recommen
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
-import { banOpeningOf, beatsRevealed, reorderByContext, stealsOf, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
+import { reorderByContext, type ContextReorderInput } from "./context-reorder";
 import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
-import { cardContextOf, hasCardContext } from "./card-context";
-import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, POSITION_ONLY_PREFIX, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
-import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import { buildHeroCard, candidateServesPosition, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
+import { eligibilityInputOf } from "./eligibility-input";
+import { badgesFromGrounds, describeGrounds, evaluateEligibility } from "./recommendation-eligibility";
+import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
 import { positionPhrase } from "./reveal-strategy";
 
@@ -20,7 +21,7 @@ import { positionPhrase } from "./reveal-strategy";
 //   HumanActionability -> (no action? NO_HUMAN_ACTION)
 //     -> target selection over ALL eligible positions, from the team-level evaluation
 //     -> exactly ONE target-specific ranking (supplied by the caller for the chosen target)
-//     -> exactly ONE candidate provenance: RANKED | UNRANKED_POSITIONAL | UNAVAILABLE
+//     -> exactly ONE candidate provenance: RANKED (possibly with zero cards: no eligible hero is shown, never filler)
 //
 // Nothing here SCORES: V6 stays the only scorer. Since 2026-10-29 (user's product decision) the candidate order is
 // V6's order adjusted by a capped bonus for what the Player can see (bans that open a hero, enemies it beats, allies it pairs
@@ -166,11 +167,6 @@ function membershipOf(candidate: HeroCandidate, input: DeriveCandidateResultInpu
   return isFromPersonalPool(candidate) ? "IN_POOL" : "OUTSIDE_POOL";
 }
 
-/** La razón de una tarjeta habilitada solo por el pool: de quién es el pool (el tuyo o el del compañero con esa posición). */
-function poolReasonOf(input: DeriveCandidateResultInput): string {
-  return input.activePool && input.activePool.length > 0 ? "Está en el pool de tu compañero para esta posición." : "Está en tu pool de héroes.";
-}
-
 function isFromPersonalPool(candidate: HeroCandidate): boolean {
   return candidate.signals.some((signal) => signal.signal === "hero_pool_fit" && signal.explanation.startsWith("En tu pool"));
 }
@@ -185,114 +181,63 @@ export function rankingAppliedPersonalPool(ranking: RecommendationSetV2): boolea
     Object.values(recommendation.signalsByHero).some((signals) => signals.some((signal) => signal.signal === "hero_pool_fit" && signal.applicable === true)));
 }
 
-/** Legal heroes curated as credible for the target, in id order (explicitly NOT a ranking). */
-function positionalAlternatives(target: Position, view: PerspectiveDraftView, heroPositions: HeroPositions, size: number): PositionalAlternative[] {
-  const unavailable = unavailableHeroesFrom(view);
-  return credibleHeroesForPosition(target, heroPositions)
-    .filter((heroId) => !unavailable.has(heroId))
-    .slice(0, size)
-    .map((heroId) => ({ heroId, position: target }));
-}
-
 /**
- * CONTRATO DE EVIDENCIA (regla del dueño del producto, 2026-11-03, endurece la del 2026-11-02): la posición es un FILTRO DE ELEGIBILIDAD,
- * nunca el único motivo para recomendar. Un héroe cuya ÚNICA razón es "juega ese rol" (o "se juega mucho en alto MMR") NO se recomienda --
- * tampoco en el primer pick (sigue eligible a mano). Tiene motivo cuando algo del draft lo respalda: los bans lo abren (se baneó lo que lo counterea), le gana
- * a un rival ya revelado, hace pareja con un aliado, le quita un counter a un pick tuyo (robo), pertenece a TU pool, o es la intención de draft que el jugador eligió
- * (`archetype_fit` votó con datos). `position_fit`, el parche (`patch_meta`) y FLEX NUNCA cuentan como motivo: votan en casi todos los
- * héroes (Dota-Judge RB-3) y el winrate de rangos bajos favorece a los héroes fáciles. Pura.
+ * CONTRATO DE ELEGIBILIDAD (dueño del producto, 2026-11-03): solo se muestran héroes con al menos un fundamento estratégico real, verificable
+ * y relevante para ESTE estado del draft (`recommendation-eligibility.ts`, el único lugar que lo decide y que comparten el tablero, la decisión
+ * V4 y el Coach v3). Posición, pool, flex y popularidad no son fundamento. Sin fundamento NO hay tarjeta: con menos de cinco válidos se muestran
+ * menos de cinco y con cero ninguno -- sin relleno, sin lista de "exploración" y sin mensaje de que falta información.
  */
-export function hasDraftMotive(candidate: HeroCandidate, input: DeriveCandidateResultInput, revealedEnemies: readonly HeroId[], context: ContextReorderInput): boolean {
-  if (membershipOf(candidate, input) === "IN_POOL") return true;
-  if (banOpeningOf(candidate.heroId, context).openedBy.length > 0) return true;
-  if (beatsRevealed(candidate.heroId, context).length > 0) return true;
-  if (synergiesWithOwn(candidate.heroId, context).length > 0) return true;
-  // Le quita un counter a un pick tuyo (el "robo"): es una razón real del draft, no solo el rol.
-  if (stealsOf(candidate.heroId, context).length > 0) return true;
-  const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
-  if (card.badges.some((badge) => badge === "COUNTER" || badge === "SYNERGY")) return true;
-  return candidate.signals.some((signal) => signal.signal === "archetype_fit" && signal.raw !== null && signal.applicable !== false && signal.weighted > 0);
-}
-
 export function deriveCandidateResult(input: DeriveCandidateResultInput): CandidateResult {
   const { targetPosition, targetRanking, view, heroPositions } = input;
   const size = input.shortlistSize ?? CURRENT_DECISION_SHORTLIST_SIZE;
   const degradations = [...targetRanking.degradations];
   const unavailable = unavailableHeroesFrom(view);
-  let droppedForNoMotive = false;
+  const nothing: CandidateResult = { state: "RANKED", targetPosition, cards: [], poolCards: [], degradations };
+  // Un ranking sin base confiable nunca se rescata con héroes sin fundamento.
+  if (invalidatesRanking(degradations)) return nothing;
 
-  if (!invalidatesRanking(degradations)) {
-    // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
-    // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si un aliado tuyo le gana a ese counter), sin
-    // mandarlo al fondo de oficio. La lista del pool usa ESTE mismo orden. Sin contexto que toque a nadie, es el de V6.
-    const contextInput: ContextReorderInput = {
-      banned: new Set(view.bannedHeroes),
-      ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
-      revealedEnemies: new Set(revealedEnemyHeroes(view)),
-      heroCounters: input.heroCounters,
-      heroSynergies: input.heroSynergies,
-      heroPositions,
-      targetPosition,
-    };
-    const candidates = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), contextInput)
-      // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
-      // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
-      .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
-    const revealedEnemies = revealedEnemyHeroes(view);
-    // Fuera los que solo tienen el rol como razón, en CUALQUIER momento del draft (siguen eligibles a mano, solo no se recomiendan). En el
-    // primer pick el fundamento posible son los bans (abren a quien lo counterea), el pool y la intención elegida: si ninguno aplica, la columna
-    // cae a exploración (UNRANKED_POSITIONAL) en vez de presentar "lo más jugado" como recomendación.
-    const reasoned = candidates.filter((candidate) => hasDraftMotive(candidate, input, revealedEnemies, contextInput));
-    droppedForNoMotive = candidates.length > 0 && reasoned.length === 0;
-    if (reasoned.length > 0) {
-      // Aviso informativo: se calcula DESPUÉS del orden, no lo cambia (ver card-critical-gap.ts).
-      const composition = deriveCompositionContext(view, input.heroCapabilities);
-      const ordered = reasoned;
-      const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
-        const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
-        const context = cardContextOf(candidate.heroId, contextInput);
-        const positionOnly = card.rationale.startsWith(POSITION_ONLY_PREFIX);
-        // Si el pool fue lo único que lo habilitó, la frase lo dice: "Por su posición" sería una razón que NO decidió esta tarjeta.
-        const poolOnly = positionOnly && membershipOf(candidate, input) === "IN_POOL" && !hasCardContext(context);
-        return {
-          heroId: card.heroId,
-          position: targetPosition,
-          rank: index + 1,
-          score: card.score,
-          confidence: card.confidence,
-          roleStatus: card.roleStatus,
-          badges: card.badges.filter((badge) => badge !== "YOUR_POOL" && badge !== "OUTSIDE_YOUR_POOL"),
-          rationale: poolOnly ? poolReasonOf(input) : card.rationale,
-          hideRationale: positionOnly && hasCardContext(context),
-          context,
-          // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
-          isFromPool: membershipOf(candidate, input) === "IN_POOL",
-          poolMembership: membershipOf(candidate, input),
-          // Sólo la primera tarjeta de cada lista lleva el aviso: es la decisión que el jugador está por tomar; en las demás sería ruido repetido.
-          risks: index === 0 ? deriveCardRisks(candidate, composition) : [],
-        };
-      };
-      const cards = ordered.slice(0, size).map(toCard);
-      const poolSize = input.poolShortlistSize ?? 0;
-      const poolCards = poolSize === 0 ? [] : ordered.filter((candidate) => membershipOf(candidate, input) === "IN_POOL").slice(0, poolSize).map(toCard);
-      return { state: "RANKED", targetPosition, cards, poolCards, degradations };
-    }
-  }
+  // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
+  // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si un aliado tuyo le gana a ese counter), sin
+  // mandarlo al fondo de oficio. La lista del pool usa ESTE mismo orden. Sin contexto que toque a nadie, es el de V6.
+  // El MISMO armado del contexto que usa el Coach v3 (eligibility-input.ts): una sola fuente para decidir elegibilidad en todos los caminos.
+  const eligibilityInput = eligibilityInputOf(view, { heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, heroPositions, heroCapabilities: input.heroCapabilities }, targetPosition);
+  const { context: contextInput, composition } = eligibilityInput;
+  const eligible = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), contextInput)
+    // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
+    // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
+    .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions))
+    .flatMap((candidate) => {
+      const eligibility = evaluateEligibility(candidate, eligibilityInput);
+      return eligibility.grounds.length > 0 ? [{ candidate, eligibility }] : [];
+    });
+  if (eligible.length === 0) return nothing;
 
-  const alternatives = positionalAlternatives(targetPosition, view, heroPositions, size);
-  if (alternatives.length > 0) {
+  const toCard = ({ candidate, eligibility }: (typeof eligible)[number], index: number): RankedCandidateCard => {
+    const card = buildHeroCard(candidate, []);
+    const { rationale, hide } = describeGrounds(eligibility.grounds);
     return {
-      state: "UNRANKED_POSITIONAL",
-      targetPosition,
-      alternatives,
-      reason: droppedForNoMotive
-        ? `Sin recomendación con motivo para ${positionPhrase(targetPosition)}: ningún héroe tiene en este draft un fundamento verificable (un ban que lo abra, un counter, una sinergia o la composición). Se listan héroes legales que se juegan en esa posición como exploración, sin orden de preferencia: no son una recomendación.`
-        : `No hay un ranking confiable para ${positionPhrase(targetPosition)}: se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`,
-      degradations,
+      heroId: card.heroId,
+      position: targetPosition,
+      rank: index + 1,
+      score: card.score,
+      confidence: card.confidence,
+      roleStatus: card.roleStatus,
+      // Una etiqueta es una explicación mostrada: solo las que corresponden a un fundamento que de verdad habilitó la tarjeta (+ FLEX, que informa).
+      badges: [...badgesFromGrounds(eligibility.grounds), ...card.badges.filter((badge) => badge === "FLEX")],
+      rationale,
+      hideRationale: hide,
+      context: eligibility.context,
+      // COHERENCE-007: a pool MARK (information, never a reason) exists only when a pool actually shaped this ranking.
+      isFromPool: membershipOf(candidate, input) === "IN_POOL",
+      poolMembership: membershipOf(candidate, input),
+      // Sólo la primera tarjeta de cada lista lleva el aviso: es la decisión que el jugador está por tomar; en las demás sería ruido repetido.
+      risks: index === 0 ? deriveCardRisks(candidate, composition) : [],
     };
-  }
-  const reason = `No hay héroes legales creíbles para ${positionPhrase(targetPosition)} en este momento.`;
-  return { state: "UNAVAILABLE", targetPosition, reason, degradations };
+  };
+  const cards = eligible.slice(0, size).map(toCard);
+  const poolSize = input.poolShortlistSize ?? 0;
+  const poolCards = poolSize === 0 ? [] : eligible.filter(({ candidate }) => membershipOf(candidate, input) === "IN_POOL").slice(0, poolSize).map(toCard);
+  return { state: "RANKED", targetPosition, cards, poolCards, degradations };
 }
 
 export interface BuildCurrentHumanDecisionInput {

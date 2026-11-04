@@ -39,7 +39,8 @@ export const RECOMMENDATION_OUTPUT_V4_SCHEMA = "recommendation-output/v4" as con
 
 export type TargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT";
 
-export type CandidateState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAILABLE";
+/** Un resultado de candidatos es siempre un ranking; "ningún héroe elegible" es un ranking con cero tarjetas (sin relleno ni mensaje). */
+export type CandidateState = "RANKED";
 
 /** A card of a ranking that survived validation for the target position. */
 export interface RankedCandidateCard {
@@ -66,9 +67,8 @@ export interface RankedCandidateCard {
    */
   context: CardContext;
   /**
-   * True cuando `rationale` es la frase de "Por su posición: …" (la única razón era el rol) Y la tarjeta ya trae una razón real del
-   * draft (`context`): la pantalla la calla y deja el motivo real, igual que el tablero. Lo decide el motor, una sola vez
-   * (`hasCardContext`), para que ninguna pantalla repita el criterio.
+   * True cuando los chips de `context` (bans que abren al héroe, a quién le gana, con quién combina) ya dicen el fundamento de la tarjeta: la
+   * pantalla calla `rationale` para no repetirlo. Lo decide el motor, una sola vez (`describeGrounds`), para que ninguna pantalla repita el criterio.
    */
   hideRationale: boolean;
   /**
@@ -94,16 +94,9 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 /** Whose pool it is: the Player's own, or a teammate's saved pool for the position. */
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
-/** A legal hero curated as credible for the target position -- no rank, score or confidence exists. */
-export interface PositionalAlternative {
-  heroId: HeroId;
-  position: Position;
-}
-
 export type CandidateResult =
-  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] }
-  | { state: "UNRANKED_POSITIONAL"; targetPosition: Position; alternatives: PositionalAlternative[]; reason: string; degradations: RecommendationDegradation[] }
-  | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: RecommendationDegradation[] };
+  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };
+  ;
 
 export type CurrentHumanDecision =
   | {

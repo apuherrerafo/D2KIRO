@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildHeroCard, candidateServesPosition, curatedFlexPositions, demoteRevealedHardCountered, deriveHeroBadges, extractHeroCandidates, POSITION_ONLY_PREFIX } from "./hero-card";
+import { buildHeroCard, candidateServesPosition, curatedFlexPositions, demoteRevealedHardCountered, deriveHeroBadges, extractHeroCandidates } from "./hero-card";
+import { evaluateEligibility, type EligibilityInput } from "./recommendation-eligibility";
+import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
-import type { DraftState } from "../draft/reducer";
-import { createPositionFitScorer } from "../signals/position-fit";
 import { neutralImpact, recSet, resolvedImpact, roleOnlyHero, signal, singleRec, type HeroFixture } from "./test.fixtures";
 
 // AP Ranked Roles V1 / Wave 2 (task 17) -- badges come from real evidence only.
@@ -256,18 +256,26 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     expect(card.isFromPool).toBe(false);
   });
 
-  test("el rationale sale de la señal real más fuerte; sin señal con dato no se inventa una razón", () => {
-    const [strong] = extractHeroCandidates(recSet([withCounter]));
-    expect(buildHeroCard(strong!, []).rationale).toBe("counter fixture");
-    const bare: HeroFixture = { heroId: 1, signals: [signal("counter", null, 3)], impact: resolvedImpact(1) };
-    const [none] = extractHeroCandidates(recSet([bare]));
-    expect(buildHeroCard(none!, []).rationale).toBe("Sin señal con datos propios suficientes.");
+  // Contrato de elegibilidad (2026-11-03): la frase y las etiquetas de razón de una tarjeta salen SOLO de los fundamentos que la habilitaron
+  // (`evaluateEligibility` -> `buildHeroCard(..., grounds)`); nunca de "la señal más fuerte" ni de una señal que no decidió nada.
+  const eligibilityOf = (revealed: number[] = [], overrides: Partial<EligibilityInput["context"]> = {}): EligibilityInput => ({
+    context: { banned: new Set<number>(), ownPicks: new Set<number>(), revealedEnemies: new Set(revealed), ...overrides },
+  });
+  const cardOf = (hero: HeroFixture, input: EligibilityInput) => {
+    const [cand] = extractHeroCandidates(recSet([hero]));
+    return { card: buildHeroCard(cand!, [], evaluateEligibility(cand!, input).grounds), grounds: evaluateEligibility(cand!, input).grounds };
+  };
+
+  test("sin fundamentos no hay frase ni etiqueta de razón: la posición sola jamás se escribe como motivo", () => {
+    const [cand] = extractHeroCandidates(recSet([roleOnlyHero(1, 1, 30)]));
+    const card = buildHeroCard(cand!, []);
+    expect(card.rationale).toBe("");
+    expect(card.badges).toEqual([]);
+    expect(evaluateEligibility(cand!, eligibilityOf()).grounds).toEqual([]);
   });
 
-  test("cuando la tarjeta tiene insignia COUNTER, el rationale prioriza la razón de counter sobre la de posición", () => {
-    // position_fit has higher weighted score (30) than counter (5), but because COUNTER badge is present,
-    // the card must explain WHO is being countered rather than just saying 'Cubre la posición que falta'
-    const heroWithCounterAndPos: HeroFixture = {
+  test("counter estadístico contra un rival ya revelado: la frase es la del counter (no la de posición, aunque pese más) y gana la etiqueta COUNTER", () => {
+    const hero: HeroFixture = {
       heroId: 7,
       signals: [
         signal("position_fit", 0.9, 30, { explanation: "Cubre la posición carry que a tu equipo le falta" }),
@@ -275,211 +283,73 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       ],
       impact: resolvedImpact(1),
     };
-    const [cand] = extractHeroCandidates(recSet([heroWithCounterAndPos]));
-    const card = buildHeroCard(cand!, [], { revealedEnemies: [94] });
+    const { card, grounds } = cardOf(hero, eligibilityOf([94]));
+    expect(grounds.map((ground) => ground.kind)).toEqual(["COUNTER_STATS"]);
     expect(card.badges).toContain("COUNTER");
     expect(card.rationale).toBe("Fuerte contra Medusa");
   });
 
-  describe("pareja de sinergia en la frase de la tarjeta", () => {
-    const POSITION = "Evidencia sólida de que funciona como hard support";
-    const PAIR = "Sinergia con Anti-Mage: Shallow Grave le da tiempo para usar Blink";
-    const build = (raw: number, explanation: string) => {
+  test("una señal de counter sin evidencia contra un rival visible (flag ausente, raw bajo o negativo) NO es fundamento ni da etiqueta COUNTER", () => {
+    for (const raw of [0.06, -0.05]) {
       const hero: HeroFixture = {
-        heroId: 7,
-        signals: [signal("position_fit", 0.9, 30, { explanation: POSITION }), signal("team_synergy", raw, 5, { explanation })],
-        impact: resolvedImpact(5),
+        heroId: 15,
+        signals: [signal("position_fit", 0.8, 20), signal("counter", raw, raw > 0 ? 10 : 0, { hasRevealedEnemyCounterEvidence: false, explanation: "Sin ventaja de contrapick conocida en este draft" })],
+        impact: resolvedImpact(3),
       };
-      const [cand] = extractHeroCandidates(recSet([hero]));
-      return buildHeroCard(cand!, []);
-    };
-
-    test("con pareja, la tarjeta dice con quién combina y por qué (gana sobre la señal de posición, que pesa más)", () => {
-      expect(build(0.3, `Aporta waveclear que a tu equipo le falta. ${PAIR}`).rationale).toBe(PAIR);
-    });
-
-    test("sin pareja, lo que le falta al equipo (razón DEL DRAFT) gana sobre la señal de posición, que no dice nada de este draft", () => {
-      expect(build(0.3, "Aporta waveclear que a tu equipo le falta").rationale).toBe("Aporta waveclear que a tu equipo le falta");
-    });
-
-    test("una pareja que no aportó (raw <= 0) no se cuela en la tarjeta", () => {
-      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(`${POSITION_ONLY_PREFIX}muy jugado como hard support en alto MMR`); // solo la posición: y lo dice
-    });
-
-    test("la intención de draft que el jugador eligió gana sobre la posición", () => {
-      const hero: HeroFixture = {
-        heroId: 7,
-        signals: [signal("position_fit", 0.9, 30, { explanation: POSITION }), signal("archetype_fit", 0.7, 5, { explanation: "Encaja con tu draft de Push" })],
-        impact: resolvedImpact(5),
-      };
-      const [cand] = extractHeroCandidates(recSet([hero]));
-      expect(buildHeroCard(cand!, []).rationale).toBe("Encaja con tu draft de Push");
-    });
-
-    test("con solo la señal de posición con datos, la frase empieza con 'Por su posición:' (no pasa por evidencia del draft)", () => {
-      const hero: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation: POSITION })], impact: resolvedImpact(5) };
-      const [cand] = extractHeroCandidates(recSet([hero]));
-      expect(buildHeroCard(cand!, []).rationale).toBe(`${POSITION_ONLY_PREFIX}muy jugado como hard support en alto MMR`);
-    });
-
-    const onlyPosition = (explanation: string): string => {
-      const hero: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation })], impact: resolvedImpact(5) };
-      const [cand] = extractHeroCandidates(recSet([hero]));
-      return buildHeroCard(cand!, []).rationale;
-    };
-
-    test("la frase de apertura NO trae la cifra de partidas y distingue sólida / moderada / limitada", () => {
-      const sample = " (2.340 partidas de alto MMR)";
-      expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).toBe(`${POSITION_ONLY_PREFIX}muy jugado como carry en alto MMR`);
-      expect(onlyPosition(`Evidencia moderada de que funciona como midlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}jugado a menudo como midlane en alto MMR`);
-      expect(onlyPosition(`Evidencia limitada de que funciona como offlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}poco jugado como offlane en alto MMR`);
-      expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).not.toContain("partidas");
-    });
-
-    test("candado contra el scorer real de position_fit (fixture inline): su frase sigue siendo reconocida y sin cifras", () => {
-      const scorer = createPositionFitScorer({ 7: [{ position: 1, matches: 2340 }] }, 1);
-      const state: DraftState = {
-        sessionId: "s1", schema: "draft-state/v1", format: "all_pick", patch: "7.41e", localSide: "radiant", phase: "active", banned: [],
-        picks: { radiant: [], dire: [] }, lastSeq: 0, appliedEventIds: [], quality: { unconfirmed: [], captureStatus: "ok" },
-        updatedAt: "2026-08-21T00:00:00Z", firstPickSide: null, turnStartedAt: null, reserveRemainingMs: null,
-      };
-      const contribution = scorer.score(state, 7, { heroes: {}, matchups: {} });
-      expect(contribution.explanation).toContain("2.340 partidas"); // el scorer sigue diciendo la cifra: el recorte es de la tarjeta
-      expect(onlyPosition(contribution.explanation)).toBe(`${POSITION_ONLY_PREFIX}muy jugado como carry en alto MMR`);
-    });
+      const { card, grounds } = cardOf(hero, eligibilityOf([99]));
+      expect(grounds.map((ground) => ground.kind)).not.toContain("COUNTER_STATS");
+      expect(card.badges).not.toContain("COUNTER");
+      expect(card.rationale).toBe("");
+    }
   });
 
-  describe("provenance-aligned counter rationale on hero cards (Wave 5 follow-up)", () => {
-    test("1. S05-style case: badge earned vs Crystal Maiden, medium Bristleback relation exists -> rationale names Crystal Maiden, not Bristleback", () => {
-      const razorCandidate: HeroFixture = {
-        heroId: 15,
-        signals: [
-          signal("position_fit", 0.8, 20, { explanation: "Cubre la posición offlane que a tu equipo le falta" }),
-          signal("counter", 0.15, 15, {
-            hasRevealedEnemyCounterEvidence: true,
-            explanation: "Fuerte contra Crystal Maiden",
-          }),
-        ],
-        impact: resolvedImpact(3),
-      };
-      const [cand] = extractHeroCandidates(recSet([razorCandidate]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [5, 99] });
-      expect(card.badges).toContain("COUNTER");
-      expect(card.rationale).toBe("Fuerte contra Crystal Maiden");
-      expect(card.rationale).not.toContain("Bristleback");
+  test("el texto de ban-relief que acompaña al counter se conserva, y nombra al rival que ganó la etiqueta", () => {
+    const hero: HeroFixture = {
+      heroId: 15,
+      signals: [signal("counter", 0.19, 22, { hasRevealedEnemyCounterEvidence: true, explanation: "Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling" })],
+      impact: resolvedImpact(3),
+    };
+    const { card } = cardOf(hero, eligibilityOf([5]));
+    expect(card.badges).toContain("COUNTER");
+    expect(card.rationale).toBe("Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling");
+  });
+
+  describe("pareja curada, composición e intención como fundamento", () => {
+    const POSITION = "Evidencia sólida de que funciona como hard support";
+    const hero = (extra: HeroFixture["signals"] = []): HeroFixture => ({ heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation: POSITION }), ...extra], impact: resolvedImpact(5) });
+    const pairs = (why: string): ReadonlyMap<number, readonly CuratedSynergy[]> => new Map([[7, [{ with: 3, why }]]]);
+
+    test("una pareja curada con porqué con un aliado YA elegido es fundamento: etiqueta SYNERGY y frase de pareja", () => {
+      const { card, grounds } = cardOf(hero(), eligibilityOf([], { ownPicks: new Set([3]), heroSynergies: pairs("Shallow Grave le da tiempo para usar Blink") }));
+      expect(grounds.map((ground) => ground.kind)).toEqual(["SYNERGY_PAIR"]);
+      expect(card.badges).toContain("SYNERGY");
+      expect(card.rationale).toBe("Hace pareja con un aliado ya elegido");
     });
 
-    test("2. hard curated badge: rationale names the hard curated target", () => {
-      const aaCandidate: HeroFixture = {
-        heroId: 68,
-        signals: [
-          signal("counter", 0.12, 25, {
-            hasRevealedEnemyCounterEvidence: true,
-            explanation: "Le ganas a Huskar",
-          }),
-        ],
-        impact: resolvedImpact(5),
-      };
-      const curated = new Map<number, CuratedCounter[]>([[59, [{ vs: 68, level: "hard", why: "fixture" }]]]);
-      const [cand] = extractHeroCandidates(recSet([aaCandidate]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [59], heroCounters: curated });
-      expect(card.badges).toContain("COUNTER");
-      expect(card.rationale).toBe("Le ganas a Huskar");
+    test("una pareja cuyo único contenido es una atribución ('Lo dicen: …') NO cuenta; tampoco si el aliado no está elegido", () => {
+      expect(cardOf(hero(), eligibilityOf([], { ownPicks: new Set([3]), heroSynergies: pairs("Lo dicen: DotaCoach (7.41f)") })).grounds).toEqual([]);
+      expect(cardOf(hero(), eligibilityOf([], { ownPicks: new Set(), heroSynergies: pairs("Shallow Grave le da tiempo") })).grounds).toEqual([]);
     });
 
-    test("3. statistical-only badge: rationale names the qualifying statistical target", () => {
-      const candFixture: HeroFixture = {
-        heroId: 1,
-        signals: [
-          signal("counter", 0.08, 18, {
-            hasRevealedEnemyCounterEvidence: true,
-            explanation: "Fuerte contra Medusa",
-          }),
-        ],
-        impact: resolvedImpact(1),
-      };
-      const [cand] = extractHeroCandidates(recSet([candFixture]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [94] });
-      expect(card.badges).toContain("COUNTER");
-      expect(card.rationale).toBe("Fuerte contra Medusa");
+    test("team_synergy con raw > 0 por cubrir 'algún hueco' no es fundamento (sin composición crítica demostrable): ni etiqueta SYNERGY ni frase", () => {
+      const { card, grounds } = cardOf(hero([signal("team_synergy", 0.3, 5, { explanation: "Aporta waveclear que a tu equipo le falta" })]), eligibilityOf());
+      expect(grounds).toEqual([]);
+      expect(card.badges).not.toContain("SYNERGY");
+      expect(card.rationale).toBe("");
     });
 
-    test("4. medium-only curated: no badge", () => {
-      const mediumCandidate: HeroFixture = {
-        heroId: 15,
-        signals: [
-          signal("position_fit", 0.8, 20, { explanation: "Cubre la posición offlane que a tu equipo le falta" }),
-          signal("counter", 0.06, 10, {
-            hasRevealedEnemyCounterEvidence: false,
-            explanation: "Sin ventaja de contrapick conocida en este draft",
-          }),
-        ],
-        impact: resolvedImpact(3),
-      };
-      const curated = new Map<number, CuratedCounter[]>([[99, [{ vs: 15, level: "medium", why: "fixture" }]]]);
-      const [cand] = extractHeroCandidates(recSet([mediumCandidate]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [99], heroCounters: curated });
-      expect(card.badges).not.toContain("COUNTER");
-      // Rationale does not make false counter claim, uses position fit
-      expect(card.rationale).toBe(`${POSITION_ONLY_PREFIX}Cubre la posición offlane que a tu equipo le falta`);
-      expect(card.rationale).not.toContain("Bristleback");
+    test("la intención de draft que el jugador eligió (archetype_fit con datos) es fundamento y su frase es la propia", () => {
+      const { card, grounds } = cardOf(hero([signal("archetype_fit", 0.7, 5, { explanation: "Encaja con tu draft de Push" })]), eligibilityOf());
+      expect(grounds.map((ground) => ground.kind)).toEqual(["ARCHETYPE_INTENT"]);
+      expect(card.rationale).toBe("Encaja con tu draft de Push");
     });
 
-    test("5. negative statistical relation: never used as positive COUNTER rationale", () => {
-      const negativeCandidate: HeroFixture = {
-        heroId: 1,
-        signals: [
-          signal("position_fit", 0.5, 10, { explanation: "Cubre la posición carry que a tu equipo le falta" }),
-          signal("counter", -0.05, 0, {
-            hasRevealedEnemyCounterEvidence: false,
-            explanation: "Sin ventaja de contrapick conocida en este draft",
-          }),
-        ],
-        impact: resolvedImpact(1),
-      };
-      const [cand] = extractHeroCandidates(recSet([negativeCandidate]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [10] });
-      expect(card.badges).not.toContain("COUNTER");
-      expect(card.rationale).toBe(`${POSITION_ONLY_PREFIX}Cubre la posición carry que a tu equipo le falta`);
-    });
-
-    test("6. if multiple enemies exist: every enemy named in COUNTER rationale independently qualifies under visible badge semantics", () => {
-      const multiCandidate: HeroFixture = {
-        heroId: 15,
-        signals: [
-          signal("counter", 0.15, 20, {
-            hasRevealedEnemyCounterEvidence: true,
-            explanation: "Fuerte contra Crystal Maiden",
-          }),
-        ],
-        impact: resolvedImpact(3),
-      };
-      const [cand] = extractHeroCandidates(recSet([multiCandidate]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [5, 99, 81, 10] });
-      expect(card.badges).toContain("COUNTER");
-      expect(card.rationale).toBe("Fuerte contra Crystal Maiden");
-      expect(card.rationale).not.toContain("Bristleback");
-      expect(card.rationale).not.toContain("Chaos Knight");
-      expect(card.rationale).not.toContain("Morphling");
-    });
-
-    test("7. ban relief text may be appended, but it must never replace the actual counter target that earned the badge", () => {
-      const banReliefCandidate: HeroFixture = {
-        heroId: 15,
-        signals: [
-          signal("counter", 0.19, 22, {
-            hasRevealedEnemyCounterEvidence: true,
-            explanation: "Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling",
-          }),
-        ],
-        impact: resolvedImpact(3),
-      };
-      const [cand] = extractHeroCandidates(recSet([banReliefCandidate]));
-      const card = buildHeroCard(cand!, [], { revealedEnemies: [5] });
-      expect(card.badges).toContain("COUNTER");
-      expect(card.rationale).toBe("Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling");
-      expect(card.rationale).toContain("Crystal Maiden");
-      expect(card.rationale).toContain("Morphling");
+    test("pool y FLEX informan pero no habilitan: pertenecer al pool no crea fundamento", () => {
+      const [cand] = extractHeroCandidates(recSet([hero()]));
+      const card = buildHeroCard(cand!, [7]);
+      expect(card.badges).toEqual(["YOUR_POOL"]);
+      expect(card.rationale).toBe("");
+      expect(evaluateEligibility(cand!, eligibilityOf()).grounds).toEqual([]);
     });
   });
 });

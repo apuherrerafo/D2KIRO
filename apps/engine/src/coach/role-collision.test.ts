@@ -4,7 +4,15 @@ import { buildCoachObservableState } from "./observable-state";
 import { deriveRevealStrategy } from "./reveal-strategy";
 import { translateToRecommendationOutputV3 } from "./recommendation-output-v3";
 import { computeRoleImpact } from "../recommendation/role-impact";
-import { hidden, known, recSet, revealed, roleOnlyHero, view } from "./test.fixtures";
+import { hidden, known, recSet, revealed, roleOnlyHero as positionOnlyHero, signal, view, type HeroFixture } from "./test.fixtures";
+
+// Contrato de elegibilidad (2026-11-03): el Coach v3 solo lista héroes con fundamento. Estas pruebas miden la colisión de roles, no el contrato, así
+// que cada héroe de sus fixtures trae el mismo fundamento mínimo (la intención de draft elegida). El contrato se prueba en live-contract.coach.test.ts.
+const roleOnlyHero = (heroId: number, position: 1 | 2 | 3 | 4 | 5, weighted?: number): HeroFixture => {
+  const hero = positionOnlyHero(heroId, position, weighted);
+  return { ...hero, signals: [...hero.signals, signal("archetype_fit", 0.7, 1, { explanation: "Encaja con tu draft de Push" })] };
+};
+const translate = (...args: Parameters<typeof translateToRecommendationOutputV3>) => translateToRecommendationOutputV3(...args)!;
 
 const POSITIONS_DATASET: HeroPositions = {
   // Hero 101 and 102 are Pos2-only
@@ -61,7 +69,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
     expect(strategy.rationale).not.toContain("es la posición que tu equipo aún no cubre");
 
     // 4. RecommendationOutputV3 surfaces collision and labels primary action as recovery
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
@@ -100,7 +108,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
 
     expect(strategy.rationale).not.toContain("Colisión de roles");
 
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
@@ -137,7 +145,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
       },
     )!;
 
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
@@ -240,7 +248,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
     expect(strategy.rationale).toContain("Colisión de roles en tu equipo");
     expect(strategy.rationale).toContain("Como recuperación");
 
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
