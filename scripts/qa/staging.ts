@@ -2,10 +2,28 @@ import { chmodSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } fro
 import { resolve } from "node:path";
 import { chromium, type BrowserContext, type Page } from "@playwright/test";
 
-const STAGING_URL = "https://d2kiro-5r4j-staging.up.railway.app";
+const DEFAULT_STAGING_URL = "https://d2kiro-5r4j-staging.up.railway.app";
+
+/**
+ * Destino del smoke. Por defecto el staging histórico; `STAGING_URL` permite apuntar a OTRO entorno (p. ej. el preview), pero solo
+ * a un origen https de Railway: el estado de sesión (cookies de Steam) guardado en disco nunca debe enviarse a un host arbitrario.
+ */
+export function resolveTargetUrl(value: string | undefined): string {
+  if (value === undefined || value.trim() === "") return DEFAULT_STAGING_URL;
+  let parsed: URL;
+  try { parsed = new URL(value.trim()); } catch { throw new Error("STAGING_URL_INVALID"); }
+  if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".up.railway.app") || parsed.username !== "" || parsed.password !== "") throw new Error("STAGING_URL_NOT_ALLOWED");
+  return parsed.origin;
+}
+
+const STAGING_URL = resolveTargetUrl(process.env.STAGING_URL);
 const STAGING_SHA = process.env.STAGING_SHA ?? "9475cbd9c210ebcaf01e639e44bb03918cb11bc7";
 const STAGING_DEPLOYMENT = process.env.STAGING_DEPLOYMENT ?? "fdfac57d-1de4-4502-a1cf-9ee3dbf90146";
-const AUTH_STATE_PATH = resolve(".qa-auth/staging-storage-state.json");
+/** Un estado de sesión por destino: las cookies de un entorno no se reutilizan en otro. */
+export function authStateFileName(url: string): string {
+  return url === DEFAULT_STAGING_URL ? "staging-storage-state.json" : `${new URL(url).hostname}-storage-state.json`;
+}
+const AUTH_STATE_PATH = resolve(".qa-auth", authStateFileName(STAGING_URL));
 const ARTIFACT_ROOT = resolve("artifacts/qa/staging");
 
 type Result = "STAGING_SMOKE_PASS" | "STAGING_SMOKE_FAIL" | "AUTH_STATE_REQUIRED";
@@ -227,6 +245,38 @@ async function party2(page: Page): Promise<void> {
   required(assignedPositions(second).includes(2) && assignedPositions(second).includes(5), "party2_controlled_positions_not_bound");
   const progressed = await autoDrive(page, id);
   required(isRecord(progressed.view) && typeof progressed.view.status === "string", "party2_progression_stalled");
+}
+
+/**
+ * SMOKE-08: el Coach REAL (`?format=v3`, lo que pinta el panel) en el primer punto de decisión del jugador, autenticado.
+ * Exige una acción principal, un top <= 5 sin repetidos y LEGAL (ningún héroe baneado, ya elegido ni revelado del rival).
+ */
+async function coachV3(page: Page): Promise<void> {
+  const id = await createSession(page, [2], "STAGINGSMOKECOACH");
+  await resolveBans(page, id);
+  const driven = await autoDrive(page, id);
+  const snapshot = isRecord(driven.view) ? driven : responseSnapshot(await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(id)}`));
+  const route = `/engine/api/session/protocol/${encodeURIComponent(id)}/recommendations?format=v3`;
+  const result = await browserRequest(page, route);
+  if (result.status !== 200 || !isRecord(result.body)) {
+    throw new SmokeFailure({ route: redactRoute(route), method: "GET", status: result.status, expectedStatus: 200, errorClass: result.errorClass }, `coach_v3_${result.status}`);
+  }
+  const output = result.body.output;
+  required(isRecord(output), "coach_v3_missing_output");
+  required(isRecord(output.primaryAction) && typeof output.primaryAction.label === "string" && output.primaryAction.label.trim().length > 0, "coach_v3_empty_primary_action");
+  const shortlist = Array.isArray(output.shortlist) ? output.shortlist : [];
+  required(shortlist.length >= 1 && shortlist.length <= 5, `coach_v3_shortlist_size_${shortlist.length}`);
+  const ids = shortlist.map((card) => (isRecord(card) ? card.heroId : null));
+  required(ids.every((hero) => Number.isInteger(hero)), "coach_v3_malformed_card");
+  required(new Set(ids).size === ids.length, "coach_v3_duplicate_hero");
+  const view = isRecord(snapshot.view) ? snapshot.view : {};
+  const banned = Array.isArray(view.bannedHeroes) ? view.bannedHeroes : null;
+  required(banned !== null, "coach_v3_cannot_verify_legality_no_bans_in_view");
+  required(ids.every((hero) => !banned.includes(hero)), "coach_v3_ILLEGAL_banned_hero_recommended");
+}
+
+function redactRoute(route: string): string {
+  return route.replace(/\/protocol\/[^/?]+/, "/protocol/:id");
 }
 
 export type ProgressionAction =
@@ -455,6 +505,10 @@ async function stagingSmoke(): Promise<Result> {
     lastGoodState = failure.scenario;
     failure = { scenario: "SMOKE-06 PARTY2", route: "/engine/api/session/protocol", method: "POST", status: null, expectedStatus: 201, errorClass: null };
     await party2(page);
+    console.log(formatScenarioProgress(failure.scenario, true));
+    lastGoodState = failure.scenario;
+    failure = { scenario: "SMOKE-08 COACH V3 (legal, <=5, primary action)", route: "/engine/api/session/protocol/:id/recommendations?format=v3", method: "GET", status: null, expectedStatus: 200, errorClass: null };
+    await coachV3(page);
     console.log(formatScenarioProgress(failure.scenario, true));
     await context.tracing.stop();
     return "STAGING_SMOKE_PASS";
