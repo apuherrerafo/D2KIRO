@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluación de situaciones de draft</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d8dde3; --accent:#1f5fbf; --bad:#b3261e; --ok:#1e7a3c; --warn:#a15c00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171b; --card:#1d2227; --ink:#e8ebef; --muted:#9aa5b1; --line:#323a43; --accent:#6aa3ff; --bad:#ff8a80; --ok:#6fd08c; --warn:#ffb74d; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 8px 0; } h2 { font-size: 1.15rem; margin: 0 0 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:16px 0; }
+  .muted { color:var(--muted); font-size:.92rem; }
+  .row { display:grid; grid-template-columns: 1fr; gap:8px; border-top:1px solid var(--line); padding:12px 0; }
+  .hero { font-weight:600; }
+  .badges span { display:inline-block; font-size:.78rem; border:1px solid var(--line); border-radius:999px; padding:0 8px; margin-right:4px; }
+  .selects { display:flex; flex-wrap:wrap; gap:8px; }
+  label { font-size:.85rem; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
+  select, input, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); }
+  textarea { width:100%; min-height:48px; }
+  .need { border-color: var(--bad); }
+  button { font:inherit; padding:10px 16px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  #bar { position:sticky; top:0; background:var(--bg); padding:8px 0; border-bottom:1px solid var(--line); z-index:2; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #msg { color:var(--bad); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Evaluación de situaciones de draft</h1>
+  <p class="muted">Juzga cada recomendación con tu criterio de Dota (mecánicas, líneas, roles, counters, composición), no por popularidad ni winrate. Hazlo solo, sin consultar a otros evaluadores. Si no estás seguro, dilo en la razón: no inventes certeza. Se guarda automáticamente en este navegador; al final descarga tu archivo.</p>
+  <div id="bar">
+    <label>Tu nombre o iniciales <input id="who" maxlength="40" autocomplete="off"></label>
+    <span id="progress" class="muted"></span>
+    <button id="export" type="button">Descargar mis resultados</button>
+    <span id="msg" role="alert"></span>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+"use strict";
+const DATA = /*__DATA__*/null;
+const SHA = "__SCENARIOS_SHA__";
+const KEY = "ff-eval:" + SHA;
+const PICK = [["", "—"], ["bueno", "Bueno"], ["aceptable", "Aceptable"], ["malo", "Malo"], ["error_grave", "Error grave"]];
+const EXPL = [["", "—"], ["correcta", "Correcta"], ["dudosa", "Dudosa"], ["incorrecta", "Incorrecta"]];
+const POS = [["", "—"], ["ok", "Bien"], ["dudosa", "Dudosa"], ["mala", "Mala"]];
+const ADV = [["", "—"], ["razonable", "Razonable"], ["dudoso", "Dudoso"], ["malo", "Malo"]];
+
+let state = load();
+
+function load() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) { /* sin almacenamiento: sigue en memoria */ }
+  return { who: "", startedAt: new Date().toISOString(), items: {}, scenarios: {} };
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* idem */ } }
+
+function el(tag, props, children) {
+  const node = document.createElement(tag);
+  if (props) for (const k of Object.keys(props)) { if (k === "class") node.className = props[k]; else node[k] = props[k]; }
+  for (const c of children || []) node.append(c);
+  return node;
+}
+function text(tag, value, cls) { return el(tag, { textContent: value, class: cls || "" }); }
+function listLine(label, values) { return text("div", label + ": " + (values.length ? values.join(", ") : "ninguno"), "muted"); }
+
+function select(options, value, onChange) {
+  const s = el("select", {}, options.map((o) => el("option", { value: o[0], textContent: o[1] })));
+  s.value = value || "";
+  s.addEventListener("change", onChange);
+  return s;
+}
+function field(label, control) { return el("label", {}, [label, control]); }
+
+function itemKey(sid, rank) { return sid + "#" + rank; }
+function getItem(sid, rank) { return state.items[itemKey(sid, rank)] || (state.items[itemKey(sid, rank)] = { pick: "", explanation: "", position: "", reason: "" }); }
+function getScn(sid) { return state.scenarios[sid] || (state.scenarios[sid] = { advice: "", adviceReason: "", missingHero: "", note: "" }); }
+
+function itemNeedsReason(it) { return it.pick === "malo" || it.pick === "error_grave" || it.explanation === "dudosa" || it.explanation === "incorrecta" || it.position === "dudosa" || it.position === "mala"; }
+function itemComplete(it) { return it.pick && it.explanation && it.position && (!itemNeedsReason(it) || it.reason.trim().length >= 5); }
+function scnComplete(sc) { return sc.advice && (sc.advice === "razonable" || sc.adviceReason.trim().length >= 5); }
+
+function reasonBox(value, needed, onInput) {
+  const t = el("textarea", { value: value, placeholder: needed ? "Obligatoria: ¿por qué? (mecánica concreta)" : "Razón (opcional si todo está bien)" });
+  if (needed && value.trim().length < 5) t.classList.add("need");
+  t.addEventListener("input", onInput);
+  return t;
+}
+
+function heroRow(sc, h) {
+  const it = getItem(sc.id, h.rank);
+  const reasonHolder = el("div", {}, []);
+  function drawReason() {
+    reasonHolder.replaceChildren(reasonBox(it.reason, itemNeedsReason(it), function onReason(ev) { it.reason = ev.target.value; save(); refresh(); }));
+  }
+  function onChange(field) { return function handle(ev) { it[field] = ev.target.value; save(); drawReason(); refresh(); }; }
+  drawReason();
+  return el("div", { class: "row" }, [
+    text("div", h.rank + ". " + h.name, "hero"),
+    text("div", "Posición que muestra el coach: " + h.positionShown + " · confianza: " + h.confidence, "muted"),
+    el("div", { class: "badges" }, h.badges.map((b) => text("span", b))),
+    text("div", "Explicación del coach: " + h.explanation),
+    el("div", { class: "selects" }, [
+      field("Calidad del pick", select(PICK, it.pick, onChange("pick"))),
+      field("Explicación", select(EXPL, it.explanation, onChange("explanation"))),
+      field("Posición sugerida", select(POS, it.position, onChange("position"))),
+    ]),
+    reasonHolder,
+  ]);
+}
+
+function scenarioCard(sc, index) {
+  const s = getScn(sc.id);
+  const adviceReason = el("div", {}, []);
+  function drawAdvice() {
+    adviceReason.replaceChildren(reasonBox(s.adviceReason, s.advice === "dudoso" || s.advice === "malo", function onAdv(ev) { s.adviceReason = ev.target.value; save(); refresh(); }));
+  }
+  function onAdvice(ev) { s.advice = ev.target.value; save(); drawAdvice(); refresh(); }
+  function onMissing(ev) { s.missingHero = ev.target.value; save(); }
+  function onNote(ev) { s.note = ev.target.value; save(); }
+  drawAdvice();
+  const rows = sc.top5.map((h) => heroRow(sc, h));
+  return el("section", { class: "card", id: "card-" + sc.id }, [
+    text("h2", "Situación " + (index + 1) + " de " + DATA.count),
+    text("div", "Eliges como: " + sc.side + " · " + sc.momento),
+    listLine("Baneados", sc.bans),
+    listLine("Tu equipo ya tiene", sc.ownPicks),
+    listLine("Rivales ya revelados", sc.revealedEnemy),
+    text("div", "Picks rivales sellados que aún no ves: " + sc.sealedEnemySeats, "muted"),
+    el("div", { class: "row" }, [
+      text("div", "Consejo principal del coach: " + sc.coachAdvice.label, "hero"),
+      text("div", sc.coachAdvice.rationale),
+      el("div", { class: "selects" }, [field("¿Es razonable este consejo?", select(ADV, s.advice, onAdvice))]),
+      adviceReason,
+    ]),
+    text("div", "Top 5 que propone el coach (en este orden):", "muted"),
+    ...rows,
+    el("div", { class: "row" }, [
+      field("¿Falta un héroe claramente bueno aquí? (opcional)", el("input", { value: s.missingHero, oninput: onMissing })),
+      field("Comentario libre (opcional)", el("textarea", { value: s.note, oninput: onNote })),
+    ]),
+  ]);
+}
+
+function stats() {
+  let done = 0, total = 0;
+  for (const sc of DATA.scenarios) {
+    total += 1 + sc.top5.length;
+    if (scnComplete(getScn(sc.id))) done += 1;
+    for (const h of sc.top5) if (itemComplete(getItem(sc.id, h.rank))) done += 1;
+  }
+  return { done, total };
+}
+function refresh() {
+  const s = stats();
+  document.getElementById("progress").textContent = "Completado: " + s.done + " / " + s.total;
+}
+
+function buildResult() {
+  const items = [], scenarios = [];
+  for (const sc of DATA.scenarios) {
+    const s = getScn(sc.id);
+    scenarios.push({ scenarioId: sc.id, advice: s.advice, adviceReason: s.adviceReason.trim(), missingHero: s.missingHero.trim(), note: s.note.trim() });
+    for (const h of sc.top5) {
+      const it = getItem(sc.id, h.rank);
+      items.push({ scenarioId: sc.id, rank: h.rank, heroId: h.heroId, hero: h.name, pick: it.pick, explanation: it.explanation, position: it.position, reason: it.reason.trim() });
+    }
+  }
+  return { schema: "ff-eval/v1", scenariosSha256: SHA, evaluator: state.who.trim(), startedAt: state.startedAt, finishedAt: new Date().toISOString(), items, scenarios };
+}
+
+function onExport() {
+  const msg = document.getElementById("msg");
+  msg.textContent = "";
+  if (state.who.trim().length < 2) { msg.textContent = "Escribe tu nombre o iniciales."; return; }
+  const s = stats();
+  if (s.done < s.total) { msg.textContent = "Faltan " + (s.total - s.done) + " campos por completar (los marcados en rojo necesitan razón)."; return; }
+  const blob = new Blob([JSON.stringify(buildResult(), null, 2)], { type: "application/json" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: "ff-eval-" + state.who.trim().replace(/[^A-Za-z0-9_-]+/g, "_") + ".json" }, []);
+  document.body.append(a); a.click(); a.remove();
+  msg.style.color = "var(--ok)"; msg.textContent = "Listo. Envía ese archivo a quien organiza, sin comentarlo con otros evaluadores.";
+}
+
+function onWho(ev) { state.who = ev.target.value; save(); }
+
+function init() {
+  const who = document.getElementById("who");
+  who.value = state.who; who.addEventListener("input", onWho);
+  document.getElementById("export").addEventListener("click", onExport);
+  const list = document.getElementById("list");
+  DATA.scenarios.forEach((sc, i) => list.append(scenarioCard(sc, i)));
+  refresh();
+}
+init();
+</script>
+</body>
+</html>

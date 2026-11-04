@@ -134,7 +134,9 @@ export async function startSession(lab: Lab, spec: StartSpec): Promise<string | 
     adapterKind: "simulator",
     humanPosition: spec.humanPosition,
     simulatorSeed: spec.seed,
-    partyContext: { partySize: 5, side: spec.side, controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: spec.side, slotIndex, controllerId: "player" })) },
+    // PD-026/PD-027: la verdad del equipo propio es `controlledPositions`; `controlledSlots` es estructural y DEBE llegar vacío.
+    partyContext: { partySize: 5, side: spec.side, controlledSlots: [] },
+    controlledPositions: [1, 2, 3, 4, 5],
   }));
   noteStatus(lab, "create", created, [201]);
   if (created.status !== 201) return null;
@@ -179,10 +181,12 @@ export async function askCoach(lab: Lab, sessionId: string, accountId: number | 
   return { output: body.output, recommendationSet: body.recommendationSet, ms, raw: JSON.stringify(body, (key, value) => (key === "sessionId" ? undefined : value)) };
 }
 
-export async function sealOwn(lab: Lab, sessionId: string, side: TeamSide, slotIndex: number, heroId: number): Promise<boolean> {
-  const response = await lab.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex, heroId } }), sessionId);
+export async function sealOwn(lab: Lab, sessionId: string, side: TeamSide, slotIndex: number, heroId: number, assignedPosition?: Position): Promise<boolean> {
+  // PD-026/PD-027: la posición asignada viaja como campo hermano de `command` (atómico con el sello).
+  const response = await lab.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex, heroId }, ...(assignedPosition === undefined ? {} : { assignedPosition }) }), sessionId);
   noteStatus(lab, "command", response, [200, 202]);
   const body = (await response.json()) as { accepted?: boolean; rejected?: string };
+  if (!(body.accepted === true && !body.rejected)) lab.badStatuses.push(`seal-rejected:${String(body.rejected)}`);
   return body.accepted === true && !body.rejected;
 }
 
@@ -380,7 +384,12 @@ export async function playDraft(lab: Lab, spec: DraftSpec, onState?: StateHook):
       raw: spec.keepRaw ? answer.raw : undefined,
     });
     stateIndex += 1;
-    if (!(await sealOwn(lab, sessionId, spec.side, openOwn.slotIndex, chosen))) return fail(`own pick ${chosen} rejected at state #${stateIndex - 1}`);
+    // Posición que el jugador asigna: la de la tarjeta del coach si está libre; si no, la primera libre.
+    const freePositions: readonly Position[] = lab.store.humanOpenPositions(sessionId) ?? [];
+    const cardPosition = output.shortlist.find((card) => card.heroId === chosen)?.position;
+    const assigned = freePositions.find((p) => p === cardPosition) ?? freePositions[0];
+    if (assigned === undefined) return fail(`no free position to assign at state #${stateIndex - 1}`);
+    if (!(await sealOwn(lab, sessionId, spec.side, openOwn.slotIndex, chosen, assigned))) return fail(`own pick ${chosen} rejected at state #${stateIndex - 1}`);
     ownSealedInRound += 1;
   }
   if (!record.completed) return fail("did not reach COMPLETE within the guard");
