@@ -320,10 +320,16 @@ function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetail
   );
 }
 
+// Un candidato sin puntaje es exploración (columna UNRANKED_POSITIONAL): lista sin orden de preferencia, así que no se numera como un ranking.
+function CandidateRankMark({ candidate }: { candidate: TeamCoachCandidate }) {
+  if (candidate.score === null) return <span className="text-content-muted">·</span>;
+  return <span className="text-content-muted">{candidate.rank}.</span>;
+}
+
 function CandidateHead({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
   return (
     <span className={CANDIDATE_HEAD}>
-      <span className="text-content-muted">{candidate.rank}.</span>
+      <CandidateRankMark candidate={candidate} />
       <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
       <PlanBadge candidate={candidate} />
     </span>

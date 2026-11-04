@@ -75,6 +75,17 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.queryAllByTestId("team-coach-candidate-reason")).toHaveLength(0);
   });
 
+  test("columna UNRANKED_POSITIONAL: la exploración no se numera como ranking ('1.', '2.'); la columna con ranking sí", () => {
+    const unranked = column(2, { state: "UNRANKED_POSITIONAL" });
+    unranked.top = unranked.top.map((candidate) => ({ ...candidate, score: null }));
+    const exploration = renderBoard({ ...board([2], 2), positions: [unranked] });
+    expect(exploration.queryByText("1.")).toBeNull();
+    expect(exploration.queryByText("2.")).toBeNull();
+    exploration.unmount();
+    const ranked = renderBoard(board([2], 2));
+    expect(ranked.getByText("1.")).toBeTruthy();
+  });
+
   test("columna UNRANKED_POSITIONAL: muestra el porqué exacto que manda el motor ('Sin recomendación con motivo…'); sin porqué, el texto genérico", () => {
     const withNote = column(2);
     withNote.state = "UNRANKED_POSITIONAL";
