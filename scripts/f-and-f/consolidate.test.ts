@@ -2,7 +2,7 @@
 import { expect, test } from "bun:test";
 import type { StateRecord } from "../wave5/driver";
 import { assertLegal, shuffledOrder } from "./build-kit";
-import { consolidate, kitSha, renderMarkdown, strictMajority, validateInvestigations, validateResult, type EvalResult, type Investigation, type ScenarioDoc } from "./consolidate";
+import { consolidate, kitSha, renderMarkdown, strictMajority, validateDecision, validateInvestigations, validateResult, type EvalResult, type Investigation, type ScenarioDoc } from "./consolidate";
 
 const DOC: ScenarioDoc = {
   schema: "ff-scenarios/v1",
@@ -103,22 +103,47 @@ test("desacuerdo sobre la POSICIÓN que eligió el coach (bien vs mala) => REVIS
   expect(c.verdict).toBe("REVISAR");
 });
 
-test("PASS exige 3 evaluadores y ningún hallazgo; con 2 evaluadores o con consenso de posición dudosa es REVISAR", () => {
-  expect(consolidate(three(evaluator("ana"), evaluator("beto")), DOC).verdict).toBe("PASS");
-  expect(consolidate([evaluator("ana"), evaluator("beto")], DOC).verdict).toBe("REVISAR");
-  const dudosa = { positionChoice: "dudosa", positionChoiceReason: "otro rol era igual de válido", betterPosition: "sin_opinion" };
-  const c = consolidate(three(evaluator("ana", {}, { S01: dudosa }), evaluator("beto", {}, { S01: dudosa }), evaluator("cleo", {}, { S01: dudosa })), DOC);
-  expect(c.verdict).toBe("REVISAR");
-  expect(c.verdictReasons.join()).toContain("POSICIÓN");
+const approve = { decision: "aprobado_para_beta" as const, by: "po", note: "probado a mano; los hallazgos no bloquean la beta" };
+
+test("modo PO (un solo evaluador): sin errores graves => PENDIENTE_DECISION_PO; solo con la decisión explícita del PO => MVP_OWNER_TESTED", () => {
+  const pending = consolidate([evaluator("po")], DOC);
+  expect(pending.verdict).toBe("PENDIENTE_DECISION_PO");
+  const done = consolidate([evaluator("po")], DOC, [], approve);
+  expect(done.verdict).toBe("MVP_OWNER_TESTED");
+  expect(done.verdictReasons.join()).toContain("NO certifica calidad estratégica");
+  expect(consolidate([evaluator("po")], DOC, [], { ...approve, decision: "no_aprobado" }).verdict).toBe("REVISAR");
 });
 
-test("un coach mediocre NO pasa: picks 'malo' por consenso en el top 3, o explicaciones incorrectas por consenso, dan REVISAR", () => {
+test("modo PO: la aprobación NO tapa errores graves — sin investigar REVISAR, confirmado BLOQUEA, limitación aceptada permite avanzar", () => {
+  const rs = [evaluator("po", { "S01#4": grave })];
+  expect(consolidate(rs, DOC, [], approve).verdict).toBe("REVISAR");
+  expect(consolidate(rs, DOC, [inv("S01", 4, "confirmado")], approve).verdict).toBe("BLOQUEA");
+  expect(consolidate(rs, DOC, [inv("S01", 4, "descartado")], approve).verdict).toBe("MVP_OWNER_TESTED");
+  expect(consolidate(rs, DOC, [inv("S01", 4, "limitacion_aceptada")], approve).verdict).toBe("MVP_OWNER_TESTED");
+});
+
+test("un coach mediocre no pasa en silencio: los hallazgos no graves se listan en el veredicto y el PO decide a la vista", () => {
   const malo = { pick: "malo", reason: "no encaja con lo que falta" };
-  const c = consolidate(three(evaluator("ana", { "S01#1": malo }), evaluator("beto", { "S01#1": malo }), evaluator("cleo", { "S01#1": malo })), DOC);
-  expect(c.verdict).toBe("REVISAR");
+  const dudosa = { positionChoice: "dudosa", positionChoiceReason: "otro rol era igual de válido", betterPosition: "sin_opinion" };
   const wrong = { explanation: "incorrecta", reason: "cita una habilidad que no tiene" };
-  const w = consolidate(three(evaluator("ana", { "S02#2": wrong }), evaluator("beto", { "S02#2": wrong }), evaluator("cleo", { "S02#2": wrong })), DOC);
-  expect(w.verdict).toBe("REVISAR");
+  const c = consolidate([evaluator("po", { "S01#1": malo, "S02#2": wrong }, { S01: dudosa })], DOC);
+  expect(c.verdict).toBe("PENDIENTE_DECISION_PO");
+  expect(c.verdictReasons.join()).toContain('1 pick(s) del top 3 "malo(s)"');
+  expect(c.verdictReasons.join()).toContain("POSICIÓN elegida por el coach en duda");
+  expect(c.verdictReasons.join()).toContain('1 explicación(es) "incorrecta(s)"');
+  const md = renderMarkdown(c);
+  expect(md).toContain("S01 · #1 H1 — pick malo");
+  expect(md).toContain("S02 · #2 G2");
+});
+
+test("con varios evaluadores el desacuerdo sigue siendo REVISAR (no gana la opinión más dura)", () => {
+  expect(consolidate(three(evaluator("ana", { "S02#5": { pick: "malo", reason: "se castiga en línea" } }), evaluator("beto"), evaluator("cleo")), DOC, [], approve).verdict).toBe("REVISAR");
+});
+
+test("validateDecision: exige decisión válida, quién y nota", () => {
+  expect(validateDecision({ decision: "aprobado_para_beta", by: "po", note: "listo para beta cerrada" })).toEqual({ decision: "aprobado_para_beta", by: "po", note: "listo para beta cerrada" });
+  expect(typeof validateDecision({ decision: "sí", by: "po", note: "x" })).toBe("string");
+  expect(typeof validateDecision(null)).toBe("string");
 });
 
 test("SIN_DATOS sin archivos; y el informe nunca presenta un porcentaje global de acierto", () => {

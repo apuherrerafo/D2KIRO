@@ -2,12 +2,17 @@
 // FRIENDS_FAMILY_READY — consolida los archivos `ff-eval-*.json` que descargan los evaluadores.
 //
 //   bun scripts/f-and-f/consolidate.ts [carpeta-de-resultados]   (por defecto qa/friends-family/results)
-//     -> imprime el informe y escribe <carpeta>/_consolidado.{md,json}
+//     -> imprime el informe y escribe <carpeta>/informe-po.{md,json}
 //
 // Este script NO inventa veredictos ni calcula una "precisión": solo agrega juicios humanos y señala qué hay que
 // mirar. 15 situaciones no sirven para declarar un porcentaje global de acierto, y aquí no se calcula ninguno.
 //
-// Reglas del veredicto (umbrales provisionales de la prueba cerrada):
+// MODO ACTUAL: un solo evaluador, el Product Owner (puede haber más; con uno no hay desacuerdos que medir).
+// `MVP_OWNER_TESTED` significa "el PO probó el MVP y lo aprobó para una beta cerrada". NO certifica calidad
+// estratégica: es el juicio de UNA persona sobre 15 situaciones. Requiere además una decisión explícita del PO
+// en results/decision-po.json.
+//
+// Reglas del veredicto (umbrales provisionales):
 //   - 0 picks ilegales: se comprueba por máquina al GENERAR el kit (build-kit aborta). No lo juzgan las personas.
 //   - 0 errores graves sin investigar: cualquier "error grave" de CUALQUIER evaluador exige una investigación
 //     registrada en results/investigaciones.json. Sin ella el veredicto es REVISAR.
@@ -24,8 +29,15 @@ export const POSITION_CHOICE_RATINGS = ["bien", "dudosa", "mala"] as const;
 export const BETTER_POSITION_VALUES = ["", "sin_opinion", "1", "2", "3", "4", "5", "esperar"] as const;
 export const CONCLUSIONS = ["descartado", "confirmado", "limitacion_aceptada"] as const;
 
-/** Parámetros provisionales. */
-export const MIN_EVALUATORS = 3;
+export const DECISIONS = ["aprobado_para_beta", "no_aprobado"] as const;
+export interface OwnerDecision { decision: (typeof DECISIONS)[number]; by: string; note: string }
+
+export function validateDecision(raw: unknown): OwnerDecision | string {
+  if (!isRecord(raw) || !oneOf(DECISIONS, raw.decision) || typeof raw.by !== "string" || raw.by.trim().length < 2 || typeof raw.note !== "string" || raw.note.trim().length < 5) {
+    return `decision-po.json inválido: { decision: ${DECISIONS.join("|")}, by, note (≥ 5 caracteres) }`;
+  }
+  return { decision: raw.decision, by: raw.by.trim(), note: raw.note.trim() };
+}
 
 export interface ScenarioDoc { schema: string; count: number; scenarios: { id: string; top5: { rank: number; heroId: number; name: string }[] }[] }
 export interface EvalItem { scenarioId: string; rank: number; heroId: number; hero: string; pick: string; explanation: string; position: string; reason: string }
@@ -133,11 +145,11 @@ export interface Consolidated {
   items: ItemSummary[];
   scenarios: ScenarioSummary[];
   totals: { items: number; gravesAnyUninvestigated: number; gravesConfirmed: number; itemDisagreements: number; scenarioDisagreements: number; pickDistribution: Record<string, number> };
-  verdict: "BLOQUEA" | "REVISAR" | "PASS" | "SIN_DATOS";
+  verdict: "BLOQUEA" | "REVISAR" | "PENDIENTE_DECISION_PO" | "MVP_OWNER_TESTED" | "SIN_DATOS";
   verdictReasons: string[];
 }
 
-export function consolidate(results: readonly EvalResult[], doc: ScenarioDoc, investigations: readonly Investigation[] = []): Consolidated {
+export function consolidate(results: readonly EvalResult[], doc: ScenarioDoc, investigations: readonly Investigation[] = [], decision: OwnerDecision | null = null): Consolidated {
   const empty = { items: 0, gravesAnyUninvestigated: 0, gravesConfirmed: 0, itemDisagreements: 0, scenarioDisagreements: 0, pickDistribution: {} };
   if (results.length === 0) return { evaluators: [], items: [], scenarios: [], totals: empty, verdict: "SIN_DATOS", verdictReasons: ["no hay resultados válidos"] };
   const invOf = (sid: string, rank: number): Investigation | null => investigations.find((i) => i.scenarioId === sid && i.rank === rank) ?? null;
@@ -189,46 +201,76 @@ export function consolidate(results: readonly EvalResult[], doc: ScenarioDoc, in
   const review: string[] = [];
   if (totals.gravesConfirmed > 0) block.push(`${totals.gravesConfirmed} error(es) grave(s) CONFIRMADO(S) tras investigar: corregir o aceptar como limitación antes de invitar`);
   if (totals.gravesAnyUninvestigated > 0) review.push(`${totals.gravesAnyUninvestigated} pick(s) con "error grave" de al menos un evaluador SIN investigar (registrar en investigaciones.json)`);
-  if (results.length < MIN_EVALUATORS) review.push(`solo ${results.length} evaluador(es): se necesitan ${MIN_EVALUATORS} independientes`);
   if (totals.itemDisagreements > 0) review.push(`${totals.itemDisagreements} pick(s) con desacuerdo entre evaluadores (uno lo ve bueno/aceptable y otro malo/grave)`);
   if (totals.scenarioDisagreements > 0) review.push(`${totals.scenarioDisagreements} situación(es) con desacuerdo sobre si el coach eligió bien la POSICIÓN`);
-  const badTop3 = items.filter((i) => i.rank <= 3 && (i.consensusPick === "malo" || i.consensusPick === "error_grave"));
-  if (badTop3.length > 0) review.push(`${badTop3.length} pick(s) del top 3 calificados "malo" por consenso`);
-  const badPos = scenarios.filter((s) => s.consensusPositionChoice === "mala" || s.consensusPositionChoice === "dudosa");
-  if (badPos.length > 0) review.push(`${badPos.length} situación(es) donde el consenso duda de la POSICIÓN que eligió el coach`);
-  const wrongExplanations = items.filter((i) => i.consensusExplanation === "incorrecta");
-  if (wrongExplanations.length > 0) review.push(`${wrongExplanations.length} explicación(es) "incorrecta(s)" por consenso (afirman algo falso)`);
+  // Hallazgos NO graves: no bloquean por sí solos; se listan y entran en la decisión explícita del PO (evita que un coach mediocre
+  // "pase" sin que alguien lo haya decidido a la vista de esta lista).
+  const findings: string[] = [];
+  const badTop3 = items.filter((i) => i.rank <= 3 && i.consensusPick === "malo").length;
+  if (badTop3 > 0) findings.push(`${badTop3} pick(s) del top 3 "malo(s)"`);
+  const badPos = scenarios.filter((x) => x.consensusPositionChoice === "mala" || x.consensusPositionChoice === "dudosa").length;
+  if (badPos > 0) findings.push(`${badPos} situación(es) con la POSICIÓN elegida por el coach en duda`);
+  const wrongExplanations = items.filter((i) => i.consensusExplanation === "incorrecta").length;
+  if (wrongExplanations > 0) findings.push(`${wrongExplanations} explicación(es) "incorrecta(s)"`);
+  const findingsNote = findings.length > 0 ? `hallazgos no graves a considerar en la decisión: ${findings.join("; ")}` : "sin hallazgos no graves";
 
-  const verdict = block.length > 0 ? "BLOQUEA" : review.length > 0 ? "REVISAR" : "PASS";
-  return { evaluators: results.map((r) => r.evaluator), items, scenarios, totals, verdict, verdictReasons: block.length > 0 ? [...block, ...review] : review.length > 0 ? review : ["sin hallazgos que investigar (esto NO es una medida de precisión del coach)"] };
+  if (decision?.decision === "no_aprobado") review.push(`el PO NO aprobó para beta (${decision.by}): ${decision.note}`);
+  const NOTE = "NO certifica calidad estratégica: es la evaluación de una sola persona sobre 15 situaciones";
+  let verdict: Consolidated["verdict"];
+  let reasons: string[];
+  if (block.length > 0) { verdict = "BLOQUEA"; reasons = [...block, ...review]; }
+  else if (review.length > 0) { verdict = "REVISAR"; reasons = review; }
+  else if (decision === null) { verdict = "PENDIENTE_DECISION_PO"; reasons = ["sin errores graves abiertos; falta la decisión explícita del PO en results/decision-po.json", findingsNote, NOTE]; }
+  else { verdict = "MVP_OWNER_TESTED"; reasons = [`aprobado para beta cerrada por ${decision.by}: ${decision.note}`, findingsNote, NOTE]; }
+  return { evaluators: results.map((r) => r.evaluator), items, scenarios, totals, verdict, verdictReasons: reasons };
 }
+
+const PICK_CODE: Record<string, string> = { bueno: "B", aceptable: "A", malo: "M", error_grave: "G", sin_consenso: "?" };
 
 export function renderMarkdown(c: Consolidated, suspects: Record<string, string | null> = {}): string {
   const lines: string[] = [];
-  lines.push("# Consolidado Friends & Family — evaluación humana", "");
-  lines.push(`**Veredicto propuesto: ${c.verdict}**`, "");
+  const who = c.evaluators.join(", ") || "—";
+  lines.push("# Informe de evaluación humana del MVP", "");
+  lines.push(`Evaluador${c.evaluators.length === 1 ? "" : "es"}: **${who}**`, "");
+  lines.push(`## Estado: ${c.verdict}`, "");
   for (const r of c.verdictReasons) lines.push(`- ${r}`);
-  lines.push("", `Evaluadores (${c.evaluators.length}): ${c.evaluators.join(", ") || "—"}`, "");
-  lines.push(`- Picks evaluados: ${c.totals.items} · por consenso: ${Object.entries(c.totals.pickDistribution).map(([k, v]) => `${k} ${v}`).join(", ")}`);
+  lines.push("", `- Picks evaluados: ${c.totals.items} · distribución: ${Object.entries(c.totals.pickDistribution).map(([k, v]) => `${k} ${v}`).join(", ")}`);
   lines.push("- Son **conteos**, no un porcentaje de acierto: 15 situaciones no permiten declarar una precisión global.", "");
-  lines.push("## Elección de posición por situación", "", "| Situación | Consenso | Desacuerdo | Sospecha (organizadores) |", "|---|---|---|---|");
-  for (const s of c.scenarios) lines.push(`| ${s.scenarioId} | ${s.consensusPositionChoice ?? "sin consenso"} | ${s.disagreement ? "SÍ" : "no"} | ${suspects[s.scenarioId] ?? ""} |`);
-  const withAlt = c.scenarios.filter((s) => s.alternatives.length > 0);
-  if (withAlt.length > 0) {
-    lines.push("", "### Quién dudó de la posición y qué habría mostrado", "");
-    for (const s of withAlt) for (const a of s.alternatives) lines.push(`- ${s.scenarioId} · ${a.evaluator}: ${a.choice}; habría mostrado ${a.better === "esperar" ? "esperar" : a.better === "sin_opinion" || a.better === "" ? "(sin opinión)" : `pos ${a.better}`} — ${a.reason}`);
-  }
-  lines.push("", "## Picks que requieren mirada (malo, grave, desacuerdo o explicación/posición dudosa)", "");
-  const flagged = c.items.filter((x) => x.graveAny || x.disagreement || x.consensusPick === "malo" || x.consensusPick === "error_grave" || x.consensusExplanation === "incorrecta" || x.consensusPosition === "mala");
+
+  lines.push("## Errores identificados", "");
+  const severity = (i: ItemSummary): number => (i.graveAny ? 0 : i.consensusPick === "malo" ? 1 : i.consensusExplanation === "incorrecta" ? 2 : i.consensusPosition === "mala" ? 3 : 9);
+  const flagged = c.items.filter((x) => severity(x) < 9 || x.disagreement).sort((x, y) => severity(x) - severity(y));
+  if (flagged.length === 0) lines.push("Ninguno marcado como grave, malo, explicación incorrecta o posición mala.", "");
   for (const i of flagged) {
-    const inv = i.investigation ? ` · investigado: ${i.investigation.conclusion} (${i.investigation.by})` : i.graveAny ? " · **SIN INVESTIGAR**" : "";
-    lines.push(`### ${i.scenarioId} · #${i.rank} ${i.hero} — consenso ${i.consensusPick}${i.disagreement ? " · DESACUERDO" : ""}${inv}`);
+    const inv = i.investigation ? ` · investigado: ${i.investigation.conclusion} (${i.investigation.by})` : i.graveAny ? " · **ERROR GRAVE SIN INVESTIGAR**" : "";
+    lines.push(`### ${i.scenarioId} · #${i.rank} ${i.hero} — pick ${i.consensusPick}${i.disagreement ? " · DESACUERDO" : ""}${inv}`);
     for (const r of i.reasons) lines.push(`- ${r.evaluator} (${r.pick}/${r.explanation}/${r.position}): ${r.reason}`);
     lines.push("");
   }
-  const missing = c.scenarios.filter((s) => s.missingHeroes.length > 0);
-  if (missing.length > 0) { lines.push("## Héroes que dicen que faltaron", ""); for (const s of missing) lines.push(`- ${s.scenarioId}: ${s.missingHeroes.join("; ")}`); lines.push(""); }
-  lines.push("> Resume juicios humanos; no los reemplaza. Una discrepancia entre evaluadores se resuelve hablando de la mecánica, no dando la razón a la opinión más dura.");
+  const withAlt = c.scenarios.filter((s) => s.alternatives.length > 0);
+  if (withAlt.length > 0) {
+    lines.push("### Elección de posición del coach puesta en duda", "");
+    for (const s of withAlt) for (const a of s.alternatives) lines.push(`- ${s.scenarioId} · ${a.evaluator}: ${a.choice}; habría mostrado ${a.better === "esperar" ? "esperar" : a.better === "sin_opinion" || a.better === "" ? "(sin opinión)" : `pos ${a.better}`} — ${a.reason}`);
+    lines.push("");
+  }
+
+  lines.push("## Por situación", "", "Picks del top 5 en orden: B bueno · A aceptable · M malo · G error grave · ? sin consenso.", "", "| Situación | Posición elegida | Picks 1–5 | Sospecha (organizador) |", "|---|---|---|---|");
+  for (const s of c.scenarios) {
+    const picks = c.items.filter((i) => i.scenarioId === s.scenarioId).sort((x, y) => x.rank - y.rank).map((i) => PICK_CODE[i.consensusPick] ?? "?").join(" ");
+    lines.push(`| ${s.scenarioId} | ${s.consensusPositionChoice ?? "sin consenso"}${s.disagreement ? " (desacuerdo)" : ""} | ${picks} | ${suspects[s.scenarioId] ?? ""} |`);
+  }
+  lines.push("");
+
+  const free = c.scenarios.filter((s) => s.missingHeroes.length > 0 || s.notes.length > 0);
+  if (free.length > 0) {
+    lines.push("## Observaciones libres", "");
+    for (const s of free) {
+      for (const m of s.missingHeroes) lines.push(`- ${s.scenarioId} · héroe que faltó: ${m}`);
+      for (const n of s.notes) lines.push(`- ${s.scenarioId} · ${n}`);
+    }
+    lines.push("");
+  }
+  lines.push("## Lo que este informe NO dice", "", "- No es una medida de precisión del coach ni certifica su calidad estratégica.", "- Es el juicio de las personas listadas sobre 15 situaciones del simulador; con una sola persona no hay contraste.", "- La legalidad (0 picks ilegales) y la reproducibilidad del kit se comprueban por máquina (`build-kit.ts`, `build-kit.ts --check`), no en este informe.");
   return lines.join("\n") + "\n";
 }
 
@@ -273,11 +315,18 @@ function main(): void {
     investigations = parsed.ok;
   }
 
-  const result = consolidate(valid, doc, investigations);
+  let decision: OwnerDecision | null = null;
+  const decisionPath = join(dir, "decision-po.json");
+  if (existsSync(decisionPath)) {
+    const parsed = validateDecision(JSON.parse(readFileSync(decisionPath, "utf8")));
+    if (typeof parsed === "string") throw new Error(parsed);
+    decision = parsed;
+  }
+  const result = consolidate(valid, doc, investigations, decision);
   const suspects = Object.fromEntries((manifest?.scenarios ?? []).map((s) => [s.id, s.suspect]));
   const md = renderMarkdown(result, suspects);
-  writeFileSync(join(dir, "_consolidado.md"), md);
-  writeFileSync(join(dir, "_consolidado.json"), JSON.stringify(result, null, 2) + "\n");
+  writeFileSync(join(dir, "informe-po.md"), md);
+  writeFileSync(join(dir, "informe-po.json"), JSON.stringify(result, null, 2) + "\n");
   process.stdout.write(md);
 }
 

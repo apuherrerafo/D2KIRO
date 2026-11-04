@@ -2,6 +2,7 @@
 // FRIENDS_FAMILY_READY — kit de evaluación humana. Genera, de forma DETERMINISTA, 15 situaciones de draft
 // con el motor ACTUAL (Coach real del simulador) para que 2-3 personas las juzguen por separado.
 //
+//   bun scripts/f-and-f/build-kit.ts --check   ->  verifica que el kit versionado se reproduce byte a byte (y 0 recomendaciones ilegales)
 //   bun scripts/f-and-f/build-kit.ts   ->  qa/friends-family/{situaciones.json, manifest.json (no versionado)}
 //                                          qa/friends-family/paquete-evaluadores/situaciones.html
 //
@@ -11,7 +12,7 @@
 // - Este script no juzga nada: no codifica ninguna respuesta esperada. Elige por criterios de cobertura.
 // - Verifica la legalidad de cada top-5 (ni baneado, ni ya elegido). Una recomendación ilegal ABORTA la generación.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SIDES, createLab, loadWorldData, muteLog, playDraft, unmuteLog, type Policy, type Position, type StateRecord, type WorldData } from "../wave5/driver";
 
@@ -179,11 +180,24 @@ async function main(): Promise<void> {
 
   const template = readFileSync(join(import.meta.dir, "template.html"), "utf8");
   const html = template.replace("/*__DATA__*/null", () => evalJson.replace(/</g, "\\u003c")).replace("__SCENARIOS_SHA__", manifest.scenariosSha256);
+  const files = [
+    { path: join(OUT, "situaciones.json"), content: evalJson + "\n" },
+    { path: join(PACKAGE, "situaciones.html"), content: html },
+  ];
+  // --check: reproducibilidad. Regenera en memoria y exige que el kit versionado sea byte-idéntico (mismo motor + snapshot).
+  if (process.argv.includes("--check")) {
+    const stale = files.filter((f) => !existsSync(f.path) || readFileSync(f.path, "utf8") !== f.content).map((f) => f.path);
+    if (stale.length > 0) {
+      process.stderr.write(`KIT NO REPRODUCIBLE: difiere de lo versionado (¿cambió el motor, el snapshot o la plantilla?):\n${stale.map((x) => `  - ${x}`).join("\n")}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`kit reproducible: ${scenarios.length} situaciones, sha ${manifest.scenariosSha256.slice(0, 12)}, 0 recomendaciones ilegales\n`);
+    return;
+  }
   mkdirSync(PACKAGE, { recursive: true });
-  writeFileSync(join(OUT, "situaciones.json"), evalJson + "\n");
-  writeFileSync(join(PACKAGE, "situaciones.html"), html);
+  for (const f of files) writeFileSync(f.path, f.content);
   writeFileSync(join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-  process.stdout.write(`kit generado: ${scenarios.length} situaciones en ${OUT} (HTML para evaluadores en ${PACKAGE})\nsin cobertura: ${unmatched.length ? unmatched.join(", ") : "(ninguna)"}\n`);
+  process.stdout.write(`kit generado: ${scenarios.length} situaciones en ${OUT} (HTML en ${PACKAGE})\nsin cobertura: ${unmatched.length ? unmatched.join(", ") : "(ninguna)"}\n`);
 }
 
 if (import.meta.main) await main();
