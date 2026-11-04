@@ -1,0 +1,1483 @@
+{
+  "schema": "ff-scenarios/v1",
+  "count": 15,
+  "scenarios": [
+    {
+      "id": "S01",
+      "side": "Dire",
+      "momento": "Primera ronda de picks (a ciegas)",
+      "bans": [
+        "Shadow Shaman",
+        "Pudge",
+        "Luna",
+        "Axe",
+        "Windranger",
+        "Necrophos",
+        "Rubick",
+        "Earthshaker",
+        "Lion",
+        "Phantom Assassin",
+        "Invoker",
+        "Anti-Mage",
+        "Mirana",
+        "Vengeful Spirit",
+        "Hoodwink",
+        "Bounty Hunter"
+      ],
+      "ownPicks": [],
+      "revealedEnemy": [],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Hard support (Pos 5)",
+        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5).",
+        "positionsNamed": [
+          "Hard support (pos 5)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 5,
+          "name": "Crystal Maiden",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 2,
+          "heroId": 112,
+          "name": "Winter Wyvern",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 3,
+          "heroId": 85,
+          "name": "Undying",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 4,
+          "heroId": 30,
+          "name": "Witch Doctor",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 5,
+          "heroId": 31,
+          "name": "Lich",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "side": "Dire",
+      "momento": "Tercera ronda de picks (cierre)",
+      "bans": [
+        "Lina",
+        "Sniper",
+        "Spirit Breaker",
+        "Silencer",
+        "Lion",
+        "Undying",
+        "Underlord",
+        "Shadow Fiend",
+        "Queen of Pain",
+        "Juggernaut",
+        "Windranger",
+        "Zeus",
+        "Witch Doctor",
+        "Invoker",
+        "Rubick",
+        "Legion Commander",
+        "Pudge",
+        "Ember Spirit"
+      ],
+      "ownPicks": [
+        "Crystal Maiden (pos 5)",
+        "Bounty Hunter (pos 4)",
+        "Lifestealer (pos 1)",
+        "Tidehunter (pos 3)"
+      ],
+      "revealedEnemy": [
+        "Dark Willow",
+        "Tusk",
+        "Enigma",
+        "Storm Spirit"
+      ],
+      "sealedEnemySeats": 1,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Midlane (Pos 2)",
+        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2).",
+        "positionsNamed": [
+          "Mid (pos 2)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 76,
+          "name": "Outworld Destroyer",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como midlane en alto MMR"
+        },
+        {
+          "rank": 2,
+          "heroId": 34,
+          "name": "Tinker",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como midlane en alto MMR"
+        },
+        {
+          "rank": 3,
+          "heroId": 13,
+          "name": "Puck",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como midlane en alto MMR"
+        },
+        {
+          "rank": 4,
+          "heroId": 126,
+          "name": "Void Spirit",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Dark Willow (53% en 117 partidas). 3 de sus counters están baneados: Ember Spirit y Lina"
+        },
+        {
+          "rank": 5,
+          "heroId": 7,
+          "name": "Earthshaker",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como midlane en alto MMR"
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "side": "Dire",
+      "momento": "Tercera ronda de picks (cierre)",
+      "bans": [
+        "Axe",
+        "Phantom Assassin",
+        "Lina",
+        "Pudge",
+        "Lion",
+        "Spectre",
+        "Ogre Magi",
+        "Crystal Maiden",
+        "Spirit Breaker",
+        "Wraith King",
+        "Slark",
+        "Sniper",
+        "Legion Commander",
+        "Necrophos",
+        "Silencer",
+        "Centaur Warrunner"
+      ],
+      "ownPicks": [
+        "Witch Doctor (pos 5)",
+        "Dark Willow (pos 4)",
+        "Night Stalker (pos 3)",
+        "Shadow Fiend (pos 1)"
+      ],
+      "revealedEnemy": [
+        "Winter Wyvern",
+        "Juggernaut",
+        "Bounty Hunter",
+        "Slardar"
+      ],
+      "sealedEnemySeats": 1,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Midlane (Pos 2)",
+        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2).",
+        "positionsNamed": [
+          "Mid (pos 2)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 17,
+          "name": "Storm Spirit",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER"
+          ],
+          "explanation": "Fuerte contra Bounty Hunter (64% en 45 partidas). 2 de sus counters están baneados: Silencer y Axe"
+        },
+        {
+          "rank": 2,
+          "heroId": 7,
+          "name": "Earthshaker",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Dark Willow: Lo dicen: DotaCoach (7.41f). Sinergia con Night Stalker: Lo dicen: DotaCoach (7.41f)"
+        },
+        {
+          "rank": 3,
+          "heroId": 34,
+          "name": "Tinker",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta muy buen daño a estructuras que a tu equipo le falta"
+        },
+        {
+          "rank": 4,
+          "heroId": 76,
+          "name": "Outworld Destroyer",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como midlane en alto MMR"
+        },
+        {
+          "rank": 5,
+          "heroId": 90,
+          "name": "Keeper of the Light",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Juggernaut (62% en 45 partidas) y Winter Wyvern (61% en 49 partidas)"
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "side": "Dire",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Shadow Shaman",
+        "Phantom Lancer",
+        "Pudge",
+        "Sniper",
+        "Snapfire",
+        "Spirit Breaker",
+        "Lina",
+        "Lion",
+        "Invoker",
+        "Undying",
+        "Lifestealer",
+        "Anti-Mage",
+        "Witch Doctor",
+        "Luna",
+        "Magnus",
+        "Phantom Assassin",
+        "Techies",
+        "Juggernaut"
+      ],
+      "ownPicks": [
+        "Crystal Maiden (pos 5)",
+        "Tidehunter (pos 3)",
+        "Earthshaker (pos 2)"
+      ],
+      "revealedEnemy": [
+        "Slardar",
+        "Skywrath Mage",
+        "Ember Spirit"
+      ],
+      "sealedEnemySeats": 1,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Carry (Pos 1)",
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 11,
+          "name": "Shadow Fiend",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Earthshaker: Lo dicen: DotaCoach (7.41f). Sinergia con Tidehunter: Lo dicen: DotaCoach (7.41f), wiki Fandom (antes de 7.41)"
+        },
+        {
+          "rank": 2,
+          "heroId": 18,
+          "name": "Sven",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Skywrath Mage (60% en 87 partidas) y Ember Spirit (56% en 75 partidas). 2 de sus counters están baneados: Undying y Shadow Shaman"
+        },
+        {
+          "rank": 3,
+          "heroId": 93,
+          "name": "Slark",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "FLEX"
+          ],
+          "explanation": "Le ganas a Ember Spirit: Dark Pact quita Searing Chains y Pounce ata a Ember para pegarle; en la línea mid lo apaga. 4 de sus counters están baneados: Lion y Magnus"
+        },
+        {
+          "rank": 4,
+          "heroId": 10,
+          "name": "Morphling",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Crystal Maiden: Lo dicen: DotaCoach (7.41f), wiki Fandom (antes de 7.41). Sinergia con Earthshaker: Lo dicen: DotaCoach (7.41f), wiki Fandom (antes de 7.41)"
+        },
+        {
+          "rank": 5,
+          "heroId": 6,
+          "name": "Drow Ranger",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como carry en alto MMR"
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "side": "Radiant",
+      "momento": "Primera ronda de picks (a ciegas)",
+      "bans": [
+        "Juggernaut",
+        "Rubick",
+        "Axe",
+        "Shadow Shaman",
+        "Lich",
+        "Windranger",
+        "Witch Doctor",
+        "Sniper",
+        "Wraith King",
+        "Invoker",
+        "Slark",
+        "Hoodwink",
+        "Mirana",
+        "Pudge",
+        "Skywrath Mage",
+        "Legion Commander"
+      ],
+      "ownPicks": [],
+      "revealedEnemy": [],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Hard support (Pos 5)",
+        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5).",
+        "positionsNamed": [
+          "Hard support (pos 5)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 5,
+          "name": "Crystal Maiden",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 2,
+          "heroId": 87,
+          "name": "Disruptor",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 3,
+          "heroId": 85,
+          "name": "Undying",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 4,
+          "heroId": 100,
+          "name": "Tusk",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        },
+        {
+          "rank": 5,
+          "heroId": 26,
+          "name": "Lion",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "FLEX"
+          ],
+          "explanation": "Por su posición: muy jugado como hard support en alto MMR"
+        }
+      ]
+    },
+    {
+      "id": "S06",
+      "side": "Radiant",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Juggernaut",
+        "Lion",
+        "Undying",
+        "Legion Commander",
+        "Axe",
+        "Pudge",
+        "Spirit Breaker",
+        "Lifestealer",
+        "Witch Doctor",
+        "Nature's Prophet",
+        "Invoker",
+        "Hoodwink",
+        "Drow Ranger",
+        "Windranger",
+        "Zeus",
+        "Sniper"
+      ],
+      "ownPicks": [
+        "Tusk (pos 5)",
+        "Doom (pos 3)"
+      ],
+      "revealedEnemy": [
+        "Techies",
+        "Crystal Maiden"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Carry (Pos 1)",
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 67,
+          "name": "Spectre",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Doom: Lo dicen: DotaCoach (7.41f)"
+        },
+        {
+          "rank": 2,
+          "heroId": 109,
+          "name": "Terrorblade",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta muy buen daño a estructuras que a tu equipo le falta"
+        },
+        {
+          "rank": 3,
+          "heroId": 1,
+          "name": "Anti-Mage",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como carry en alto MMR"
+        },
+        {
+          "rank": 4,
+          "heroId": 11,
+          "name": "Shadow Fiend",
+          "positionShown": "Probable: Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Tusk: Snowball e Ice Shards dejan al rival quieto para los Shadowraze, y Walrus PUNCH! asegura el kill"
+        },
+        {
+          "rank": 5,
+          "heroId": 12,
+          "name": "Phantom Lancer",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como carry en alto MMR"
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "side": "Radiant",
+      "momento": "Tercera ronda de picks (cierre)",
+      "bans": [
+        "Zeus",
+        "Shadow Shaman",
+        "Pudge",
+        "Spectre",
+        "Axe",
+        "Witch Doctor",
+        "Juggernaut",
+        "Phantom Lancer",
+        "Luna",
+        "Shadow Fiend",
+        "Sven",
+        "Lifestealer",
+        "Skywrath Mage",
+        "Lich",
+        "Vengeful Spirit",
+        "Magnus"
+      ],
+      "ownPicks": [
+        "Undying (pos 5)",
+        "Mirana (pos 4)",
+        "Terrorblade (pos 1)",
+        "Queen of Pain (pos 2)"
+      ],
+      "revealedEnemy": [
+        "Anti-Mage",
+        "Techies",
+        "Lina",
+        "Tidehunter"
+      ],
+      "sealedEnemySeats": 1,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Offlane (Pos 3)",
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 135,
+          "name": "Dawnbreaker",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Lina (59% en 99 partidas) y Tidehunter (56% en 165 partidas)"
+        },
+        {
+          "rank": 2,
+          "heroId": 96,
+          "name": "Centaur Warrunner",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Techies (56% en 100 partidas). 4 de sus counters están baneados: Juggernaut y Luna"
+        },
+        {
+          "rank": 3,
+          "heroId": 28,
+          "name": "Slardar",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta initiation que a tu equipo le falta"
+        },
+        {
+          "rank": 4,
+          "heroId": 104,
+          "name": "Legion Commander",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Mirana: Lo dicen: wiki Fandom (7.41d)"
+        },
+        {
+          "rank": 5,
+          "heroId": 69,
+          "name": "Doom",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta initiation que a tu equipo le falta"
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "side": "Radiant",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Lifestealer",
+        "Windranger",
+        "Undying",
+        "Pudge",
+        "Zeus",
+        "Hoodwink",
+        "Lina",
+        "Outworld Destroyer",
+        "Snapfire",
+        "Crystal Maiden",
+        "Phantom Lancer",
+        "Lich",
+        "Dawnbreaker",
+        "Bristleback",
+        "Mirana",
+        "Juggernaut",
+        "Winter Wyvern"
+      ],
+      "ownPicks": [
+        "Dark Willow (pos 4)",
+        "Underlord (pos 3)",
+        "Earthshaker (pos 2)"
+      ],
+      "revealedEnemy": [
+        "Centaur Warrunner",
+        "Shadow Shaman"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Carry (Pos 1)",
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 93,
+          "name": "Slark",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Dark Willow: Bramble Maze inmoviliza a los rivales en área para que Slark los alcance con Pounce"
+        },
+        {
+          "rank": 2,
+          "heroId": 11,
+          "name": "Shadow Fiend",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Centaur Warrunner (56% en 315 partidas). 3 de sus counters están baneados: Zeus y Lina"
+        },
+        {
+          "rank": 3,
+          "heroId": 48,
+          "name": "Luna",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [],
+          "explanation": "Por su posición: muy jugado como carry en alto MMR"
+        },
+        {
+          "rank": 4,
+          "heroId": 18,
+          "name": "Sven",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER"
+          ],
+          "explanation": "Fuerte contra Centaur Warrunner (52% en 122 partidas). 2 de sus counters están baneados: Winter Wyvern y Undying"
+        },
+        {
+          "rank": 5,
+          "heroId": 109,
+          "name": "Terrorblade",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Earthshaker: Lo dicen: DotaCoach (7.41f)"
+        }
+      ]
+    },
+    {
+      "id": "S09",
+      "side": "Radiant",
+      "momento": "Primera ronda de picks (a ciegas)",
+      "bans": [
+        "Witch Doctor",
+        "Slark",
+        "Invoker",
+        "Juggernaut",
+        "Lina",
+        "Lich",
+        "Anti-Mage",
+        "Sniper",
+        "Ogre Magi",
+        "Necrophos",
+        "Undying",
+        "Zeus",
+        "Magnus",
+        "Snapfire",
+        "Underlord",
+        "Rubick"
+      ],
+      "ownPicks": [
+        "Spirit Breaker (pos 4)"
+      ],
+      "revealedEnemy": [],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Hard support (Pos 5)",
+        "rationale": "El ranking de héroes se concentra en Hard support (Pos 5).",
+        "positionsNamed": [
+          "Hard support (pos 5)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 5,
+          "name": "Crystal Maiden",
+          "positionShown": "Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta waveclear y buen teamfight que a tu equipo le falta"
+        },
+        {
+          "rank": 2,
+          "heroId": 14,
+          "name": "Pudge",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta buen teamfight y buen scaling que a tu equipo le falta"
+        },
+        {
+          "rank": 3,
+          "heroId": 9,
+          "name": "Mirana",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta waveclear, buen teamfight y muy buen scaling que a tu equipo le falta"
+        },
+        {
+          "rank": 4,
+          "heroId": 112,
+          "name": "Winter Wyvern",
+          "positionShown": "Probable: Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta muy buen teamfight que a tu equipo le falta"
+        },
+        {
+          "rank": 5,
+          "heroId": 87,
+          "name": "Disruptor",
+          "positionShown": "Hard support (pos 5)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta muy buen teamfight que a tu equipo le falta"
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "side": "Radiant",
+      "momento": "Tercera ronda de picks (cierre)",
+      "bans": [
+        "Rubick",
+        "Juggernaut",
+        "Shadow Shaman",
+        "Phantom Assassin",
+        "Anti-Mage",
+        "Axe",
+        "Witch Doctor",
+        "Zeus",
+        "Necrophos",
+        "Spirit Breaker",
+        "Magnus",
+        "Legion Commander",
+        "Phantom Lancer",
+        "Lion",
+        "Windranger",
+        "Underlord",
+        "Slark"
+      ],
+      "ownPicks": [
+        "Undying (pos 5)",
+        "Bounty Hunter (pos 4)",
+        "Earth Spirit (pos 2)",
+        "Terrorblade (pos 1)"
+      ],
+      "revealedEnemy": [
+        "Invoker",
+        "Pudge",
+        "Slardar",
+        "Lifestealer"
+      ],
+      "sealedEnemySeats": 1,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Offlane (Pos 3)",
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 98,
+          "name": "Timbersaw",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Le ganas a Pudge: Whirling Death reduce tu fuerza y hace daño puro, mientras Reactive Armor le permite ganar los trades cuerpo a cuerpo. 5 de sus counters están baneados: Zeus y Lion"
+        },
+        {
+          "rank": 2,
+          "heroId": 29,
+          "name": "Tidehunter",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER"
+          ],
+          "explanation": "Fuerte contra Invoker (53% en 147 partidas). 3 de sus counters están baneados: Anti-Mage y Slark"
+        },
+        {
+          "rank": 3,
+          "heroId": 69,
+          "name": "Doom",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Bounty Hunter: Lo dicen: DotaCoach (7.41f)"
+        },
+        {
+          "rank": 4,
+          "heroId": 55,
+          "name": "Dark Seer",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Slardar (62% en 55 partidas). 2 de sus counters están baneados: Anti-Mage y Windranger"
+        },
+        {
+          "rank": 5,
+          "heroId": 7,
+          "name": "Earthshaker",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Invoker (60% en 84 partidas). 3 de sus counters están baneados: Rubick y Necrophos"
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "side": "Radiant",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Juggernaut",
+        "Earthshaker",
+        "Pudge",
+        "Techies",
+        "Axe",
+        "Anti-Mage",
+        "Invoker",
+        "Shadow Fiend",
+        "Slark",
+        "Sniper",
+        "Lich",
+        "Legion Commander",
+        "Wraith King",
+        "Viper",
+        "Silencer",
+        "Lifestealer"
+      ],
+      "ownPicks": [
+        "Winter Wyvern (pos 5)",
+        "Zeus (pos 4)"
+      ],
+      "revealedEnemy": [
+        "Storm Spirit",
+        "Underlord"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Offlane (Pos 3)",
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 69,
+          "name": "Doom",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Zeus: Doom le impide al rival lanzar hechizos y curarse mientras le hace daño, y Thundergod's Wrath lo remata desde cualquier lugar del mapa"
+        },
+        {
+          "rank": 2,
+          "heroId": 135,
+          "name": "Dawnbreaker",
+          "positionShown": "Probable: Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Underlord (59% en 122 partidas). 2 de sus counters están baneados: Silencer y Invoker"
+        },
+        {
+          "rank": 3,
+          "heroId": 60,
+          "name": "Night Stalker",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Underlord (56% en 48 partidas). 1 de sus counters está baneado: Wraith King"
+        },
+        {
+          "rank": 4,
+          "heroId": 28,
+          "name": "Slardar",
+          "positionShown": "Probable: Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Underlord (59% en 177 partidas). 2 de sus counters están baneados: Juggernaut y Slark"
+        },
+        {
+          "rank": 5,
+          "heroId": 33,
+          "name": "Enigma",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta initiation y buen scaling que a tu equipo le falta"
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "side": "Dire",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Sniper",
+        "Invoker",
+        "Rubick",
+        "Axe",
+        "Earthshaker",
+        "Lion",
+        "Lich",
+        "Mirana",
+        "Shadow Fiend",
+        "Phantom Assassin",
+        "Hoodwink",
+        "Pudge",
+        "Skywrath Mage",
+        "Anti-Mage",
+        "Razor",
+        "Jakiro"
+      ],
+      "ownPicks": [
+        "Techies (pos 4)",
+        "Disruptor (pos 5)"
+      ],
+      "revealedEnemy": [
+        "Doom",
+        "Tusk"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Carry (Pos 1)",
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 54,
+          "name": "Lifestealer",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Disruptor: Lo dicen: wiki Fandom (7.41d)"
+        },
+        {
+          "rank": 2,
+          "heroId": 8,
+          "name": "Juggernaut",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta muy buen scaling y daño físico que a tu equipo le falta"
+        },
+        {
+          "rank": 3,
+          "heroId": 109,
+          "name": "Terrorblade",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Tusk (55% en 201 partidas). 5 de sus counters están baneados: Earthshaker y Skywrath Mage"
+        },
+        {
+          "rank": 4,
+          "heroId": 46,
+          "name": "Templar Assassin",
+          "positionShown": "Probable: Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta muy buen scaling y daño físico que a tu equipo le falta"
+        },
+        {
+          "rank": 5,
+          "heroId": 6,
+          "name": "Drow Ranger",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta muy buen scaling y daño físico que a tu equipo le falta"
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "side": "Radiant",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Sniper",
+        "Necrophos",
+        "Windranger",
+        "Techies",
+        "Juggernaut",
+        "Lina",
+        "Ogre Magi",
+        "Lich",
+        "Vengeful Spirit",
+        "Lifestealer",
+        "Magnus",
+        "Axe",
+        "Shadow Fiend",
+        "Legion Commander",
+        "Faceless Void",
+        "Crystal Maiden",
+        "Underlord"
+      ],
+      "ownPicks": [
+        "Disruptor (pos 5)",
+        "Dark Willow (pos 4)"
+      ],
+      "revealedEnemy": [
+        "Earthshaker",
+        "Dark Seer"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Midlane (Pos 2)",
+        "rationale": "La composición y el ranking apuntan a Midlane (Pos 2).",
+        "positionsNamed": [
+          "Mid (pos 2)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 106,
+          "name": "Ember Spirit",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Dark Seer (65% en 92 partidas) y Earthshaker (61% en 87 partidas). 7 de sus counters están baneados: Axe y Faceless Void"
+        },
+        {
+          "rank": 2,
+          "heroId": 107,
+          "name": "Earth Spirit",
+          "positionShown": "Probable: Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Dark Willow: Dark Willow pone Bramble Maze y el silencio, Earth Spirit entra con Rolling Boulder y patea al rival contra las zarzas"
+        },
+        {
+          "rank": 3,
+          "heroId": 76,
+          "name": "Outworld Destroyer",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Disruptor: Kinetic Field no deja que los rivales se alejen de Outworld Destroyer"
+        },
+        {
+          "rank": 4,
+          "heroId": 74,
+          "name": "Invoker",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Dark Willow: Cursed Crown y Bramble Maze bloquean mucho tiempo y le dan a Invoker el Sun Strike asegurado. Sinergia con Disruptor: Lo dicen: DotaCoach (7.41f), wiki Fandom (antes de 7.41)"
+        },
+        {
+          "rank": 5,
+          "heroId": 34,
+          "name": "Tinker",
+          "positionShown": "Mid (pos 2)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta muy buen daño a estructuras y buen scaling que a tu equipo le falta"
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "side": "Radiant",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Sniper",
+        "Earthshaker",
+        "Legion Commander",
+        "Axe",
+        "Pudge",
+        "Faceless Void",
+        "Ogre Magi",
+        "Phantom Assassin",
+        "Skywrath Mage",
+        "Windranger",
+        "Silencer",
+        "Shadow Shaman",
+        "Lifestealer",
+        "Venomancer",
+        "Tidehunter",
+        "Spirit Breaker"
+      ],
+      "ownPicks": [
+        "Crystal Maiden (pos 5)",
+        "Lion (pos 4)"
+      ],
+      "revealedEnemy": [
+        "Ember Spirit",
+        "Techies"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Carry (Pos 1)",
+        "rationale": "La composición y el ranking apuntan a Carry (Pos 1).",
+        "positionsNamed": [
+          "Carry (pos 1)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 8,
+          "name": "Juggernaut",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Crystal Maiden: Lo dicen: DotaCoach (7.41f), wiki Fandom (antes de 7.41). Sinergia con Lion: Lo dicen: DotaCoach (7.41f)"
+        },
+        {
+          "rank": 2,
+          "heroId": 11,
+          "name": "Shadow Fiend",
+          "positionShown": "Probable: Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Aporta buen daño a estructuras, muy buen scaling y daño físico y mágico que a tu equipo le falta"
+        },
+        {
+          "rank": 3,
+          "heroId": 67,
+          "name": "Spectre",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta muy buen scaling y daño físico que a tu equipo le falta"
+        },
+        {
+          "rank": 4,
+          "heroId": 18,
+          "name": "Sven",
+          "positionShown": "Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Ember Spirit (56% en 75 partidas). 2 de sus counters están baneados: Axe y Shadow Shaman"
+        },
+        {
+          "rank": 5,
+          "heroId": 93,
+          "name": "Slark",
+          "positionShown": "Probable: Carry (pos 1)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Le ganas a Ember Spirit: Dark Pact quita Searing Chains y Pounce ata a Ember para pegarle; en la línea mid lo apaga. 2 de sus counters están baneados: Earthshaker y Axe"
+        }
+      ]
+    },
+    {
+      "id": "S15",
+      "side": "Dire",
+      "momento": "Segunda ronda de picks (a ciegas)",
+      "bans": [
+        "Pudge",
+        "Windranger",
+        "Invoker",
+        "Undying",
+        "Axe",
+        "Shadow Fiend",
+        "Phantom Lancer",
+        "Rubick",
+        "Sniper",
+        "Necrophos",
+        "Queen of Pain",
+        "Skywrath Mage",
+        "Silencer",
+        "Ogre Magi",
+        "Witch Doctor",
+        "Mirana"
+      ],
+      "ownPicks": [
+        "Crystal Maiden (pos 5)",
+        "Dark Willow (pos 4)"
+      ],
+      "revealedEnemy": [
+        "Underlord",
+        "Spectre"
+      ],
+      "sealedEnemySeats": 2,
+      "coachAdvice": {
+        "label": "Sugerencia: revela Offlane (Pos 3)",
+        "rationale": "La composición y el ranking apuntan a Offlane (Pos 3).",
+        "positionsNamed": [
+          "Offlane (pos 3)"
+        ]
+      },
+      "top5": [
+        {
+          "rank": 1,
+          "heroId": 69,
+          "name": "Doom",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Sinergia con Crystal Maiden: Lo dicen: wiki Fandom (7.41d)"
+        },
+        {
+          "rank": 2,
+          "heroId": 28,
+          "name": "Slardar",
+          "positionShown": "Probable: Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Fuerte contra Underlord (59% en 177 partidas). 3 de sus counters están baneados: Phantom Lancer y Necrophos"
+        },
+        {
+          "rank": 3,
+          "heroId": 98,
+          "name": "Timbersaw",
+          "positionShown": "Probable: Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY",
+            "FLEX"
+          ],
+          "explanation": "Sinergia con Crystal Maiden: Lo dicen: wiki Fandom (7.41f)"
+        },
+        {
+          "rank": 4,
+          "heroId": 96,
+          "name": "Centaur Warrunner",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "SYNERGY"
+          ],
+          "explanation": "Aporta buen scaling y daño físico que a tu equipo le falta"
+        },
+        {
+          "rank": 5,
+          "heroId": 60,
+          "name": "Night Stalker",
+          "positionShown": "Offlane (pos 3)",
+          "confidence": "media",
+          "badges": [
+            "COUNTER",
+            "SYNERGY"
+          ],
+          "explanation": "Fuerte contra Underlord (56% en 48 partidas). 1 de sus counters está baneado: Ogre Magi"
+        }
+      ]
+    }
+  ]
+}

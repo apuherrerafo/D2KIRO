@@ -370,3 +370,15 @@ test("progress: con Pos5 aún abierta sí ejecuta un pick humano para esa posici
   expect(commandCalls).toBe(1);
   expect(filled).toEqual([2, 5]);
 });
+
+test("resolveTargetUrl: por defecto el staging histórico; solo https de Railway; nunca hosts arbitrarios ni credenciales en la URL", async () => {
+  const { resolveTargetUrl, authStateFileName } = await import("./staging");
+  expect(resolveTargetUrl(undefined)).toBe("https://d2kiro-5r4j-staging.up.railway.app");
+  expect(resolveTargetUrl("https://d2kiro-f4-preview-preview.up.railway.app/login")).toBe("https://d2kiro-f4-preview-preview.up.railway.app");
+  for (const bad of ["http://x.up.railway.app", "https://evil.example.com", "https://u:p@x.up.railway.app", "https://up.railway.app.evil.com", "no es url"]) {
+    expect(() => resolveTargetUrl(bad)).toThrow();
+  }
+  // un estado de sesión por destino
+  expect(authStateFileName("https://d2kiro-5r4j-staging.up.railway.app")).toBe("staging-storage-state.json");
+  expect(authStateFileName("https://d2kiro-f4-preview-preview.up.railway.app")).toBe("d2kiro-f4-preview-preview.up.railway.app-storage-state.json");
+});

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluación de situaciones de draft</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d8dde3; --accent:#1f5fbf; --bad:#b3261e; --ok:#1e7a3c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171b; --card:#1d2227; --ink:#e8ebef; --muted:#9aa5b1; --line:#323a43; --accent:#6aa3ff; --bad:#ff8a80; --ok:#6fd08c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 8px 0; } h2 { font-size: 1.15rem; margin: 0 0 8px; } h3 { font-size: 1rem; margin: 12px 0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:16px 0; }
+  .muted { color:var(--muted); font-size:.92rem; }
+  .row { display:grid; grid-template-columns: 1fr; gap:8px; border-top:1px solid var(--line); padding:12px 0; }
+  .hero { font-weight:600; }
+  .callout { border-left:4px solid var(--accent); padding:4px 12px; background:var(--bg); }
+  .badges span { display:inline-block; font-size:.78rem; border:1px solid var(--line); border-radius:999px; padding:0 8px; margin-right:4px; }
+  .selects { display:flex; flex-wrap:wrap; gap:8px; }
+  label { font-size:.85rem; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
+  select, input, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); }
+  textarea { width:100%; min-height:48px; }
+  .need { border-color: var(--bad); }
+  table { border-collapse: collapse; width:100%; font-size:.9rem; } td, th { border:1px solid var(--line); padding:4px 8px; text-align:left; vertical-align:top; }
+  button { font:inherit; padding:10px 16px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  #bar { position:sticky; top:0; background:var(--bg); padding:8px 0; border-bottom:1px solid var(--line); z-index:2; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #msg, #gateMsg { color:var(--bad); font-size:.9rem; }
+  #sameBrowser { border:1px solid var(--bad); border-radius:12px; padding:12px; margin:12px 0; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Evaluación de situaciones de draft</h1>
+  <div id="sameBrowser" hidden></div>
+
+  <section class="card" id="guide">
+    <h2>Antes de empezar (2 min)</h2>
+    <p>Vas a juzgar 15 situaciones de draft de Dota 2 (parche 7.41) con tu criterio de jugador: mecánicas, líneas, roles, counters y composición. No uses popularidad ni winrate como argumento. Tu evaluación es <strong>individual</strong>. Si dudas, dilo en la razón; preferimos "no estoy seguro de…" a una certeza inventada.</p>
+    <h3>Cómo funciona el coach (importante)</h3>
+    <p class="callout">El coach hace <strong>dos cosas</strong>. Primero decide <strong>qué posición conviene mostrar ahora</strong> (ese es su "consejo principal"). Después propone <strong>5 héroes, todos de esa misma posición</strong>. Los 5 héroes <strong>no son un equipo mixto</strong>: son opciones para un solo rol.</p>
+    <p>Por eso juzgas <strong>dos cosas distintas</strong> en cada situación: (1) ¿eligió bien la <strong>posición</strong> a mostrar?, y (2) dentro de esa posición, ¿son buenos los <strong>5 héroes</strong>, su explicación y la etiqueta de posición de cada uno?</p>
+    <h3>Rúbrica</h3>
+    <table>
+      <tr><th>Qué</th><th>Valores</th></tr>
+      <tr><td>Posición que eligió el coach (por situación)</td><td><strong>Bien</strong>: es el rol que más conviene mostrar ahora. <strong>Dudosa</strong>: defendible pero otro rol sería igual o mejor. <strong>Mala</strong>: el rol equivocado para este momento. Si no es "bien", di qué posición habrías mostrado (o "esperar").</td></tr>
+      <tr><td>Calidad del pick (por héroe)</td><td><strong>Bueno</strong>: lo defendería aquí. <strong>Aceptable</strong>: razonable, no óptimo. <strong>Malo</strong>: se castiga o no encaja con lo que falta. <strong>Error grave</strong>: ningún jugador serio lo elegiría aquí.</td></tr>
+      <tr><td>Explicación (por héroe)</td><td><strong>Correcta</strong>: el motivo es cierto. <strong>Dudosa</strong>: vago o no comprobable. <strong>Incorrecta</strong>: afirma algo falso (habilidad, matchup, rol).</td></tr>
+      <tr><td>Etiqueta de posición del héroe</td><td><strong>Bien / Dudosa / Mala</strong>: ¿la posición con que el coach etiqueta a este héroe tiene sentido?</td></tr>
+    </table>
+    <p class="muted">Contexto: las rondas son a ciegas (los picks rivales "sellados" aún no se ven). Los baneos y el rival vienen de un simulador, no de una partida real. Todo lo que no sea "bueno / correcta / bien" pide una razón con mecánica concreta.</p>
+    <h3>Comprobación rápida</h3>
+    <label>Los 5 héroes de cada situación son…
+      <select id="q1"><option value="">—</option><option value="a">un equipo mixto con roles distintos</option><option value="b">opciones para UNA misma posición, la que el coach decidió mostrar</option><option value="c">los 5 picks que haría el coach, en orden</option></select>
+    </label>
+    <label>Además de los héroes, también debo juzgar…
+      <select id="q2"><option value="">—</option><option value="a">si el coach eligió bien la POSICIÓN a mostrar ahora</option><option value="b">si el equipo va a ganar la partida</option><option value="c">nada más</option></select>
+    </label>
+    <p><button id="startBtn" type="button">Empezar</button> <span id="gateMsg" role="alert"></span></p>
+  </section>
+
+  <div id="work" hidden>
+    <div id="bar">
+      <label>Tu nombre o iniciales <input id="who" maxlength="40" autocomplete="off"></label>
+      <span id="progress" class="muted"></span>
+      <button id="export" type="button">Descargar mis resultados</button>
+      <span id="msg" role="alert"></span>
+    </div>
+    <div id="list"></div>
+  </div>
+</main>
+<script>
+"use strict";
+const DATA = /*__DATA__*/null;
+const SHA = "__SCENARIOS_SHA__";
+const KEY = "ff-eval:v2:" + SHA;
+const PICK = [["", "—"], ["bueno", "Bueno"], ["aceptable", "Aceptable"], ["malo", "Malo"], ["error_grave", "Error grave"]];
+const EXPL = [["", "—"], ["correcta", "Correcta"], ["dudosa", "Dudosa"], ["incorrecta", "Incorrecta"]];
+const POS = [["", "—"], ["ok", "Bien"], ["dudosa", "Dudosa"], ["mala", "Mala"]];
+const CHOICE = [["", "—"], ["bien", "Bien"], ["dudosa", "Dudosa"], ["mala", "Mala"]];
+const BETTER = [["", "—"], ["sin_opinion", "Sin opinión"], ["1", "Carry (pos 1)"], ["2", "Mid (pos 2)"], ["3", "Offlane (pos 3)"], ["4", "Support (pos 4)"], ["5", "Hard support (pos 5)"], ["esperar", "Esperar: no mostrar ninguna ahora"]];
+
+let state = load();
+
+function fresh() { return { who: "", gate: false, startedAt: new Date().toISOString(), items: {}, scenarios: {} }; }
+function load() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return Object.assign(fresh(), JSON.parse(raw)); } catch (e) { /* sin almacenamiento: sigue en memoria */ }
+  return fresh();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* idem */ } }
+
+function el(tag, props, children) {
+  const node = document.createElement(tag);
+  if (props) for (const k of Object.keys(props)) { if (k === "class") node.className = props[k]; else node[k] = props[k]; }
+  for (const c of children || []) node.append(c);
+  return node;
+}
+function text(tag, value, cls) { return el(tag, { textContent: value, class: cls || "" }); }
+function listLine(label, values) { return text("div", label + ": " + (values.length ? values.join(", ") : "ninguno"), "muted"); }
+function select(options, value, onChange) {
+  const s = el("select", {}, options.map((o) => el("option", { value: o[0], textContent: o[1] })));
+  s.value = value || "";
+  s.addEventListener("change", onChange);
+  return s;
+}
+function field(label, control) { return el("label", {}, [label, control]); }
+
+function itemKey(sid, rank) { return sid + "#" + rank; }
+function getItem(sid, rank) { return state.items[itemKey(sid, rank)] || (state.items[itemKey(sid, rank)] = { pick: "", explanation: "", position: "", reason: "" }); }
+function getScn(sid) { return state.scenarios[sid] || (state.scenarios[sid] = { positionChoice: "", positionChoiceReason: "", betterPosition: "", missingHero: "", note: "" }); }
+
+function itemNeedsReason(it) { return it.pick === "malo" || it.pick === "error_grave" || it.explanation === "dudosa" || it.explanation === "incorrecta" || it.position === "dudosa" || it.position === "mala"; }
+function itemComplete(it) { return it.pick && it.explanation && it.position && (!itemNeedsReason(it) || it.reason.trim().length >= 5); }
+function scnNeedsAlt(sc) { return sc.positionChoice === "dudosa" || sc.positionChoice === "mala"; }
+function scnComplete(sc) { return sc.positionChoice && (!scnNeedsAlt(sc) || (sc.positionChoiceReason.trim().length >= 5 && sc.betterPosition !== "")); }
+
+function reasonBox(value, needed, placeholder, onInput) {
+  const t = el("textarea", { value: value, placeholder: needed ? "Obligatoria: " + placeholder : placeholder + " (opcional si todo está bien)" });
+  if (needed && value.trim().length < 5) t.classList.add("need");
+  t.addEventListener("input", onInput);
+  return t;
+}
+
+function heroRow(sc, h) {
+  const it = getItem(sc.id, h.rank);
+  const reasonHolder = el("div", {}, []);
+  function drawReason() {
+    reasonHolder.replaceChildren(reasonBox(it.reason, itemNeedsReason(it), "¿por qué? (mecánica concreta)", function onReason(ev) { it.reason = ev.target.value; save(); refresh(); }));
+  }
+  function onChange(fieldName) { return function handle(ev) { it[fieldName] = ev.target.value; save(); drawReason(); refresh(); }; }
+  drawReason();
+  return el("div", { class: "row" }, [
+    text("div", h.rank + ". " + h.name, "hero"),
+    text("div", "Etiqueta de posición que muestra el coach: " + h.positionShown + " · confianza: " + h.confidence, "muted"),
+    el("div", { class: "badges" }, h.badges.map((b) => text("span", b))),
+    text("div", "Explicación del coach: " + h.explanation),
+    el("div", { class: "selects" }, [
+      field("Calidad del pick (dentro de esa posición)", select(PICK, it.pick, onChange("pick"))),
+      field("Explicación", select(EXPL, it.explanation, onChange("explanation"))),
+      field("Etiqueta de posición de este héroe", select(POS, it.position, onChange("position"))),
+    ]),
+    reasonHolder,
+  ]);
+}
+
+function scenarioCard(sc, index) {
+  const s = getScn(sc.id);
+  const altHolder = el("div", {}, []);
+  function drawAlt() {
+    if (!scnNeedsAlt(s)) { altHolder.replaceChildren(); return; }
+    const better = field("¿Qué posición habrías mostrado?", select(BETTER, s.betterPosition, function onBetter(ev) { s.betterPosition = ev.target.value; save(); refresh(); }));
+    altHolder.replaceChildren(better, reasonBox(s.positionChoiceReason, true, "¿por qué esa posición no era la adecuada?", function onWhy(ev) { s.positionChoiceReason = ev.target.value; save(); refresh(); }));
+  }
+  function onChoice(ev) { s.positionChoice = ev.target.value; save(); drawAlt(); refresh(); }
+  function onMissing(ev) { s.missingHero = ev.target.value; save(); }
+  function onNote(ev) { s.note = ev.target.value; save(); }
+  drawAlt();
+  const positions = sc.coachAdvice.positionsNamed.length ? sc.coachAdvice.positionsNamed.join(" / ") : "ninguna (el coach dice que esperes)";
+  return el("section", { class: "card", id: "card-" + sc.id }, [
+    text("h2", "Situación " + (index + 1) + " de " + DATA.count),
+    text("div", "Eliges como: " + sc.side + " · " + sc.momento),
+    listLine("Baneados", sc.bans),
+    listLine("Tu equipo ya tiene (con el rol que le atribuye el coach)", sc.ownPicks),
+    listLine("Rivales ya revelados", sc.revealedEnemy),
+    text("div", "Picks rivales sellados que aún no ves: " + sc.sealedEnemySeats, "muted"),
+    el("div", { class: "row" }, [
+      text("h3", "Parte 1 · ¿Eligió bien la POSICIÓN?"),
+      text("div", "El coach manda mostrar: " + positions + ' — "' + sc.coachAdvice.label + '"', "hero"),
+      text("div", sc.coachAdvice.rationale),
+      el("div", { class: "selects" }, [field("¿Es la posición correcta para mostrar ahora?", select(CHOICE, s.positionChoice, onChoice))]),
+      altHolder,
+    ]),
+    text("h3", "Parte 2 · Los 5 héroes propuestos (todos para esa posición, en este orden)"),
+    ...sc.top5.map((h) => heroRow(sc, h)),
+    el("div", { class: "row" }, [
+      field("¿Falta un héroe claramente bueno aquí? (opcional)", el("input", { value: s.missingHero, oninput: onMissing })),
+      field("Comentario libre (opcional)", el("textarea", { value: s.note, oninput: onNote })),
+    ]),
+  ]);
+}
+
+function stats() {
+  let done = 0, total = 0;
+  for (const sc of DATA.scenarios) {
+    total += 1 + sc.top5.length;
+    if (scnComplete(getScn(sc.id))) done += 1;
+    for (const h of sc.top5) if (itemComplete(getItem(sc.id, h.rank))) done += 1;
+  }
+  return { done, total };
+}
+function refresh() {
+  const s = stats();
+  document.getElementById("progress").textContent = "Completado: " + s.done + " / " + s.total;
+}
+
+function buildResult() {
+  const items = [], scenarios = [];
+  for (const sc of DATA.scenarios) {
+    const s = getScn(sc.id);
+    scenarios.push({ scenarioId: sc.id, positionChoice: s.positionChoice, positionChoiceReason: s.positionChoiceReason.trim(), betterPosition: s.betterPosition, missingHero: s.missingHero.trim(), note: s.note.trim() });
+    for (const h of sc.top5) {
+      const it = getItem(sc.id, h.rank);
+      items.push({ scenarioId: sc.id, rank: h.rank, heroId: h.heroId, hero: h.name, pick: it.pick, explanation: it.explanation, position: it.position, reason: it.reason.trim() });
+    }
+  }
+  return { schema: "ff-eval/v2", scenariosSha256: SHA, evaluator: state.who.trim(), comprehension: { passed: state.gate === true }, startedAt: state.startedAt, finishedAt: new Date().toISOString(), items, scenarios };
+}
+
+function onExport() {
+  const msg = document.getElementById("msg");
+  msg.textContent = "";
+  if (state.who.trim().length < 2) { msg.textContent = "Escribe tu nombre o iniciales."; return; }
+  const s = stats();
+  if (s.done < s.total) { msg.textContent = "Faltan " + (s.total - s.done) + " campos por completar (los marcados en rojo necesitan razón)."; return; }
+  const blob = new Blob([JSON.stringify(buildResult(), null, 2)], { type: "application/json" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: "ff-eval-" + state.who.trim().replace(/[^A-Za-z0-9_-]+/g, "_") + ".json" }, []);
+  document.body.append(a); a.click(); a.remove();
+  msg.style.color = "var(--ok)"; msg.textContent = "Listo. Envía ese archivo a quien organiza, sin comentarlo con otros evaluadores.";
+}
+
+function onWho(ev) { state.who = ev.target.value; save(); }
+
+function showWork() {
+  document.getElementById("guide").hidden = true;
+  document.getElementById("work").hidden = false;
+  const who = document.getElementById("who");
+  who.value = state.who; who.addEventListener("input", onWho);
+  document.getElementById("export").addEventListener("click", onExport);
+  const list = document.getElementById("list");
+  DATA.scenarios.forEach((sc, i) => list.append(scenarioCard(sc, i)));
+  refresh();
+}
+
+function onStart() {
+  const gateMsg = document.getElementById("gateMsg");
+  if (document.getElementById("q1").value !== "b" || document.getElementById("q2").value !== "a") {
+    gateMsg.textContent = "Revisa la sección «Cómo funciona el coach» y vuelve a contestar.";
+    return;
+  }
+  gateMsg.textContent = "";
+  state.gate = true; save();
+  showWork();
+}
+
+function onWipe() {
+  try { localStorage.removeItem(KEY); } catch (e) { /* idem */ }
+  location.reload();
+}
+function onContinue() { document.getElementById("sameBrowser").hidden = true; }
+
+function init() {
+  document.getElementById("startBtn").addEventListener("click", onStart);
+  if (state.who.trim() !== "" || Object.keys(state.items).length > 0) {
+    const box = document.getElementById("sameBrowser");
+    box.hidden = false;
+    box.append(
+      text("p", "Este navegador ya tiene respuestas guardadas" + (state.who.trim() ? " de «" + state.who.trim() + "»" : "") + ". Si eres otra persona, borra todo para no ver ni mezclar respuestas ajenas (la independencia es la base de esta prueba)."),
+      el("button", { type: "button", textContent: "Soy otra persona: borrar todo", onclick: onWipe }, []),
+      document.createTextNode(" "),
+      el("button", { type: "button", class: "ghost", textContent: "Soy yo: continuar", onclick: onContinue }, []),
+    );
+  }
+  if (state.gate === true) showWork();
+}
+init();
+</script>
+</body>
+</html>

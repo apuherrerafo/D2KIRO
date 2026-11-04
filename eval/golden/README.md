@@ -1,5 +1,24 @@
 # `eval/golden/` — Golden Dataset (Benchmark A, Engine Quality)
 
+> ## ⚠️ Golden v1 es HISTÓRICO — no es una medida absoluta de calidad estratégica
+>
+> Auditoría del 2026-11-03 (PR #110). Lo que hay que saber antes de usar este archivo:
+>
+> - **El etiquetador vio al motor antiguo.** El prompt de etiquetado
+>   (`docs/research/tsk-206-golden-research-prompt.md`) mostraba en cada caso "Mi motor recomienda
+>   hoy: …". 128 de los 150 héroes del top-5 del motor de septiembre coinciden con lo que vio el
+>   etiquetador, y casi todo lo que se le mostró quedó etiquetado. Los casos miden, en buena parte,
+>   qué tan parecido es un motor a aquel.
+> - **Cobertura desigual.** Hay ~2 `excellent` y ~2 `acceptable` por caso. Un héroe sin etiquetar
+>   cuenta 0 en NDCG@5: el motor de septiembre tiene ~91% de su top-5 etiquetado; el actual, ~45%.
+> - **Etiquetas discutibles.** Una auditoría de 59 etiquetas (10 casos) halló ~42% QUESTIONABLE y
+>   una razón con un error de habilidad (caso 02). Un solo LLM, sin validación humana.
+> - **Uso correcto:** detector de **cambios** entre versiones del motor (comparar contra el baseline
+>   de `eval/baselines/`), nunca "qué tan bueno es el motor" ni "cuál motor decide mejor". Una nota
+>   baja aquí NO prueba una regresión; una nota alta NO prueba calidad.
+> - Las etiquetas, las métricas, el dataset y el baseline **no se modificaron**. Un benchmark nuevo
+>   (etiquetador que no vea ningún motor, 2+ jueces, unión de varios motores) es trabajo aparte.
+
 Casos de estado de draft **etiquetados** con qué héroes serían `excellent` / `acceptable` / `bad`
 en ese momento exacto, y por qué. Es el benchmark **principal** de calidad del motor
 (SPEC.md §15.4.3). Esquema: [`data/schemas/golden.schema.json`](../../data/schemas/golden.schema.json).
