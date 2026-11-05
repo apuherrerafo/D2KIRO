@@ -79,6 +79,19 @@ export function fakeCompute(pool: readonly number[] = POOL, positions: HeroPosit
   };
 }
 
+/**
+ * FUNDAMENTO FUERTE neutro de los datos de prueba (contrato de elegibilidad, 2026-11-04): un ban de un héroe que no existe en Dota (`STRONG_OPENER`) que
+ * es counter DURO, con porqué, de TODOS los héroes del harness, y ningún counter libre: lo baneado pesa más que lo que queda, así que cada héroe es
+ * elegible Y de evidencia FUERTE en cualquier momento del draft. Las pruebas de flujo (pools, party, tablero) miden lo suyo y no la regla, que tiene sus
+ * pruebas aparte (recommendation-eligibility.test.ts, position-only-contract.test.ts). Solo se aplica si la prueba no trae sus propios `heroCounters`.
+ */
+export const STRONG_OPENER = 9999;
+export function strongOpenerCounters(heroIds: Iterable<number>, opener: number = STRONG_OPENER, base?: ReadonlyMap<number, readonly CuratedCounter[]>): ReadonlyMap<number, readonly CuratedCounter[]> {
+  const merged = new Map<number, readonly CuratedCounter[]>(base ?? []);
+  for (const hero of heroIds) merged.set(hero, [...(merged.get(hero) ?? []), { vs: opener, level: "hard" as const, why: "fixture: el ban abre a todos por igual" }]);
+  return merged;
+}
+
 export interface Harness {
   store: ProtocolSessionStore;
   id: string;
@@ -89,7 +102,7 @@ export interface Harness {
   compute(personal?: 1 | 2 | 3 | 4 | 5): Promise<CoachRecomputation>;
 }
 
-export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[]; adapterKind?: "simulator" | "manual"; controlledPositions?: (1 | 2 | 3 | 4 | 5)[] } = {}): Harness {
+export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[]; adapterKind?: "simulator" | "manual"; controlledPositions?: (1 | 2 | 3 | 4 | 5)[]; strongGrounds?: boolean } = {}): Harness {
   const positions = options.heroPositions ?? HERO_POSITIONS;
   const pool = options.pool ?? POOL;
   const side = options.side ?? "radiant";
@@ -112,13 +125,22 @@ export function harness(options: { side?: TeamSide; seed?: string; humanPosition
     controlledPositions: options.controlledPositions,
   });
   if (!created.ok) throw new Error("setup failed");
-  const applied = store.applyAtomically(id, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  const ownCounters = options.heroCounters !== undefined;
+  const universe = new Set([...pool, ...Object.keys(positions).map(Number)]);
+  // `strongGrounds`: la prueba trae SUS counters (p. ej. Safe Core) pero el resto de los héroes necesita un fundamento FUERTE neutro para sostener
+  // la acción principal del Coach v3: se les suma el ban abre-a-todos, sin tocar los héroes que la prueba ya describe (su evidencia queda intacta).
+  const mergedCounters = ownCounters && options.strongGrounds === true
+    ? new Map([...strongOpenerCounters([...universe].filter((hero) => !options.heroCounters!.has(hero))), ...options.heroCounters!])
+    : undefined;
+  const heroCounters = mergedCounters ?? (ownCounters ? options.heroCounters : strongOpenerCounters(universe));
+  const withOpener = !ownCounters || mergedCounters !== undefined;
+  const applied = store.applyAtomically(id, [{ type: "RECORD_RESOLVED_BANS", heroes: withOpener ? [...(options.bans ?? []), STRONG_OPENER] : options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   if (!applied?.ok) throw new Error("bans failed");
 
   // The closure the server layer supplies: it (and only it) holds the authoritative session.
   const coach = new CoachOrchestrator({
     heroPositions: positions,
-    heroCounters: options.heroCounters,
+    heroCounters,
     // The REAL Coach path: perspective-safe context in, perspective-safe builder. No authoritative state anywhere.
     buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(pool, positions), heroPositions: positions }),
     buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({

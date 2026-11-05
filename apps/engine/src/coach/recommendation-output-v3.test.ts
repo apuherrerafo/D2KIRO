@@ -6,12 +6,15 @@ import { hidden, known, neutralImpact, recSet, revealed, roleOnlyHero as positio
 
 // AP Ranked Roles V1 / Wave 2 (task 18) -- RecommendationOutputV3 on top of RecommendationSetV2.
 
-// Contrato de elegibilidad (2026-11-03): el Coach v3 solo lista héroes con un fundamento. Estas pruebas miden otra cosa (tamaño, orden, acción,
-// confianza), así que cada héroe de sus fixtures trae el MISMO fundamento mínimo: la intención de draft elegida (`archetype_fit` con datos). El
-// contrato en sí (qué cuenta como fundamento, sin fundamento -> null) se prueba en live-contract.coach.test.ts.
-const grounded = (hero: HeroFixture): HeroFixture => ({ ...hero, signals: [...hero.signals, signal("archetype_fit", 0.7, 1, { explanation: "Encaja con tu draft de Push" })] });
-const roleOnlyHero = (heroId: number, position: 1 | 2 | 3 | 4 | 5, weighted?: number): HeroFixture => grounded(positionOnlyHero(heroId, position, weighted));
-const translate = (...args: Parameters<typeof translateToRecommendationOutputV3>) => translateToRecommendationOutputV3(...args)!;
+// Contrato de elegibilidad (2026-11-03/04): el Coach v3 solo lista héroes con un fundamento, y solo una evidencia FUERTE sostiene la acción principal.
+// Estas pruebas miden otra cosa (tamaño, orden, acción, confianza), así que todos los héroes de sus fixtures traen el MISMO fundamento fuerte: una
+// pareja curada, con porqué de Dota, con un aliado ya elegido. El contrato en sí (qué cuenta, fuerza, sin fundamento -> null) se prueba en
+// live-contract.coach.test.ts y recommendation-eligibility.test.ts.
+const ALLIES = [50, 1, 2, 3, 4];
+const STRONG_PAIRS = new Map(Array.from({ length: 60 }, (_, index) => [index + 1, ALLIES.map((ally) => ({ with: ally, why: "Combo de fixture: su stun encadena con el del aliado" }))]));
+const roleOnlyHero = positionOnlyHero;
+const translate = (set: Parameters<typeof translateToRecommendationOutputV3>[0], strategy: Parameters<typeof translateToRecommendationOutputV3>[1], state: Parameters<typeof translateToRecommendationOutputV3>[2], context: Parameters<typeof translateToRecommendationOutputV3>[3], config: Parameters<typeof translateToRecommendationOutputV3>[4] = {}) =>
+  translateToRecommendationOutputV3(set, strategy, state, context, { heroSynergies: STRONG_PAIRS, ...config })!;
 
 const VIEW = view("PICK_ROUND_1", [known(50)], [hidden(), hidden()]);
 const STATE = buildCoachObservableState(VIEW);
@@ -116,7 +119,7 @@ describe("translateToRecommendationOutputV3", () => {
   });
 
   test("tarjetas: un héroe Flex (catálogo curado en 2+ posiciones) se marca FLEX; su roleStatus sigue el de V6", () => {
-    const flex: HeroFixture = grounded({ heroId: 9, signals: [signal("position_fit", 0.6, 30)], impact: neutralImpact() });
+    const flex: HeroFixture = { heroId: 9, signals: [signal("position_fit", 0.6, 30)], impact: neutralImpact() };
     const output = translate(recSet([flex, roleOnlyHero(10, 1, 5)]), { kind: "REVEAL_FLEX", possiblePositions: [2, 3], rationale: "r" }, STATE, "blind_second_pick", {
       heroPositions: { 9: [{ position: 2, matches: 500 }, { position: 3, matches: 300 }] },
     });

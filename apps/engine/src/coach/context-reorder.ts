@@ -34,6 +34,8 @@ export type CounterLevel = "hard" | "medium";
 export interface CounterNote {
   heroId: HeroId;
   level: CounterLevel;
+  /** El porqué de Dota de la relación curada (solo en las notas que se MUESTRAN: `reasonedOpening` lo completa; una atribución nunca llega aquí). */
+  why?: string;
   /** Solo en "sigue libre": la posición habitual de ese counter ya la ocupa un rival revelado (menos probable). */
   takenPosition?: Position;
 }
@@ -64,7 +66,7 @@ export interface ContextReorderInput {
   targetPosition?: Position;
 }
 
-const LEVEL_WEIGHT: Record<CounterLevel, number> = { hard: 2, medium: 1 };
+export const LEVEL_WEIGHT: Record<CounterLevel, number> = { hard: 2, medium: 1 };
 /** Una lista corta no cuenta como "toda baneada" por un solo counter: el denominador nunca baja de esto. */
 const MIN_COUNTER_WEIGHT = 10;
 /** Bono de V6 si TODA la lista de counters (con el denominador mínimo) está baneada. */

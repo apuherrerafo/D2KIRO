@@ -1,6 +1,6 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
-import { banOpeningOf, isReasonedWhy, stealsOf, synergiesWithOwn, type BanOpening, type ContextReorderInput, type StealNote } from "./context-reorder";
+import { banOpeningOf, isReasonedWhy, stealsOf, synergiesWithOwn, type BanOpening, type ContextReorderInput, type CounterNote, type StealNote } from "./context-reorder";
 
 // Lo que una tarjeta de héroe cuenta DEL DRAFT VISIBLE, con una sola fuente para el tablero del equipo y la lista del simulador
 // (antes la lista solo recibía una frase y el tablero armaba esto aparte, así que dos pantallas decían razones distintas del mismo
@@ -81,9 +81,16 @@ function cachedStrengthIndex(heroCounters: ContextReorderInput["heroCounters"]):
 function reasonedOpening(heroId: HeroId, input: ContextReorderInput): BanOpening {
   const opening = banOpeningOf(heroId, input);
   const entries = input.heroCounters?.get(heroId) ?? [];
-  const reasoned = (note: { heroId: HeroId }): boolean => entries.some((entry) => entry.vs === note.heroId && isReasonedWhy(entry.why));
-  // "Ojo: X, Y siguen libres" es una advertencia con la misma exigencia: solo con un porqué de Dota (una atribución no se muestra).
-  return { ...opening, openedBy: opening.openedBy.filter(reasoned), stillFree: opening.stillFree.filter(reasoned) };
+  const whyOf = (note: { heroId: HeroId }): string | undefined => {
+    const entry = entries.find((candidate) => candidate.vs === note.heroId && isReasonedWhy(candidate.why));
+    return entry === undefined ? undefined : entry.why.trim().replace(/[.\s]+$/, "");
+  };
+  // Cada amenaza que se nombra (la que desapareció y las que quedan) lleva su porqué de Dota; sin porqué (una atribución) no se muestra.
+  const withWhy = (notes: readonly CounterNote[]): CounterNote[] => notes.flatMap((note) => {
+    const why = whyOf(note);
+    return why === undefined ? [] : [{ ...note, why }];
+  });
+  return { ...opening, openedBy: withWhy(opening.openedBy), stillFree: withWhy(opening.stillFree) };
 }
 
 /**

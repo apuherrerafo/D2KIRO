@@ -225,6 +225,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       // Una etiqueta es una explicación mostrada: solo las que corresponden a un fundamento que de verdad habilitó la tarjeta (+ FLEX, que informa).
       badges: [...badgesFromGrounds(eligibility.grounds), ...card.badges.filter((badge) => badge === "FLEX")],
       rationale,
+      evidenceStrength: eligibility.strength ?? "WEAK",
       hideRationale: hide,
       context: eligibility.context,
       // COHERENCE-007: a pool MARK (information, never a reason) exists only when a pool actually shaped this ranking.

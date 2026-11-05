@@ -163,6 +163,17 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 y Hero 12 también lo counterean y siguen libres.");
   });
 
+  test("cada amenaza baneada y cada una que sigue libre lleva su porqué (héroe + mecanismo), no solo un nombre", () => {
+    const opened = column(2);
+    opened.top[0] = {
+      ...opened.top[0]!,
+      opening: { openedBy: [{ heroId: 7, level: "hard", why: "Su Call lo corta" }], stillFree: [{ heroId: 11, level: "medium", why: "Su silencio lo deja sin hechizos" }] },
+    };
+    const view = renderBoard({ ...board([2], 2), positions: [opened] });
+    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Counter baneado: Hero 7 — Su Call lo corta. Se abre el pick.");
+    expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 — Su silencio lo deja sin hechizos también lo counterea y sigue libre.");
+  });
+
   test("un solo counter baneado se dice en singular", () => {
     const opened = column(2);
     opened.top[0] = { ...opened.top[0]!, opening: { openedBy: [{ heroId: 7, level: "hard" }], stillFree: [] } };
@@ -441,6 +452,44 @@ describe("TeamCoachBoard -- live Party5 P0 (engine mirror)", () => {
     expect(view.queryByTestId("team-coach-phase-fallback")).toBeNull();
     expect(view.container.textContent).not.toContain("Orden por fase del draft");
     expect(view.container.textContent).not.toContain("prioridad estratégica clara");
+  });
+
+  // Elegibilidad != fuerza (2026-11-04): la tarjeta de evidencia limitada aparece, con su marca, pero nunca como plan ni como recomendación destacada.
+  test("una tarjeta de evidencia LIMITADA (WEAK) lleva la marca y nunca 'plan'; la FUERTE no lleva la marca", () => {
+    const mixed = column(2);
+    mixed.top[0] = { ...mixed.top[0]!, evidenceStrength: "STRONG" };
+    mixed.top[1] = { ...mixed.top[1]!, evidenceStrength: "WEAK", isPrimary: true }; // aunque un motor anterior la marcara primaria, la web no la destaca
+    const view = renderBoard({ ...board([2], 2), positions: [mixed] });
+    const rows = view.getAllByTestId("team-coach-candidate");
+    expect(rows[0]!.querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+    expect(rows[1]!.querySelector('[data-testid="evidence-limited-mark"]')?.textContent).toBe("Evidencia limitada");
+    expect(rows[1]!.getAttribute("data-primary")).toBe("false");
+    expect(rows[1]!.textContent).not.toContain("plan");
+  });
+
+  test("si el héroe recomendado es de evidencia LIMITADA no hay botón 'Elige a X' ni héroe destacado en el banner", () => {
+    const weakColumn = column(2);
+    weakColumn.top[0] = { ...weakColumn.top[0]!, evidenceStrength: "WEAK" };
+    const picks: number[] = [];
+    const view = renderBoard({ ...board([2], 2), positions: [weakColumn] }, { onPickHero: (_position, heroId) => { picks.push(heroId); } });
+    expect(view.queryByTestId("team-coach-pick-recommended")).toBeNull();
+    expect(view.getAllByTestId("evidence-limited-mark")).toHaveLength(1);
+    const strongColumn = column(2);
+    strongColumn.top[0] = { ...strongColumn.top[0]!, evidenceStrength: "STRONG" };
+    const strongView = renderBoard({ ...board([2], 2), positions: [strongColumn] }, { onPickHero: () => {} });
+    expect(strongView.getByTestId("team-coach-pick-recommended")).toBeTruthy();
+  });
+
+  test("el payload con evidenceStrength y porqués en los bans se valida; un valor desconocido se rechaza entero", () => {
+    const withStrength = board([2], 2);
+    withStrength.positions[0]!.top[0] = { ...withStrength.positions[0]!.top[0]!, evidenceStrength: "WEAK", opening: { openedBy: [{ heroId: 7, level: "hard", why: "Su Call lo corta" }], stillFree: [] } };
+    expect(parseTeamCoachBoard(JSON.parse(JSON.stringify(withStrength)))).not.toBeNull();
+    const bad = JSON.parse(JSON.stringify(withStrength));
+    bad.positions[0].top[0].evidenceStrength = "MEDIUM";
+    expect(parseTeamCoachBoard(bad)).toBeNull();
+    const badWhy = JSON.parse(JSON.stringify(withStrength));
+    badWhy.positions[0].top[0].opening.openedBy[0].why = 12;
+    expect(parseTeamCoachBoard(badWhy)).toBeNull();
   });
 
   test("a position our picks fill without a confirmed hero renders as filled, with the engine's note and no candidates", () => {

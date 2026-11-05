@@ -7,7 +7,7 @@ import { buildTeamCoachBoard, buildTeamPositionPriority } from "./team-coach-boa
 import { selectDecisionTarget, targetFromPriority } from "./current-human-decision";
 import { selectLivePositionPriority } from "./live-position-priority";
 import { poolsByConfirmedPosition, type SavedTeamMember } from "../recommendation/team-positions";
-import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures";
+import { fakeCompute, harness, HERO_POSITIONS, strongOpenerCounters } from "./session-harness.fixtures";
 
 // Step 1B-B (closing pass) -- every Party5 target-selection path agrees: a position whose configured pool is exhausted
 // is NOT a viable target. REAL kernel + REAL store; V6's scorer is the harness stand-in. Positions and pools are inline (S10).
@@ -116,6 +116,7 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
       context,
       playerPersonalPosition: personal,
       heroPositions: HERO_POSITIONS,
+      heroCounters: strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number)), // fundamento fuerte neutro de los datos de prueba (el harness ya banea al opener)
       buildTargetRanking: (ctx: PerspectiveRecommendationContext, targetPosition: Position) =>
         buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, targetPosition, teamOpening: false, singleSlotEvaluation: true }),
     };

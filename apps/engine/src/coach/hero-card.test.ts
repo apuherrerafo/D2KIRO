@@ -257,13 +257,14 @@ describe("extractHeroCandidates / buildHeroCard", () => {
   });
 
   // Contrato de elegibilidad (2026-11-03): la frase y las etiquetas de razón de una tarjeta salen SOLO de los fundamentos que la habilitaron
-  // (`evaluateEligibility` -> `buildHeroCard(..., grounds)`); nunca de "la señal más fuerte" ni de una señal que no decidió nada.
+  // (`evaluateEligibility` -> `buildHeroCard(..., eligibility)`); nunca de "la señal más fuerte" ni de una señal que no decidió nada.
   const eligibilityOf = (revealed: number[] = [], overrides: Partial<EligibilityInput["context"]> = {}): EligibilityInput => ({
     context: { banned: new Set<number>(), ownPicks: new Set<number>(), revealedEnemies: new Set(revealed), ...overrides },
   });
   const cardOf = (hero: HeroFixture, input: EligibilityInput) => {
     const [cand] = extractHeroCandidates(recSet([hero]));
-    return { card: buildHeroCard(cand!, [], evaluateEligibility(cand!, input).grounds), grounds: evaluateEligibility(cand!, input).grounds };
+    const eligibility = evaluateEligibility(cand!, input);
+    return { card: buildHeroCard(cand!, [], eligibility), grounds: eligibility.grounds, eligibility };
   };
 
   test("sin fundamentos no hay frase ni etiqueta de razón: la posición sola jamás se escribe como motivo", () => {
@@ -321,11 +322,13 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     const hero = (extra: HeroFixture["signals"] = []): HeroFixture => ({ heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation: POSITION }), ...extra], impact: resolvedImpact(5) });
     const pairs = (why: string): ReadonlyMap<number, readonly CuratedSynergy[]> => new Map([[7, [{ with: 3, why }]]]);
 
-    test("una pareja curada con porqué con un aliado YA elegido es fundamento: etiqueta SYNERGY y frase de pareja", () => {
+    test("una pareja curada con porqué con un aliado YA elegido es fundamento FUERTE: etiqueta SYNERGY, y la tarjeta trae al aliado y el mecanismo (no una frase genérica)", () => {
       const { card, grounds } = cardOf(hero(), eligibilityOf([], { ownPicks: new Set([3]), heroSynergies: pairs("Shallow Grave le da tiempo para usar Blink") }));
       expect(grounds.map((ground) => ground.kind)).toEqual(["SYNERGY_PAIR"]);
       expect(card.badges).toContain("SYNERGY");
-      expect(card.rationale).toBe("Hace pareja con un aliado ya elegido");
+      expect(card.evidenceStrength).toBe("STRONG");
+      expect(card.context.synergies).toEqual([{ withHeroId: 3, why: "Shallow Grave le da tiempo para usar Blink" }]);
+      expect(card.hideRationale).toBe(true); // lo dicen los chips (con el nombre del aliado y el porqué), no una frase que oculte la ausencia de detalle
     });
 
     test("una pareja cuyo único contenido es una atribución ('Lo dicen: …') NO cuenta; tampoco si el aliado no está elegido", () => {
@@ -340,10 +343,20 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       expect(card.rationale).toBe("");
     });
 
-    test("la intención de draft que el jugador eligió (archetype_fit con datos) es fundamento y su frase es la propia", () => {
-      const { card, grounds } = cardOf(hero([signal("archetype_fit", 0.7, 5, { explanation: "Encaja con tu draft de Push" })]), eligibilityOf());
-      expect(grounds.map((ground) => ground.kind)).toEqual(["ARCHETYPE_INTENT"]);
+    test("la intención de draft elegida es una PREFERENCIA: sola no habilita; con evidencia del draft la complementa y su frase se muestra", () => {
+      const intent = signal("archetype_fit", 0.7, 5, { explanation: "Encaja con tu draft de Push" });
+      expect(cardOf(hero([intent]), eligibilityOf()).grounds).toEqual([]);
+      const { card, grounds } = cardOf(hero([intent]), eligibilityOf([], { ownPicks: new Set([3]), heroSynergies: pairs("Shallow Grave le da tiempo para usar Blink") }));
+      expect(grounds.map((ground) => ground.kind)).toEqual(["SYNERGY_PAIR", "ARCHETYPE_INTENT"]);
       expect(card.rationale).toBe("Encaja con tu draft de Push");
+      expect(card.hideRationale).toBe(false);
+    });
+
+    test("el meta solo es evidencia DÉBIL: la tarjeta aparece pero evidenceStrength es WEAK", () => {
+      const meta = signal("patch_meta", 0.6, 4, { sampleSize: 5000, explanation: "Winrate de 60.0% este parche en bracket bajo/medio" });
+      const { card, grounds } = cardOf(hero([meta]), eligibilityOf());
+      expect(grounds.map((ground) => ground.kind)).toEqual(["PATCH_META"]);
+      expect(card.evidenceStrength).toBe("WEAK");
     });
 
     test("pool y FLEX informan pero no habilitan: pertenecer al pool no crea fundamento", () => {

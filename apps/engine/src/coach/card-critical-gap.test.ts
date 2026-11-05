@@ -101,17 +101,13 @@ describe("CRITICAL_GAP -- candado de regresión cero: no toca el ranking ni el r
   const derive = (heroCapabilities: HeroCapabilities[] | undefined) =>
     deriveCandidateResult({ targetPosition: 1, targetRanking: recSet(heroes), view: closing(), heroPositions: POSITIONS, heroCapabilities, personalPoolApplied: false });
 
-  test("con y sin capacidades: orden, puntajes y confianza idénticos; cambian los avisos y, para quien LLENA el hueco crítico, un fundamento más", () => {
+  test("con y sin capacidades: orden, puntajes, etiquetas y frase idénticos; solo cambian los avisos (con margen -- 1 hueco y 2 picks -- cubrir el hueco no es todavía un fundamento)", () => {
     const without = derive(undefined);
     // 7 no inicia (el hueco queda abierto para él); 8 sí inicia.
     const withCaps = derive([...TEAM, hero(7), hero(8, { hasInitiation: true })]);
     if (without.state !== "RANKED" || withCaps.state !== "RANKED") throw new Error("expected RANKED");
-    const shape = (cards: typeof without.cards) => cards.map((card) => [card.heroId, card.rank, card.score, card.confidence]);
+    const shape = (cards: typeof without.cards) => cards.map((card) => [card.heroId, card.rank, card.score, card.badges, card.rationale, card.confidence]);
     expect(shape(withCaps.cards)).toEqual(shape(without.cards));
-    // 7 (no llena el hueco) queda idéntico; 8 (inicia) gana el fundamento de composición: etiqueta y frase salen de él.
-    expect([withCaps.cards[0]?.badges, withCaps.cards[0]?.rationale]).toEqual([without.cards[0]?.badges, without.cards[0]?.rationale]);
-    expect(withCaps.cards[1]?.badges).not.toContain("SYNERGY"); // cubrir un hueco no es sinergia: la etiqueta no se usa
-    expect(withCaps.cards[1]?.rationale).toContain("iniciar peleas");
     expect(without.cards.map((card) => card.risks)).toEqual([[], []]);
     expect(withCaps.cards[0]?.risks.map((risk) => risk.kind)).toEqual(["CRITICAL_GAP"]);
     expect(withCaps.cards[1]?.risks).toEqual([]);

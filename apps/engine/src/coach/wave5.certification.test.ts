@@ -5,7 +5,7 @@ import type { HeroPositions } from "../signals/hero-positions";
 import type { Suggestion } from "../signals/mix";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import { createCoachRecommendations } from "../server/routes/coach-recommendations";
-import { fakeCompute, harness, stripSession, type Harness } from "./session-harness.fixtures";
+import { fakeCompute, harness, stripSession, strongOpenerCounters, type Harness } from "./session-harness.fixtures";
 
 // AP Ranked Roles V1 / WAVE 5 -- PRODUCT CERTIFICATION (release-level engine proofs). Nothing here adds behaviour:
 // it re-proves, in ONE place and across ALL Coach-visible surfaces at once, the properties the MVP is sold on.
@@ -56,6 +56,7 @@ function world(options: { seed: string; side?: "radiant" | "dire"; id?: string }
     side: options.side,
     bans: BANS,
     heroCounters: COUNTERS,
+    strongGrounds: true, // contrato 2026-11-04: el resto de los héroes trae el fundamento fuerte neutro; el Carry conserva SUS counters (Safe Core)
     heroPositions: POSITIONS,
     pool: POOL,
     humanPosition: PERSONAL,
@@ -166,7 +167,7 @@ describe("WAVE 5 / Team vs Personal separation -- two Hero Pools, identical visi
         }),
       };
     };
-    const coach = createCoachRecommendations({ source: h.store, computeSuggestions: withPool, heroPositions: POSITIONS, heroCounters: COUNTERS });
+    const coach = createCoachRecommendations({ source: h.store, computeSuggestions: withPool, heroPositions: POSITIONS, heroCounters: new Map([...strongOpenerCounters(POOL.filter((hero) => !COUNTERS.has(hero))), ...COUNTERS]) });
     const teamSurface = (result: Awaited<ReturnType<typeof coach.recommend>>) => JSON.stringify({
       primaryAction: result!.output!.primaryAction,
       shortlist: result!.output!.shortlist, // includes each card's badges and their ORDER

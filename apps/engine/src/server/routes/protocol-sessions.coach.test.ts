@@ -4,6 +4,7 @@ import type { RecommendationSetV2 } from "../../recommendation";
 import type { FunctionalRecommendationEvidence } from "../../recommendation/evidence";
 import type { SuggestionSet } from "../../signals/mix";
 import { ProtocolSessionStore } from "../protocol-session";
+import { STRONG_OPENER, strongOpenerCounters } from "../../coach/session-harness.fixtures";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
 
 // AP Ranked Roles V1 / Wave 2 -- `GET .../recommendations?format=v3`: the Coach over the HTTP surface.
@@ -44,8 +45,8 @@ function fakeSuggestions(heroIds: number[]): SuggestionSet {
       score: 100 - index,
       signals: [
         { signal: "position_fit" as const, raw: 0.5, normalized: 50, evidenceConfidence: 1, weighted: 100 - index, explanation: "fixture", sampleSize: 50 },
-        // Contrato de elegibilidad (2026-11-03): el Coach solo lista héroes con un fundamento. Aquí se mide la superficie HTTP, no el contrato, así que todo
-        // héroe trae el mismo fundamento mínimo (la intención de draft elegida). El contrato: coach/live-contract.coach.test.ts.
+        // Señal constante: desde el contrato 2026-11-04 la intención es solo un COMPLEMENTO y no habilita a nadie. Aquí se mide la superficie HTTP, no el
+        // contrato: el fundamento FUERTE de cada héroe es el ban abre-a-todos que inyectan `setup`/`setupWithCounters` (STRONG_OPENER). El contrato: coach/live-contract.coach.test.ts.
         { signal: "archetype_fit" as const, raw: 0.7, normalized: 70, evidenceConfidence: 1, weighted: 1, explanation: "Encaja con tu draft de Push", sampleSize: 50 },
       ],
       reason: "fixture",
@@ -62,10 +63,10 @@ function fakeSuggestions(heroIds: number[]): SuggestionSet {
 
 async function setup(heroIds: number[] = [1, 2, 3, 4, 5, 6]) {
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions(heroIds) });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions(heroIds), heroCounters: strongOpenerCounters(heroIds) });
   const created = await routes.post(jsonRequest(CREATE_BODY));
   const { sessionId } = (await created.json()) as { sessionId: string };
-  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [STRONG_OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   const url = (query = "") => new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations${query}`);
   return { store, routes, sessionId, url };
 }
@@ -88,11 +89,12 @@ describe("GET .../recommendations?format=v3 -- opportunity (Safe Core)", () => {
       // evidence -- the scenario this test certifies (a resolved core leader whose curated hard
       // counters are banned) without any slot<->position schedule.
       heroPositions: { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 2, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
-      heroCounters: new Map([[1, hardCounters.map((vs) => ({ vs, level: "hard" as const, why: "fixture" }))]]),
+      // Héroe 1: SUS counters (la prueba mide Safe Core); el resto de los héroes trae el fundamento fuerte neutro (ban abre-a-todos).
+      heroCounters: new Map([...strongOpenerCounters([2, 3, 4, 5, 6]), [1, hardCounters.map((vs) => ({ vs, level: "hard" as const, why: "fixture" }))]]),
     });
     const created = await routes.post(jsonRequest(CREATE_BODY));
     const { sessionId } = (await created.json()) as { sessionId: string };
-    store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: bans }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+    store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [...bans, STRONG_OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
     const url = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v3`);
     return { routes, sessionId, url };
   }

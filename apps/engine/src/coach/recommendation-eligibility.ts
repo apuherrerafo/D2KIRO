@@ -4,33 +4,44 @@ import { winrateClearlyAboveEven } from "../signals/patch-meta";
 import type { SignalContribution } from "../signals/types";
 import { cardContextOf, type CardContext } from "./card-context";
 import type { CardCompositionContext } from "./card-critical-gap";
-import type { ContextReorderInput } from "./context-reorder";
+import { banOpeningOf, LEVEL_WEIGHT, type ContextReorderInput } from "./context-reorder";
 import type { HeroBadge, HeroCandidate } from "./hero-card";
 
-// CONTRATO DE ELEGIBILIDAD (dueño del producto, 2026-11-03) -- el ÚNICO lugar donde el motor decide si un héroe se muestra como recomendación.
+// CONTRATO DE ELEGIBILIDAD (dueño del producto, 2026-11-03/04) -- el ÚNICO lugar donde el motor decide si un héroe se muestra y con qué fuerza.
 //
-//   Un héroe se muestra SOLO si tiene al menos un fundamento estratégico real, verificable y relevante para el estado actual del draft.
-//   NO son fundamento, por sí solos: la posición (`position_fit`), ser flex, pertenecer a un pool, la popularidad, cubrir un hueco cualquiera
-//   ni una relación curada que solo atribuye la fuente ("Lo dicen: …"). Sin fundamento no hay tarjeta: ni de relleno, ni "exploración".
+//   ELEGIBILIDAD: un héroe se muestra SOLO si tiene al menos un fundamento INDEPENDIENTE, real, verificable y relevante para el estado actual del draft.
+//   NO son fundamento, por sí solos: la posición (`position_fit`), ser flex, pertenecer a un pool, la popularidad, cubrir un hueco cualquiera, una
+//   relación "Lo dicen: …" sin porqué, la intención del usuario (es una preferencia) ni el counter estadístico (solo complementa).
+//
+//   FUERZA (distinta de la elegibilidad): un héroe puede tener evidencia para APARECER y no para ser "ELIGE AHORA". Solo un fundamento FUERTE
+//   (counter/pareja/robo duros con porqué, una amenaza relevante que de verdad desapareció, un hueco de composición sin margen) habilita la acción
+//   principal, el héroe recomendado y la posición destacada. El meta, por sí solo, es DÉBIL: el héroe aparece, pero nunca como acción principal.
+//   La fuerza NO cambia el scoring ni el orden de V6: solo decide qué puede ser acción principal.
 //
 // Lo comparten TODOS los caminos que muestran héroes (decisión V4, tablero del equipo, Coach v3 y la lista del modo en vivo): nadie más decide
-// elegibilidad, así que no pueden divergir. Las explicaciones que se muestran salen de estos mismos fundamentos (`describeGrounds`), nunca de
-// "la señal más fuerte" ni de una señal que no decidió nada. Pura: sin I/O, sin reloj.
+// elegibilidad ni fuerza, así que no pueden divergir. Las explicaciones salen de estos mismos fundamentos (`describeGrounds`), nunca de "la señal más
+// fuerte" ni de una señal que no decidió nada. Pura: sin I/O, sin reloj.
 
 export type GroundKind =
-  | "BAN_OPENS" //            los bans abrieron al héroe: se baneó un counter suyo con porqué de Dota
+  | "BAN_OPENS" //            los bans quitaron una amenaza relevante (counter con porqué) y se dice qué otras amenazas quedan
   | "COUNTER_REVEALED" //     le gana a un rival YA revelado (counter curado con porqué)
   | "SYNERGY_PAIR" //         hace pareja curada (con porqué) con un aliado YA elegido
   | "STEAL" //                le quita un counter a un pick tuyo ya elegido
-  | "COMPOSITION_CRITICAL" // llena un hueco CRÍTICO y demostrable de la composición (ventana de cierre, picks propios curados)
-  | "ARCHETYPE_INTENT" //     la intención de draft que el jugador eligió (`archetype_fit` votó con datos)
-  | "PATCH_META"; //          el meta vigente con evidencia suficiente: el winrate supera 50 % con evidencia suficiente (`winrateClearlyAboveEven`)
+  | "COMPOSITION_CRITICAL" // llena un hueco crítico del equipo cuando los picks que quedan no alcanzan para cubrirlo después
+  | "PATCH_META" //           el meta vigente con ventaja sostenida (`winrateClearlyAboveEven`): débil, por sí solo no es acción principal
+  | "COUNTER_STATS" //        counter estadístico contra un rival ya revelado: SOLO complementa otro fundamento
+  | "ARCHETYPE_INTENT"; //    la intención elegida (`archetype_fit` votó con datos): SOLO complementa otro fundamento (es una preferencia)
+
+/** STRONG/WEAK habilitan por sí solos (WEAK nunca es acción principal); COMPLEMENT solo se muestra si ya hay un fundamento independiente. */
+export type GroundStrength = "STRONG" | "WEAK" | "COMPLEMENT";
+export type EvidenceStrength = "STRONG" | "WEAK";
 
 export interface Ground {
   kind: GroundKind;
+  strength: GroundStrength;
   /** Frase llana del fundamento, derivada de lo que de verdad lo habilitó. */
   text: string;
-  /** True cuando los chips de contexto de la tarjeta (`CardContext`) ya muestran este fundamento: no se repite como frase. */
+  /** True cuando los chips de contexto de la tarjeta (`CardContext`) ya muestran este fundamento CON nombres y porqué: no se repite como frase. */
   shownByContext: boolean;
 }
 
@@ -41,7 +52,10 @@ export interface EligibilityInput {
 }
 
 export interface Eligibility {
+  /** Vacío = el héroe no se muestra. Los COMPLEMENT solo aparecen si hay al menos un fundamento independiente. */
   grounds: Ground[];
+  /** STRONG si algún fundamento independiente es fuerte; WEAK si solo hay débiles; null si no es elegible. */
+  strength: EvidenceStrength | null;
   /** El contexto de la tarjeta, ya filtrado a relaciones con porqué (la misma fuente de los chips). */
   context: CardContext;
 }
@@ -69,13 +83,22 @@ function signalOf(candidate: HeroCandidate, id: SignalContribution["signal"]): S
   return candidate.signals.find((signal) => signal.signal === id);
 }
 
+/**
+ * Necesidad de composición CONCRETA: un hueco crítico (iniciar, atrapar, segundo tipo de daño) que ningún aliado ya elegido cubre, con TODOS los
+ * picks propios curados (lo desconocido no es carencia), y cuando los picks que quedan NO alcanzan para cubrir todos los huecos abiertos (huecos >=
+ * picks restantes: ya no hay margen para dejarlo "para después"). Sin constantes: la fase del draft entra por los picks que quedan. Cubrir un hueco
+ * cualquiera, o uno que todavía puede esperar, NO basta.
+ */
 function compositionGround(candidate: HeroCandidate, composition: CardCompositionContext | undefined): Ground | null {
-  if (!composition || composition.needs.critical.length === 0) return null;
+  if (!composition) return null;
+  const { needs } = composition;
+  if (!needs.coverageKnown || needs.ownPicksRemaining < 1 || needs.criticalOpen.length < needs.ownPicksRemaining) return null;
   const capabilities = composition.capabilities.get(candidate.heroId);
   if (!capabilities) return null; // sin capacidades curadas no sabemos qué aporta: nunca se le atribuye
-  const filled = filledGaps(capabilities, composition.needs.critical, composition.needs.ownDamageTypes);
+  const filled = filledGaps(capabilities, needs.criticalOpen, needs.ownDamageTypes);
   if (filled.length === 0) return null;
-  return { kind: "COMPOSITION_CRITICAL", text: `Cubre lo que le falta a tu equipo: ${listNaturally(filled.map((gap) => GAP_LABEL[gap]))}`, shownByContext: false };
+  const when = needs.ownPicksRemaining === 1 ? "es tu último pick" : `te quedan ${needs.ownPicksRemaining} picks para ${needs.criticalOpen.length} huecos`;
+  return { kind: "COMPOSITION_CRITICAL", strength: "STRONG", text: `Cubre ${listNaturally(filled.map((gap) => GAP_LABEL[gap]))}, que tus aliados ya elegidos no tienen, y ${when}: no hay margen para dejarlo para después`, shownByContext: false };
 }
 
 function metaGround(candidate: HeroCandidate): Ground | null {
@@ -83,31 +106,56 @@ function metaGround(candidate: HeroCandidate): Ground | null {
   if (!signal || !votedWithData(signal) || signal.raw === null) return null;
   if (candidate.recommendation.risks.some((risk) => risk.kind === "degraded_meta")) return null; // meta viejo: no es evidencia vigente
   if (!winrateClearlyAboveEven(signal.raw, signal.sampleSize)) return null;
-  return { kind: "PATCH_META", text: `${signal.explanation} (${signal.sampleSize.toLocaleString("es-PE")} partidas)`, shownByContext: false };
+  return { kind: "PATCH_META", strength: "WEAK", text: `${signal.explanation} (${signal.sampleSize.toLocaleString("es-PE")} partidas)`, shownByContext: false };
 }
 
 /**
- * Los fundamentos verificables de ESTE héroe en ESTE estado del draft, en orden de concreción (lo más específico primero). Vacío = el héroe
- * no se muestra. Pura.
+ * Un ban NO abre automáticamente a un héroe. La fuerza depende de qué amenaza relevante desapareció y de qué otras permanecen: es FUERTE solo si
+ * lo baneado pesa MÁS que lo que sigue libre y probable (counters con porqué o no: una atribución sigue siendo una amenaza que queda, aunque no
+ * se pueda citar). Si queda tanto o más libre que lo baneado, el héroe puede aparecer pero el ban no lo sostiene como acción principal.
+ */
+function banStrength(candidate: HeroCandidate, input: ContextReorderInput): "STRONG" | "WEAK" {
+  const raw = banOpeningOf(candidate.heroId, input);
+  const banned = raw.openedBy.reduce((sum, note) => sum + LEVEL_WEIGHT[note.level], 0);
+  const stillFree = raw.stillFree.filter((note) => note.takenPosition === undefined).reduce((sum, note) => sum + LEVEL_WEIGHT[note.level], 0);
+  return banned > stillFree ? "STRONG" : "WEAK";
+}
+
+/**
+ * Los fundamentos verificables de ESTE héroe en ESTE estado del draft, en orden de concreción (lo más específico primero), y su fuerza. Vacío = el
+ * héroe no se muestra. Pura.
  */
 export function evaluateEligibility(candidate: HeroCandidate, input: EligibilityInput): Eligibility {
   const context = cardContextOf(candidate.heroId, input.context);
-  const grounds: Ground[] = [];
-  if (context.strengths.length > 0) grounds.push({ kind: "COUNTER_REVEALED", text: "Le gana a lo que el rival ya mostró", shownByContext: true });
-  if (context.opening.openedBy.length > 0) grounds.push({ kind: "BAN_OPENS", text: "Los bans lo abren: se baneó lo que lo counterea", shownByContext: true });
-  if (context.synergies.length > 0) grounds.push({ kind: "SYNERGY_PAIR", text: "Hace pareja con un aliado ya elegido", shownByContext: true });
-  if (context.steals.length > 0) grounds.push({ kind: "STEAL", text: "Le quita un counter a un pick tuyo", shownByContext: true });
-
-  // El counter ESTADÍSTICO (winrate del enfrentamiento contra un rival ya revelado) NO es fundamento: no nombra un mecanismo y, con el umbral actual del
-  // scorer (>= 40 partidas y delta contraído >= 0,04), la mayoría es indistinguible del azar (medido: 206 de 282 tarjetas solo-estadística). Un counter
-  // cuenta únicamente si es una relación curada con porqué (COUNTER_REVEALED). Decisión conservadora, pendiente de confirmar con el dueño del producto.
+  const independent: Ground[] = [];
+  if (context.strengths.length > 0) {
+    independent.push({ kind: "COUNTER_REVEALED", strength: context.strengths.some((strength) => strength.level === "hard") ? "STRONG" : "WEAK", text: "Le gana a un rival que ya se ve", shownByContext: true });
+  }
+  if (context.opening.openedBy.length > 0) {
+    independent.push({ kind: "BAN_OPENS", strength: banStrength(candidate, input.context), text: "Se baneó una amenaza suya y se dice qué otras quedan", shownByContext: true });
+  }
+  if (context.synergies.length > 0) independent.push({ kind: "SYNERGY_PAIR", strength: "STRONG", text: "Hace pareja con un aliado ya elegido", shownByContext: true });
+  if (context.steals.length > 0) {
+    independent.push({ kind: "STEAL", strength: context.steals.some((steal) => steal.level === "hard") ? "STRONG" : "WEAK", text: "Le quita un counter a un pick tuyo", shownByContext: true });
+  }
   const composition = compositionGround(candidate, input.composition);
-  if (composition) grounds.push(composition);
-  const intent = signalOf(candidate, "archetype_fit");
-  if (intent && votedWithData(intent) && !intent.explanation.startsWith("Sin ")) grounds.push({ kind: "ARCHETYPE_INTENT", text: intent.explanation, shownByContext: false });
+  if (composition) independent.push(composition);
   const meta = metaGround(candidate);
-  if (meta) grounds.push(meta);
-  return { grounds, context };
+  if (meta) independent.push(meta);
+  if (independent.length === 0) return { grounds: [], strength: null, context };
+
+  // Complementos: refuerzan un fundamento que YA existe; solos no habilitan nada.
+  const complements: Ground[] = [];
+  const counter = signalOf(candidate, "counter");
+  const hasCuratedCounter = context.strengths.length > 0;
+  if (counter && input.context.revealedEnemies.size > 0 && !hasCuratedCounter && votedWithData(counter) && (counter.raw ?? 0) > 0 && counter.hasRevealedEnemyCounterEvidence === true && !counter.explanation.startsWith("Sin ")) {
+    complements.push({ kind: "COUNTER_STATS", strength: "COMPLEMENT", text: counter.explanation, shownByContext: false });
+  }
+  const intent = signalOf(candidate, "archetype_fit");
+  if (intent && votedWithData(intent) && !intent.explanation.startsWith("Sin ")) complements.push({ kind: "ARCHETYPE_INTENT", strength: "COMPLEMENT", text: intent.explanation, shownByContext: false });
+
+  const strength: EvidenceStrength = independent.some((ground) => ground.strength === "STRONG") ? "STRONG" : "WEAK";
+  return { grounds: [...independent, ...complements], strength, context };
 }
 
 export function isEligible(candidate: HeroCandidate, input: EligibilityInput): boolean {
@@ -115,8 +163,8 @@ export function isEligible(candidate: HeroCandidate, input: EligibilityInput): b
 }
 
 /**
- * La frase de la tarjeta, tomada de sus fundamentos (jamás de "la señal más fuerte"). Si algún fundamento NO lo muestran ya los chips de
- * contexto, esa es la frase; si todos los muestran los chips, la frase se calla (`hide`) para no repetirlos. Con `grounds` vacío no hay tarjeta.
+ * La frase de la tarjeta, tomada de sus fundamentos (jamás de "la señal más fuerte"). Si algún fundamento NO lo muestran ya los chips de contexto
+ * (que nombran a los héroes y dan el porqué), esa es la frase; si todos los muestran los chips, la frase se calla (`hide`) para no repetirlos.
  */
 export function describeGrounds(grounds: readonly Ground[]): { rationale: string; hide: boolean } {
   const standalone = grounds.find((ground) => !ground.shownByContext);
@@ -125,7 +173,7 @@ export function describeGrounds(grounds: readonly Ground[]): { rationale: string
 }
 
 /**
- * Las etiquetas de una tarjeta, SOLO las que corresponden a un fundamento que de verdad la habilitó (una etiqueta es una explicación
+ * Las etiquetas de una tarjeta, SOLO las que corresponden a un fundamento independiente que de verdad la habilitó (una etiqueta es una explicación
  * mostrada). FLEX y las marcas de pool no son una razón: informan, no se derivan de aquí.
  */
 export function badgesFromGrounds(grounds: readonly Ground[]): HeroBadge[] {

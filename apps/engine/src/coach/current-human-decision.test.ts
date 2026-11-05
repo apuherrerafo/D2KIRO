@@ -9,6 +9,7 @@ import { heroPoolFitScorer } from "../signals/hero-pool-fit";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "../server/routes/protocol-sessions";
 import { RANKING_INVALIDATING_REASONS, deriveCandidateResult } from "./current-human-decision";
+import { STRONG_OPENER, strongOpenerCounters } from "./session-harness.fixtures";
 import type { CurrentHumanDecision, RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // Product Semantics Recovery WP2 -- CurrentHumanDecision over the REAL store + REAL routes + REAL
@@ -73,7 +74,11 @@ function jsonRequest(body: unknown): Request {
 async function session(controlledPositions: Position[], options: FixtureOptions & { side?: TeamSide; humanPosition?: Position; heroPositions?: HeroPositions; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]> } = {}) {
   const side = options.side ?? "radiant";
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: options.heroPositions ?? HERO_POSITIONS, ...(options.heroCounters ? { heroCounters: options.heroCounters } : {}) });
+  const positions = options.heroPositions ?? HERO_POSITIONS;
+  // Fundamento FUERTE neutro de estos datos de prueba (ver `strongOpenerCounters`): sin él ningún héroe sería elegible con evidencia fuerte.
+  const ownCounters = options.heroCounters !== undefined;
+  const heroCounters = ownCounters ? options.heroCounters : strongOpenerCounters(Object.keys(positions).map(Number));
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: positions, heroCounters });
   const created = await routes.post(jsonRequest({
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
@@ -86,7 +91,7 @@ async function session(controlledPositions: Position[], options: FixtureOptions 
   }));
   if (created.status !== 201) throw new Error(`create failed ${created.status}`);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
+  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: ownCounters ? options.bans ?? [] : [...(options.bans ?? []), STRONG_OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
   const enemy: TeamSide = side === "radiant" ? "dire" : "radiant";
   return { store, routes, sessionId, side, enemy };
 }
@@ -530,7 +535,7 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
       ownPicks: [{ heroId: ALLY, visibility: "REVEALED" }],
       enemyPicks: [{ heroId: ENEMY, visibility: "REVEALED" }],
     } as never);
-    expect(card.context.opening.openedBy).toEqual([{ heroId: BANNED_COUNTER, level: "hard" }]);
+    expect(card.context.opening.openedBy).toEqual([{ heroId: BANNED_COUNTER, level: "hard", why: "fixture" }]);
     expect(card.context.strengths).toEqual([{ vsHeroId: ENEMY, level: "hard", why: "Orchid lo silencia", revealed: true }]);
     expect(card.context.synergies).toEqual([{ withHeroId: ALLY, why: "Combo de fixture" }]);
     expect(card.hideRationale).toBe(true); // "Por su posición" se calla porque hay razones reales
@@ -590,8 +595,13 @@ describe("Safe Core en V4 -- informativa, nunca dueña de la acción", () => {
   });
 
   test("C. la oportunidad NO mueve objetivo, vista, capacidad ni el orden de candidatos", async () => {
-    const withWindow = await v4(await session([1, 2, 3, 4, 5], { bans: [201, 202], heroCounters: COUNTERS }));
-    const without = await v4(await session([1, 2, 3, 4, 5], { bans: [201, 202] }));
+    // Mismos fundamentos fuertes de fondo (el opener neutro) en ambos; SOLO cambia si los counters curados del core hacen una ventana de Safe Core.
+    const open = strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number));
+    const merged = new Map(open);
+    for (const [hero, entries] of COUNTERS) merged.set(hero, [...(open.get(hero) ?? []), ...entries]);
+    const bans = [201, 202, STRONG_OPENER];
+    const withWindow = await v4(await session([1, 2, 3, 4, 5], { bans, heroCounters: merged }));
+    const without = await v4(await session([1, 2, 3, 4, 5], { bans, heroCounters: open }));
     expect(withWindow.opportunity).toBeDefined();
     expect(without).not.toHaveProperty("opportunity");
     const a = actionable(withWindow);

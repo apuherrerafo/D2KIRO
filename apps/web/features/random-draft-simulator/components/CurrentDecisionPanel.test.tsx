@@ -293,6 +293,29 @@ test("la tarjeta de la lista muestra ban abierto, 'le gana a' y pareja; y, si el
   expect(card.textContent).not.toContain(POSITION_ONLY);
 });
 
+test("una tarjeta de la lista con evidencia LIMITADA lleva la marca; la FUERTE (o sin dato, de un motor anterior) no", () => {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const [first, second, ...rest] = base.decision.candidates.cards;
+  const cards = [{ ...first!, evidenceStrength: "WEAK" as const }, { ...second!, evidenceStrength: "STRONG" as const }, ...rest];
+  const view = render(<CurrentDecisionPanel output={{ ...base, decision: { ...base.decision, candidates: { ...base.decision.candidates, cards } } }} heroCatalog={new Map()} />);
+  const rendered = view.getAllByTestId("current-decision-card");
+  expect(rendered[0]!.querySelector('[data-testid="evidence-limited-mark"]')?.textContent).toBe("Evidencia limitada");
+  expect(rendered[1]!.querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+  if (rendered[2]) expect(rendered[2].querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+});
+
+test("el payload de la decisión acepta evidenceStrength y rechaza un valor desconocido", () => {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const decision = base.decision;
+  const [first, ...rest] = decision.candidates.cards;
+  const withStrength = (strength: string) => ({ ...base, decision: { ...decision, candidates: { ...decision.candidates, cards: [{ ...first!, evidenceStrength: strength }, ...rest] } } });
+  expect(parseCurrentDecisionOutput(withStrength("WEAK"))).not.toBeNull();
+  expect(parseCurrentDecisionOutput(withStrength("STRONG"))).not.toBeNull();
+  expect(parseCurrentDecisionOutput(withStrength("MEDIUM"))).toBeNull();
+});
+
 test("la tarjeta de la lista también muestra el robo (misma fuente que el tablero) y un motor anterior sin el campo sigue válido", () => {
   const stealing = { ...EMPTY_CONTEXT, steals: [{ protectsHeroId: 9, level: "hard", why: "Mana Break vacía su maná" }] };
   const withSteal = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, true, stealing)} heroCatalog={new Map()} />);

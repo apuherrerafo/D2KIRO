@@ -5,6 +5,7 @@ import { createGsiLinkTestDb, gsiPayload, SENTINELS } from "../../live/gsi.fixtu
 import { createGsiLinkStore, GSI_LINK_TTL_MS } from "../../live/gsi-links";
 import { GSI_DRAFT_PARTIAL, GSI_ITEM_CHANGES, LiveCaptureRegistry, LIVE_COMPANION_STALE_AFTER_MS, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
 import type { HeroPositions } from "../../signals/hero-positions";
+import { strongOpenerCounters } from "../../coach/session-harness.fixtures";
 import { ProtocolSessionStore } from "../protocol-session";
 import { COMPANION_MAX_BODY_BYTES, createLiveGsiRoutes, GSI_MAX_BODY_BYTES, parseCompanionHeartbeat } from "./live-gsi";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
@@ -29,7 +30,7 @@ function setup() {
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now });
   const links = createGsiLinkStore(createGsiLinkTestDb().db);
   const routes = createLiveGsiRoutes({ links, registry, now });
-  const protocol = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: new Map() });
+  const protocol = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number), 98) }); // fundamento fuerte neutro de los datos de prueba (se banea el 98 donde hace falta)
 
   async function issue(accountId: number) {
     const response = routes.postIssue(accountId);
@@ -245,6 +246,7 @@ describe("draft capture through the kernel", () => {
     const t = setup();
     const issued = await t.issue(ACCOUNT_A);
     await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", draft: "empty" }));
+    t.registry.observe(issued.sessionId, { type: "ban", heroId: 98 }); // fundamento fuerte neutro de los datos de prueba
     const board = await t.board(issued.sessionId);
     expect(board.positions.some((column) => column.state === "RANKED")).toBe(true);
     expect(board.currentDecision.recommendedPosition).not.toBeNull();

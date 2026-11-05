@@ -11,7 +11,8 @@ import type { CoachObservableState, RoleCollisionObservation } from "./observabl
 import { eligibilityInputOf } from "./eligibility-input";
 import { reasonedCounters } from "./context-reorder";
 import { buildHeroCard, candidateServesPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type Confidence, type HeroCandidate, type HeroCard } from "./hero-card";
-import { evaluateEligibility, type Ground } from "./recommendation-eligibility";
+import type { CardContext } from "./card-context";
+import { evaluateEligibility, type Eligibility } from "./recommendation-eligibility";
 import { positionPhrase, type RevealStrategy } from "./reveal-strategy";
 import { detectSafeCoreWindow, type CounterReliefEvidence } from "./safe-core";
 import type { RoleBelief, RoleBeliefStatus } from "../draft-protocol/roles/role-belief";
@@ -92,7 +93,7 @@ export interface RecommendationOutputV3 {
     positionLabel: string;
     /** True when the own picks already fill this position in every feasible assignment: `heroes` is then empty by design. */
     seatCovered: boolean;
-    heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[];
+    heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean; evidenceStrength: "STRONG" | "WEAK"; context: CardContext }[];
   };
   /** Wave 3. Absent unless a hero pool is configured. */
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
@@ -246,8 +247,9 @@ function roundOf(phase: RankedApPhase | null): 1 | 2 | 3 | null {
 }
 
 /**
- * ¿Hay un héroe elegible que de verdad SIRVA a la acción principal? Una acción de posición sin ningún elegible que la ejecute, o "revela a X"
- * con X sin fundamento, no se presenta: sin recomendación elegible no hay acción principal (contrato de elegibilidad, 2026-11-03).
+ * ¿Hay un héroe con evidencia FUERTE que de verdad SIRVA a la acción principal? `ordered` llega ya filtrado a los STRONG. Una acción de posición sin
+ * ningún fuerte que la ejecute, o "revela a X" con X débil o sin fundamento, no se presenta: sin recomendación fuerte no hay acción principal
+ * (contrato de elegibilidad, 2026-11-03/04: elegibilidad != fuerza; el meta solo no alcanza).
  */
 function actionIsServed(strategy: RevealStrategy, ordered: readonly HeroCandidate[], heroPositions: HeroPositions | undefined): boolean {
   if (strategy.kind === "REVEAL_POSITION") return ordered.some((candidate) => candidateServesPosition(candidate, strategy.position, heroPositions));
@@ -275,13 +277,13 @@ export function translateToRecommendationOutputV3(
   const revealedEnemies = revealedEnemyHeroes(view);
   const v6Candidates = extractHeroCandidates(recommendationSet, config.heroPositions);
   const counterContext = { revealedEnemies, heroCounters: config.heroCounters };
-  // Solo los héroes con fundamento llegan a la lista; sus fundamentos viajan a la tarjeta (frase y etiquetas).
-  const groundsByHero = new Map<HeroId, Ground[]>();
+  // Solo los héroes con fundamento llegan a la lista; su elegibilidad (fundamentos, fuerza y contexto) viaja a la tarjeta.
+  const eligibilityByHero = new Map<HeroId, Eligibility>();
   const eligibilityData = { heroCounters: config.heroCounters, heroSynergies: config.heroSynergies, heroPositions: config.heroPositions, heroCapabilities: config.heroCapabilities };
   const keepEligible = (list: readonly HeroCandidate[]): HeroCandidate[] => list.filter((candidate) => {
-    const { grounds } = evaluateEligibility(candidate, eligibilityInputOf(view, eligibilityData, candidate.position));
-    if (grounds.length === 0) return false;
-    groundsByHero.set(candidate.heroId, grounds);
+    const eligibility = evaluateEligibility(candidate, eligibilityInputOf(view, eligibilityData, candidate.position));
+    if (eligibility.grounds.length === 0) return false;
+    eligibilityByHero.set(candidate.heroId, eligibility);
     return true;
   });
   const candidates = keepEligible(demoteRevealedHardCountered(v6Candidates, revealedEnemies, config.heroCounters));
@@ -289,7 +291,9 @@ export function translateToRecommendationOutputV3(
     ? keepEligible(demoteRevealedHardCountered(extractHeroCandidates(config.actionRecommendationSet, config.heroPositions), revealedEnemies, config.heroCounters))
     : [];
   const ordered = orderForStrategy(candidates, revealStrategy, config.heroPositions, actionCandidates);
-  if (!actionIsServed(revealStrategy, ordered, config.heroPositions)) return null;
+  // La acción principal exige evidencia FUERTE; los débiles (p. ej. solo meta) aparecen en la lista pero nunca la sostienen.
+  const strongOrdered = ordered.filter((candidate) => eligibilityByHero.get(candidate.heroId)?.strength === "STRONG");
+  if (!actionIsServed(revealStrategy, strongOrdered, config.heroPositions)) return null;
   const phase = view.rankedAp?.phase ?? null;
   const ownVisible = view.ownPicks.filter((slot) => slot.visibility !== "HIDDEN").length;
   // Safe Core keeps judging V6's own leader (Wave 4A contract): the demotion above never feeds it.
@@ -305,7 +309,7 @@ export function translateToRecommendationOutputV3(
     schema: "recommendation-output/v3",
     sessionId: view.sessionId,
     primaryAction: { strategy: revealStrategy, label: primaryLabel },
-    shortlist: ordered.slice(0, size).map((candidate) => buildHeroCard(candidate, heroPool, groundsByHero.get(candidate.heroId))),
+    shortlist: ordered.slice(0, size).map((candidate) => buildHeroCard(candidate, heroPool, eligibilityByHero.get(candidate.heroId))),
     ...(opportunity ? { opportunity } : {}),
     roleCollision: coachState.roleCollision,
     roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },

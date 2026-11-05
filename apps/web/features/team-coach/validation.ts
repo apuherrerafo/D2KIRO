@@ -55,7 +55,11 @@ export function isStrength(value: unknown): value is TeamCoachStrength {
 }
 
 function isCounterNote(value: unknown): boolean {
-  return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium") && (value.takenPosition === undefined || isPosition(value.takenPosition));
+  return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium") && (value.takenPosition === undefined || isPosition(value.takenPosition)) && (value.why === undefined || isString(value.why));
+}
+
+export function isEvidenceStrength(value: unknown): boolean {
+  return value === "STRONG" || value === "WEAK";
 }
 
 export function isOpening(value: unknown): boolean {
@@ -83,7 +87,8 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
     (value.opening === undefined || isOpening(value.opening)) &&
     (value.synergies === undefined || (Array.isArray(value.synergies) && value.synergies.every(isSynergy))) &&
     (value.steals === undefined || (Array.isArray(value.steals) && value.steals.every(isSteal))) &&
-    typeof value.isPrimary === "boolean"
+    typeof value.isPrimary === "boolean" &&
+    (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength))
   );
 }
 

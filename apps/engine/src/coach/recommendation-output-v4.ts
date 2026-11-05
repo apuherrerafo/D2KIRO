@@ -54,6 +54,12 @@ export interface RankedCandidateCard {
   roleStatus: RoleImpactStatus;
   badges: HeroBadge[];
   rationale: string;
+  /**
+   * FUERZA de la evidencia (distinta de la elegibilidad: toda tarjeta mostrada ya es elegible). STRONG = al menos un fundamento fuerte (counter/pareja/robo
+   * duros con porqué, una amenaza relevante que de verdad desapareció, un hueco de composición sin margen); WEAK = solo fundamentos débiles (p. ej. el
+   * meta). Solo STRONG puede ser acción principal / héroe recomendado / "ELIGE AHORA". No cambia el puntaje ni el orden de V6.
+   */
+  evidenceStrength: "STRONG" | "WEAK";
   /** True exactly when `poolMembership` is IN_POOL (kept for existing consumers). */
   isFromPool: boolean;
   /**

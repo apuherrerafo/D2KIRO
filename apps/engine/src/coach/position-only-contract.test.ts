@@ -105,15 +105,33 @@ describe("contrato de elegibilidad -- tablero y acción principal", () => {
     expect(built.currentDecision.recommendedHeroId).toBe(3);
   });
 
-  test("héroes con fundamento propio en V6 (meta con evidencia suficiente): se muestran los que lo tienen, con su cifra, y ninguna frase de posición", async () => {
+  test("ELEGIBILIDAD != FUERZA: solo meta (débil) -> los héroes aparecen con su cifra y marca WEAK, pero NADIE es primario, ni héroe recomendado, ni posición destacada", async () => {
     const { board: built } = await board({ compute: fakeCompute() });
     const heroes = built.positions.flatMap((column) => column.top);
     expect(heroes.length).toBeGreaterThan(0);
     for (const candidate of heroes) {
+      expect(candidate.evidenceStrength).toBe("WEAK");
+      expect(candidate.isPrimary).toBe(false);
       expect(candidate.reasons[0]).toContain("Winrate de 60.0%");
       expect(candidate.reasons[0]?.startsWith("Por su posición")).toBe(false);
     }
-    expect(built.currentDecision.recommendedHeroId).not.toBeNull();
+    for (const column of built.positions) expect(column.primaryHeroId).toBeNull();
+    expect(built.currentDecision.recommendedHeroId).toBeNull(); // sin "ELIGE AHORA"
+    expect(built.currentDecision.recommendedPosition).toBeNull();
+    expect(built.currentDecision.reason).toBe("");
+  });
+
+  test("un héroe FUERTE entre débiles es el único que puede ser primario/recomendado, aunque los débiles tengan más puntaje de V6", async () => {
+    const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[3, [{ vs: BANNED, level: "hard", why: WHY }]]]);
+    const { board: built } = await board({ bans: [BANNED], heroCounters: counters, compute: fakeCompute() });
+    const strong = built.positions.flatMap((column) => column.top).filter((candidate) => candidate.evidenceStrength === "STRONG");
+    expect(strong.map((candidate) => candidate.heroId)).toEqual([3]);
+    expect(built.currentDecision.recommendedHeroId).toBe(3);
+    expect(built.currentDecision.recommendedPosition).toBe(4);
+    // Los débiles siguen visibles en sus columnas, sin ser primarios.
+    const weak = built.positions.flatMap((column) => column.top).filter((candidate) => candidate.evidenceStrength === "WEAK");
+    expect(weak.length).toBeGreaterThan(0);
+    expect(weak.every((candidate) => !candidate.isPrimary)).toBe(true);
   });
 });
 

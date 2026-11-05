@@ -4,7 +4,7 @@ import { buildRecommendationSetFromPerspective } from "../recommendation/build-f
 import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { CuratedCounter } from "../signals/hero-counters";
 import { buildTeamCoachBoard } from "./team-coach-board";
-import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures";
+import { fakeCompute, harness, HERO_POSITIONS, strongOpenerCounters } from "./session-harness.fixtures";
 
 // Regla "sin motivo no se recomienda" (2026-11-02), PR #88, hallazgo del revisor: las alternativas de una columna
 // UNRANKED_POSITIONAL son héroes legales en orden de id, SIN preferencia alguna. Nunca pueden volverse "el héroe recomendado"
@@ -45,7 +45,7 @@ async function boardWith(compute: ComputeSuggestionsForRecommendation, options: 
 
 describe("Team Coach Board -- sin fundamento no hay columna con héroes ni héroe recomendado", () => {
   test("control: con fundamento propio en cada héroe, las columnas traen héroes y cada una tiene su héroe recomendado", async () => {
-    const board = await boardWith(fakeCompute());
+    const board = await boardWith(fakeCompute(), { heroCounters: strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number)) }); // fundamento fuerte neutro (el harness ya banea al opener)
     const open = board.positions.filter((column) => column.eligibleNow);
     expect(open.length).toBeGreaterThan(0);
     for (const column of open) {

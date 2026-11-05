@@ -10,7 +10,8 @@ import type { Suggestion, SuggestionSet } from "../signals/mix";
 import type { HeroMatchupStat, MetaSnapshot, SignalContribution } from "../signals/types";
 import { credibleHeroesForPosition } from "./hero-card";
 import { isPersonalSeatCovered, personalCandidateUniverse } from "./personal-hero-view";
-import { harness } from "./session-harness.fixtures";
+import { harness, strongOpenerCounters } from "./session-harness.fixtures";
+import { fixtureStrongPairs } from "./test.fixtures";
 
 // WAVE 5 -- Dota Judge remediation (RB-1..RB-4). Release regression suite for the judge scenarios S01 / S04 / S05 / S09 /
 // S12 / S13 / S14 / S15. It asserts the PRODUCT INVARIANT each scenario broke, never a copy of an expected hero ranking. Everything is
@@ -155,8 +156,8 @@ function scriptedCompute(
         const signals: SignalContribution[] = [
           { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: options.scores[hero] ?? 1, explanation: `posición de ${hero}`, sampleSize: 100 },
           counterContrib,
-          // Contrato de elegibilidad (2026-11-03): el Coach solo lista héroes con un fundamento. Estas pruebas miden RB-1..RB-4, no el contrato, así que todo héroe
-          // del script trae el mismo fundamento mínimo (la intención de draft elegida) -- constante: no mueve ningún orden. El contrato: live-contract.coach.test.ts.
+          // Señal constante (peso 0.5, no mueve ningún orden). Desde el contrato 2026-11-04 la intención es solo un COMPLEMENTO y no habilita a nadie: el
+          // fundamento fuerte de estos héroes es la pareja curada que inyecta `world()` (heroSynergies). El contrato: live-contract.coach.test.ts.
           { signal: "archetype_fit", raw: 0.7, normalized: 70, evidenceConfidence: 1, weighted: 0.5, explanation: "Encaja con tu draft de Push", sampleSize: 100, applicable: true },
         ];
         return { hero, rank: 1, score: signals.reduce((sum, signal) => sum + signal.weighted, 0), signals, reason: `fixture ${hero}`, confidence: "alta", evidenceCoverage: 0.9, guessingIndex: 0.1 };
@@ -187,7 +188,11 @@ function world(options: ScriptOptions, heroCounters?: ReadonlyMap<number, readon
     source: h.store,
     computeSuggestions: scriptedCompute(options, calls, positions, heroCounters),
     heroPositions: positions,
-    heroCounters: heroCounters ?? new Map(),
+    // Fundamento FUERTE neutro (contrato 2026-11-04) para que cada héroe sea elegible Y sostenga la acción principal: (a) el ban abre-a-todos del harness
+    // (STRONG_OPENER, ya en la sesión) para los héroes SIN counters propios en la prueba -- sirve a ciegas, sin picks --, y (b) toda pareja héroe-aliado con
+    // porqué de Dota, para cuando la ronda ya tiene un aliado elegido. Los héroes que la prueba describe con counters curados (RB-4) conservan los suyos.
+    heroCounters: new Map([...strongOpenerCounters([...new Set([...pool, ...Object.keys(positions).map(Number)])].filter((hero) => !(heroCounters?.has(hero) ?? false))), ...(heroCounters ?? new Map())]),
+    heroSynergies: fixtureStrongPairs([...new Set([...pool, ...Object.keys(positions).map(Number)])], Array.from({ length: 200 }, (_, index) => index + 1)),
   });
   return { h, calls, ask: (personal: 1 | 2 | 3 | 4 | 5) => coach.recommend(h.id, personal, ACCOUNT) };
 }
@@ -394,8 +399,8 @@ describe("RB-3 -- badge semantics (Round 1 blind, S01)", () => {
   test("la evidencia de Safe Core no cambia: sigue siendo su bloque aparte (COUNTER_RELIEF curado)", async () => {
     const counters = new Map<number, CuratedCounter[]>([[20, [hard(30), hard(31)]]]);
     const h = harness({ heroPositions: POSITIONS, pool: ALL_HEROES, sessionId: "safe-core-intact", bans: [30, 31], adapterKind: "manual" });
-    const coach = createCoachRecommendations({ source: h.store, computeSuggestions: scriptedCompute({ scores: { 20: 90, 21: 10 } }), heroPositions: POSITIONS, heroCounters: counters });
-    const output = (await coach.recommend(h.id, 1, ACCOUNT))!.output!;
+    const coach = createCoachRecommendations({ source: h.store, computeSuggestions: scriptedCompute({ scores: { 20: 90, 21: 10 } }), heroPositions: POSITIONS, heroCounters: new Map([...strongOpenerCounters(ALL_HEROES.filter((hero) => !counters.has(hero))), ...counters]) });
+    const output = (await coach.recommend(h.id, 1, ACCOUNT))!.output!; // el resto de los héroes trae el fundamento fuerte neutro; el héroe 20 conserva SUS counters
     expect(output.opportunity).toMatchObject({ subtype: "SAFE_CORE", heroId: 20 });
     expect(output.opportunity!.counterEvidence.sourceType).toBe("CURATED");
   });

@@ -6,6 +6,8 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CoachBadge, CoachHeroCard, CoachOpportunity, CoachOutput, CoachPosition, CoachRoleBelief, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import { EvidenceLimitedMark } from "@/features/team-coach/components/EvidenceLimitedMark";
+import { CandidateOpening, CandidateSteals, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
 import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
@@ -233,6 +235,26 @@ interface HeroCardViewProps {
   rulesetVersion?: string | null;
 }
 
+// Los MISMOS chips que la decisión V4 y el tablero: nombran a los héroes y dan el mecanismo (bans que abrieron con su porqué, a quién gana, con quién combina).
+function CardDraftReasons({ card, heroCatalog }: { card: CoachHeroCard; heroCatalog: Map<number, HeroMeta> }) {
+  if (!card.context) return null;
+  const source = { ...card.context, reasons: [card.rationale] };
+  return (
+    <>
+      <CandidateOpening candidate={source} heroCatalog={heroCatalog} />
+      <CandidateStrengths candidate={source} heroCatalog={heroCatalog} />
+      <CandidateSynergies candidate={source} heroCatalog={heroCatalog} />
+      <CandidateSteals candidate={source} heroCatalog={heroCatalog} />
+    </>
+  );
+}
+
+// La frase del fundamento se calla cuando los chips ya lo dicen (el motor decide: `hideRationale`); nunca queda una frase genérica sin detalle.
+function CardRationale({ card }: { card: CoachHeroCard }) {
+  if (card.hideRationale === true || card.rationale === "") return null;
+  return <span className="text-caption text-content-secondary">{card.rationale}</span>;
+}
+
 function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVersion }: HeroCardViewProps) {
   const meta = heroCatalog.get(card.heroId);
   return (
@@ -245,7 +267,9 @@ function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVers
         </div>
       </div>
       <BadgeList badges={card.badges} />
-      <span className="text-caption text-content-secondary">{card.rationale}</span>
+      <EvidenceLimitedMark strength={card.evidenceStrength} />
+      <CardRationale card={card} />
+      <CardDraftReasons card={card} heroCatalog={heroCatalog} />
       {Boolean(sessionId) && (
         <RecommendationFeedback
           sessionId={sessionId!}

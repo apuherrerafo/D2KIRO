@@ -73,6 +73,8 @@ export interface TeamCoachCandidate {
   steals: TeamCoachSteal[];
   /** The hero the team plan assigns to this position. At most one per position, never shared between positions. */
   isPrimary: boolean;
+  /** FUERZA de la evidencia (ver `RankedCandidateCard.evidenceStrength`): solo un candidato STRONG puede ser primario / héroe recomendado. */
+  evidenceStrength: "STRONG" | "WEAK";
 }
 
 export interface TeamCoachPosition {
@@ -252,6 +254,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       synergies,
       steals,
       isPrimary: false,
+      evidenceStrength: card.evidenceStrength,
     };
   };
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
@@ -277,8 +280,12 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     return { position, state: "RANKED", filledHeroId: null, note: null, candidates: result.cards.map(toCandidate), poolCandidates: result.poolCards.map(toCandidate) };
   }));
 
-  // Solo las columnas con al menos un héroe elegible entran al plan: sin fundamento no hay héroe, ni columna "destacada", ni acción principal.
-  const ranked = drafts.filter((draft) => draft.state === "RANKED" && draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
+  // Elegibilidad != fuerza: toda tarjeta mostrada es elegible, pero SOLO los candidatos con evidencia FUERTE entran al plan (héroe primario, posición
+  // destacada, "ELIGE AHORA"). Una columna con solo evidencia débil (p. ej. solo meta) muestra sus héroes pero no recomienda a nadie ni se destaca.
+  const ranked = drafts
+    .map((draft) => ({ position: draft.position, state: draft.state, heroIds: draft.candidates.filter((candidate) => candidate.evidenceStrength === "STRONG").map((candidate) => candidate.heroId) }))
+    .filter((draft) => draft.state === "RANKED" && draft.heroIds.length > 0)
+    .map((draft) => ({ position: draft.position, heroIds: draft.heroIds }));
   // A FILLED column is never actionable, whatever the actionability said.
   const actionable = (actionability.hasHumanAction ? actionability.eligiblePositions : []).filter((position) => drafts.find((draft) => draft.position === position)?.state !== "FILLED");
   const unavailable = unavailableHeroesFrom(view);

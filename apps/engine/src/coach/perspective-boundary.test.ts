@@ -6,7 +6,10 @@ import { isHeroSelectableFrom, unavailableHeroesFrom } from "../recommendation/p
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createCoachRecommendations, type PerspectiveContextSource } from "../server/routes/coach-recommendations";
 import { CoachOrchestrator } from "./orchestrator";
-import { HERO_POSITIONS, fakeCompute, harness } from "./session-harness.fixtures";
+import { HERO_POSITIONS, POOL, STRONG_OPENER, fakeCompute, harness, strongOpenerCounters } from "./session-harness.fixtures";
+
+// El harness suma el ban neutro STRONG_OPENER (fundamento fuerte de los datos de prueba): también cuenta como baneado/no disponible.
+const STRONG_GROUNDS = strongOpenerCounters(new Set([...POOL, ...Object.keys(HERO_POSITIONS).map(Number)]));
 
 // AP Ranked Roles V1 / Wave 2 (product review, issue 1) -- proof that the Coach recommendation path is
 // STRUCTURALLY perspective-safe. Stronger than a behavioural hidden-twin: these tests pin what the
@@ -52,7 +55,7 @@ describe("2. el contexto de perspectiva contiene lo legalmente observable", () =
     // exhaustive. ownAssignedPositions (P0-2, INV-BIND-001) is own-side-only authoritative binding
     // truth -- same trust category as controlledPositions/humanOpenPositions, never enemy data.
     expect(Object.keys(context).sort()).toEqual(["controlledPositions", "humanActionability", "humanOpenPositions", "isSimulator", "openOwnSlots", "ownAssignedPositions", "partyContext", "patch", "playerPoolsByPosition", "view"]);
-    expect(context.view.bannedHeroes).toEqual([40, 41]); // confirmed bans
+    expect(context.view.bannedHeroes).toEqual([40, 41, STRONG_OPENER]); // confirmed bans (+ el ban neutro del harness)
     expect(context.view.ownPicks).toEqual([{ visibility: "KNOWN", heroId: 3 }]); // own selection
     expect(context.view.enemyPicks).toEqual([{ visibility: "HIDDEN" }]); // enemy's sealed pick: no hero id
     expect(context.openOwnSlots).toEqual([{ side: h.side, slotIndex: 1 }]); // the one seat still open (client-visible legalActions)
@@ -60,7 +63,7 @@ describe("2. el contexto de perspectiva contiene lo legalmente observable", () =
 
     // Perspective availability is DERIVED from it: bans + own picks are gone, the enemy's hidden pick is not.
     const gone = unavailableHeroesFrom(context.view);
-    expect([...gone].sort((x, y) => x - y)).toEqual([3, 40, 41]);
+    expect([...gone].sort((x, y) => x - y)).toEqual([3, 40, 41, STRONG_OPENER]);
     expect(isHeroSelectableFrom(context, 9, { side: h.side, slotIndex: 1 })).toBe(true); // a same-hero collision is legal
     expect(isHeroSelectableFrom(context, 3, { side: h.side, slotIndex: 1 })).toBe(false);
     expect(isHeroSelectableFrom(context, 5, { side: h.side, slotIndex: 0 })).toBe(false); // that seat is not open
@@ -124,7 +127,7 @@ describe("5. una vez revelada, la identidad enemiga aparece en la entrada segura
     expect(ctxA.view.enemyPicks.flatMap((slot) => (slot.visibility === "REVEALED" ? [slot.heroId] : [])).sort((x, y) => x - y)).toEqual([9, 10]);
     expect(ctxB.view.enemyPicks.flatMap((slot) => (slot.visibility === "REVEALED" ? [slot.heroId] : [])).sort((x, y) => x - y)).toEqual([11, 12]);
     expect(JSON.stringify(ctxA)).not.toBe(JSON.stringify(ctxB));
-    expect([...unavailableHeroesFrom(ctxA.view)].sort((x, y) => x - y)).toEqual([3, 4, 9, 10]); // revealed picks are now unavailable
+    expect([...unavailableHeroesFrom(ctxA.view)].sort((x, y) => x - y)).toEqual([3, 4, 9, 10, STRONG_OPENER]); // revealed picks are now unavailable
 
     const setA = await buildRecommendationSetFromPerspective({ context: ctxA, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS });
     const named = setA.recommendations.flatMap((r) => r.actions.map((action) => action.hero));
@@ -220,7 +223,7 @@ describe("7. authenticated Hero Pool scope", () => {
         }),
       };
     };
-    const recommendations = createCoachRecommendations({ source: h.store, computeSuggestions: computeWithPersonalPool, heroPositions: HERO_POSITIONS });
+    const recommendations = createCoachRecommendations({ source: h.store, computeSuggestions: computeWithPersonalPool, heroPositions: HERO_POSITIONS, heroCounters: STRONG_GROUNDS });
     const teamOnly = (result: Awaited<ReturnType<typeof recommendations.recommend>>) => ({
       primaryAction: result?.output?.primaryAction,
       shortlist: result?.output?.shortlist,
@@ -265,7 +268,7 @@ describe("7. authenticated Hero Pool scope", () => {
       calls.push({ accountId, targetPosition: options?.targetPosition, teamOpening: options?.teamOpening });
       return baseline(state, accountId, options);
     };
-    const recommendations = createCoachRecommendations({ source: h.store, computeSuggestions: trackedCompute, heroPositions: HERO_POSITIONS });
+    const recommendations = createCoachRecommendations({ source: h.store, computeSuggestions: trackedCompute, heroPositions: HERO_POSITIONS, heroCounters: STRONG_GROUNDS });
 
     const result = await recommendations.recommend(h.id, 5, 101);
     expect(result!.output!.primaryAction.strategy).toEqual(expect.objectContaining({ kind: "REVEAL_POSITION", position: 5 }));

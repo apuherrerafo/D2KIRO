@@ -5,6 +5,7 @@ import { fakeCompute } from "../coach/session-harness.fixtures";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
 import type { CuratedCounter } from "../signals/hero-counters";
@@ -69,7 +70,7 @@ function setup(sessionId: string, options: { pools?: Partial<Record<Position, re
     store,
     computeSuggestions: universeHonouringCompute(),
     heroPositions: POSITIONS,
-    heroCounters: COUNTERS,
+    heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number), IRRELEVANT_BAN + 1, COUNTERS), // fundamento fuerte neutro de los datos de prueba
     liveRecommendationGate: (id) => registry.recommendationGate(id),
   });
   registry.ensureSession(sessionId, ACCOUNT);

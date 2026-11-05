@@ -10,7 +10,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
 import { eligibilityInputOf } from "./eligibility-input";
 import { credibleHeroesForPosition, extractHeroCandidates } from "./hero-card";
-import { isEligible } from "./recommendation-eligibility";
+import { evaluateEligibility, isEligible } from "./recommendation-eligibility";
 import { safeCoreWindowPossible } from "./safe-core";
 import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
@@ -200,7 +200,7 @@ export class CoachOrchestrator {
           heroCounters: this.deps.heroCounters,
           ownRoleBeliefs: coachState.ownRoleBeliefs,
           // La vista personal pasa por el MISMO contrato de elegibilidad que la lista del equipo y la decisión V4.
-          isEligible: (candidate) => isEligible(candidate, eligibilityInputOf(view, { heroCounters: this.deps.heroCounters, heroSynergies: this.deps.heroSynergies, heroPositions: this.deps.heroPositions, heroCapabilities: this.deps.heroCapabilities }, candidate.position)),
+          eligibility: (candidate) => evaluateEligibility(candidate, eligibilityInputOf(view, { heroCounters: this.deps.heroCounters, heroSynergies: this.deps.heroSynergies, heroPositions: this.deps.heroPositions, heroCapabilities: this.deps.heroCapabilities }, candidate.position)),
         })
       : null;
     const decisionContext = deriveDecisionContextFromView(view);

@@ -19,7 +19,7 @@ const UNSUPPORTED_CLAIMS = /STATISTICAL|7\.41|current[- ]meta|statistically|win 
 
 describe("WAVE 4A smoke", () => {
   test("A -- SAFE CORE APARECE: acción primaria normal + oportunidad curada, sin ninguna afirmación estadística ni de parche", async () => {
-    const { output } = await harness({ sessionId: "w4a-a", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute();
+    const { output } = await harness({ sessionId: "w4a-a", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute();
 
     // The normal Coach hierarchy is intact.
     expect(output!.primaryAction.label.length).toBeGreaterThan(0);
@@ -37,18 +37,18 @@ describe("WAVE 4A smoke", () => {
   });
 
   test("B -- SAFE CORE NO APARECE: evidencia insuficiente (un counter duro sigue disponible) y drafts ordinarios", async () => {
-    const insufficient = (await harness({ sessionId: "w4a-b", bans: [HARD_A], heroCounters: COUNTERS }).compute()).output!;
+    const insufficient = (await harness({ sessionId: "w4a-b", bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     expect(insufficient).not.toHaveProperty("opportunity");
     expect(insufficient.primaryAction.label.length).toBeGreaterThan(0);
     expect(insufficient.shortlist.length).toBeGreaterThan(0);
 
-    const ordinary = (await harness({ sessionId: "w4a-b2", bans: [], heroCounters: COUNTERS }).compute()).output!;
+    const ordinary = (await harness({ sessionId: "w4a-b2", bans: [], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     expect(ordinary).not.toHaveProperty("opportunity");
   });
 
   test("C -- INFORMACIÓN OCULTA: dos mundos que difieren sólo en el rival oculto son idénticos antes del reveal; tras el reveal pueden divergir", async () => {
-    const x = harness({ sessionId: "w4a-c", bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
-    const y = harness({ sessionId: "w4a-c", bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
+    const x = harness({ sessionId: "w4a-c", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
+    const y = harness({ sessionId: "w4a-c", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
     for (const [h, hiddenHero] of [[x, MEDIUM], [y, 6]] as const) {
       h.seal(h.enemy, 0, hiddenHero); // the ONLY difference between the two worlds, still sealed
       h.seal(h.enemy, 1, 10);

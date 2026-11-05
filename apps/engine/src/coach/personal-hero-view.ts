@@ -4,7 +4,9 @@ import type { PerspectiveRecommendationContext } from "../recommendation/perspec
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import type { CardContext } from "./card-context";
 import { credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
+import type { Eligibility } from "./recommendation-eligibility";
 
 // Wave 3 task 20 -- this deliberately consumes its OWN RecommendationSetV2.  It never sees the
 // team set, so deriving "your position" by filtering the team shortlist is structurally impossible.
@@ -13,7 +15,7 @@ export interface PersonalHeroView {
   positionLabel: string;
   /** Own picks already fill this position in EVERY feasible assignment: there is nothing left to recommend for it. */
   seatCovered: boolean;
-  heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[];
+  heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean; evidenceStrength: "STRONG" | "WEAK"; context: CardContext }[];
 }
 
 const POSITION_LABEL: Record<Position, string> = {
@@ -62,10 +64,11 @@ export interface PersonalPositionRecommendationDeps {
   /** The Coach's beliefs about the Player's own visible picks; absent -> the seat is never considered covered. */
   ownRoleBeliefs?: ReadonlyMap<HeroId, RoleBelief>;
   /**
-   * Contrato de elegibilidad (2026-11-03): ¿este héroe tiene un fundamento verificable en ESTE draft? (`evaluateEligibility`, la misma regla que
-   * la decisión V4 y el tablero). Lo que no lo tiene no entra a la vista personal: la posición y el pool no son fundamento.
+   * Contrato de elegibilidad (2026-11-03/04): los fundamentos de este héroe en ESTE draft (`evaluateEligibility`, la misma regla que la decisión V4 y
+   * el tablero). Sin fundamentos (`strength: null`) no entra a la vista personal: la posición y el pool no son fundamento. La fuerza y el contexto
+   * (héroes y porqués concretos) viajan en cada héroe.
    */
-  isEligible(candidate: HeroCandidate): boolean;
+  eligibility(candidate: HeroCandidate): Eligibility;
   shortlistSize?: number;
 }
 
@@ -83,12 +86,17 @@ export async function buildPersonalPositionRecommendation(
   const pool = new Set(heroPool);
   const candidates = demoteRevealedHardCountered(extractHeroCandidates(recommendationSet, deps.heroPositions), revealedEnemyHeroes(context.view), deps.heroCounters);
   const heroes = candidates
-    .filter((candidate) => deps.isEligible(candidate))
+    .flatMap((candidate) => {
+      const eligibility = deps.eligibility(candidate);
+      return eligibility.strength === null ? [] : [{ candidate, eligibility }];
+    })
     .slice(0, deps.shortlistSize ?? 5)
-    .map((candidate, index) => ({
+    .map(({ candidate, eligibility }, index) => ({
       heroId: candidate.heroId,
       rank: index + 1,
       score: candidate.score,
+      evidenceStrength: eligibility.strength!,
+      context: eligibility.context,
       // Server-backed calls receive the account's approved pool through V6's meta overlay. The
       // direct pool parameter keeps this pure helper testable; the signal is the authoritative
       // fallback when that overlay is intentionally not duplicated into Coach state.

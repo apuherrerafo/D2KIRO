@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { assignTeamPrimaries, type RecommendationOutputV4, type TeamCoachBoard } from "../../coach";
 import { teamTargetCandidateLimit } from "./coach-recommendations";
-import { fakeCompute } from "../../coach/session-harness.fixtures";
+import { fakeCompute, STRONG_OPENER, strongOpenerCounters } from "../../coach/session-harness.fixtures";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
@@ -37,7 +37,7 @@ function jsonRequest(body: unknown): Request {
 
 async function setup(controlledPositions: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5], humanPosition: 1 | 2 | 3 | 4 | 5 = 2) {
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: new Map() });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number)) }); // fundamento fuerte neutro de los datos de prueba
   const created = await routes.post(jsonRequest({
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
@@ -50,7 +50,7 @@ async function setup(controlledPositions: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5
   }));
   expect(created.status).toBe(201);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [STRONG_OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   async function board(): Promise<TeamCoachBoard> {
     const response = await routes.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`));
     expect(response.status).toBe(200);

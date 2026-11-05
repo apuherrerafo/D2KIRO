@@ -58,6 +58,33 @@ test("la frase de una acción a nivel de POSICIÓN ('prior de apertura', 'eviden
   expect(hero.getByTestId("coach-primary-rationale").textContent).toContain("El counter explica la ventaja.");
 });
 
+// Contrato 2026-11-04: v3 pinta los MISMOS chips que V4 (héroes y mecanismos concretos) y la marca de evidencia limitada; nada de frases genéricas sin detalle.
+const CARD_CONTEXT = {
+  opening: { openedBy: [{ heroId: 7, level: "hard" as const, why: "Su Call lo corta" }], stillFree: [{ heroId: 11, level: "medium" as const, why: "Su silencio lo deja sin hechizos" }] },
+  strengths: [{ vsHeroId: 8, level: "hard" as const, why: "Orchid lo silencia", revealed: true }],
+  synergies: [{ withHeroId: 9, why: "Combo de fixture" }],
+  steals: [],
+};
+
+test("la tarjeta v3 con `context` nombra héroes y mecanismos (bans con porqué, a quién gana, pareja) y calla la frase genérica (hideRationale)", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION, [card(7, { context: CARD_CONTEXT, hideRationale: true, rationale: "Se baneó una amenaza suya y se dice qué otras quedan", evidenceStrength: "STRONG" })])} heroCatalog={new Map()} />);
+  const rendered = view.getByTestId("coach-hero-card");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-opened"]')?.textContent).toContain("Su Call lo corta");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-still-free"]')?.textContent).toContain("Su silencio lo deja sin hechizos");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-strength"]')?.textContent).toContain("Orchid lo silencia");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-synergy"]')?.textContent).toContain("Combo de fixture");
+  expect(rendered.textContent).not.toContain("Se baneó una amenaza suya");
+  expect(rendered.querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+});
+
+test("la tarjeta v3 de evidencia LIMITADA (meta) lleva la marca y su frase con la cifra; sin context no pinta chips", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION, [card(7, { evidenceStrength: "WEAK", rationale: "Winrate de 56.0% este parche (8.000 partidas)" })])} heroCatalog={new Map()} />);
+  const rendered = view.getByTestId("coach-hero-card");
+  expect(rendered.querySelector('[data-testid="evidence-limited-mark"]')?.textContent).toBe("Evidencia limitada");
+  expect(rendered.textContent).toContain("Winrate de 56.0%");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-opened"]')).toBeNull();
+});
+
 test("sólo una acción REVEAL_HERO nombra un héroe", () => {
   const view = render(<CoachPanel coach={coach({ kind: "REVEAL_HERO", heroId: 7, position: 5, rationale: "El counter explica la ventaja." })} heroCatalog={new Map()} />);
   expect(view.getByTestId("coach-named-hero").getAttribute("data-hero-id")).toBe("7");

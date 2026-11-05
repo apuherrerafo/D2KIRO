@@ -4,6 +4,7 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { EvidenceLimitedMark } from "@/features/team-coach/components/EvidenceLimitedMark";
 import { CandidateOpening, CandidateSteals, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
 import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
@@ -173,6 +174,7 @@ function RankedCardView({ card, poolOwner, heroCatalog, sessionId, stateIdentity
           <span key={badge} className="rounded-md border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-secondary">{BADGE_LABELS[badge]}</span>
         ))}
         <PoolBadge membership={card.poolMembership} owner={poolOwner} />
+        <EvidenceLimitedMark strength={card.evidenceStrength} />
       </div>
       <CardRationale card={card} />
       <CardDraftReasons card={card} heroCatalog={heroCatalog} />

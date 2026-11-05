@@ -7,6 +7,7 @@ import type { PerspectiveDraftView } from "../draft-protocol/types";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -61,7 +62,7 @@ function setup(sessionId: string, pools: Pools | null) {
     store,
     computeSuggestions: universeHonouringCompute(),
     heroPositions: POSITIONS,
-    heroCounters: new Map(),
+    heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number), IRRELEVANT_BAN + 1), // fundamento fuerte neutro de los datos de prueba
     liveRecommendationGate: (id) => registry.recommendationGate(id),
   });
   registry.ensureSession(sessionId, ACCOUNT);

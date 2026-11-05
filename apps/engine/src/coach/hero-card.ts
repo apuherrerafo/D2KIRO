@@ -4,7 +4,11 @@ import type { Recommendation, RecommendationRoleImpact, RoleImpactStatus, Recomm
 import type { CuratedCounter } from "../signals/hero-counters";
 import { isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
 import type { SignalContribution, SignalId } from "../signals/types";
-import { badgesFromGrounds, describeGrounds, type Ground } from "./recommendation-eligibility";
+import type { CardContext } from "./card-context";
+import { badgesFromGrounds, describeGrounds, type Eligibility } from "./recommendation-eligibility";
+
+/** El contexto de una tarjeta sin ninguna relación visible (una tarjeta construida sin `Eligibility`, p. ej. en pruebas de forma). */
+const EMPTY_CARD_CONTEXT: CardContext = { opening: { openedBy: [], stillFree: [] }, strengths: [], synergies: [], steals: [] };
 
 // AP Ranked Roles V1 / Wave 2 (task 17) -- HeroCard / HeroBadge and the per-hero projection of a
 // RecommendationSetV2.
@@ -43,8 +47,17 @@ export interface HeroCard {
   roleStatus: RoleImpactStatus;
   confidence: Confidence;
   badges: HeroBadge[];
-  /** One short phrase taken from the hero's strongest real signal -- never invented. */
+  /** La frase del fundamento que habilitó la tarjeta (`describeGrounds`); "" cuando los chips de `context` ya lo dicen con nombres y porqué. */
   rationale: string;
+  /** True cuando `rationale` se calla porque `context` (chips con héroes y mecanismos concretos) ya lo dice. */
+  hideRationale: boolean;
+  /**
+   * FUERZA de la evidencia (distinta de la elegibilidad: toda tarjeta de la lista ya es elegible). STRONG = al menos un fundamento fuerte;
+   * WEAK = solo débiles (p. ej. el meta): aparece, pero nunca sostiene la acción principal. No cambia el puntaje ni el orden de V6.
+   */
+  evidenceStrength: "STRONG" | "WEAK";
+  /** Lo que el draft VISIBLE dice de este héroe (bans que abrieron con el porqué, a quién le gana, con quién combina, robo): la misma fuente que V4. */
+  context: CardContext;
   /** V6 score (internal ranking; the UI may not show it). */
   score: number;
   isFromPool: boolean;
@@ -245,15 +258,20 @@ export function revealedEnemyHeroes(view: PerspectiveDraftView): HeroId[] {
  * habilitaron al héroe (`grounds`, de `evaluateEligibility`) -- nunca de "la señal más fuerte" ni de una señal que no decidió nada. Sin
  * fundamentos no hay frase (""): el llamador no debería mostrar esa tarjeta. FLEX y las marcas de pool informan, no son una razón.
  */
-export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[], grounds: readonly Ground[] = []): HeroCard {
+export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[], eligibility?: Eligibility): HeroCard {
   const informative = deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions).filter((badge) => badge === "FLEX" || badge === "YOUR_POOL" || badge === "OUTSIDE_YOUR_POOL");
+  const grounds = eligibility?.grounds ?? [];
+  const described = describeGrounds(grounds);
   return {
     heroId: candidate.heroId,
     position: candidate.position,
     roleStatus: candidate.roleStatus,
     confidence: candidate.confidence,
     badges: [...badgesFromGrounds(grounds), ...informative],
-    rationale: describeGrounds(grounds).rationale,
+    rationale: described.rationale,
+    hideRationale: described.hide,
+    evidenceStrength: eligibility?.strength ?? "WEAK",
+    context: eligibility?.context ?? EMPTY_CARD_CONTEXT,
     score: candidate.score,
     isFromPool: heroPool.includes(candidate.heroId),
   };

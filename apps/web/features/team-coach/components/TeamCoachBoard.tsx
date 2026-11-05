@@ -24,6 +24,7 @@ import {
   PLAN_BADGE,
   PRIMARY_BUTTON,
 } from "../styles";
+import { EvidenceLimitedMark } from "./EvidenceLimitedMark";
 import { GoldenCardView } from "./GoldenCardView";
 import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachRisk, TeamCoachSteal, TeamCoachStrength, TeamPosition } from "../types";
 
@@ -61,8 +62,17 @@ interface DecisionBannerProps {
   onPickHero?: (position: TeamPosition, heroId: number) => void;
 }
 
+// Defensa en la web (el motor ya solo recomienda con evidencia FUERTE): un héroe recomendado cuya tarjeta es de evidencia limitada NUNCA se destaca.
+function recommendedHeroOf(board: TeamCoachBoardData): number | null {
+  const { recommendedPosition: position, recommendedHeroId: heroId } = board.currentDecision;
+  if (heroId === null) return null;
+  const candidate = board.positions.find((entry) => entry.position === position)?.top.find((entry) => entry.heroId === heroId);
+  if (candidate?.evidenceStrength === "WEAK") return null;
+  return heroId;
+}
+
 function DecisionBannerHero({ board, heroCatalog }: DecisionBannerProps) {
-  const heroId = board.currentDecision.recommendedHeroId;
+  const heroId = recommendedHeroOf(board);
   if (heroId === null) return null;
   return <HeroLabel heroId={heroId} heroCatalog={heroCatalog} size={32} />;
 }
@@ -90,7 +100,8 @@ function PickRecommendedButton({ position, heroId, heroCatalog, onPickHero }: Pi
 }
 
 function DecisionAction({ board, heroCatalog, onPickHero }: DecisionBannerProps) {
-  const { recommendedPosition: position, recommendedHeroId: heroId } = board.currentDecision;
+  const position = board.currentDecision.recommendedPosition;
+  const heroId = recommendedHeroOf(board);
   const column = board.positions.find((entry) => entry.position === position);
   if (!onPickHero || position === null || heroId === null || column?.eligibleNow !== true) return null;
   return <PickRecommendedButton position={position} heroId={heroId} heroCatalog={heroCatalog} onPickHero={onPickHero} />;
@@ -221,8 +232,15 @@ function noteName(note: TeamCoachCounterNote, heroCatalog: Map<number, HeroMeta>
   return `${name} (menos probable: ya tienen ${ROLE_WORDS[note.takenPosition]})`;
 }
 
+// Cada amenaza lleva su mecanismo cuando el motor lo manda: "Axe — su Call lo corta" (nunca solo un nombre que oculte por qué cuenta).
+function noteWithWhy(note: TeamCoachCounterNote, heroCatalog: Map<number, HeroMeta>): string {
+  const name = noteName(note, heroCatalog);
+  if (note.why === undefined || note.why === "") return name;
+  return `${name} — ${note.why}`;
+}
+
 function namesOf(notes: readonly TeamCoachCounterNote[], heroCatalog: Map<number, HeroMeta>): string {
-  return joinNames(notes.map((note) => noteName(note, heroCatalog)));
+  return joinNames(notes.map((note) => noteWithWhy(note, heroCatalog)));
 }
 
 // A quién de lo que el rival YA tiene le gana este héroe. Solo hechos del draft: nunca se supone lo que va a sacar.
@@ -324,13 +342,19 @@ function CandidateHead({ candidate, heroCatalog }: { candidate: TeamCoachCandida
     <span className={CANDIDATE_HEAD}>
       <span className="text-content-muted">{candidate.rank}.</span>
       <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
+      <EvidenceLimitedMark strength={candidate.evidenceStrength} />
       <PlanBadge candidate={candidate} />
     </span>
   );
 }
 
+// "Plan" (y todo lo destacado) solo con evidencia FUERTE: una tarjeta de evidencia limitada nunca lo lleva, aunque un motor anterior la marcara primaria.
+function isPlanned(candidate: TeamCoachCandidate): boolean {
+  return candidate.isPrimary && candidate.evidenceStrength !== "WEAK";
+}
+
 function PlanBadge({ candidate }: { candidate: TeamCoachCandidate }) {
-  if (!candidate.isPrimary) return null;
+  if (!isPlanned(candidate)) return null;
   return <span className={PLAN_BADGE}>plan</span>;
 }
 
@@ -339,7 +363,7 @@ function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick, 
     onPickHero?.(position, candidate.heroId);
   }
   const reason = candidate.reasons[0] ?? "";
-  const common = { "data-testid": testId, "data-hero-id": candidate.heroId, "data-primary": candidate.isPrimary, title: reason };
+  const common = { "data-testid": testId, "data-hero-id": candidate.heroId, "data-primary": isPlanned(candidate), title: reason };
   if (!canPick || !onPickHero) {
     return (
       <li className={CANDIDATE_ROW} {...common}>

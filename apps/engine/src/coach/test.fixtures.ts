@@ -125,6 +125,15 @@ export function recSet(
   };
 }
 
+/**
+ * FUNDAMENTO FUERTE neutro de los fixtures del Coach v3 (contrato de elegibilidad, 2026-11-04): una pareja curada, con porqué de Dota, entre cada héroe
+ * de `heroIds` y cada aliado de `allyIds` (los que la vista ya tiene elegidos). Sirve de `heroSynergies`: el héroe es elegible Y de evidencia FUERTE,
+ * así que sostiene la acción principal. Las pruebas que miden otra cosa (colisión de roles, forma de la salida) lo inyectan en vez de inventar señales.
+ */
+export function fixtureStrongPairs(heroIds: readonly number[], allyIds: readonly number[]): ReadonlyMap<number, readonly { with: number; why: string }[]> {
+  return new Map(heroIds.map((heroId) => [heroId, allyIds.map((ally) => ({ with: ally, why: "Combo de fixture: su stun encadena con el del aliado" }))]));
+}
+
 /** A hero whose ONLY real evidence is `position_fit` (role-level evidence, nothing hero-specific). */
 export function roleOnlyHero(heroId: number, position: Position, weighted = 10): HeroFixture {
   return { heroId, signals: [signal("position_fit", 0.7, weighted), signal("counter", null, 0), signal("patch_meta", null, 0)], impact: resolvedImpact(position) };

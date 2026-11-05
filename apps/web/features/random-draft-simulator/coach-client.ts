@@ -1,7 +1,7 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, SuggestionConfidence } from "@/features/draft/types";
-import type { TeamCoachOpening, TeamCoachSteal, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
-import { isOpening, isSteal, isStrength, isSynergy } from "@/features/team-coach/validation";
+import type { EvidenceStrength, TeamCoachOpening, TeamCoachSteal, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
+import { isEvidenceStrength, isOpening, isSteal, isStrength, isSynergy } from "@/features/team-coach/validation";
 import { parseRecommendationSet, type RecommendationSetV2 } from "./protocol-client";
 
 // AP Ranked Roles V1 / Wave 2 -- Coach output (RecommendationOutputV3) client. Espejo a mano del
@@ -32,7 +32,14 @@ export interface CoachHeroCard {
   roleStatus: CoachRoleStatus;
   confidence: SuggestionConfidence;
   badges: CoachBadge[];
+  /** La frase del fundamento (`describeGrounds`); "" cuando los chips de `context` ya lo dicen con nombres y porqué (ver `hideRationale`). */
   rationale: string;
+  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` se calla porque los chips de `context` (héroes y mecanismos concretos) ya lo dicen. */
+  hideRationale?: boolean;
+  /** FUERZA de la evidencia (elegibilidad != fuerza): WEAK se muestra con "Evidencia limitada" y nunca sostiene la acción principal. Opcional: un motor anterior no lo manda. */
+  evidenceStrength?: EvidenceStrength;
+  /** Espejo de `context` del motor (el mismo que V4 y el tablero): bans que abrieron con su porqué, a quién gana, con quién combina, robo. Opcional: un motor anterior no lo manda. */
+  context?: CardDraftContext;
   score: number;
   isFromPool: boolean;
 }
@@ -65,7 +72,7 @@ export interface CoachOutput {
   /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
   opportunity?: CoachOpportunity;
   /** `seatCovered`: the Player's own picks already fill this position, so `heroes` is empty by design (engine mirror; absent in older payloads). */
-  personalHeroView?: { position: CoachPosition; positionLabel: string; seatCovered?: boolean; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
+  personalHeroView?: { position: CoachPosition; positionLabel: string; seatCovered?: boolean; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean; evidenceStrength?: EvidenceStrength; context?: CardDraftContext }[] };
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
   roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
   meta: {
@@ -138,7 +145,10 @@ function isHeroCard(value: unknown): value is CoachHeroCard {
   const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
   return isHeroId(value.heroId) && isPosition(value.position) && roleOk && isConfidence(value.confidence)
     && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
-    && typeof value.rationale === "string" && typeof value.score === "number" && typeof value.isFromPool === "boolean";
+    && typeof value.rationale === "string" && typeof value.score === "number" && typeof value.isFromPool === "boolean"
+    && (value.hideRationale === undefined || typeof value.hideRationale === "boolean")
+    && (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength))
+    && (value.context === undefined || isCardDraftContext(value.context));
 }
 
 function isEmpiricalPatchClaim(value: unknown): boolean {
@@ -285,6 +295,8 @@ export interface RankedCandidateCard {
   roleStatus: CoachRoleStatus;
   badges: CoachBadge[];
   rationale: string;
+  /** FUERZA de la evidencia (elegibilidad != fuerza): WEAK se muestra con "Evidencia limitada" y nunca sostiene la acción principal. Opcional: un motor anterior no lo manda. */
+  evidenceStrength?: EvidenceStrength;
   /** True exactly when `poolMembership` is IN_POOL. */
   isFromPool: boolean;
   /** Is this hero in the pool that shaped the ranking? NO_POOL = no pool voted (never shown as "outside"). */
@@ -400,6 +412,7 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
     && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL")
     && (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isCardRisk)))
     && (value.context === undefined || isCardDraftContext(value.context))
+    && (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength))
     && (value.hideRationale === undefined || typeof value.hideRationale === "boolean");
 }
 
