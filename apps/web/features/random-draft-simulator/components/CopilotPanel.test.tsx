@@ -428,6 +428,13 @@ test("contractOnly con el Coach sin salida (ningún héroe elegible) y el cálcu
   expect(loading.getByText("Calculando recomendación...")).toBeDefined(); // mientras de verdad calcula, sí se dice
 });
 
+test("contractOnly con el Coach sin salida: los avisos del SISTEMA (meta desactualizado, posiciones en conflicto) se conservan", () => {
+  const degradations = [{ reason: "stale_meta", detail: "meta viejo" }, { reason: "ROLE_ASSIGNMENT_IMPOSSIBLE", detail: "roles en conflicto" }];
+  const view = render(<CopilotPanel contractOnly recommendations={recommendationSet({ recommendations: [], degradations: degradations as never })} coach={null} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.queryByText("Calculando recomendación...")).toBeNull();
+  expect(view.container.textContent).toMatch(/desactualizad|contradicen/);
+});
+
 test("contractOnly: el resaltado de la grilla no sale del V2 crudo (conjunto vacío sin Coach)", () => {
   const seen: number[][] = [];
   function capture(heroIds: ReadonlySet<number>) {

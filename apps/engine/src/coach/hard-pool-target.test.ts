@@ -197,7 +197,9 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
     expect(body.currentDecision.recommendedHeroId).toBe(6);
     // La posición objetivo es la única con un héroe elegible; el motor dice por qué cambió (el pool se agotó) y la frase del héroe es su fundamento.
     expect(body.currentDecision.recommendedPosition).toBe(2);
-    expect(body.currentDecision.reason).toContain("Winrate de 60.0%");
+    // El héroe es FUERTE por el ban neutro (sus chips lo dicen): el winrate débil no se queda con la frase del banner.
+    expect(body.currentDecision.reason).not.toContain("Winrate");
+    expect(body.currentDecision.reason).not.toContain("Por su posición");
   });
 });
 

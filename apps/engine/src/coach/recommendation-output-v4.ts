@@ -101,7 +101,7 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
 export type CandidateResult =
-  { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };;
+  { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };
 
 export type CurrentHumanDecision =
   | {

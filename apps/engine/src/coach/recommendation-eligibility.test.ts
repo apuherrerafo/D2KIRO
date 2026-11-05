@@ -133,10 +133,11 @@ describe("lo que SÍ es fundamento: verificable, con su porqué, y la tarjeta lo
   test("necesidad de composición: solo si el hueco es CRÍTICO y demostrable (ventana de cierre, picks propios curados) y el héroe lo llena", () => {
     const own = [801, 802, 803];
     const caps = (hero: number, overrides: Partial<HeroCapabilities> = {}): HeroCapabilities => ({ hero, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "low", teamfight: "low", scaling: "low", ...overrides });
-    const capabilities = [...own.map((id) => caps(id)), caps(A, { hasInitiation: true }), caps(B)];
+    // 3 aliados físicos sin iniciar ni atrapar: huecos críticos = iniciar, atrapar, segundo tipo de daño (3) y quedan 2 picks: cada pick debe cargar con 2.
+    const capabilities = [...own.map((id) => caps(id)), caps(A, { hasInitiation: true, hasCatch: true }), caps(B), caps(20, { hasInitiation: true })];
     const closing = view("PICK_ROUND_2", own.map(known), [hidden()]);
-    const result = derive([only(A, 70), only(B, 90)], { view: closing, heroCapabilities: capabilities });
-    expect(shown(result)).toEqual([A]); // A llena "iniciar peleas"; B no llena ningún hueco crítico
+    const result = derive([only(A, 70), only(B, 90), only(20, 80)], { view: closing, heroCapabilities: capabilities });
+    expect(shown(result)).toEqual([A]); // A llena 2 huecos (su parte justa); 20 llena solo uno y B ninguno
     expect(result.cards[0]?.rationale).toContain("iniciar peleas");
     expect(result.cards[0]?.badges).not.toContain("SYNERGY"); // cubrir un hueco no es sinergia: sin etiqueta "Sinergia", el fundamento va en la frase
     // Con un solo pick propio todo "falta", pero eso no es una necesidad demostrable: nadie pasa por composición.
@@ -270,6 +271,62 @@ describe("composición: necesidad concreta según aliados conocidos y picks que 
   });
 });
 
+describe("ronda 3: la fuerza del ban se pesa sobre listas completas y solo con porqué; lo ya counterado no es fuerte", () => {
+  const med = (vs: number) => counter(vs, `Su control ${vs} lo corta a media pelea`, "medium");
+
+  test("un counter baneado SIN porqué ('Lo dicen') no suma del lado baneado: lo que se muestra es lo que pesa", () => {
+    const counters = new Map([[A, [counter(BANNED, UNREASONED), med(701), med(702), med(703)]]]); // baneado con porqué: el medio 701 baneado?? no: solo el hard está baneado
+    const sinPorque = derive([only(A, 80)], { view: firstPick([BANNED]), heroCounters: counters });
+    expect(shown(sinPorque)).toEqual([]); // sin ningún counter baneado con porqué no hay "abre" que mostrar
+    const mixed = new Map([[A, [counter(BANNED, UNREASONED), med(704), med(701), med(702)]]]);
+    const result = derive([only(A, 80)], { view: firstPick([BANNED, 704]), heroCounters: mixed });
+    // Baneados: hard sin porqué (no cuenta) + medio con porqué (1). Libres probables: 2 medios (2). 1 > 2 es falso -> DÉBIL, aunque el duro sin porqué sumara 3.
+    expect(result.cards[0]?.evidenceStrength).toBe("WEAK");
+  });
+
+  test("sin el corte de lo listado: 2 duros baneados (4) contra 6 medios libres (6) es DÉBIL aunque se muestren solo 3 libres", () => {
+    const counters = new Map([[A, [counter(BANNED, WHY), counter(705, WHY), med(701), med(702), med(703), med(706), med(707), med(708)]]]);
+    const result = derive([only(A, 80)], { view: firstPick([BANNED, 705]), heroCounters: counters });
+    expect(result.cards[0]?.context.opening.stillFree.length).toBeLessThanOrEqual(3); // lo que se muestra está acotado...
+    expect(result.cards[0]?.evidenceStrength).toBe("WEAK"); // ...pero el peso se calcula sobre TODO lo que queda libre
+  });
+
+  test("un héroe al que un rival YA revelado le gana (counter curado) puede aparecer pero nunca como recomendación FUERTE", () => {
+    const counters = new Map([[A, [counter(BANNED, WHY), counter(ENEMY, "Lo silencia y lo deja sin hechizos")]]]);
+    const threatened = derive([only(A, 80)], { view: view("PICK_ROUND_2", [], [revealed(ENEMY)], [BANNED]), heroCounters: counters });
+    expect(shown(threatened)).toEqual([A]);
+    expect(threatened.cards[0]?.evidenceStrength).toBe("WEAK");
+    const calm = derive([only(A, 80)], { view: firstPick([BANNED]), heroCounters: new Map([[A, [counter(BANNED, WHY)]]]) });
+    expect(calm.cards[0]?.evidenceStrength).toBe("STRONG");
+  });
+
+  test("el meta DÉBIL no se queda con la frase cuando hay un fundamento FUERTE: la tarjeta no cita el winrate como motivo", () => {
+    const meta = signal("patch_meta", 0.58, 4, { sampleSize: 20_000, explanation: "Winrate de 58.0% este parche en bracket bajo/medio" });
+    const counters = new Map([[A, [counter(BANNED, WHY)]]]);
+    const result = derive([only(A, 80, [meta])], { view: firstPick([BANNED]), heroCounters: counters });
+    expect(result.cards[0]?.evidenceStrength).toBe("STRONG");
+    expect(result.cards[0]?.hideRationale).toBe(true);
+    expect(result.cards[0]?.rationale).not.toContain("Winrate");
+  });
+
+  test("Safe Core exige evidencia FUERTE: con 2 duros baneados pero 4 medios libres (4 contra 4) la ventana NO se destaca", () => {
+    const counters = new Map([[A, [counter(801, WHY), counter(802, WHY), med(711), med(712), med(713), med(714)]]]);
+    const state = firstPick([801, 802]);
+    const candidates = extractHeroCandidates(recSet([only(A, 90)]), POSITIONS);
+    const strong = (candidate: (typeof candidates)[number]) => evaluateEligibility(candidate, eligibilityInputOf(state, { heroCounters: counters, heroPositions: POSITIONS }, candidate.position)).strength === "STRONG";
+    expect(deriveOpportunity(candidates, state, counters, strong)).toBeNull();
+    expect(deriveOpportunity(candidates, state, counters, () => true)?.heroId).toBe(A); // sin la exigencia, la ventana sí saldría
+  });
+
+  test("composición: quien solo cubre UNO de 3 huecos con 2 picks por jugar no resuelve la presión (parte justa = 2)", () => {
+    const caps = (hero: number, overrides: Partial<HeroCapabilities> = {}): HeroCapabilities => ({ hero, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "low", teamfight: "low", scaling: "low", ...overrides });
+    const own = [801, 802, 803];
+    const capabilities = [...own.map((id) => caps(id)), caps(A, { hasInitiation: true }), caps(B, { hasInitiation: true, hasCatch: true })];
+    const closing = view("PICK_ROUND_2", own.map(known), [hidden()]);
+    expect(shown(derive([only(A, 90), only(B, 70)], { view: closing, heroCapabilities: capabilities }))).toEqual([B]);
+  });
+});
+
 describe("ramas del contrato que no pueden colarse por otro camino", () => {
   const statCounter = (explanation: string, raw = 0.12) => signal("counter", raw, 5, { explanation, hasRevealedEnemyCounterEvidence: true, sampleSize: 400 });
 
@@ -332,7 +389,7 @@ describe("Safe Core ('Ventana de core') también pasa por el contrato: nombra a 
     const counters = new Map([[A, [counter(BAN_A, why), counter(BAN_B, why)]]]);
     const state = firstPick([BAN_A, BAN_B]);
     const candidates = extractHeroCandidates(recSet([only(A, 90)]), POSITIONS);
-    const eligible = (candidate: (typeof candidates)[number]) => evaluateEligibility(candidate, eligibilityInputOf(state, { heroCounters: counters, heroPositions: POSITIONS }, candidate.position)).grounds.length > 0;
+    const eligible = (candidate: (typeof candidates)[number]) => evaluateEligibility(candidate, eligibilityInputOf(state, { heroCounters: counters, heroPositions: POSITIONS }, candidate.position)).strength === "STRONG";
     return deriveOpportunity(candidates, state, counters, withContract ? eligible : undefined);
   };
 

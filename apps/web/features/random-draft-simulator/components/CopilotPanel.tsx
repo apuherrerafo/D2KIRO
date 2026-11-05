@@ -503,8 +503,10 @@ export function CopilotPanel({
   const hasRecommendations = coach !== null || (legacy?.recommendations.length ?? 0) > 0;
   const decisionContext = coach?.meta.decisionContext ?? legacy?.decisionContext ?? "no_action";
 
+  // Los avisos del SISTEMA (meta desactualizado, posiciones en conflicto) NO son recomendaciones: se conservan aunque `contractOnly` descarte el cuerpo V2 y
+  // el Coach no tenga nada que mostrar (decisión del dueño: se mantienen).
   const allDegradations = [
-    ...(legacy?.degradations ?? []),
+    ...(recommendations?.degradations ?? []),
     ...(coach?.meta.degradations ?? []),
   ];
 

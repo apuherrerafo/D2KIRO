@@ -445,7 +445,8 @@ describe("RB-4 -- revealed curated hard counters demote (S05: Meepo vs Axe)", ()
     const all = new Map<number, CuratedCounter[]>([[30, [hard(40)]], [31, [hard(40)]], [32, [hard(40)]]]);
     const b = world({ scores, pool }, all);
     playRoundOne(b.h, [20, 11], [40, 41]);
-    expect((await b.ask(5))!.output!.shortlist.map((card) => card.heroId)).toEqual([30, 31, 32]);
+    // Contrato 2026-11-05: si un rival YA revelado counterea fuerte a TODAS las opciones, ninguna es evidencia fuerte -> el Coach no emite acción principal.
+    expect((await b.ask(5))!.output).toBeNull();
   });
 
   test("la democión aplica también al ranking personal (mismo conjunto curado, sin reescritura)", async () => {

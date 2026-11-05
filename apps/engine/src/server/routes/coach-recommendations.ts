@@ -111,7 +111,9 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
           teamOpening: false,
           singleSlotEvaluation: true,
           // El Coach v3 filtra por el contrato de elegibilidad DESPUÉS de rankear: con el tope de 6 un héroe elegible fuera del top-6 de V6 nunca
-          // llegaría (el tablero y V4 ya piden el universo completo). Una sola plaza: no hay pares que combinar.
+          // llegaría (el tablero y V4 ya piden el universo completo). Una sola plaza: no hay pares que combinar. OJO: esto cubre la lista de "revela la
+          // posición P" y la vista personal; el conjunto del EQUIPO (`buildRecommendationSet`, con pares y el tope de 6) sigue acotado, así que para
+          // otras estrategias la shortlist sale del top-6 de V6 -- un límite conocido, documentado en el PR.
           outputLimit: teamTargetCandidateLimit(candidateHeroIds),
           candidateLimit: teamTargetCandidateLimit(candidateHeroIds),
         }),

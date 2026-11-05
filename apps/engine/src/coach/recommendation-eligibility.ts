@@ -4,7 +4,7 @@ import { winrateClearlyAboveEven } from "../signals/patch-meta";
 import type { SignalContribution } from "../signals/types";
 import { cardContextOf, type CardContext } from "./card-context";
 import type { CardCompositionContext } from "./card-critical-gap";
-import { banOpeningOf, LEVEL_WEIGHT, type ContextReorderInput } from "./context-reorder";
+import { banBalanceOf, revealedCounterPenalty, type ContextReorderInput } from "./context-reorder";
 import type { HeroBadge, HeroCandidate } from "./hero-card";
 
 // CONTRATO DE ELEGIBILIDAD (dueño del producto, 2026-11-03/04) -- el ÚNICO lugar donde el motor decide si un héroe se muestra y con qué fuerza.
@@ -96,7 +96,9 @@ function compositionGround(candidate: HeroCandidate, composition: CardCompositio
   const capabilities = composition.capabilities.get(candidate.heroId);
   if (!capabilities) return null; // sin capacidades curadas no sabemos qué aporta: nunca se le atribuye
   const filled = filledGaps(capabilities, needs.criticalOpen, needs.ownDamageTypes);
-  if (filled.length === 0) return null;
+  // Parte justa (palomar): si hay más huecos que picks, cada pick debe cargar con ceil(huecos / picks) de ellos. Con 3 huecos y 2 picks, un héroe que
+  // solo cubre uno NO resuelve la presión; con huecos == picks basta uno.
+  if (filled.length < Math.ceil(needs.criticalOpen.length / needs.ownPicksRemaining)) return null;
   const when = needs.ownPicksRemaining === 1 ? "es tu último pick" : `te quedan ${needs.ownPicksRemaining} picks para ${needs.criticalOpen.length} huecos`;
   return { kind: "COMPOSITION_CRITICAL", strength: "STRONG", text: `Cubre ${listNaturally(filled.map((gap) => GAP_LABEL[gap]))}, que tus aliados ya elegidos no tienen, y ${when}: no hay margen para dejarlo para después`, shownByContext: false };
 }
@@ -115,10 +117,8 @@ function metaGround(candidate: HeroCandidate): Ground | null {
  * se pueda citar). Si queda tanto o más libre que lo baneado, el héroe puede aparecer pero el ban no lo sostiene como acción principal.
  */
 function banStrength(candidate: HeroCandidate, input: ContextReorderInput): "STRONG" | "WEAK" {
-  const raw = banOpeningOf(candidate.heroId, input);
-  const banned = raw.openedBy.reduce((sum, note) => sum + LEVEL_WEIGHT[note.level], 0);
-  const stillFree = raw.stillFree.filter((note) => note.takenPosition === undefined).reduce((sum, note) => sum + LEVEL_WEIGHT[note.level], 0);
-  return banned > stillFree ? "STRONG" : "WEAK";
+  const { bannedWithWhy, freeProbable } = banBalanceOf(candidate.heroId, input);
+  return bannedWithWhy > freeProbable ? "STRONG" : "WEAK";
 }
 
 /**
@@ -154,7 +154,10 @@ export function evaluateEligibility(candidate: HeroCandidate, input: Eligibility
   const intent = signalOf(candidate, "archetype_fit");
   if (intent && votedWithData(intent) && !intent.explanation.startsWith("Sin ")) complements.push({ kind: "ARCHETYPE_INTENT", strength: "COMPLEMENT", text: intent.explanation, shownByContext: false });
 
-  const strength: EvidenceStrength = independent.some((ground) => ground.strength === "STRONG") ? "STRONG" : "WEAK";
+  // Un héroe al que un rival YA revelado le gana (counter curado, con la ponderación de línea de `revealedCounterPenalty`) puede aparecer, pero nunca como
+  // recomendación fuerte: lo que lo respalda no puede ignorar lo que ya se ve en contra.
+  const threatened = revealedCounterPenalty(candidate.heroId, input.context) > 0;
+  const strength: EvidenceStrength = !threatened && independent.some((ground) => ground.strength === "STRONG") ? "STRONG" : "WEAK";
   return { grounds: [...independent, ...complements], strength, context };
 }
 
@@ -167,7 +170,10 @@ export function isEligible(candidate: HeroCandidate, input: EligibilityInput): b
  * (que nombran a los héroes y dan el porqué), esa es la frase; si todos los muestran los chips, la frase se calla (`hide`) para no repetirlos.
  */
 export function describeGrounds(grounds: readonly Ground[]): { rationale: string; hide: boolean } {
-  const standalone = grounds.find((ground) => !ground.shownByContext);
+  // Si hay un fundamento FUERTE, la frase nunca se la queda uno DÉBIL (p. ej. el winrate): sería decir como motivo lo que no decidió. Si el fuerte lo
+  // dicen los chips (nombres + porqué), la frase se calla.
+  const hasStrong = grounds.some((ground) => ground.strength === "STRONG");
+  const standalone = grounds.find((ground) => !ground.shownByContext && (!hasStrong || ground.strength !== "WEAK"));
   if (standalone) return { rationale: standalone.text, hide: false };
   return { rationale: grounds[0]?.text ?? "", hide: grounds.length > 0 };
 }

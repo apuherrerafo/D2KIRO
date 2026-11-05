@@ -264,6 +264,26 @@ test("Live Companion / V3: personalHeroView con héroes se muestra (posición + 
   expect(personal.textContent).toContain("Héroe 7");
 });
 
+test("Live Companion / V3: la vista personal marca 'Evidencia limitada' en lo débil y trae los chips con héroes y porqués de lo fuerte", () => {
+  const withContext = { opening: { openedBy: [{ heroId: 9, level: "hard" as const, why: "Su Call lo corta" }], stillFree: [] }, strengths: [], synergies: [], steals: [] };
+  const output: CoachOutput = {
+    ...coach(ROLE_ACTION),
+    personalHeroView: {
+      position: 2,
+      positionLabel: "TU MID AHORA",
+      seatCovered: false,
+      heroes: [
+        { heroId: 7, rank: 1, score: 10, isFromPool: false, evidenceStrength: "WEAK" },
+        { heroId: 8, rank: 2, score: 9, isFromPool: false, evidenceStrength: "STRONG", context: withContext },
+      ],
+    },
+  };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  const personal = view.getByTestId("coach-personal-hero-view");
+  expect(within(personal).getAllByTestId("evidence-limited-mark")).toHaveLength(1); // solo el débil
+  expect(within(personal).getByText(/Su Call lo corta/)).toBeTruthy(); // el fuerte dice la amenaza que desapareció y su mecanismo
+});
+
 test("Live Companion / V3: personalHeroView con el asiento cubierto lo dice", () => {
   const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: true, heroes: [] } };
   const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);

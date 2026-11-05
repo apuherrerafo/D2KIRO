@@ -331,7 +331,7 @@ export class CoachOrchestrator {
       const teamSet = await this.deps.buildRecommendationSet(context);
       if (teamSet.decision.actionCount === 0) return null;
       const data = { heroCounters, heroSynergies: this.deps.heroSynergies, heroPositions, heroCapabilities: this.deps.heroCapabilities };
-      return deriveOpportunity(extractHeroCandidates(teamSet, heroPositions), context.view, heroCounters, (candidate) => isEligible(candidate, eligibilityInputOf(context.view, data, candidate.position)));
+      return deriveOpportunity(extractHeroCandidates(teamSet, heroPositions), context.view, heroCounters, (candidate) => evaluateEligibility(candidate, eligibilityInputOf(context.view, data, candidate.position)).strength === "STRONG");
     } catch {
       return null;
     }

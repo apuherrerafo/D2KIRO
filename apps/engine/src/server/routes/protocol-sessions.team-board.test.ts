@@ -104,7 +104,7 @@ describe("GET .../team-recommendations -- Team Coach Board", () => {
     expect(body.positions.filter((column) => column.position === body.currentDecision.recommendedPosition)).toHaveLength(1);
     const recommendedColumn = body.positions.find((column) => column.position === body.currentDecision.recommendedPosition)!;
     expect(body.currentDecision.recommendedHeroId).toBe(recommendedColumn.primaryHeroId);
-    expect(body.currentDecision.reason.length).toBeGreaterThan(0);
+    expect(body.currentDecision.reason).not.toMatch(/Por su posición|Winrate/); // el motivo lo dicen los chips del héroe recomendado, no una frase de posición ni de meta débil
     // Advisory, never narrowing: every eligible position stays actionable.
     expect(body.currentDecision.actionablePositions).toEqual([1, 2, 3, 4, 5]);
   });

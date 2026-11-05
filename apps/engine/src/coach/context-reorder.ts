@@ -223,6 +223,21 @@ function freeCounters(heroId: HeroId, input: ContextReorderInput): CounterNote[]
     });
 }
 
+/**
+ * Lo que pesa lo baneado frente a lo que sigue libre, sobre las listas COMPLETAS (sin el corte de `MAX_LISTED` de lo que se muestra). Del lado baneado solo
+ * cuentan counters con porqué verificable (lo que se puede citar); del lado libre cuenta TODA amenaza probable, con o sin porqué (una atribución sigue siendo
+ * una amenaza que queda aunque no se pueda citar) y sin las que ya no son probables porque su posición está tomada en el rival. Pura.
+ */
+export function banBalanceOf(heroId: HeroId, input: ContextReorderInput): { bannedWithWhy: number; freeProbable: number } {
+  const bannedWithWhy = (input.heroCounters?.get(heroId) ?? [])
+    .filter((entry) => input.banned.has(entry.vs) && isReasonedWhy(entry.why))
+    .reduce((sum, entry) => sum + LEVEL_WEIGHT[entry.level], 0);
+  const freeProbable = freeCounters(heroId, input)
+    .filter((note) => note.takenPosition === undefined)
+    .reduce((sum, note) => sum + LEVEL_WEIGHT[note.level], 0);
+  return { bannedWithWhy, freeProbable };
+}
+
 /** Fracción ponderada de los counters de este héroe que está baneada (0 sin counters). */
 export function banFraction(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "heroCounters">): number {
   let banned = 0;

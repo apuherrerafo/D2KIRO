@@ -228,11 +228,11 @@ function deriveConfidence(candidates: readonly HeroCandidate[], strategy: Reveal
  * primary action moved to the front of the shortlist -- otherwise a support-first opening would hide exactly
  * the case the block exists for (a core that can be revealed earlier than the support prior suggests).
  */
-export function deriveOpportunity(candidates: readonly HeroCandidate[], view: CoachObservableState["view"], heroCounters: CoachOutputConfig["heroCounters"], isEligible?: (candidate: HeroCandidate) => boolean): CoachOpportunity | null {
+export function deriveOpportunity(candidates: readonly HeroCandidate[], view: CoachObservableState["view"], heroCounters: CoachOutputConfig["heroCounters"], isStrong?: (candidate: HeroCandidate) => boolean): CoachOpportunity | null {
   const top = candidates[0];
   if (!top || !heroCounters) return null;
-  // Nombra a un héroe: pasa por el MISMO contrato de elegibilidad que cualquier otra tarjeta (sin fundamento verificable no se muestra).
-  if (isEligible && !isEligible(top)) return null;
+  // Nombra a un héroe y lo destaca como "oportunidad": pasa por el MISMO contrato y exige evidencia FUERTE (elegible no basta para destacarlo).
+  if (isStrong && !isStrong(top)) return null;
   // La evidencia de la ventana ("2 de 2 counters duros ya no están disponibles") sale solo de relaciones con porqué verificable.
   const signal = detectSafeCoreWindow(top.heroId, view, top.signals, reasonedCounters(heroCounters) ?? heroCounters, { position: top.position, roleStatus: top.roleStatus });
   if (!signal.isSafeWindow || !signal.counterEvidence) return null;
@@ -297,7 +297,7 @@ export function translateToRecommendationOutputV3(
   const phase = view.rankedAp?.phase ?? null;
   const ownVisible = view.ownPicks.filter((slot) => slot.visibility !== "HIDDEN").length;
   // Safe Core keeps judging V6's own leader (Wave 4A contract): the demotion above never feeds it.
-  const opportunity = deriveOpportunity(v6Candidates, view, config.heroCounters, (candidate) => evaluateEligibility(candidate, eligibilityInputOf(view, eligibilityData, candidate.position)).grounds.length > 0);
+  const opportunity = deriveOpportunity(v6Candidates, view, config.heroCounters, (candidate) => evaluateEligibility(candidate, eligibilityInputOf(view, eligibilityData, candidate.position)).strength === "STRONG");
 
   const isCollision = coachState.roleCollision?.infeasible ?? false;
   const baseLabel = labelForStrategy(revealStrategy);

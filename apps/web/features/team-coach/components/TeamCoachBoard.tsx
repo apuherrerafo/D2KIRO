@@ -114,7 +114,10 @@ function PickHint({ onPickHero }: { onPickHero: DecisionBannerProps["onPickHero"
 
 // La teoría del motor ("conviene revelar primero lo que menos información le da al rival…") sigue
 // disponible, pero detrás de "¿Por qué?": lo primero que se lee es qué hacer, no el porqué.
+// La teoría del motor sigue disponible detrás de "¿Por qué?", pero SOLO si hay algo que decir: nunca un desplegable vacío. Los héroes y mecanismos que sostienen al
+// recomendado ya están, con nombres y porqués, en su tarjeta de la columna (justo debajo).
 function DecisionWhy({ board }: { board: TeamCoachBoardData }) {
+  if (board.currentDecision.reason === "") return null;
   return (
     <details className="text-caption text-content-secondary" data-testid="team-coach-why">
       <summary className="w-fit text-content-muted hover:text-content-primary">{WHY_LABEL}</summary>

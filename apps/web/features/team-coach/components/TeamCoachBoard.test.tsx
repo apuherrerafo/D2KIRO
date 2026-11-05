@@ -469,7 +469,8 @@ describe("TeamCoachBoard -- live Party5 P0 (engine mirror)", () => {
 
   test("si el héroe recomendado es de evidencia LIMITADA no hay botón 'Elige a X' ni héroe destacado en el banner", () => {
     const weakColumn = column(2);
-    weakColumn.top[0] = { ...weakColumn.top[0]!, evidenceStrength: "WEAK" };
+    // Un dato de fuerza ausente NO se presume fuerte (también lleva la marca): aquí solo el primero es limitado y los demás son explícitamente fuertes.
+    weakColumn.top = weakColumn.top.map((candidate, index) => ({ ...candidate, evidenceStrength: index === 0 ? ("WEAK" as const) : ("STRONG" as const) }));
     const picks: number[] = [];
     const view = renderBoard({ ...board([2], 2), positions: [weakColumn] }, { onPickHero: (_position, heroId) => { picks.push(heroId); } });
     expect(view.queryByTestId("team-coach-pick-recommended")).toBeNull();

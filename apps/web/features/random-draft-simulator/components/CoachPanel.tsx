@@ -236,7 +236,7 @@ interface HeroCardViewProps {
 }
 
 // Los MISMOS chips que la decisión V4 y el tablero: nombran a los héroes y dan el mecanismo (bans que abrieron con su porqué, a quién gana, con quién combina).
-function CardDraftReasons({ card, heroCatalog }: { card: CoachHeroCard; heroCatalog: Map<number, HeroMeta> }) {
+function CardDraftReasons({ card, heroCatalog }: { card: Pick<CoachHeroCard, "context" | "rationale">; heroCatalog: Map<number, HeroMeta> }) {
   if (!card.context) return null;
   const source = { ...card.context, reasons: [card.rationale] };
   return (
@@ -305,8 +305,10 @@ function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
       <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
       <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
       <ul className="grid grid-cols-1 gap-1">
-        {personal.heroes.map((hero) => <li key={hero.heroId} className="text-caption text-content-primary" data-hero-id={hero.heroId}>
-          {hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}
+        {personal.heroes.map((hero) => <li key={hero.heroId} className="flex flex-col gap-1 text-caption text-content-primary" data-hero-id={hero.heroId}>
+          <span>{hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}</span>
+          <EvidenceLimitedMark strength={hero.evidenceStrength} />
+          <CardDraftReasons card={{ context: hero.context, rationale: "" }} heroCatalog={heroCatalog} />
         </li>)}
       </ul>
     </div>
