@@ -8,11 +8,11 @@ import { BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { TeamSide } from "@/features/draft/types";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
 import { EngineUnreachableBanner } from "../../random-draft-simulator/components/EngineUnreachableBanner";
-import { CopilotPanel } from "../../random-draft-simulator/components/CopilotPanel";
 import { loadMetaSnapshot } from "../../random-draft-simulator/meta-loader";
 import { useCaptainsModeSession } from "../use-captains-mode-session";
 import { CaptainsModeConfigPanel } from "./CaptainsModeConfigPanel";
 import { CaptainsModeBoard } from "./CaptainsModeBoard";
+import { CaptainsModeCopilot } from "./CaptainsModeCopilot";
 
 function IdleView({
   localSide,
@@ -79,7 +79,7 @@ export function CaptainsModeSimulator() {
             onSelectHero={session.submitHero}
           />
           <div className="flex flex-col gap-4">
-            <CopilotPanel recommendations={session.recommendations} heroCatalog={heroCatalog} previewStatus={session.previewStatus} />
+            <CaptainsModeCopilot output={session.recommendations} heroCatalog={heroCatalog} previewStatus={session.previewStatus} onRetry={session.retryRecommendations} />
             {session.phase === "complete" && (
               <button type="button" onClick={session.reset} className={`self-start ${BUTTON_SECONDARY}`}>
                 Nuevo draft

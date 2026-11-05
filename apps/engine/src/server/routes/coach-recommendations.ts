@@ -1,4 +1,6 @@
-import { buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
+import { buildCaptainsModeOutput, buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, type CaptainsModeOutput, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
+import type { PerspectiveDraftView } from "../../draft-protocol/types";
+import type { RecommendationSetV2 } from "../../recommendation/types";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
@@ -65,6 +67,11 @@ export interface CoachRecommendations {
    * `null` for a session without HumanActionability/controlled positions.
    */
   recommendTeamBoard(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null): Promise<TeamCoachBoard | null | undefined>;
+  /**
+   * Captains Mode: filtra el V2 ya armado del estado del protocolo con el contrato de elegibilidad (coach/captains-mode-output.ts), con los MISMOS datos
+   * curados que usan el Coach y el tablero. Pura y síncrona: no recalcula nada, solo decide qué héroes se muestran y con qué fuerza.
+   */
+  captainsModeOutput(set: RecommendationSetV2, view: PerspectiveDraftView): CaptainsModeOutput;
 }
 
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
@@ -178,6 +185,9 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
     return { context, playerPersonalPosition, heroPositions, heroCounters, heroSynergies, heroCapabilities, buildTargetRanking };
   }
   return {
+    captainsModeOutput(set, view) {
+      return buildCaptainsModeOutput({ set, view, data: { heroCounters, heroSynergies, heroPositions, heroCapabilities } });
+    },
     async recommendTeamBoard(sessionId, playerPersonalPosition, accountId = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return undefined;

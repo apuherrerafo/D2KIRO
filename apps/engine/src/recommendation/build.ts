@@ -88,6 +88,11 @@ export interface BuildRecommendationSetV2Input {
   teamOpening?: boolean;
   /** Simulator recovery preserves all six V6 suggestions; other callers keep the legacy limit. */
   outputLimit?: number;
+  /**
+   * Cuántos candidatos le pide a V6 (y cuántos pasan del shortlist). Captain's Mode lo ensancha porque su Coach filtra por el contrato de
+   * elegibilidad DESPUÉS de rankear: con el tope de siempre, un héroe elegible fuera del top de V6 nunca llegaría. Ausente = el de siempre.
+   */
+  candidateLimit?: number;
   /** Stable roster identities controlled by this caller, mapped onto AP's round-scoped slots. Legacy (non-AP-Simulator-controlledPositions) callers only -- see `humanOpenPositions`. */
   controlledRosterSlots?: readonly number[];
   /** Explicit simulator discriminator: only simulator sessions target real Own Team positions. */
@@ -155,6 +160,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
       targetPosition: input.targetPosition,
       diversitySeed: seed,
       candidateHeroIds: legal.eligibleHeroIds ?? undefined,
+      ...(input.candidateLimit !== undefined ? { limit: input.candidateLimit } : {}),
     });
   } catch {
     pushUniqueDegradation(degradations, { reason: "SNAPSHOT_UNAVAILABLE", detail: "computeSuggestions falló; sin datos de meta disponibles" });
@@ -184,7 +190,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
     decisionContext,
   });
 
-  const shortlist = buildShortlist(suggestionSet, legal.eligibleHeroIds, excludedHeroes(legacyState));
+  const shortlist = buildShortlist(suggestionSet, legal.eligibleHeroIds, excludedHeroes(legacyState), input.candidateLimit);
   if (shortlist.length === 0) {
     pushUniqueDegradation(degradations, { reason: "NO_LEGAL_HERO_UNIVERSE", detail: "ningún héroe legal quedó en el shortlist tras intersectar con la elegibilidad certificada" });
     return empty("no_action");

@@ -21,8 +21,9 @@ import {
   translateRecommendationSetToLegacySuggestionSet,
   type RecommendationSetV2,
 } from "../../recommendation";
-import type { RecommendationOutputV3 } from "../../coach";
+import { CAPTAINS_MODE_CANDIDATE_LIMIT, type RecommendationOutputV3 } from "../../coach";
 import type { CuratedCounter } from "../../signals/hero-counters";
+import type { CuratedSynergy } from "../../signals/hero-synergies";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 import { rosterSlotForRoundSlot, type DotaPosition } from "../../simulator/ap-simulator-policy";
 import {
@@ -68,6 +69,8 @@ export type ComputeSuggestionsForDraftState = (
     // R1 S5 (blocker 3): the kernel's own certified legal hero universe, when the caller has one
     // (recommendation/build.ts, for Captain's Mode) -- forwarded verbatim into buildSuggestions.
     candidateHeroIds?: readonly number[];
+    // Captain's Mode: cuántos candidatos pide su Coach para poder filtrar por elegibilidad (ver BuildRecommendationSetV2Input.candidateLimit).
+    limit?: number;
   },
 ) => Promise<SuggestionSet>;
 
@@ -119,6 +122,8 @@ export interface ProtocolSessionRouteDeps {
   heroPositions?: HeroPositions;
   /** Curated counter relationships for the Coach's Safe Core opportunity (Wave 4A). Never the real file in tests. */
   heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
+  /** Curated pairs for the eligibility contract (Coach v3 and Captain's Mode). Absent = the real file, loaded once. Never the real file in tests. */
+  heroSynergies?: ReadonlyMap<number, readonly CuratedSynergy[]>;
   /** Curated capabilities for the Coach's CRITICAL_GAP card notice (S9). Never the real file in tests. */
   heroCapabilities?: readonly HeroCapabilities[];
   /**
@@ -715,7 +720,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
    * plain V2 response and, injected, by the Coach). It reads the authoritative session; nothing
    * downstream of the Coach ever does.
    */
-  async function buildV2ForSession(sessionId: string, view: PerspectiveDraftView): Promise<RecommendationSetV2> {
+  async function buildV2ForSession(sessionId: string, view: PerspectiveDraftView, candidateLimit?: number): Promise<RecommendationSetV2> {
     const state = deps.store.get(sessionId)!;
     const metadata = deps.store.metadata(sessionId)!;
     return buildRecommendationSetV2({
@@ -728,7 +733,8 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // AP Ranked Roles V1 / Wave 1: the Player controls all five own seats, so there is no
       // single-participant `targetPosition` and no per-seat filter here. Personal-position
       // intelligence (scoping, "YOUR POSITION NOW", hero pool) belongs to later waves.
-      outputLimit: isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined,
+      outputLimit: candidateLimit ?? (isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined),
+      candidateLimit,
       isSimulator: metadata.adapterKind === "simulator",
       // PD-026/PD-027 COACH TARGET POSITIONS -- undefined (not null) for a session created without
       // controlledPositions, so decision.ts falls back to its pre-existing controlledRosterSlots/
@@ -746,6 +752,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     computeSuggestions: deps.computeSuggestions,
     heroPositions: deps.heroPositions,
     heroCounters: deps.heroCounters,
+    heroSynergies: deps.heroSynergies,
     heroCapabilities: deps.heroCapabilities,
   });
 
@@ -804,6 +811,23 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
         computedInMs: Date.now() - startedAt,
       }));
       return Response.json({ output: current.output });
+    }
+    // Captain's Mode -- `?format=cm`: la recomendación pasa por el MISMO contrato de elegibilidad que el resto de las superficies (coach/captains-mode-output.ts).
+    // Solo viajan héroes con fundamento verificable y su fuerza; el desglose crudo de V6 no sale del motor por este camino.
+    if (url.searchParams.get("format") === "cm") {
+      if (!view.captainsMode) return Response.json({ error: "format_requires_captains_mode" }, { status: 422 });
+      const set = await buildV2ForSession(sessionId, view, CAPTAINS_MODE_CANDIDATE_LIMIT);
+      const output = coachRecommendations.captainsModeOutput(set, view);
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event: "captains_mode_recommendations_computed",
+        sessionId,
+        stateIdentity: set.basedOn.stateIdentity,
+        actionKind: output.actionKind,
+        shown: output.picks.length + output.bans.length,
+        computedInMs: Date.now() - startedAt,
+      }));
+      return Response.json({ output });
     }
     // AP Ranked Roles V1 / Wave 2 -- `?format=v3` asks the Coach: a RecommendationOutputV3 plus the V2-shaped
     // set it was built on. That set comes from the PERSPECTIVE-SAFE builder (never from authoritative

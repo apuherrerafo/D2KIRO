@@ -5,20 +5,20 @@
 // strictly sequential (24 steps, one actor at a time) -- a much simpler shape than Ranked All
 // Pick's blind/timed rounds, so this intentionally does NOT reuse use-random-draft-session.ts's
 // timer/reveal machinery. It reuses everything that IS generic: protocol-client.ts's HTTP helpers
-// (createSimulatorProtocolSession/submitProtocolCommand/requestBotSelection/fetchRecommendations),
+// (createSimulatorProtocolSession/submitProtocolCommand/requestBotSelection), and the recommendations come ONLY from cm-client.ts
+// (the engine's eligibility-contract output: no raw V2 breakdown reaches the screen),
 // unchanged.
 import { useCallback, useRef, useState } from "react";
 import type { TeamSide } from "@/features/draft/types";
 import {
   createSimulatorProtocolSession,
-  fetchRecommendations,
   requestBotSelection,
   submitProtocolCommand,
   type CmActionKind,
   type ProtocolLegalAction,
   type ProtocolSnapshot,
-  type RecommendationSetV2,
 } from "../random-draft-simulator/protocol-client";
+import { fetchCaptainsModeOutput, type CaptainsModeOutput } from "./cm-client";
 
 export type CaptainsModePhase = "idle" | "active" | "complete" | "unreachable";
 export type PreviewStatus = "idle" | "loading" | "ready" | "failed";
@@ -38,10 +38,13 @@ export interface CmActionOption {
 export interface UseCaptainsModeSessionResult {
   phase: CaptainsModePhase;
   snapshot: ProtocolSnapshot | null;
-  recommendations: RecommendationSetV2 | null;
+  /** Lo que el motor ya filtró por el contrato de elegibilidad (picks o bans con fundamento). Null = todavía no hay respuesta. */
+  recommendations: CaptainsModeOutput | null;
   previewStatus: PreviewStatus;
   /** The local side's currently open CM_ACTION, if it is this side's turn right now. */
   localAction: CmActionOption | null;
+  /** Reintenta pedir la recomendación del turno actual (cuando el cálculo falló). */
+  retryRecommendations(): void;
   start(config: CaptainsModeStartConfig): Promise<void>;
   submitHero(heroId: number): Promise<void>;
   reset(): void;
@@ -59,7 +62,7 @@ function findLocalCmAction(legalActions: ProtocolLegalAction[], localSide: TeamS
 export function useCaptainsModeSession(fetchImpl: typeof fetch = fetch): UseCaptainsModeSessionResult {
   const [phase, setPhase] = useState<CaptainsModePhase>("idle");
   const [snapshot, setSnapshot] = useState<ProtocolSnapshot | null>(null);
-  const [recommendations, setRecommendations] = useState<RecommendationSetV2 | null>(null);
+  const [recommendations, setRecommendations] = useState<CaptainsModeOutput | null>(null);
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
   // `localSide` is read from event handlers only (start/submitHero), never during render, but
   // react-hooks/refs still flags a ref read reached from the render-time `localAction` derivation
@@ -71,7 +74,7 @@ export function useCaptainsModeSession(fetchImpl: typeof fetch = fetch): UseCapt
     async function refreshRecommendations(sessionId: string): Promise<void> {
       setPreviewStatus("loading");
       try {
-        const result = await fetchRecommendations(sessionId, fetchImpl);
+        const result = await fetchCaptainsModeOutput(sessionId, fetchImpl);
         if (sessionIdRef.current !== sessionId) return; // superseded by a reset/new session
         setRecommendations(result);
         setPreviewStatus("ready");
@@ -163,6 +166,11 @@ export function useCaptainsModeSession(fetchImpl: typeof fetch = fetch): UseCapt
     [driveUntilLocalTurnOrComplete, fetchImpl, localSide, snapshot],
   );
 
+  const retryRecommendations = useCallback(function retryRecommendations(): void {
+    const sessionId = sessionIdRef.current;
+    if (sessionId) void refreshRecommendations(sessionId);
+  }, [refreshRecommendations]);
+
   const reset = useCallback(function reset(): void {
     sessionIdRef.current = null;
     setLocalSide(null);
@@ -174,5 +182,5 @@ export function useCaptainsModeSession(fetchImpl: typeof fetch = fetch): UseCapt
 
   const localAction = snapshot && localSide ? findLocalCmAction(snapshot.legalActions, localSide) : null;
 
-  return { phase, snapshot, recommendations, previewStatus, localAction, start, submitHero, reset };
+  return { phase, snapshot, recommendations, previewStatus, localAction, retryRecommendations, start, submitHero, reset };
 }
