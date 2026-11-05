@@ -73,6 +73,8 @@ export interface DeriveRevealStrategyOptions {
   /** Curated counters (RB-4): the ranking's leader is judged AFTER the categorical revealed-hard-counter demotion. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   roleCollision?: RoleCollisionObservation;
+  /** Live capture's resolver output (`context.ownPositionOccupancy.necessarilyOccupied`): positions proven occupied whichever hero plays where. Absent outside live capture. */
+  necessarilyOccupied?: readonly Position[];
   /**
    * P0-1 (INV-OWN-001, PD-026/PD-027) -- the ONLY positions this decision may name as the human's
    * action, straight from ProtocolSessionStore.humanOpenPositions (session-layer truth, never
@@ -102,9 +104,36 @@ function occupiedPositions(beliefs: ReadonlyMap<HeroId, RoleBelief> | undefined)
   return occupied;
 }
 
-/** P0-1: the domain a human-facing position claim may be drawn from. `null` (non-AP-Simulator/legacy) keeps the old, unconstrained ALL_POSITIONS domain. */
-function positionDomain(humanOpenPositions: readonly Position[] | null | undefined): readonly Position[] {
-  return humanOpenPositions ?? ALL_POSITIONS;
+/**
+ * Positions our own picks occupy FOR SURE, to trim the domain of a session that reports no open positions (Live Companion). Stricter than `occupiedPositions`
+ * on purpose (review 2026-11-05): a LIKELY belief is any non-uniform history, so its argmax can be a flex hero's second-best seat -- trimming on it would hide a
+ * position that is really free. Firmly occupied = an explicit assignment (CONFIRMED), a belief whose evidence admits ONE position only, or what the live
+ * capture resolver already proved necessary (`necessarilyOccupied`). Structural, no numeric threshold.
+ */
+function firmlyOccupiedPositions(beliefs: ReadonlyMap<HeroId, RoleBelief> | undefined, necessarilyOccupied: readonly Position[] | undefined): Set<Position> {
+  const firm = new Set<Position>(necessarilyOccupied ?? []);
+  for (const belief of beliefs?.values() ?? []) {
+    if (belief.status === "UNRESOLVED") continue;
+    const possible = ALL_POSITIONS.filter((position) => belief.probabilities[position] > 0);
+    if (belief.status === "CONFIRMED" || possible.length === 1) {
+      let best: Position = possible[0] ?? 1;
+      for (const position of possible) if (belief.probabilities[position] > belief.probabilities[best]) best = position;
+      firm.add(best);
+    }
+  }
+  return firm;
+}
+
+/**
+ * P0-1: the domain a human-facing position claim may be drawn from. A session that reports its open positions (AP Simulator) uses them as-is.
+ * `null` (non-AP-Simulator/legacy: Live Companion) has no such report, but it is NOT unconstrained: a position our own picks firmly occupy
+ * (`firmlyOccupiedPositions`) is never suggested ("revela Carry" with the carry already picked -- audit 2026-11-05, 15 of 75 live states). If everything is covered the old
+ * unconstrained domain stands (nothing is invented, nothing is hidden).
+ */
+function positionDomain(humanOpenPositions: readonly Position[] | null | undefined, occupied: ReadonlySet<Position>): readonly Position[] {
+  if (humanOpenPositions != null) return humanOpenPositions;
+  const free = ALL_POSITIONS.filter((position) => !occupied.has(position));
+  return free.length > 0 ? free : ALL_POSITIONS;
 }
 
 /** The last-resort default when every domain-restricted search comes up empty. `null` when the domain itself is empty -- P0-1: never manufacture a target outside it. */
@@ -186,7 +215,7 @@ export function deriveRevealStrategy(
   options: DeriveRevealStrategyOptions = {},
 ): RevealStrategy | null {
   const occupied = occupiedPositions(options.ownRoleBeliefs);
-  const domain = positionDomain(options.humanOpenPositions);
+  const domain = positionDomain(options.humanOpenPositions, firmlyOccupiedPositions(options.ownRoleBeliefs, options.necessarilyOccupied));
   const candidates: HeroCandidate[] = demoteRevealedHardCountered(extractHeroCandidates(recommendations, options.heroPositions), revealedEnemyHeroes(view), options.heroCounters);
   const top = candidates[0];
   const serves: PositionServes = (position) => candidates.some((candidate) => candidateServesPosition(candidate, position, options.heroPositions));
@@ -229,7 +258,9 @@ export function deriveRevealStrategy(
   // 4. Otherwise the honest role the evidence points at (or the uncovered seat when it points nowhere),
   //    constrained to what the human may still act on (P0-1).
   if (!resolved || !domain.includes(top.position)) {
-    const reason = resolved ? "El ranking apunta a una posición que no controlas en esta ronda." : "El ranking no aporta evidencia de posición.";
+    const reason = resolved
+      ? (options.humanOpenPositions == null ? "El ranking apunta a una posición que tus picks ya ocupan." : "El ranking apunta a una posición que no controlas en esta ronda.")
+      : "El ranking no aporta evidencia de posición.";
     return positionFallback(decisionContext, occupied, reason, serves, domain, options.roleCollision);
   }
   const rationale = options.roleCollision?.infeasible

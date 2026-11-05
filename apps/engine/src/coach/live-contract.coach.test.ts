@@ -97,10 +97,32 @@ describe("Coach v3 -- fundamentos verificables sí cuentan, y la tarjeta los dic
 describe("Coach v3 -- elegibilidad != fuerza (f)", () => {
   const META = signal("patch_meta", 0.6, 4, { explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 });
 
-  test("(f) solo-meta (evidencia débil): hay elegibles pero NINGUNO es fuerte -> no hay acción principal y el Coach v3 no devuelve salida", () => {
+  test("(f) solo-meta (evidencia débil): hay elegibles pero NINGUNO es fuerte -> se muestran como evidencia limitada y la acción NO es una recomendación (LIMITED)", () => {
     const heroes = [3, 2, 1].map((id) => withSignal(positionOnly(id), META));
-    expect(translate(heroes, POSITION_5)).toBeNull();
-    expect(translate(heroes, { kind: "DEFER_POSITION", position: 1, rationale: "r" })).toBeNull();
+    for (const strategy of [POSITION_5, { kind: "DEFER_POSITION", position: 1, rationale: "r" } as RevealStrategy]) {
+      const output = translate(heroes, strategy)!;
+      expect(output).not.toBeNull();
+      expect(output.actionSupport).toBe("LIMITED");
+      expect(output.shortlist.length).toBeGreaterThan(0);
+      expect(output.shortlist.every((card) => card.evidenceStrength === "WEAK")).toBe(true); // cada tarjeta lo dice: la UI pinta "Evidencia limitada"
+      expect(output.meta.confidence).toBe("baja");
+      expect(output.opportunity).toBeUndefined(); // lo débil nunca abre la "Oportunidad"
+    }
+  });
+
+  test("(f) la confianza de una acción LIMITED es baja aunque V6 diga alta (sin empate que la baje por sí solo)", () => {
+    const heroes = [withSignal(positionOnly(3, 30), META), withSignal(positionOnly(2, 10), META)];
+    expect(translate(heroes, POSITION_5)!.actionSupport).toBe("LIMITED");
+    expect(translate(heroes, POSITION_5)!.meta.confidence).toBe("baja");
+    // Contraste: con un fuerte (misma V6 "alta", puntajes distintos) la confianza sigue su regla de siempre y NO queda en baja.
+    const withStrong = translate([withSignal(positionOnly(3, 30), META), positionOnly(4, 10)], POSITION_5, { heroCounters: openedByBan(4) })!;
+    expect(withStrong.actionSupport).toBe("STRONG");
+    expect(withStrong.meta.confidence).not.toBe("baja");
+  });
+
+  test("(f) un fuerte SÍ da acción principal (STRONG): el soporte lo decide el héroe fuerte que sirve a la acción", () => {
+    const output = translate([withSignal(positionOnly(3), META), positionOnly(4)], POSITION_5, { heroCounters: openedByBan(4) })!;
+    expect(output.actionSupport).toBe("STRONG");
   });
 
   test("(f) un fuerte SÍ da acción principal, y los débiles que sirven a la acción acompañan en la lista, marcados WEAK", () => {
@@ -114,8 +136,10 @@ describe("Coach v3 -- elegibilidad != fuerza (f)", () => {
     const weakHero = withSignal(positionOnly(3), META);
     const strongHero = positionOnly(4);
     const config = { heroCounters: openedByBan(4) };
-    expect(translate([weakHero, strongHero], { kind: "REVEAL_HERO", heroId: 3, position: 5, rationale: "r" }, config)).toBeNull();
-    const named = translate([weakHero, strongHero], { kind: "REVEAL_HERO", heroId: 4, position: 5, rationale: "r" }, config);
+    const weakNamed = translate([weakHero, strongHero], { kind: "REVEAL_HERO", heroId: 3, position: 5, rationale: "r" }, config)!;
+    expect(weakNamed.actionSupport).toBe("LIMITED"); // nombrar al débil no es una recomendación: la UI no pinta "Qué hacer ahora"
+    const named = translate([weakHero, strongHero], { kind: "REVEAL_HERO", heroId: 4, position: 5, rationale: "r" }, config)!;
+    expect(named.actionSupport).toBe("STRONG");
     expect(named!.shortlist[0]!.heroId).toBe(4);
     expect(named!.shortlist[0]!.evidenceStrength).toBe("STRONG");
   });
@@ -143,9 +167,11 @@ describe("Coach v3 -- lo que NO es fundamento (c)", () => {
 });
 
 describe("Coach v3 -- sin elegibles no hay acción principal (d) y nunca nombra a un no elegible (e)", () => {
-  test("(d) REVEAL_POSITION sin ningún elegible que sirva a esa posición -> null aunque haya elegibles de otra posición", () => {
+  test("(d) REVEAL_POSITION sin ningún elegible que sirva a esa posición -> la acción es LIMITED (no hay recomendación), el elegible de otra posición se muestra con su posición", () => {
     const grounded = roleOnlyHero(1, 1, 30); // elegible y fuerte (pareja curada), pero juega Pos 1: no sirve a "revela Pos 5"
-    expect(translate([grounded, positionOnly(2)], POSITION_5, { heroSynergies: pairWithAlly(1, "Shallow Grave le da tiempo para usar Blink") })).toBeNull();
+    const output = translate([grounded, positionOnly(2)], POSITION_5, { heroSynergies: pairWithAlly(1, "Shallow Grave le da tiempo para usar Blink") })!;
+    expect(output.actionSupport).toBe("LIMITED");
+    expect(output.shortlist.map((card) => [card.heroId, card.position])).toEqual([[1, 1]]); // el héroe sin fundamento (2) nunca aparece
   });
 
   test("(d) DEFER / FLEX sin elegibles -> null", () => {
@@ -157,11 +183,91 @@ describe("Coach v3 -- sin elegibles no hay acción principal (d) y nunca nombra 
     const grounded = positionOnly(3);
     const config = { heroSynergies: pairWithAlly(3, "Shallow Grave le da tiempo para usar Blink") };
     const ungrounded: RevealStrategy = { kind: "REVEAL_HERO", heroId: 2, position: 5, rationale: "r" };
-    expect(translate([positionOnly(2, 30), grounded], ungrounded, config)).toBeNull();
+    const notNamed = translate([positionOnly(2, 30), grounded], ungrounded, config)!;
+    expect(notNamed.actionSupport).toBe("LIMITED"); // el héroe sin fundamento no sostiene ninguna acción...
+    expect(notNamed.shortlist.map((card) => card.heroId)).toEqual([3]); // ...ni aparece en la lista
     const named: RevealStrategy = { kind: "REVEAL_HERO", heroId: 3, position: 5, rationale: "r" };
     const output = translate([positionOnly(2, 30), grounded], named, config);
     expect(output!.shortlist[0]!.heroId).toBe(3);
     expect(output!.shortlist.map((card) => card.heroId)).not.toContain(2);
+  });
+});
+
+describe("Coach v3 -- evidencia limitada se muestra, nunca como recomendación principal (decisión del dueño, 2026-11-05)", () => {
+  const META = signal("patch_meta", 0.6, 4, { explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 });
+
+  test("sin ningún héroe con fundamento NO se muestra nada: ni relleno ni salida (sigue siendo null)", () => {
+    expect(translate([1, 2, 3].map((id) => positionOnly(id)), POSITION_5)).toBeNull();
+  });
+
+  test("`keepWithoutShortlist` solo conserva el contenedor para la vista personal: lista vacía, acción LIMITED, ningún héroe inventado", () => {
+    const output = translate([1, 2, 3].map((id) => positionOnly(id)), POSITION_5, { keepWithoutShortlist: true })!;
+    expect(output.shortlist).toEqual([]);
+    expect(output.actionSupport).toBe("LIMITED");
+    expect(output.opportunity).toBeUndefined();
+  });
+
+  test("lo limitado nunca habilita la Oportunidad (Safe Core) aunque exista un counter curado sobre un rival que no está en el draft", () => {
+    const heroes = [3, 2].map((id) => withSignal(positionOnly(id), META));
+    const output = translate(heroes, POSITION_5, { heroCounters: new Map([[3, [{ vs: 98, level: "hard" as const, why: "x" }]]]) })!;
+    expect(output.actionSupport).toBe("LIMITED");
+    expect(output.opportunity).toBeUndefined();
+  });
+
+  test("una acción respaldada por un héroe FUERTE nunca se muestra sin él, aunque V6 ponga cinco débiles por delante", () => {
+    const weak = [1, 2, 3, 5, 6].map((id, index) => withSignal(positionOnly(id, 30 - index), META));
+    const output = translate([...weak, positionOnly(4, 5)], POSITION_5, { heroCounters: openedByBan(4) })!;
+    expect(output.actionSupport).toBe("STRONG");
+    expect(output.shortlist).toHaveLength(5);
+    expect(output.shortlist.map((card) => card.heroId)).toContain(4); // el héroe que sostiene "Qué hacer ahora" está en la lista
+    expect(output.shortlist.filter((card) => card.evidenceStrength === "STRONG").map((card) => card.heroId)).toEqual([4]);
+  });
+
+  test("un tamaño de lista 0 sigue siendo 0: el héroe fuerte no se cuela sin plaza", () => {
+    const output = translate([withSignal(positionOnly(3, 30), META), positionOnly(4, 10)], POSITION_5, { heroCounters: openedByBan(4), shortlistSize: 0 })!;
+    expect(output.shortlist).toEqual([]);
+  });
+
+  test("por el orquestador real, solo-meta: la lista y la VISTA PERSONAL viajan (antes desaparecían las dos), marcadas WEAK y sin acción fuerte", async () => {
+    // `heroCounters` propio y vacío: sin el ban abre-a-todos del harness, lo único que habilita a los héroes es el meta (débil).
+    const h = harness({ adapterKind: "manual", heroCounters: new Map() });
+    const result = await h.compute(2);
+    const output = result.output!;
+    expect(output).not.toBeNull();
+    expect(output.actionSupport).toBe("LIMITED");
+    expect(output.shortlist.length).toBeGreaterThan(0);
+    expect(output.shortlist.every((card) => card.evidenceStrength === "WEAK")).toBe(true);
+    expect(output.personalHeroView).toBeDefined();
+    expect(output.personalHeroView!.heroes.length).toBeGreaterThan(0);
+    expect(output.personalHeroView!.heroes.every((hero) => hero.evidenceStrength === "WEAK")).toBe(true);
+  });
+
+  test("por el orquestador real: lista de equipo VACÍA (nadie con fundamento) pero vista personal con contenido -> la vista personal viaja, sin lista ni héroes inventados", async () => {
+    const h = harness({ adapterKind: "manual" });
+    const stripMeta = <T extends { signal: string }>(signals: readonly T[]): T[] => signals.filter((entry) => entry.signal !== "patch_meta");
+    const base = fakeCompute();
+    // El EQUIPO no ve el meta (sin ningún fundamento); la vista personal sí lo ve (débil): el caso real "sin lista de equipo, con vista personal".
+    const computeForTeam: ComputeSuggestionsForRecommendation = async (...args) => {
+      const set = await base(...args);
+      return { ...set, suggestions: set.suggestions.map((suggestion) => ({ ...suggestion, signals: stripMeta(suggestion.signals) })) };
+    };
+    const coach = new CoachOrchestrator({
+      heroPositions: HERO_POSITIONS,
+      buildRecommendationSet: (ctx) => buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: computeForTeam, heroPositions: HERO_POSITIONS }),
+      buildPersonalRecommendation: (ctx, position) => buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: base, heroPositions: HERO_POSITIONS, targetPosition: position, teamOpening: false, singleSlotEvaluation: true }),
+    });
+    const output = (await coach.recompute({ context: h.store.perspectiveRecommendationContext(h.id)!, playerPersonalPosition: 2 })).output!;
+    expect(output).not.toBeNull();
+    expect(output.shortlist).toEqual([]);
+    expect(output.actionSupport).toBe("LIMITED");
+    expect(output.personalHeroView!.heroes.length).toBeGreaterThan(0);
+    expect(output.personalHeroView!.heroes.every((hero) => hero.evidenceStrength === "WEAK")).toBe(true);
+  });
+
+  test("por el orquestador real, con un fundamento FUERTE la acción vuelve a ser STRONG (mismo estado, el fuerte decide)", async () => {
+    const h = harness({ adapterKind: "manual" }); // por defecto: ban abre-a-todos (fuerte)
+    const output = (await h.compute(2)).output!;
+    expect(output.actionSupport).toBe("STRONG");
   });
 });
 

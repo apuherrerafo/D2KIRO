@@ -164,3 +164,64 @@ describe("autoridad del Player y pureza", () => {
     expect(JSON.stringify(set)).toBe(snapshot);
   });
 });
+
+// Decisión del dueño (2026-11-05), auditoría Simulador vs Live Companion: en una sesión SIN posiciones abiertas reportadas (`humanOpenPositions` null: Live
+// Companion) el dominio dejaba de ser "todas las posiciones" para ser "todas, incluso las que mis picks ya cubren", y la rama 4 devolvía la posición del
+// líder de V6 sin mirar la ocupación ("revela Carry" con el carry ya elegido; 15 de 75 estados en vivo). Fixtures inline.
+describe("REVEAL_POSITION sin posiciones abiertas reportadas (Live Companion) -- nunca sugiere una posición ya ocupada", () => {
+  const ALL: Position[] = [1, 2, 3, 4, 5];
+  const everyPositionServed = recSet(ALL.map((position, index) => roleOnlyHero(index + 1, position, 20 - index)));
+  const ownCovering = (position: Position) => new Map([[50, computeRoleBelief({ heroId: 50, confirmedPosition: position })]]);
+  const occupiedView = view("PICK_ROUND_2", [known(50), known(51)], [revealed(70), revealed(71), hidden(), hidden()]);
+
+  test("el líder de V6 juega una posición que mis picks ya cubren -> no se nombra: cede a una posición libre que el ranking sirve", () => {
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11)]); // el líder es un carry; el carry ya está elegido
+    const strategy = deriveRevealStrategy(occupiedView, set, null, [], "response_pick", { ownRoleBeliefs: ownCovering(1), humanOpenPositions: null });
+    expect(strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 2 });
+  });
+
+  test("para CADA una de las cinco posiciones: si está cubierta, nunca es la que se revela (con el líder de V6 justo en esa posición)", () => {
+    for (const covered of ALL) {
+      const set = recSet([roleOnlyHero(1, covered, 30), ...ALL.filter((position) => position !== covered).map((position, index) => roleOnlyHero(10 + index, position, 10 - index))]);
+      for (const context of ["response_pick", "closing_pick", "blind_second_pick"] as const) {
+        const strategy = deriveRevealStrategy(occupiedView, set, null, [], context, { ownRoleBeliefs: ownCovering(covered), humanOpenPositions: null });
+        const named = strategy?.kind === "REVEAL_FLEX" ? strategy.possiblePositions : [(strategy as { position: Position }).position];
+        expect(named).not.toContain(covered);
+      }
+    }
+  });
+
+  test("también sin `humanOpenPositions` (undefined): mismo dominio que null", () => {
+    const strategy = deriveRevealStrategy(occupiedView, everyPositionServed, null, [], "response_pick", { ownRoleBeliefs: ownCovering(1) });
+    expect(strategy).toMatchObject({ kind: "REVEAL_POSITION" });
+    expect((strategy as { position: Position }).position).not.toBe(1);
+  });
+
+  test("si TODAS las posiciones están cubiertas no se inventa nada ni se oculta: rige el dominio completo de siempre", () => {
+    const beliefs = new Map(ALL.map((position, index) => [50 + index, computeRoleBelief({ heroId: 50 + index, confirmedPosition: position })] as const));
+    const strategy = deriveRevealStrategy(occupiedView, everyPositionServed, null, [], "response_pick", { ownRoleBeliefs: beliefs, humanOpenPositions: null });
+    expect(strategy).not.toBeNull();
+  });
+
+  test("revisión 2026-11-05: una creencia LIKELY blanda (flex) NO recorta el dominio; una cuyo único asiento posible es uno solo, sí", () => {
+    const soft = new Map([[50, { status: "LIKELY" as const, probabilities: { 1: 0.4, 2: 0.3, 3: 0.1, 4: 0.1, 5: 0.1 }, entropy: 1, evidence: [] }]]);
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11)]);
+    expect(deriveRevealStrategy(occupiedView, set, null, [], "response_pick", { ownRoleBeliefs: soft, humanOpenPositions: null })).toMatchObject({ kind: "REVEAL_POSITION", position: 1 }); // el flex puede jugar el 2: el 1 sigue libre
+    const forced = new Map([[50, { status: "LIKELY" as const, probabilities: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0, evidence: [] }]]);
+    expect(deriveRevealStrategy(occupiedView, set, null, [], "response_pick", { ownRoleBeliefs: forced, humanOpenPositions: null })).toMatchObject({ kind: "REVEAL_POSITION", position: 2 });
+  });
+
+  test("lo que la captura en vivo ya probó ocupado (`necessarilyOccupied`) también recorta el dominio, y el motivo dice que ya está ocupada (no 'que no controlas')", () => {
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11)]);
+    const strategy = deriveRevealStrategy(occupiedView, set, null, [], "response_pick", { humanOpenPositions: null, necessarilyOccupied: [1] });
+    expect(strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 2 });
+    expect((strategy as { rationale: string }).rationale).toContain("ya ocupan");
+    expect((strategy as { rationale: string }).rationale).not.toContain("no controlas");
+  });
+
+  test("DIFERENCIA LEGÍTIMA: una sesión que SÍ reporta sus posiciones abiertas (Simulador) las usa tal cual, sin recortarlas por creencias", () => {
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11)]);
+    const strategy = deriveRevealStrategy(occupiedView, set, null, [], "response_pick", { ownRoleBeliefs: ownCovering(1), humanOpenPositions: [1, 2] });
+    expect(strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 1 }); // la verdad de la sesión manda: sigue abierta
+  });
+});

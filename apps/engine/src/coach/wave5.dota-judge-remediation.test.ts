@@ -445,8 +445,12 @@ describe("RB-4 -- revealed curated hard counters demote (S05: Meepo vs Axe)", ()
     const all = new Map<number, CuratedCounter[]>([[30, [hard(40)]], [31, [hard(40)]], [32, [hard(40)]]]);
     const b = world({ scores, pool }, all);
     playRoundOne(b.h, [20, 11], [40, 41]);
-    // Contrato 2026-11-05: si un rival YA revelado counterea fuerte a TODAS las opciones, ninguna es evidencia fuerte -> el Coach no emite acción principal.
-    expect((await b.ask(5))!.output).toBeNull();
+    // Contrato 2026-11-05: si un rival YA revelado counterea fuerte a TODAS las opciones, ninguna es evidencia fuerte -> las opciones se muestran (elegibles,
+    // orden V6) pero la acción queda LIMITED: nunca "ELIGE AHORA" sobre un héroe que el rival ya counterea.
+    const limited = (await b.ask(5))!.output!;
+    expect(limited.actionSupport).toBe("LIMITED");
+    expect(limited.shortlist.every((card) => card.evidenceStrength === "WEAK")).toBe(true);
+    expect(limited.shortlist.map((card) => card.heroId)).toEqual([30, 31, 32]);
   });
 
   test("la democión aplica también al ranking personal (mismo conjunto curado, sin reescritura)", async () => {

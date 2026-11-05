@@ -64,6 +64,11 @@ export interface CoachOutputConfig {
    * (orchestrator-supplied). Its heroes lead the shortlist of that action; the team set's serving heroes follow. Never used by other kinds.
    */
   actionRecommendationSet?: RecommendationSetV2;
+  /**
+   * Decisión del dueño (2026-11-05): la vista personal NO desaparece solo porque no haya una recomendación fuerte ni una lista de equipo. Cuando el
+   * llamador ya tiene una vista personal con contenido, la salida se devuelve igual (lista vacía, acción limitada) para que viaje con ella.
+   */
+  keepWithoutShortlist?: boolean;
 }
 
 /** The Safe Core opportunity block. `counterEvidence.sourceType` is always "CURATED" (the only approved counter evidence in V1). */
@@ -83,6 +88,12 @@ export interface RecommendationOutputV3 {
     /** A suggestion, never an obligation: the Player keeps full authority (PD-003). */
     label: string;
   };
+  /**
+   * ¿Qué sostiene `primaryAction`? STRONG = al menos un héroe con fundamento FUERTE que la ejecuta. LIMITED = solo hay héroes con evidencia limitada
+   * (p. ej. el meta) o ninguno que sirva a la acción: la lista se muestra, pero la acción NO es una recomendación ("ELIGE AHORA", "Qué hacer ahora") y
+   * la UI no la pinta. Mismo criterio que el tablero y la decisión V4 (elegibilidad != fuerza).
+   */
+  actionSupport: "STRONG" | "LIMITED";
   shortlist: HeroCard[];
   roleCollision?: RoleCollisionObservation;
   /** Wave 4A. Absent (never null) unless real evidence exists. Informational: does not touch shortlist or primaryAction. */
@@ -247,21 +258,22 @@ function roundOf(phase: RankedApPhase | null): 1 | 2 | 3 | null {
 }
 
 /**
- * ¿Hay un héroe con evidencia FUERTE que de verdad SIRVA a la acción principal? `ordered` llega ya filtrado a los STRONG. Una acción de posición sin
- * ningún fuerte que la ejecute, o "revela a X" con X débil o sin fundamento, no se presenta: sin recomendación fuerte no hay acción principal
+ * El héroe con evidencia FUERTE que de verdad SIRVE a la acción principal (el primero, en el orden de V6), o undefined si no hay. `ordered` llega ya filtrado a los STRONG. Una acción de posición sin
+ * ningún fuerte que la ejecute, o "revela a X" con X débil o sin fundamento, queda LIMITED: la lista se muestra pero no hay acción principal
  * (contrato de elegibilidad, 2026-11-03/04: elegibilidad != fuerza; el meta solo no alcanza).
  */
-function actionIsServed(strategy: RevealStrategy, ordered: readonly HeroCandidate[], heroPositions: HeroPositions | undefined): boolean {
-  if (strategy.kind === "REVEAL_POSITION") return ordered.some((candidate) => candidateServesPosition(candidate, strategy.position, heroPositions));
-  if (strategy.kind === "DEFER_POSITION") return ordered.length > 0;
-  if (strategy.kind === "OPPORTUNITY" && strategy.heroId === undefined) return ordered.length > 0;
-  return ordered.some((candidate) => fitsStrategy(candidate, strategy));
+function supportingHero(strategy: RevealStrategy, ordered: readonly HeroCandidate[], heroPositions: HeroPositions | undefined): HeroCandidate | undefined {
+  if (strategy.kind === "REVEAL_POSITION") return ordered.find((candidate) => candidateServesPosition(candidate, strategy.position, heroPositions));
+  if (strategy.kind === "DEFER_POSITION") return ordered[0];
+  if (strategy.kind === "OPPORTUNITY" && strategy.heroId === undefined) return ordered[0];
+  return ordered.find((candidate) => fitsStrategy(candidate, strategy));
 }
 
 /**
  * La salida del Coach v3. Contrato de elegibilidad (2026-11-03): la shortlist solo lleva héroes con al menos un fundamento verificable
- * (`evaluateEligibility`, la MISMA regla que la decisión V4 y el tablero), y su frase/etiquetas salen de esos fundamentos. Si ningún elegible
- * sirve a la acción principal devuelve null: sin recomendación elegible no hay acción principal ni lista.
+ * (`evaluateEligibility`, la MISMA regla que la decisión V4 y el tablero), y su frase/etiquetas salen de esos fundamentos. Sin ningún héroe con
+ * fundamento devuelve null (ni lista ni relleno). Con elegibles pero sin un fuerte que sirva a la acción devuelve la lista con `actionSupport: "LIMITED"`
+ * (decisión del dueño, 2026-11-05: los de evidencia limitada se muestran como en el tablero, nunca como acción principal).
  */
 export function translateToRecommendationOutputV3(
   recommendationSet: RecommendationSetV2,
@@ -291,9 +303,16 @@ export function translateToRecommendationOutputV3(
     ? keepEligible(demoteRevealedHardCountered(extractHeroCandidates(config.actionRecommendationSet, config.heroPositions), revealedEnemies, config.heroCounters))
     : [];
   const ordered = orderForStrategy(candidates, revealStrategy, config.heroPositions, actionCandidates);
-  // La acción principal exige evidencia FUERTE; los débiles (p. ej. solo meta) aparecen en la lista pero nunca la sostienen.
+  // Sin ningún héroe con fundamento no hay nada que mostrar (ni relleno ni mensaje), salvo que el llamador pida conservar la vista personal.
+  if (ordered.length === 0 && config.keepWithoutShortlist !== true) return null;
+  // La acción principal exige evidencia FUERTE; los débiles (p. ej. solo meta) aparecen en la lista pero nunca la sostienen: sin un fuerte que la
+  // ejecute la lista se muestra igual (como el tablero) y la acción queda LIMITED -- la UI no la presenta como recomendación.
   const strongOrdered = ordered.filter((candidate) => eligibilityByHero.get(candidate.heroId)?.strength === "STRONG");
-  if (!actionIsServed(revealStrategy, strongOrdered, config.heroPositions)) return null;
+  const supporter = supportingHero(revealStrategy, strongOrdered, config.heroPositions);
+  const actionSupport: RecommendationOutputV3["actionSupport"] = supporter ? "STRONG" : "LIMITED";
+  // Una acción respaldada por un héroe fuerte nunca se muestra sin él: si el orden de V6 lo dejó fuera del corte (débiles por delante), ocupa la última plaza.
+  const shown = ordered.slice(0, size);
+  if (supporter && size > 0 && !shown.includes(supporter)) shown.splice(Math.max(size - 1, 0), shown.length >= size ? 1 : 0, supporter);
   const phase = view.rankedAp?.phase ?? null;
   const ownVisible = view.ownPicks.filter((slot) => slot.visibility !== "HIDDEN").length;
   // Safe Core keeps judging V6's own leader (Wave 4A contract): the demotion above never feeds it.
@@ -309,7 +328,8 @@ export function translateToRecommendationOutputV3(
     schema: "recommendation-output/v3",
     sessionId: view.sessionId,
     primaryAction: { strategy: revealStrategy, label: primaryLabel },
-    shortlist: ordered.slice(0, size).map((candidate) => buildHeroCard(candidate, heroPool, eligibilityByHero.get(candidate.heroId))),
+    actionSupport,
+    shortlist: shown.map((candidate) => buildHeroCard(candidate, heroPool, eligibilityByHero.get(candidate.heroId))),
     ...(opportunity ? { opportunity } : {}),
     roleCollision: coachState.roleCollision,
     roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },
@@ -317,7 +337,7 @@ export function translateToRecommendationOutputV3(
       round: roundOf(phase),
       phase,
       ownPicksRemaining: Math.max(5 - ownVisible, 0),
-      confidence: isCollision ? "baja" : deriveConfidence(candidates, revealStrategy),
+      confidence: isCollision || actionSupport === "LIMITED" ? "baja" : deriveConfidence(candidates, revealStrategy),
       decisionContext,
       trigger: config.trigger ?? "REFRESH",
       revision: config.revision ?? 0,
