@@ -227,8 +227,10 @@ function BadgeList({ badges }: BadgeListProps) {
   );
 }
 
-interface HeroCardViewProps {
+export interface HeroCardViewProps {
   card: CoachHeroCard;
+  /** Captains Mode: el héroe recomendado ahora (el motor solo lo manda con evidencia FUERTE). Se destaca; el resto, no. */
+  isPrimary?: boolean;
   heroCatalog: Map<number, HeroMeta>;
   sessionId?: string;
   stateIdentity?: string | null;
@@ -255,10 +257,20 @@ function CardRationale({ card }: { card: CoachHeroCard }) {
   return <span className="text-caption text-content-secondary">{card.rationale}</span>;
 }
 
-function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVersion }: HeroCardViewProps) {
+const CARD_BASE = "flex flex-col gap-1 rounded-lg border p-2";
+const CARD_PRIMARY = `${CARD_BASE} border-accent-primary bg-surface-raised`;
+const CARD_REGULAR = `${CARD_BASE} border-surface-border bg-surface-overlay`;
+
+function PrimaryMark({ isPrimary }: { isPrimary: boolean }) {
+  if (!isPrimary) return null;
+  return <span className="text-caption font-semibold text-accent-primary" data-testid="recommended-mark">Recomendado</span>;
+}
+
+export function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVersion, isPrimary = false }: HeroCardViewProps) {
   const meta = heroCatalog.get(card.heroId);
   return (
-    <li className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-2" data-testid="coach-hero-card" data-hero-id={card.heroId}>
+    <li className={isPrimary ? CARD_PRIMARY : CARD_REGULAR} data-testid="coach-hero-card" data-hero-id={card.heroId}>
+      <PrimaryMark isPrimary={isPrimary} />
       <div className="flex items-center gap-2">
         <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(card.heroId, heroCatalog)} size={40} />
         <div className="flex flex-col">

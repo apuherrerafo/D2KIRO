@@ -140,7 +140,7 @@ function isStrategy(value: unknown): value is CoachStrategy {
   return false;
 }
 
-function isHeroCard(value: unknown): value is CoachHeroCard {
+export function isHeroCard(value: unknown): value is CoachHeroCard {
   if (!isRecord(value)) return false;
   const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
   return isHeroId(value.heroId) && isPosition(value.position) && roleOk && isConfidence(value.confidence)
