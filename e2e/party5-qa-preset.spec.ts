@@ -1,4 +1,5 @@
 import { expect, test } from "./support/failure-evidence";
+import { pickAnyAvailableHero } from "./support/decision";
 
 test.describe("Party 5 QA Readiness Browser Journey", () => {
   test("creates a 5-person team group preset, loads it in simulator, resolves 16 bans, and drafts with party control", async ({ page }) => {
@@ -68,10 +69,7 @@ test.describe("Party 5 QA Readiness Browser Journey", () => {
     // 9. Play through the draft to completion
     for (let attempt = 0; attempt < 60; attempt += 1) {
       if (await page.getByText("Draft completo").isVisible()) break;
-      const hero = page.locator("button[title]:not([disabled])").first();
-      if (await hero.isVisible().catch(() => false)) {
-        await hero.click().catch(() => undefined);
-      }
+      await pickAnyAvailableHero(page);
       await page.waitForTimeout(500);
     }
 

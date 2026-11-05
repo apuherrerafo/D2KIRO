@@ -1,4 +1,5 @@
 import { expect, test } from "./support/failure-evidence";
+import { pickAnyAvailableHero } from "./support/decision";
 import type { Page } from "@playwright/test";
 
 async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
@@ -58,10 +59,7 @@ async function playPartyDraft(
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (await page.getByText("Draft completo").isVisible()) break;
-    const hero = page.locator("button[title]:not([disabled])").first();
-    if (await hero.isVisible().catch(() => false)) {
-      await hero.click().catch(() => undefined);
-    }
+    await pickAnyAvailableHero(page);
     await page.waitForTimeout(500);
   }
 

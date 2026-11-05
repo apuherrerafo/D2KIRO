@@ -16,11 +16,21 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     // Wait for Round 1 and Coach recommendations
     await expect(page.getByText(/Ronda 1 · 2 espacios de pick disponibles/)).toBeVisible({ timeout: 60_000 });
     // Product Semantics Recovery WP3: feedback attaches to the ONE displayed ranked result (V4 cards).
+    // Eligibility contract (2026-11-03/04): cards exist only with a verifiable ground, so the position in view at the opening (the Player's own Midlane) may have
+    // none. Feedback is rated on a card the Coach DID show: look through the pending positions for the first one that has cards (the draft seed is random).
     const coachPanel = page.locator('[data-testid="current-decision-panel"]');
-    await expect(coachPanel).toBeVisible({ timeout: 30_000 });
+    await expect(coachPanel).toBeAttached({ timeout: 30_000 });
 
     const heroCards = page.locator('[data-testid="current-decision-card"]');
-    await expect(heroCards.first()).toBeVisible({ timeout: 30_000 });
+    const positionSelector = page.getByRole("group", { name: "Posición para el próximo pick" });
+    for (const position of [1, 3, 4, 5]) { // Pos2 is the opening view and already has no cards when this loop runs
+      if ((await heroCards.count()) > 0) break;
+      const answered = page.waitForResponse((response) => /recommendations\?format=v4/.test(response.url()), { timeout: 30_000 });
+      await positionSelector.getByRole("button", { name: new RegExp(`Pos${position} `) }).click();
+      await answered;
+      await page.waitForTimeout(500);
+    }
+    await expect(heroCards.first(), "at least one pending position has a recommendation to rate").toBeVisible({ timeout: 30_000 });
     const cardCount = await heroCards.count();
     expect(cardCount).toBeGreaterThan(0);
 

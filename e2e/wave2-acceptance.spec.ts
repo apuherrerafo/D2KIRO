@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS } from "./fixtures/hero-catalog";
+import { announcedTargetLabel, decisionCardIds } from "./support/decision";
 import {
   ROUND_HEADING,
   assertNoSimulatorTruthLeak,
@@ -56,15 +57,16 @@ function primary(page: Page) {
 
 async function snapshotOfCoach(page: Page) {
   const action = primary(page);
-  await expect(action).toBeVisible({ timeout: 60_000 });
+  await expect(action).toBeAttached({ timeout: 60_000 });
   await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
   return {
     kind: (await action.getAttribute("data-decision-kind"))!,
     trigger: (await action.getAttribute("data-trigger"))!,
     revision: Number(await action.getAttribute("data-revision")),
     identity: (await action.getAttribute("data-state-identity"))!,
-    label: (await page.getByTestId("current-decision-target").innerText()).trim(),
-    shortlist: await page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
+    // "" when the Coach announces no recommended target (2026-11-03/04: no STRATEGIC basis, nothing to announce).
+    label: await announcedTargetLabel(page),
+    shortlist: await decisionCardIds(page),
   };
 }
 
@@ -99,9 +101,7 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
     // (a) An actionable Coach answer exists at the START of every round, before the Player picks.
     const atStart = await snapshotOfCoach(page);
     expect(atStart.kind).toBe("ACTIONABLE"); // V4: a human action exists at the start of every round
-    expect(atStart.label.length).toBeGreaterThan(0);
-    expect(atStart.shortlist.length).toBeGreaterThan(0);
-    await expect(page.getByTestId("current-decision-candidates")).toBeVisible();
+    // Eligibility contract: cards exist only with a verifiable ground, and the candidate section exists iff there are cards (checked in decisionCardIds).
     kindsSeen.push(`${atStart.kind}[${atStart.label.replace(/^Sugerencia: /, "")}]`);
     if (round === 1) expect(atStart.trigger).toBe("DRAFT_PICKS_STARTED");
     else expect(atStart.trigger).toBe("ROUND_REVEALED"); // Round 2/3 open only after the enemy reveal
@@ -176,7 +176,8 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     await configureAndStart(page, { side: "Radiant", position: "Posición 2 — Midlane", seed: "WAVE1RAD", banNames: ["Zeus", "Lina", "Sniper", "Kunkka"] });
     await expect(page.getByText(ROUND_HEADING(1, 2))).toBeVisible({ timeout: 60_000 });
     const advice = await snapshotOfCoach(page);
-    expect(advice.shortlist.length).toBeGreaterThan(0);
+    // Eligibility contract (2026-11-03/04): the Coach may have NO recommendation at this state (no hero with a verifiable ground); then every legal hero is
+    // "outside its advice" and the checks below (accepted, no 'wrong choice', Coach recomputes) still certify the same thing.
 
     // Deliberately choose a legal hero that is NOT in the Coach shortlist.
     const pool = [...MID, ...CARRY, ...OFFLANE, ...SOFT_SUPPORT, ...HARD_SUPPORT];
@@ -198,7 +199,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
     const after = await snapshotOfCoach(page);
     expect(after.revision).toBeGreaterThan(advice.revision);
-    expect(after.label.length).toBeGreaterThan(0);
+    expect(after.kind).toBe("ACTIONABLE");
     await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
     const commands = rec.requests.filter((request) => request.path.endsWith("/command")).map((request) => (request.body as { command: { heroId: number } }).command.heroId);
     expect(commands).toEqual([FIXTURE_HERO_ID_BY_NAME.get(ignored!)]);
@@ -206,8 +207,9 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     // The draft keeps going: the second seat is still open and can be sealed.
     const second = await firstEnabled(page, [...CARRY, ...MID].filter((name) => name !== ignored));
     await pickHero(page, second);
-    await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 · /).first()).toBeVisible({ timeout: 30_000 });
-    expect(commandsSoFar(rec)).toBe(2);
+    // A legal collision with a hidden enemy pick reopens the seat (ban + repick) instead of closing the round: handle it through the UI like every other journey.
+    const repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 · /, [...CARRY, ...MID, ...OFFLANE, ...SOFT_SUPPORT, ...HARD_SUPPORT]);
+    expect(commandsSoFar(rec)).toBe(2 + repicks);
     expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
   });
 });
@@ -288,7 +290,8 @@ test.describe("Wave 2 acceptance -- hidden information (deterministic setup thro
 
     const beforeA = await coachOf(request, a);
     const beforeB = await coachOf(request, b);
-    expect(beforeA.output.meta.trigger).toBe("DRAFT_PICKS_STARTED");
+    // Eligibility contract (2026-11-03/04): with no strongly-grounded hero the V3 Coach answers null; when it answers it is the start-of-draft answer.
+    expect(beforeA.output === null || beforeA.output.meta.trigger === "DRAFT_PICKS_STARTED").toBe(true);
     expect(normalized(beforeA)).toBe(normalized(beforeB)); // Coach output AND the V2 set it is built on: byte-identical
     assertNoSimulatorTruthLeak([], [beforeA, beforeB]);
 
