@@ -7,7 +7,7 @@ import { buildTeamCoachBoard, buildTeamPositionPriority } from "./team-coach-boa
 import { selectDecisionTarget, targetFromPriority } from "./current-human-decision";
 import { selectLivePositionPriority } from "./live-position-priority";
 import { poolsByConfirmedPosition, type SavedTeamMember } from "../recommendation/team-positions";
-import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures";
+import { fakeCompute, harness, HERO_POSITIONS, strongOpenerCounters } from "./session-harness.fixtures";
 
 // Step 1B-B (closing pass) -- every Party5 target-selection path agrees: a position whose configured pool is exhausted
 // is NOT a viable target. REAL kernel + REAL store; V6's scorer is the harness stand-in. Positions and pools are inline (S10).
@@ -55,7 +55,6 @@ describe("recomputeCurrentDecision (V4) con un pool configurado agotado (Hero Po
   test("la razón no habla de un 'pool' que bloquee: si no hay héroe creíble lo dice por la posición", async () => {
     const decision = await decide({ 4: [3] }, { bans: [3] });
     expect(decision.targetRationale).not.toContain("pool");
-    if (decision.candidates.state === "UNAVAILABLE") expect(decision.candidates.reason).not.toContain("pool");
   });
 
   test("la posición personal sigue ganando", async () => {
@@ -83,7 +82,7 @@ describe("recomputeCurrentDecision (V4) con un pool configurado agotado (Hero Po
   test("las cinco agotadas: todas siguen siendo objetivo posible y se informa por la posición, no por un pool", async () => {
     const decision = await decide({ 1: [1], 2: [4], 3: [5], 4: [3], 5: [2] }, { bans: [1, 2, 3, 4, 5] });
     expect(decision.poolState).toBe("EXHAUSTED");
-    if (decision.candidates.state === "UNAVAILABLE") expect(decision.candidates.reason).not.toContain("pool");
+    expect(decision.candidates.cards).toEqual([]); // y sin héroe elegible no se inventa ninguno ni se explica nada
   });
 
   test("sin pool configurado el comportamiento previo se conserva (objetivo = posición del jugador)", async () => {
@@ -117,6 +116,7 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
       context,
       playerPersonalPosition: personal,
       heroPositions: HERO_POSITIONS,
+      heroCounters: strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number)), // fundamento fuerte neutro de los datos de prueba (el harness ya banea al opener)
       buildTargetRanking: (ctx: PerspectiveRecommendationContext, targetPosition: Position) =>
         buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, targetPosition, teamOpening: false, singleSlotEvaluation: true }),
     };
@@ -191,11 +191,15 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
     expect((await decide({ 4: [3] }, { personal: 4 })).targetPosition).toBe(4);
   });
 
-  test("las cinco agotadas: ninguna columna se cierra por su pool; sin héroe creíble disponible no hay recomendación", async () => {
+  test("las cinco agotadas: ninguna columna se cierra por su pool; el único héroe creíble que queda se recomienda por su fundamento, no por el pool", async () => {
     const pools: Pools = { 1: [1], 2: [4], 3: [5], 4: [3], 5: [2] };
     const body = await board(pools, [1, 2, 3, 4, 5], 4);
-    expect(body.currentDecision.recommendedHeroId).toBeNull();
-    expect(body.currentDecision.reason).not.toContain("pool");
+    expect(body.currentDecision.recommendedHeroId).toBe(6);
+    // La posición objetivo es la única con un héroe elegible; el motor dice por qué cambió (el pool se agotó) y la frase del héroe es su fundamento.
+    expect(body.currentDecision.recommendedPosition).toBe(2);
+    // El héroe es FUERTE por el ban neutro (sus chips lo dicen): el winrate débil no se queda con la frase del banner.
+    expect(body.currentDecision.reason).not.toContain("Winrate");
+    expect(body.currentDecision.reason).not.toContain("Por su posición");
   });
 });
 

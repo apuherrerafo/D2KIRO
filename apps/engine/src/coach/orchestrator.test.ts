@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildRecommendationSetFromPerspective } from "../recommendation/build-from-perspective";
 import { CoachOrchestrator } from "./orchestrator";
-import { HERO_COUNTERING_ENEMY_9, HERO_POSITIONS, fakeCompute, harness, POOL, stripSession } from "./session-harness.fixtures";
+import { HERO_COUNTERING_ENEMY_9, HERO_POSITIONS, fakeCompute, harness, POOL, stripSession, strongOpenerCounters } from "./session-harness.fixtures";
 
 // AP Ranked Roles V1 / Wave 2 (tasks 14, 19) -- the Coach orchestrated over the real kernel, the real
 // ProtocolSessionStore and the real PERSPECTIVE-SAFE recommendation path (see session-harness.fixtures.ts).
@@ -80,7 +80,8 @@ describe("Coach orchestration over the real kernel", () => {
   });
 
   test("REVEAL CAMBIA EL CONSEJO: tras revelarse el héroe rival 9 el héroe que lo contrarresta aparece con su insignia COUNTER; antes no", async () => {
-    const h = harness({ sessionId: "reveal" });
+    // El counter que cuenta es una relación curada con porqué contra un rival YA revelado (el estadístico no es fundamento).
+    const h = harness({ sessionId: "reveal", strongGrounds: true, heroCounters: new Map([[9, [{ vs: HERO_COUNTERING_ENEMY_9, level: "hard" as const, why: "Lo silencia y lo deja sin hechizos" }]]]) });
     h.seal(h.side, 0, 1);
     h.seal(h.enemy, 0, 9);
     const preReveal = await h.compute();
@@ -216,6 +217,7 @@ describe("asignación de posición y concurrencia", () => {
     let calls = 0;
     const coach = new CoachOrchestrator({
       heroPositions: HERO_POSITIONS,
+      heroCounters: strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number)), // fundamento fuerte neutro (el ban abre-a-todos ya está en la sesión del harness)
       async buildRecommendationSet(context) {
         calls += 1;
         if (calls === 1) await gate; // the FIRST computation is slow

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { assignTeamPrimaries, type RecommendationOutputV4, type TeamCoachBoard } from "../../coach";
 import { teamTargetCandidateLimit } from "./coach-recommendations";
-import { fakeCompute } from "../../coach/session-harness.fixtures";
+import { fakeCompute, STRONG_OPENER, strongOpenerCounters } from "../../coach/session-harness.fixtures";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
@@ -37,7 +37,7 @@ function jsonRequest(body: unknown): Request {
 
 async function setup(controlledPositions: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5], humanPosition: 1 | 2 | 3 | 4 | 5 = 2) {
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: new Map() });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number)) }); // fundamento fuerte neutro de los datos de prueba
   const created = await routes.post(jsonRequest({
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
@@ -50,7 +50,7 @@ async function setup(controlledPositions: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5
   }));
   expect(created.status).toBe(201);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [STRONG_OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   async function board(): Promise<TeamCoachBoard> {
     const response = await routes.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`));
     expect(response.status).toBe(200);
@@ -99,11 +99,12 @@ describe("GET .../team-recommendations -- Team Coach Board", () => {
     expect(body.currentDecision.recommendedPosition).toBe(5);
     expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetRationale).toBe(body.currentDecision.reason.slice(0, decision.targetRationale.length));
+    // El tablero ya no explica un orden por fase con texto ("no hay prioridad"): su `reason` es solo la frase del héroe recomendado.
+    expect(body.currentDecision.reason).not.toMatch(/ventaja|prioridad|orden por fase/);
     expect(body.positions.filter((column) => column.position === body.currentDecision.recommendedPosition)).toHaveLength(1);
     const recommendedColumn = body.positions.find((column) => column.position === body.currentDecision.recommendedPosition)!;
     expect(body.currentDecision.recommendedHeroId).toBe(recommendedColumn.primaryHeroId);
-    expect(body.currentDecision.reason.length).toBeGreaterThan(0);
+    expect(body.currentDecision.reason).not.toMatch(/Por su posición|Winrate/); // el motivo lo dicen los chips del héroe recomendado, no una frase de posición ni de meta débil
     // Advisory, never narrowing: every eligible position stays actionable.
     expect(body.currentDecision.actionablePositions).toEqual([1, 2, 3, 4, 5]);
   });

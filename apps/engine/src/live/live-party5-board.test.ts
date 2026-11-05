@@ -4,6 +4,7 @@ import { fakeCompute } from "../coach/session-harness.fixtures";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
 import type { CuratedCounter } from "../signals/hero-counters";
@@ -66,7 +67,7 @@ function setup(sessionId: string, pools: Partial<Record<Position, readonly numbe
     store,
     computeSuggestions: poolAwareCompute(poolsByTarget),
     heroPositions: POSITIONS,
-    heroCounters: COUNTERS,
+    heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number), BANNED, COUNTERS), // fundamento fuerte neutro de los datos de prueba
     liveRecommendationGate: (id) => registry.recommendationGate(id),
   });
   registry.ensureSession(sessionId, ACCOUNT);
@@ -267,7 +268,7 @@ describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every 
         const lastPoolHero = pool.filter((heroId) => !gone.has(heroId)).length === 1 && pool.includes(decision.recommendedHeroId!);
         expect({ label, truthful: counterWindow || lastPoolHero }).toEqual({ label, truthful: true });
       } else if (decision.targetBasis === "PHASE_FALLBACK") {
-        expect(decision.reason).toContain("no una ventaja");
+        expect(decision.reason).not.toMatch(/ventaja|prioridad|orden por fase/); // contrato 2026-11-04: ya no se explica con texto de falta de prioridad
       } else {
         expect(decision.actionablePositions).toHaveLength(1);
       }

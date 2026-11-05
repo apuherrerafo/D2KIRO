@@ -34,6 +34,8 @@ export type CounterLevel = "hard" | "medium";
 export interface CounterNote {
   heroId: HeroId;
   level: CounterLevel;
+  /** El porqué de Dota de la relación curada (solo en las notas que se MUESTRAN: `reasonedOpening` lo completa; una atribución nunca llega aquí). */
+  why?: string;
   /** Solo en "sigue libre": la posición habitual de ese counter ya la ocupa un rival revelado (menos probable). */
   takenPosition?: Position;
 }
@@ -64,7 +66,7 @@ export interface ContextReorderInput {
   targetPosition?: Position;
 }
 
-const LEVEL_WEIGHT: Record<CounterLevel, number> = { hard: 2, medium: 1 };
+export const LEVEL_WEIGHT: Record<CounterLevel, number> = { hard: 2, medium: 1 };
 /** Una lista corta no cuenta como "toda baneada" por un solo counter: el denominador nunca baja de esto. */
 const MIN_COUNTER_WEIGHT = 10;
 /** Bono de V6 si TODA la lista de counters (con el denominador mínimo) está baneada. */
@@ -92,6 +94,47 @@ const STEAL_BONUS: Record<CounterLevel, number> = { hard: 4, medium: 2 };
 const STEAL_MIN_GAMES = 1500;
 /** Una razón de la base que solo dice a quién se lo atribuye ("Lo dicen: DotaCoach (7.41f)") no cuenta como razón de Dota. */
 const UNREASONED_PREFIX = "Lo dicen";
+/**
+ * ¿La razón curada de una relación (`why`) dice un PORQUÉ de Dota? Una que solo atribuye la fuente ("Lo dicen: DotaCoach (7.41f)") o que
+ * viene vacía no es un fundamento verificable: no habilita una recomendación ni se muestra como razón (contrato de evidencia, 2026-11-03).
+ */
+export function isReasonedWhy(why: string): boolean {
+  const trimmed = why.trim();
+  return trimmed.length > 0 && !trimmed.startsWith(UNREASONED_PREFIX);
+}
+const REASONED_COUNTERS_CACHE = new WeakMap<object, ReadonlyMap<HeroId, readonly CuratedCounter[]>>();
+const REASONED_SYNERGIES_CACHE = new WeakMap<object, ReadonlyMap<HeroId, readonly CuratedSynergy[]>>();
+
+/**
+ * Los counters curados SIN las atribuciones "Lo dicen: …": lo que el Coach le muestra al jugador (riesgos, ventana de counter, Safe Core) tiene que
+ * traer un porqué verificable (contrato de elegibilidad, 2026-11-04). NO toca V6 ni el bono de orden: solo lo que se MUESTRA o se usa como razón.
+ */
+export function reasonedCounters(counters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined {
+  if (!counters) return undefined;
+  const cached = REASONED_COUNTERS_CACHE.get(counters);
+  if (cached) return cached;
+  const filtered = new Map<HeroId, readonly CuratedCounter[]>();
+  for (const [victim, entries] of counters) {
+    const kept = entries.filter((entry) => isReasonedWhy(entry.why));
+    if (kept.length > 0) filtered.set(victim, kept);
+  }
+  REASONED_COUNTERS_CACHE.set(counters, filtered);
+  return filtered;
+}
+
+/** Las parejas curadas SIN las atribuciones "Lo dicen: …" (misma regla que `reasonedCounters`). */
+export function reasonedSynergies(synergies: ReadonlyMap<HeroId, readonly CuratedSynergy[]> | undefined): ReadonlyMap<HeroId, readonly CuratedSynergy[]> | undefined {
+  if (!synergies) return undefined;
+  const cached = REASONED_SYNERGIES_CACHE.get(synergies);
+  if (cached) return cached;
+  const filtered = new Map<HeroId, readonly CuratedSynergy[]>();
+  for (const [hero, entries] of synergies) {
+    const kept = entries.filter((entry) => isReasonedWhy(entry.why));
+    if (kept.length > 0) filtered.set(hero, kept);
+  }
+  REASONED_SYNERGIES_CACHE.set(synergies, filtered);
+  return filtered;
+}
 /** Un robo que protege a dos picks tuyos se muestra una sola vez nombrando hasta este número. */
 const MAX_STEALS_LISTED = 2;
 /** Tope del bono positivo en la escala de V6 (0-100): el contexto sube a héroes parejos, nunca pisa diferencias grandes. */
@@ -178,6 +221,21 @@ function freeCounters(heroId: HeroId, input: ContextReorderInput): CounterNote[]
       if (position !== null && taken.has(position)) return { heroId: entry.vs, level: entry.level, takenPosition: position };
       return { heroId: entry.vs, level: entry.level };
     });
+}
+
+/**
+ * Lo que pesa lo baneado frente a lo que sigue libre, sobre las listas COMPLETAS (sin el corte de `MAX_LISTED` de lo que se muestra). Del lado baneado solo
+ * cuentan counters con porqué verificable (lo que se puede citar); del lado libre cuenta TODA amenaza probable, con o sin porqué (una atribución sigue siendo
+ * una amenaza que queda aunque no se pueda citar) y sin las que ya no son probables porque su posición está tomada en el rival. Pura.
+ */
+export function banBalanceOf(heroId: HeroId, input: ContextReorderInput): { bannedWithWhy: number; freeProbable: number } {
+  const bannedWithWhy = (input.heroCounters?.get(heroId) ?? [])
+    .filter((entry) => input.banned.has(entry.vs) && isReasonedWhy(entry.why))
+    .reduce((sum, entry) => sum + LEVEL_WEIGHT[entry.level], 0);
+  const freeProbable = freeCounters(heroId, input)
+    .filter((note) => note.takenPosition === undefined)
+    .reduce((sum, note) => sum + LEVEL_WEIGHT[note.level], 0);
+  return { bannedWithWhy, freeProbable };
 }
 
 /** Fracción ponderada de los counters de este héroe que está baneada (0 sin counters). */

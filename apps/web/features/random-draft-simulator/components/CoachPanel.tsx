@@ -6,6 +6,8 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CoachBadge, CoachHeroCard, CoachOpportunity, CoachOutput, CoachPosition, CoachRoleBelief, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import { EvidenceLimitedMark } from "@/features/team-coach/components/EvidenceLimitedMark";
+import { CandidateOpening, CandidateSteals, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
 import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
@@ -105,6 +107,17 @@ interface PrimaryActionProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+// Contrato de elegibilidad (2026-11-04): la frase de una acción a nivel de POSICIÓN ("prior de apertura", "con evidencia débil", "la composición apunta…") no es
+// un fundamento verificable, así que no se muestra como razón. Solo se dice la razón de una acción sobre un héroe concreto o el aviso de colisión de roles.
+function PrimaryRationale({ strategy, isCollision }: { strategy: CoachStrategy; isCollision: boolean }) {
+  if (strategy.kind !== "REVEAL_HERO" && !isCollision) return null;
+  return (
+    <span className="text-caption text-content-secondary" data-testid="coach-primary-rationale">
+      {strategy.rationale}
+    </span>
+  );
+}
+
 function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
   const { strategy, label } = coach.primaryAction;
   const isCollision = coach.roleCollision?.infeasible ?? false;
@@ -133,9 +146,7 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
         {label}
       </span>
       <NamedHero strategy={strategy} heroCatalog={heroCatalog} />
-      <span className="text-caption text-content-secondary" data-testid="coach-primary-rationale">
-        {strategy.rationale}
-      </span>
+      <PrimaryRationale strategy={strategy} isCollision={isCollision} />
       {strategy.kind === "REVEAL_HERO" && Boolean(coach.sessionId) && (
         <RecommendationFeedback
           sessionId={coach.sessionId}
@@ -224,6 +235,26 @@ interface HeroCardViewProps {
   rulesetVersion?: string | null;
 }
 
+// Los MISMOS chips que la decisión V4 y el tablero: nombran a los héroes y dan el mecanismo (bans que abrieron con su porqué, a quién gana, con quién combina).
+function CardDraftReasons({ card, heroCatalog }: { card: Pick<CoachHeroCard, "context" | "rationale">; heroCatalog: Map<number, HeroMeta> }) {
+  if (!card.context) return null;
+  const source = { ...card.context, reasons: [card.rationale] };
+  return (
+    <>
+      <CandidateOpening candidate={source} heroCatalog={heroCatalog} />
+      <CandidateStrengths candidate={source} heroCatalog={heroCatalog} />
+      <CandidateSynergies candidate={source} heroCatalog={heroCatalog} />
+      <CandidateSteals candidate={source} heroCatalog={heroCatalog} />
+    </>
+  );
+}
+
+// La frase del fundamento se calla cuando los chips ya lo dicen (el motor decide: `hideRationale`); nunca queda una frase genérica sin detalle.
+function CardRationale({ card }: { card: CoachHeroCard }) {
+  if (card.hideRationale === true || card.rationale === "") return null;
+  return <span className="text-caption text-content-secondary">{card.rationale}</span>;
+}
+
 function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVersion }: HeroCardViewProps) {
   const meta = heroCatalog.get(card.heroId);
   return (
@@ -236,7 +267,9 @@ function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVers
         </div>
       </div>
       <BadgeList badges={card.badges} />
-      <span className="text-caption text-content-secondary">{card.rationale}</span>
+      <EvidenceLimitedMark strength={card.evidenceStrength} />
+      <CardRationale card={card} />
+      <CardDraftReasons card={card} heroCatalog={heroCatalog} />
       {Boolean(sessionId) && (
         <RecommendationFeedback
           sessionId={sessionId!}
@@ -272,8 +305,10 @@ function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
       <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
       <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
       <ul className="grid grid-cols-1 gap-1">
-        {personal.heroes.map((hero) => <li key={hero.heroId} className="text-caption text-content-primary" data-hero-id={hero.heroId}>
-          {hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}
+        {personal.heroes.map((hero) => <li key={hero.heroId} className="flex flex-col gap-1 text-caption text-content-primary" data-hero-id={hero.heroId}>
+          <span>{hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}</span>
+          <EvidenceLimitedMark strength={hero.evidenceStrength} />
+          <CardDraftReasons card={{ context: hero.context, rationale: "" }} heroCatalog={heroCatalog} />
         </li>)}
       </ul>
     </div>

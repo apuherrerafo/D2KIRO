@@ -78,21 +78,22 @@ test("Hero Pools V2: la validación rechaza etiquetas deshonestas (NO_POOL con u
   expect(parseCurrentDecisionOutput(lying)).not.toBeNull();
 });
 
-test("COHERENCE-005: DETERMINISTIC_DEFAULT nunca usa el texto de objetivo recomendado", () => {
+test("COHERENCE-005 + contrato de elegibilidad: DETERMINISTIC_DEFAULT no es una recomendación -- ni 'Objetivo recomendado' ni 'No hay una prioridad clara' ni 'Vista inicial sugerida'", () => {
   const view = render(<CurrentDecisionPanel output={output(RANKED, "DETERMINISTIC_DEFAULT")} heroCatalog={new Map()} />);
-  const target = view.getByTestId("current-decision-target").textContent ?? "";
-  expect(target).toContain("No hay una prioridad estratégica clara");
-  expect(target).toContain("Vista inicial sugerida: Pos3 Offlane");
-  expect(target).not.toContain("Objetivo recomendado");
-  expect(view.queryByTestId("current-decision-viewed")).toBeNull(); // viewing the recommended position: no second notice
+  expect(view.queryByTestId("current-decision-target")).toBeNull();
+  expect(view.container.textContent).not.toContain("Objetivo recomendado");
+  expect(view.container.textContent).not.toContain("No hay una prioridad estratégica clara");
+  expect(view.container.textContent).not.toContain("Vista inicial sugerida");
+  expect(view.queryByTestId("current-decision-viewed")).toBeNull();
+  expect(view.getByTestId("current-decision-candidates").textContent).toContain("Ranking para Pos3"); // los héroes con fundamento sí se ven
 });
 
-test("PSR-002: mirando una posición distinta de la recomendada -> 'Coach sugiere PosR' + 'Estás viendo PosV'; el banner de recomendación no cambia", () => {
-  const rankedPos5: CandidateResult = { ...RANKED, targetPosition: 5, cards: RANKED.state === "RANKED" ? RANKED.cards.map((card) => ({ ...card, position: 5 as const })) : [] };
-  const view = render(<CurrentDecisionPanel output={output(rankedPos5, "DETERMINISTIC_DEFAULT", [1, 2, 3, 4, 5], 1)} heroCatalog={new Map()} />);
+test("PSR-002: mirando una posición distinta de la recomendada (STRATEGIC) -> 'Coach sugiere PosR' + 'Estás viendo PosV'; el banner de recomendación no cambia", () => {
+  const rankedPos5: CandidateResult = { ...RANKED, targetPosition: 5, cards: RANKED.cards.map((card) => ({ ...card, position: 5 as const })) };
+  const view = render(<CurrentDecisionPanel output={output(rankedPos5, "STRATEGIC", [1, 2, 3, 4, 5], 1)} heroCatalog={new Map()} />);
   const banner = view.getByTestId("current-decision-target");
   expect(banner.getAttribute("data-target-position")).toBe("1"); // still the Coach's recommendation
-  expect(banner.textContent).toContain("Vista inicial sugerida: Pos1");
+  expect(banner.textContent).toContain("Objetivo recomendado: Pos1");
   const notice = view.getByTestId("current-decision-viewed");
   expect(notice.textContent).toContain("Estás viendo Pos5");
   expect(view.getByTestId("current-decision-coach-suggests").textContent).toBe("Coach sugiere Pos1 Carry");
@@ -100,27 +101,34 @@ test("PSR-002: mirando una posición distinta de la recomendada -> 'Coach sugier
   expect(view.getAllByTestId("current-decision-target")).toHaveLength(1); // one recommendation owner
 });
 
+test("PSR-002 + contrato: mirando otra posición con un objetivo solo por defecto NO se afirma 'Coach sugiere …' (no hay recomendación detrás)", () => {
+  const rankedPos5: CandidateResult = { ...RANKED, targetPosition: 5, cards: RANKED.cards.map((card) => ({ ...card, position: 5 as const })) };
+  const view = render(<CurrentDecisionPanel output={output(rankedPos5, "DETERMINISTIC_DEFAULT", [1, 2, 3, 4, 5], 1)} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("current-decision-coach-suggests")).toBeNull();
+  expect(view.queryByTestId("current-decision-viewed")).toBeNull();
+  expect(view.queryByTestId("current-decision-target")).toBeNull();
+});
+
 test("DETERMINISTIC_DEFAULT con una sola posición: 'Única posición pendiente'", () => {
   const view = render(<CurrentDecisionPanel output={output(RANKED, "DETERMINISTIC_DEFAULT", [3])} heroCatalog={new Map()} />);
   expect(view.getByTestId("current-decision-target").textContent).toContain("Única posición pendiente: Pos3 Offlane");
 });
 
-test("COHERENCE-003/004: UNRANKED_POSITIONAL se identifica como sin ranking, sin confianza, sin numeración y sin feedback", () => {
-  const unranked: CandidateResult = { state: "UNRANKED_POSITIONAL", targetPosition: 3, alternatives: [{ heroId: 11, position: 3 }, { heroId: 12, position: 3 }], reason: "sin ranking", degradations: [{ reason: "no_signal_available", detail: "V6 degraded flag: no_signal_available" }] };
-  const view = render(<CurrentDecisionPanel output={output(unranked, "DETERMINISTIC_DEFAULT")} heroCatalog={new Map()} />);
-  const section = view.getByTestId("current-decision-candidates");
-  expect(section.getAttribute("data-candidate-state")).toBe("UNRANKED_POSITIONAL");
-  expect(section.textContent).toContain("Alternativas posicionales para Pos3 Offlane — sin ranking disponible");
-  expect(section.textContent).not.toMatch(/Confianza|Ranking para/);
+test("contrato de elegibilidad: cero héroes con fundamento -> no se pinta NADA de candidatos (ni encabezado, ni mensaje, ni lista, ni feedback)", () => {
+  const none: CandidateResult = { state: "RANKED", targetPosition: 3, cards: [], degradations: [{ reason: "no_signal_available", detail: "V6 degraded flag: no_signal_available" }] };
+  const view = render(<CurrentDecisionPanel output={output(none, "DETERMINISTIC_DEFAULT")} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("current-decision-candidates")).toBeNull();
   expect(view.queryAllByTestId("current-decision-card")).toHaveLength(0);
-  expect(view.getAllByTestId("current-decision-alternative")).toHaveLength(2);
-  expect(view.queryAllByTestId("feedback-thumb-up")).toHaveLength(0); // no recommendation result to rate
-  expect(view.getByTestId("current-decision-degradations").textContent).toContain("Sin señales suficientes para recomendar");
+  expect(view.queryAllByTestId("current-decision-alternative")).toHaveLength(0);
+  expect(view.queryAllByTestId("feedback-thumb-up")).toHaveLength(0);
+  expect(view.container.textContent).not.toMatch(/Alternativas|No hay candidatos|sin ranking|Sin señales suficientes|Ranking para/);
 });
 
-test("UNAVAILABLE: 'No hay candidatos disponibles para PosX'", () => {
-  const view = render(<CurrentDecisionPanel output={output({ state: "UNAVAILABLE", targetPosition: 3, reason: "nada", degradations: [] }, "DETERMINISTIC_DEFAULT")} heroCatalog={new Map()} />);
-  expect(view.getByTestId("current-decision-candidates").textContent).toContain("No hay candidatos disponibles para Pos3 Offlane");
+test("contrato de elegibilidad: un objetivo STRATEGIC sobre la posición que se está viendo, sin candidatos, no se anuncia como recomendación", () => {
+  const none: CandidateResult = { state: "RANKED", targetPosition: 3, cards: [], degradations: [] };
+  const view = render(<CurrentDecisionPanel output={output(none, "STRATEGIC")} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("current-decision-target")).toBeNull();
+  expect(view.container.textContent).not.toContain("Objetivo recomendado");
 });
 
 test("NO_HUMAN_ACTION (YIELDED): sin objetivo ni candidatos", () => {
@@ -153,9 +161,13 @@ test("COHERENCE-001/010/012: con V4 presente el Copilot NO muestra V3, V2 legacy
   expect(view.getAllByTestId("current-decision-candidates")).toHaveLength(1);
 });
 
-test("borde: una salida V4 con cartas rankeadas junto a un estado UNRANKED es rechazada entera", () => {
+test("borde: el estado de exploración que ya no existe (UNRANKED_POSITIONAL / UNAVAILABLE) es rechazado entero; cero tarjetas es un ranking válido", () => {
   const bad = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { state: "UNRANKED_POSITIONAL", targetPosition: 3, alternatives: [{ heroId: 11, position: 3, rank: 1, confidence: "alta" }], reason: "x", degradations: [] } } };
   expect(parseCurrentDecisionOutput(bad)).toBeNull();
+  const unavailable = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { state: "UNAVAILABLE", targetPosition: 3, reason: "x", degradations: [] } } };
+  expect(parseCurrentDecisionOutput(unavailable)).toBeNull();
+  const empty = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { ...RANKED, cards: [] } } };
+  expect(parseCurrentDecisionOutput(empty)).not.toBeNull(); // cero tarjetas: no se muestra nada
   const offTarget = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { ...RANKED, cards: [{ ...RANKED.cards[0], position: 5 }] } } };
   expect(parseCurrentDecisionOutput(offTarget)).toBeNull();
   // A card claiming a pool when the decision says no pool voted is a contract violation (labels must be honest).
@@ -255,7 +267,7 @@ test("un aviso de un tipo que este cliente no conoce NO rompe el panel: se acept
 });
 
 // PR "razones de la lista": la lista pinta las MISMAS razones del draft que el tablero del equipo (bans que abren al héroe, a quién de lo ya
-// revelado le gana, pareja con un aliado ya elegido) y calla "Por su posición: …" cuando hay una razón real.
+// revelado le gana, pareja con un aliado ya elegido) y calla la frase genérica del fundamento cuando los chips ya lo dicen (`hideRationale`).
 function withCardContext(rationale: string, hideRationale: boolean, context: unknown): CurrentDecisionOutput {
   const base = output(RANKED);
   if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
@@ -270,15 +282,38 @@ const REAL_CONTEXT = {
   synergies: [{ withHeroId: 9, why: "Combo de fixture" }],
 };
 const EMPTY_CONTEXT = { opening: { openedBy: [], stillFree: [] }, strengths: [], synergies: [] };
-const POSITION_ONLY = "Por su posición: muy jugado como offlane en alto MMR";
+const POSITION_ONLY = "Cubre lo que le falta a tu equipo: iniciar peleas";
 
-test("la tarjeta de la lista muestra ban abierto, 'le gana a' y pareja; y, si el motor lo pide (hideRationale), calla la frase de solo posición", () => {
+test("la tarjeta de la lista muestra ban abierto, 'le gana a' y pareja; y, si el motor lo pide (hideRationale), calla la frase del fundamento", () => {
   const view = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, true, REAL_CONTEXT)} heroCatalog={new Map()} />);
   const card = view.getAllByTestId("current-decision-card")[0]!;
   expect(card.querySelector('[data-testid="team-coach-candidate-opened"]')?.textContent).toContain("Se abre el pick");
   expect(card.querySelector('[data-testid="team-coach-candidate-strength"]')?.textContent).toContain("Orchid lo silencia");
   expect(card.querySelector('[data-testid="team-coach-candidate-synergy"]')?.textContent).toContain("Combo de fixture");
-  expect(card.textContent).not.toContain("Por su posición");
+  expect(card.textContent).not.toContain(POSITION_ONLY);
+});
+
+test("una tarjeta de la lista con evidencia LIMITADA lleva la marca; la FUERTE (o sin dato, de un motor anterior) no", () => {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const [first, second, ...rest] = base.decision.candidates.cards;
+  const cards = [{ ...first!, evidenceStrength: "WEAK" as const }, { ...second!, evidenceStrength: "STRONG" as const }, ...rest];
+  const view = render(<CurrentDecisionPanel output={{ ...base, decision: { ...base.decision, candidates: { ...base.decision.candidates, cards } } }} heroCatalog={new Map()} />);
+  const rendered = view.getAllByTestId("current-decision-card");
+  expect(rendered[0]!.querySelector('[data-testid="evidence-limited-mark"]')?.textContent).toBe("Evidencia limitada");
+  expect(rendered[1]!.querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+  if (rendered[2]) expect(rendered[2].querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+});
+
+test("el payload de la decisión acepta evidenceStrength y rechaza un valor desconocido", () => {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const decision = base.decision;
+  const [first, ...rest] = decision.candidates.cards;
+  const withStrength = (strength: string) => ({ ...base, decision: { ...decision, candidates: { ...decision.candidates, cards: [{ ...first!, evidenceStrength: strength }, ...rest] } } });
+  expect(parseCurrentDecisionOutput(withStrength("WEAK"))).not.toBeNull();
+  expect(parseCurrentDecisionOutput(withStrength("STRONG"))).not.toBeNull();
+  expect(parseCurrentDecisionOutput(withStrength("MEDIUM"))).toBeNull();
 });
 
 test("la tarjeta de la lista también muestra el robo (misma fuente que el tablero) y un motor anterior sin el campo sigue válido", () => {
@@ -291,7 +326,7 @@ test("la tarjeta de la lista también muestra el robo (misma fuente que el table
   expect(older.querySelector('[data-testid="team-coach-candidate-steal"]')).toBeNull();
 });
 
-test("sin razones del draft la frase de solo posición SE QUEDA (no se deja una tarjeta muda)", () => {
+test("sin chips de contexto la frase del fundamento SE QUEDA (no se deja una tarjeta muda)", () => {
   const view = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, false, EMPTY_CONTEXT)} heroCatalog={new Map()} />);
   const card = view.getAllByTestId("current-decision-card")[0]!;
   expect(card.textContent).toContain(POSITION_ONLY);
@@ -303,7 +338,7 @@ test("una frase que NO es de solo posición se queda aunque haya razones del dra
   expect(view.getAllByTestId("current-decision-card")[0]!.textContent).toContain("Fuerte contra Medusa");
 });
 
-test("solo 'Ojo' (counter fuerte aún libre) sin razón positiva: la frase de posición se queda y el aviso se ve (la decisión es del motor, no de la web)", () => {
+test("solo 'Ojo' (counter fuerte aún libre) sin razón positiva: la frase se queda y el aviso se ve (la decisión es del motor, no de la web)", () => {
   const stillFreeOnly = { opening: { openedBy: [], stillFree: [{ heroId: 7, level: "hard" }] }, strengths: [], synergies: [] };
   const view = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, false, stillFreeOnly)} heroCatalog={new Map()} />);
   const card = view.getAllByTestId("current-decision-card")[0]!;

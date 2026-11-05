@@ -3,6 +3,7 @@ import type { TeamCoachBoard } from "../coach";
 import { fakeCompute } from "../coach/session-harness.fixtures";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import { isValidDraftEventEnvelope } from "../server/edge";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { parseLiveObservationBody } from "../server/routes/live-capture";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
@@ -31,7 +32,7 @@ function envelope(sessionId: string, payload: DraftEventEnvelope["payload"] & { 
 function setup(now = () => 1_000_000) {
   const store = new ProtocolSessionStore();
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now });
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: new Map() });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fakeCompute(POOL, POSITIONS), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number), 99) });
   async function board(sessionId: string): Promise<TeamCoachBoard> {
     const response = await routes.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`));
     expect(response.status).toBe(200);

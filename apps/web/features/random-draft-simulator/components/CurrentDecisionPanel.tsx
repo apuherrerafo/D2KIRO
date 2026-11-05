@@ -4,8 +4,9 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { EvidenceLimitedMark } from "@/features/team-coach/components/EvidenceLimitedMark";
 import { CandidateOpening, CandidateSteals, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
-import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
+import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
 import { CardRiskNotice } from "./CardRiskNotice";
@@ -13,7 +14,7 @@ import { BADGE_LABELS, CoachRoleBeliefs, RoleCollisionBanner, SafeCoreOpportunit
 
 // Product Semantics Recovery WP3 -- the ONE visual owner of the Simulator's current human decision.
 // Everything here is read verbatim from RecommendationOutputV4: one target line, one candidate
-// section (RANKED | UNRANKED_POSITIONAL | UNAVAILABLE) and ONLY that section's degradations. Nothing
+// section (cards with a real ground; zero cards = nothing is rendered) and ONLY that section's degradations. Nothing
 // is scored, ranked or inferred here, and no second target or shortlist exists anywhere next to it.
 // Advisory only: the Player may pick any legal hero for any pending position.
 
@@ -35,11 +36,15 @@ interface TargetHeaderProps {
   decision: ActionableDecision;
 }
 
-// The Coach RECOMMENDATION only (targetPosition/targetBasis): exactly one of three headers -- STRATEGIC
-// advice never shares wording with a default view. What the Player is inspecting is `ViewedPositionNotice`.
+// The Coach RECOMMENDATION only (targetPosition/targetBasis). Contrato de elegibilidad (dueño del producto, 2026-11-03): una recomendación solo
+// existe si hay un héroe elegible detrás. "Objetivo recomendado" sale únicamente con base STRATEGIC (una señal real: ventana de counter o último
+// héroe del pool; el motor solo la emite sobre una posición con héroes elegibles) y, si se está viendo esa misma posición, solo con tarjetas a la
+// vista. Una vista por defecto ("No hay una prioridad clara", "Vista inicial sugerida") es un mensaje de falta de información: ya no se muestra.
 function TargetHeader({ decision }: TargetHeaderProps) {
   const common = { "data-testid": "current-decision-target", "data-target-position": decision.targetPosition, "data-target-basis": decision.targetBasis };
   if (decision.targetBasis === "STRATEGIC") {
+    const viewingTarget = decision.viewedPosition === decision.targetPosition;
+    if (viewingTarget && decision.candidates.cards.length === 0) return null;
     return (
       <div className="flex flex-col gap-1 rounded-lg border border-accent-primary bg-surface-overlay p-3" {...common}>
         <span className="text-caption font-semibold text-accent-primary">Objetivo recomendado: {positionName(decision.targetPosition)}</span>
@@ -55,12 +60,7 @@ function TargetHeader({ decision }: TargetHeaderProps) {
       </div>
     );
   }
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-3" {...common}>
-      <span className="text-caption font-semibold text-content-primary">No hay una prioridad estratégica clara</span>
-      <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">Vista inicial sugerida: {positionName(decision.targetPosition)}</span>
-    </div>
-  );
+  return null;
 }
 
 interface ViewedPositionNoticeProps {
@@ -71,6 +71,8 @@ interface ViewedPositionNoticeProps {
 // navigation, and the recommendation is restated unchanged -- clicking never re-labels the Coach's advice.
 function ViewedPositionNotice({ decision }: ViewedPositionNoticeProps) {
   if (decision.viewedPosition === decision.targetPosition) return null;
+  // "Coach sugiere X" es una recomendación: sin base STRATEGIC el objetivo es solo una vista por defecto y no se afirma nada.
+  if (decision.targetBasis !== "STRATEGIC") return null;
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="current-decision-viewed" data-viewed-position={decision.viewedPosition}>
       <span className="text-caption font-semibold text-content-primary">Estás viendo {positionName(decision.viewedPosition)}</span>
@@ -125,7 +127,7 @@ interface CardReasonsProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
-// La frase "Por su posición: …" es el último recurso: el motor decide (`hideRationale`) cuándo se calla porque hay una razón real del draft.
+// La frase de la tarjeta es la de su fundamento; el motor decide (`hideRationale`) cuándo se calla porque los chips de contexto ya lo dicen.
 function CardRationale({ card }: { card: RankedCandidateCard }) {
   if (card.hideRationale === true) return null;
   return <span className="text-caption text-content-secondary">{card.rationale}</span>;
@@ -172,27 +174,12 @@ function RankedCardView({ card, poolOwner, heroCatalog, sessionId, stateIdentity
           <span key={badge} className="rounded-md border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-secondary">{BADGE_LABELS[badge]}</span>
         ))}
         <PoolBadge membership={card.poolMembership} owner={poolOwner} />
+        <EvidenceLimitedMark strength={card.evidenceStrength} />
       </div>
       <CardRationale card={card} />
       <CardDraftReasons card={card} heroCatalog={heroCatalog} />
       <CardRiskNotice risks={card.risks} />
       <RecommendationFeedback sessionId={sessionId} heroId={card.heroId} targetPosition={card.position} stateIdentity={stateIdentity} rulesetVersion={rulesetVersion} />
-    </li>
-  );
-}
-
-interface AlternativeViewProps {
-  alternative: PositionalAlternative;
-  heroCatalog: Map<number, HeroMeta>;
-}
-
-// No rank, no confidence, no feedback control: there is no recommendation result to rate.
-function AlternativeView({ alternative, heroCatalog }: AlternativeViewProps) {
-  const meta = heroCatalog.get(alternative.heroId);
-  return (
-    <li className="flex items-center gap-2 rounded-lg border border-surface-border bg-surface-overlay p-2" data-testid="current-decision-alternative" data-hero-id={alternative.heroId}>
-      <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(alternative.heroId, heroCatalog)} size={40} />
-      <span className="text-caption text-content-primary">{heroName(alternative.heroId, heroCatalog)}</span>
     </li>
   );
 }
@@ -205,39 +192,19 @@ interface CandidateSectionProps {
 }
 
 function CandidateSection({ candidates, poolOwner, output, heroCatalog }: CandidateSectionProps) {
+  // Ningún héroe con fundamento: no se pinta nada (ni encabezado, ni mensaje, ni lista de relleno).
+  if (candidates.cards.length === 0) return null;
   const target = positionName(candidates.targetPosition);
-  const common = { "data-testid": "current-decision-candidates", "data-candidate-state": candidates.state };
-  if (candidates.state === "RANKED") {
-    const rulesetVersion = output.meta.readiness?.empiricalPatchClaim?.patch ?? output.meta.readiness?.rulesetTarget ?? null;
-    return (
-      <div className="flex flex-col gap-2" {...common}>
-        <span className="text-caption font-semibold text-content-primary">Ranking para {target}</span>
-        <CandidateDegradations degradations={candidates.degradations} />
-        <ol className="grid grid-cols-1 gap-2">
-          {candidates.cards.map((card) => (
-            <RankedCardView key={card.heroId} card={card} poolOwner={poolOwner} heroCatalog={heroCatalog} sessionId={output.sessionId} stateIdentity={output.meta.basedOn.stateIdentity} rulesetVersion={rulesetVersion} />
-          ))}
-        </ol>
-      </div>
-    );
-  }
-  if (candidates.state === "UNRANKED_POSITIONAL") {
-    return (
-      <div className="flex flex-col gap-2" {...common}>
-        <span className="text-caption font-semibold text-signal-warning">Alternativas posicionales para {target} — sin ranking disponible</span>
-        <span className="text-caption text-content-secondary">{candidates.reason}</span>
-        <CandidateDegradations degradations={candidates.degradations} />
-        <ul className="grid grid-cols-1 gap-2">
-          {candidates.alternatives.map((alternative) => <AlternativeView key={alternative.heroId} alternative={alternative} heroCatalog={heroCatalog} />)}
-        </ul>
-      </div>
-    );
-  }
+  const rulesetVersion = output.meta.readiness?.empiricalPatchClaim?.patch ?? output.meta.readiness?.rulesetTarget ?? null;
   return (
-    <div className="flex flex-col gap-2" {...common}>
-      <span className="text-caption font-semibold text-signal-negative">No hay candidatos disponibles para {target}</span>
-      <span className="text-caption text-content-secondary">{candidates.reason}</span>
+    <div className="flex flex-col gap-2" data-testid="current-decision-candidates" data-candidate-state={candidates.state}>
+      <span className="text-caption font-semibold text-content-primary">Ranking para {target}</span>
       <CandidateDegradations degradations={candidates.degradations} />
+      <ol className="grid grid-cols-1 gap-2">
+        {candidates.cards.map((card) => (
+          <RankedCardView key={card.heroId} card={card} poolOwner={poolOwner} heroCatalog={heroCatalog} sessionId={output.sessionId} stateIdentity={output.meta.basedOn.stateIdentity} rulesetVersion={rulesetVersion} />
+        ))}
+      </ol>
     </div>
   );
 }

@@ -42,6 +42,24 @@ function fetchReturning(body: unknown, status = 200) {
   return { impl, calls };
 }
 
+describe("parseCoachOutput -- fuerza y contexto de la tarjeta (contrato 2026-11-04)", () => {
+  const card = (extra: Record<string, unknown>) => ({ heroId: 7, position: 5, roleStatus: "LIKELY", confidence: "media", badges: ["COUNTER"], rationale: "", score: 12, isFromPool: false, ...extra });
+  const context = { opening: { openedBy: [{ heroId: 9, level: "hard", why: "Su Call lo corta" }], stillFree: [] }, strengths: [], synergies: [], steals: [] };
+
+  test("acepta evidenceStrength, hideRationale y context en la tarjeta (y un motor anterior sin ellos sigue válido)", () => {
+    const parsed = parseCoachOutput(coachBody({ shortlist: [card({ evidenceStrength: "WEAK", hideRationale: true, context })] }));
+    expect(parsed?.shortlist[0]?.evidenceStrength).toBe("WEAK");
+    expect(parsed?.shortlist[0]?.context?.opening.openedBy[0]?.why).toBe("Su Call lo corta");
+    expect(parseCoachOutput(coachBody({ shortlist: [card({})] }))).not.toBeNull();
+  });
+
+  test("rechaza una fuerza desconocida, un hideRationale que no es booleano y un context malformado", () => {
+    expect(parseCoachOutput(coachBody({ shortlist: [card({ evidenceStrength: "MEDIUM" })] }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ shortlist: [card({ hideRationale: "si" })] }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ shortlist: [card({ context: { opening: { openedBy: [{ heroId: "x" }], stillFree: [] }, strengths: [], synergies: [] } })] }))).toBeNull();
+  });
+});
+
 describe("parseCoachOutput", () => {
   test("acepta una salida válida, incluida una acción a nivel de posición SIN heroId", () => {
     const parsed = parseCoachOutput(coachBody());

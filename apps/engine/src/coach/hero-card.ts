@@ -3,8 +3,12 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { Recommendation, RecommendationRoleImpact, RoleImpactStatus, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import { isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
-import { pairSentence } from "../signals/team-synergy";
 import type { SignalContribution, SignalId } from "../signals/types";
+import type { CardContext } from "./card-context";
+import { badgesFromGrounds, describeGrounds, type Eligibility } from "./recommendation-eligibility";
+
+/** El contexto de una tarjeta sin ninguna relación visible (una tarjeta construida sin `Eligibility`, p. ej. en pruebas de forma). */
+const EMPTY_CARD_CONTEXT: CardContext = { opening: { openedBy: [], stillFree: [] }, strengths: [], synergies: [], steals: [] };
 
 // AP Ranked Roles V1 / Wave 2 (task 17) -- HeroCard / HeroBadge and the per-hero projection of a
 // RecommendationSetV2.
@@ -43,8 +47,17 @@ export interface HeroCard {
   roleStatus: RoleImpactStatus;
   confidence: Confidence;
   badges: HeroBadge[];
-  /** One short phrase taken from the hero's strongest real signal -- never invented. */
+  /** La frase del fundamento que habilitó la tarjeta (`describeGrounds`); "" cuando los chips de `context` ya lo dicen con nombres y porqué. */
   rationale: string;
+  /** True cuando `rationale` se calla porque `context` (chips con héroes y mecanismos concretos) ya lo dice. */
+  hideRationale: boolean;
+  /**
+   * FUERZA de la evidencia (distinta de la elegibilidad: toda tarjeta de la lista ya es elegible). STRONG = al menos un fundamento fuerte;
+   * WEAK = solo débiles (p. ej. el meta): aparece, pero nunca sostiene la acción principal. No cambia el puntaje ni el orden de V6.
+   */
+  evidenceStrength: "STRONG" | "WEAK";
+  /** Lo que el draft VISIBLE dice de este héroe (bans que abrieron con el porqué, a quién le gana, con quién combina, robo): la misma fuente que V4. */
+  context: CardContext;
   /** V6 score (internal ranking; the UI may not show it). */
   score: number;
   isFromPool: boolean;
@@ -193,64 +206,6 @@ export function extractHeroCandidates(set: RecommendationSetV2, heroPositions?: 
 }
 
 /**
- * Prefijo con el que una tarjeta dice, sin rodeos, que su ÚNICA razón visible es la posición (regla del usuario 2026-11-02: "no
- * recomendar solo porque es del rol" -- y si por falta de información igual se muestra, que no parezca otra cosa).
- */
-export const POSITION_ONLY_PREFIX = "Por su posición: ";
-
-const OPENING_TIER_PHRASE: Record<string, string> = {
-  sólida: "muy jugado",
-  moderada: "jugado a menudo",
-  limitada: "poco jugado",
-};
-
-/**
- * Con la posición como única razón (típico del primer pick, donde solo hay bans a la vista) la tarjeta dice cuánto se juega ese
- * héroe en esa posición, sin la cifra de partidas: cinco tarjetas con "(2.340 partidas de alto MMR)" leen igual y parecen evidencia
- * del draft. Dice "muy jugado", NO "seguro": el dato cuenta partidas, no sabe si el rival lo counterea (auditor de Dota, PR #93).
- * Una frase de posición con otra forma (p. ej. "Cubre la posición ...") se deja tal cual.
- */
-function openingPhrase(positionExplanation: string): string {
-  const match = /^Evidencia (sólida|moderada|limitada) de que funciona como ([^(]+?)(?: \(.*\))?$/.exec(positionExplanation);
-  const tier = match?.[1];
-  const label = match?.[2];
-  if (tier === undefined || label === undefined) return positionExplanation;
-  return `${OPENING_TIER_PHRASE[tier] ?? tier} como ${label} en alto MMR`;
-}
-
-/**
- * The phrase of the hero's most CONCRETE real reason: a counter against a revealed enemy, a documented pair with an ally, what the
- * team still needs (`team_synergy`), the draft intent the Player chose (`archetype_fit`) and, last, the hero's strongest signal.
- * When that last resort is the position signal, the phrase says so ("Por su posición: ...") instead of passing for evidence.
- */
-function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string {
-  if (hasCounterBadge) {
-    const counterSignal = candidate.signals.find((s) => s.signal === "counter" && votedWithData(s));
-    if (counterSignal?.explanation && !counterSignal.explanation.startsWith("Sin ")) {
-      return counterSignal.explanation;
-    }
-  }
-  // Una pareja documentada con un héroe que tu equipo ya eligió es la razón más concreta que tiene el
-  // coach ("Sinergia con Anti-Mage: ..."): gana sobre la señal más fuerte, que casi siempre es la de
-  // posición y no nombra a nadie. Solo cuenta si la señal votó con dato y aportó (`raw > 0`).
-  const synergy = candidate.signals.find((s) => s.signal === "team_synergy" && votedWithData(s) && (s.raw ?? 0) > 0);
-  const pair = synergy ? pairSentence(synergy.explanation) : null;
-  if (pair !== null) return pair;
-  // Lo que a tu equipo le falta y la intención de draft que elegiste son razones DEL DRAFT: ganan sobre la señal más fuerte, que casi
-  // siempre es la de posición y no dice nada de este draft.
-  const needs = candidate.signals.find((s) => s.signal === "team_synergy" && votedWithData(s) && (s.raw ?? 0) > 0 && !s.explanation.startsWith("Sin "));
-  if (needs) return needs.explanation;
-  const intent = candidate.signals.find((s) => s.signal === "archetype_fit" && votedWithData(s) && !s.explanation.startsWith("Sin "));
-  if (intent) return intent.explanation;
-  const backed = candidate.signals
-    .filter((s) => votedWithData(s) && !s.explanation.startsWith("Sin "))
-    .sort((a, b) => b.weighted - a.weighted);
-  const strongest = backed[0];
-  if (!strongest) return "Sin señal con datos propios suficientes.";
-  return strongest.signal === "position_fit" ? `${POSITION_ONLY_PREFIX}${openingPhrase(strongest.explanation)}` : strongest.explanation;
-}
-
-/**
  * Can this candidate EXECUTE "reveal position P"? Judged by what the card itself will say:
  *   - a candidate whose role V6 resolved serves exactly that position (never a second, hidden one);
  *   - an unresolved candidate serves P when the curated evidence makes P credible for it
@@ -298,15 +253,25 @@ export function revealedEnemyHeroes(view: PerspectiveDraftView): HeroId[] {
   return heroes;
 }
 
-export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[], counterContext?: CounterEvidenceContext): HeroCard {
-  const badges = deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions, counterContext);
+/**
+ * La tarjeta de un héroe. Contrato de elegibilidad (2026-11-03): `rationale` y las etiquetas de razón salen SOLO de los fundamentos que
+ * habilitaron al héroe (`grounds`, de `evaluateEligibility`) -- nunca de "la señal más fuerte" ni de una señal que no decidió nada. Sin
+ * fundamentos no hay frase (""): el llamador no debería mostrar esa tarjeta. FLEX y las marcas de pool informan, no son una razón.
+ */
+export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[], eligibility?: Eligibility): HeroCard {
+  const informative = deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions).filter((badge) => badge === "FLEX" || badge === "YOUR_POOL" || badge === "OUTSIDE_YOUR_POOL");
+  const grounds = eligibility?.grounds ?? [];
+  const described = describeGrounds(grounds);
   return {
     heroId: candidate.heroId,
     position: candidate.position,
     roleStatus: candidate.roleStatus,
     confidence: candidate.confidence,
-    badges,
-    rationale: rationaleOf(candidate, badges.includes("COUNTER")),
+    badges: [...badgesFromGrounds(grounds), ...informative],
+    rationale: described.rationale,
+    hideRationale: described.hide,
+    evidenceStrength: eligibility?.strength ?? "WEAK",
+    context: eligibility?.context ?? EMPTY_CARD_CONTEXT,
     score: candidate.score,
     isFromPool: heroPool.includes(candidate.heroId),
   };

@@ -40,7 +40,11 @@ function poolAwareCompute(): ComputeSuggestionsForRecommendation {
           hero,
           rank: Math.min(index + 1, 6) as Suggestion["rank"],
           score: weighted,
-          signals: [{ signal: "position_fit" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted, explanation: "fixture", sampleSize: 100 }],
+          // El segundo es el fundamento propio de cada héroe (meta vigente con muestra suficiente, contrato 2026-11-03), con peso 0: el orden no cambia.
+          signals: [
+            { signal: "position_fit" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted, explanation: "fixture", sampleSize: 100 },
+            { signal: "patch_meta" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 },
+          ],
           reason: "fixture",
           confidence: "alta" as const,
           evidenceCoverage: 1,

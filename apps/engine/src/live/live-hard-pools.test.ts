@@ -7,6 +7,7 @@ import type { PerspectiveDraftView } from "../draft-protocol/types";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -61,7 +62,7 @@ function setup(sessionId: string, pools: Pools | null) {
     store,
     computeSuggestions: universeHonouringCompute(),
     heroPositions: POSITIONS,
-    heroCounters: new Map(),
+    heroCounters: strongOpenerCounters(Object.keys(POSITIONS).map(Number), IRRELEVANT_BAN + 1), // fundamento fuerte neutro de los datos de prueba
     liveRecommendationGate: (id) => registry.recommendationGate(id),
   });
   registry.ensureSession(sessionId, ACCOUNT);
@@ -232,27 +233,22 @@ describe("7. la pertenencia a un pool jamás crea identidad héroe -> posición"
   });
 });
 
-describe("deriveCandidateResult con activePool (alternativas posicionales)", () => {
+describe("deriveCandidateResult con activePool: un ranking sin base confiable no se rescata con héroes (ni del pool ni del universo)", () => {
   const view = { bannedHeroes: [10], ownPicks: [], enemyPicks: [{ visibility: "REVEALED", heroId: 11 }] } as unknown as PerspectiveDraftView;
   const unrankable = { degradations: [{ reason: "NO_LEGAL_HERO_UNIVERSE", detail: "fixture" }], recommendations: [] } as unknown as RecommendationSetV2;
   const input = { targetPosition: 1 as Position, targetRanking: unrankable, view, heroPositions: POSITIONS, personalPoolApplied: false };
 
-  test("sin ranking confiable, las alternativas son siempre el universo creíble legal; el pool no las restringe", () => {
-    const result = deriveCandidateResult({ ...input, activePool: [10, 11, RUBICK, 13] });
-    expect(result.state).toBe("UNRANKED_POSITIONAL");
-    if (result.state !== "UNRANKED_POSITIONAL") return;
-    expect(result.alternatives.map((alternative) => alternative.heroId)).toEqual([12, 13]);
+  test("sin ranking confiable no hay tarjetas, tenga o no el pool a héroes creíbles", () => {
+    expect(deriveCandidateResult({ ...input, activePool: [10, 11, RUBICK, 13] }).cards).toEqual([]);
   });
 
-  test("contraste: sin pool configurado ofrece lo mismo", () => {
-    const result = deriveCandidateResult(input);
-    expect(result.state).toBe("UNRANKED_POSITIONAL");
-    if (result.state !== "UNRANKED_POSITIONAL") return;
-    expect(result.alternatives.map((alternative) => alternative.heroId)).toEqual([12, 13]);
+  test("contraste: sin pool configurado tampoco", () => {
+    expect(deriveCandidateResult(input).cards).toEqual([]);
   });
 
-  test("pool totalmente no disponible: las alternativas creíbles siguen ahí (el pool agotado no vacía la lista)", () => {
+  test("pool totalmente no disponible: tampoco hay relleno con los creíbles de la posición", () => {
     const result = deriveCandidateResult({ ...input, activePool: [10, 11] });
-    expect(result.state).toBe("UNRANKED_POSITIONAL");
+    expect(result.cards).toEqual([]);
+    expect(result.poolCards).toEqual([]);
   });
 });

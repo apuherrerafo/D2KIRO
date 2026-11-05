@@ -1,3 +1,4 @@
+import type { HeroCapabilities } from "../draft-paths/types";
 import type { HeroId } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { stateIdentityOf } from "../recommendation/identity";
@@ -7,12 +8,12 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
-import { alliesAnswering, type BanOpening } from "./context-reorder";
+import { alliesAnswering, reasonedCounters, reasonedSynergies, type BanOpening } from "./context-reorder";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
-import { cardContextOf, hasCardContext, type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
-import { POSITION_ONLY_PREFIX, revealedEnemyHeroes } from "./hero-card";
+import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
+import { revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
-import type { TargetBasis } from "./recommendation-output-v4";
+import type { RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
 
 // Team Coach Board -- ONE projection of every human-controlled position from ONE perspective-safe
@@ -42,7 +43,8 @@ export const TEAM_COACH_BOARD_SCHEMA = "team-coach-board/v1" as const;
 /** Cards per position (the product floor is 3). */
 export const TEAM_COACH_TOP_SIZE = 5;
 
-export type TeamCoachPositionState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAILABLE" | "FILLED" | "WAITING";
+/** RANKED = la columna se calculó; con cero candidatos significa que ningún héroe tiene fundamento (no se muestra nada: sin relleno ni mensaje). */
+export type TeamCoachPositionState = "RANKED" | "UNAVAILABLE" | "FILLED" | "WAITING";
 
 /** A revealed enemy hero that curated-counters this candidate, with the curated reason (`why`). */
 export interface TeamCoachRisk {
@@ -56,7 +58,7 @@ export interface TeamCoachCandidate {
   heroId: HeroId;
   /** Rank inside THIS list (1 = first). The order is V6's score plus the capped context bonus (context-reorder.ts). */
   rank: number;
-  /** V6 score; `null` for an unranked positional alternative (no score exists). */
+  /** V6 score of the card (every candidate shown has a ground; there are no score-less alternatives any more). */
   score: number | null;
   reasons: string[];
   /** Revealed enemies that counter this hero (curated, hard first, at most 2). Empty when none: never invented. */
@@ -71,6 +73,8 @@ export interface TeamCoachCandidate {
   steals: TeamCoachSteal[];
   /** The hero the team plan assigns to this position. At most one per position, never shared between positions. */
   isPrimary: boolean;
+  /** FUERZA de la evidencia (ver `RankedCandidateCard.evidenceStrength`): solo un candidato STRONG puede ser primario / héroe recomendado. */
+  evidenceStrength: "STRONG" | "WEAK";
 }
 
 export interface TeamCoachPosition {
@@ -126,6 +130,8 @@ export interface BuildTeamCoachBoardInput {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** Curated pairs (production: the real file; tests: their own map or none). */
   heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
+  /** Capacidades curadas: sin ellas la composición nunca es un fundamento (recommendation-eligibility.ts). */
+  heroCapabilities?: readonly HeroCapabilities[];
   /** The V4 target ranking for one position (team-level, never an account's pool). */
   buildTargetRanking(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   topSize?: number;
@@ -233,17 +239,23 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const bannedSet = new Set<HeroId>(view.bannedHeroes);
   // Todo lo que una tarjeta cuenta del draft visible: riesgos, a quién le gana de lo ya revelado, qué abrieron los bans y
   // con quién ya elegido combina. Nada de esto supone lo que el rival va a sacar.
-  const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies" | "steals"> => {
-    const { opening, strengths, synergies, steals } = cardContextOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, heroPositions: input.heroPositions, targetPosition: position });
-    return { risks: risksOf(heroId, revealedEnemies, input.heroCounters, ownPickSet), strengths, opening, synergies, steals };
-  };
-  const toCandidate = (card: { heroId: HeroId; position: Position; rank: number; score: number; rationale: string }): TeamCoachCandidate => {
-    const context = contextOf(card.heroId, card.position);
-    // Si la única frase es "Por su posición: …" pero la tarjeta YA trae razones reales del draft (a quién le gana, qué abrieron los bans,
-    // con quién combina), la frase de posición se calla: lo que se lee primero es el motivo real, no el rol (queja del usuario 2026-11-02).
-    const hasDraftContext = hasCardContext(context);
-    const positionOnly = card.rationale.startsWith(POSITION_ONLY_PREFIX);
-    return { heroId: card.heroId, rank: card.rank, score: card.score, reasons: positionOnly && hasDraftContext ? [] : [card.rationale], ...context, isPrimary: false };
+  // Todo lo que una tarjeta cuenta sale del contrato de elegibilidad (la misma tarjeta que arma la decisión V4): `context` ya trae solo
+  // relaciones con porqué verificable, y la frase es la de su fundamento -- si los chips ya lo dicen, la frase se calla.
+  const toCandidate = (card: RankedCandidateCard): TeamCoachCandidate => {
+    const { opening, strengths, synergies, steals } = card.context;
+    return {
+      heroId: card.heroId,
+      rank: card.rank,
+      score: card.score,
+      reasons: card.hideRationale ? [] : [card.rationale],
+      risks: risksOf(card.heroId, revealedEnemies, reasonedCounters(input.heroCounters), ownPickSet),
+      strengths,
+      opening,
+      synergies,
+      steals,
+      isPrimary: false,
+      evidenceStrength: card.evidenceStrength,
+    };
   };
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
@@ -264,45 +276,28 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     if (ranking.basedOn.stateIdentity !== stateIdentity) {
       return { position, state: "UNAVAILABLE", candidates: [], poolCandidates: [], filledHeroId: null, note: "El ranking no corresponde al estado actual del draft." };
     }
-    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, personalPoolApplied: position === input.playerPersonalPosition && rankingAppliedPersonalPool(ranking), shortlistSize: topSize, poolShortlistSize: TEAM_COACH_POOL_SIZE, activePool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
-    if (result.state === "RANKED") {
-      return {
-        position,
-        state: "RANKED",
-        filledHeroId: null,
-        note: null,
-        candidates: result.cards.map(toCandidate),
-        poolCandidates: result.poolCards.map(toCandidate),
-      };
-    }
-    if (result.state === "UNRANKED_POSITIONAL") {
-      return {
-        position,
-        state: "UNRANKED_POSITIONAL",
-        filledHeroId: null,
-        note: result.reason,
-        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], ...contextOf(alternative.heroId, position), isPrimary: false })),
-        poolCandidates: [],
-      };
-    }
-    return { position, state: "UNAVAILABLE", candidates: [], poolCandidates: [], filledHeroId: null, note: result.reason };
+    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, heroCapabilities: input.heroCapabilities, personalPoolApplied: position === input.playerPersonalPosition && rankingAppliedPersonalPool(ranking), shortlistSize: topSize, poolShortlistSize: TEAM_COACH_POOL_SIZE, activePool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
+    return { position, state: "RANKED", filledHeroId: null, note: null, candidates: result.cards.map(toCandidate), poolCandidates: result.poolCards.map(toCandidate) };
   }));
 
-  // Solo las columnas con ranking de verdad entran al plan: las alternativas de una columna UNRANKED_POSITIONAL son héroes legales en orden
-  // de id, sin preferencia alguna, y NUNCA pueden volverse "el héroe recomendado" (regla "sin motivo no se recomienda", 2026-11-02).
-  const ranked = drafts.filter((draft) => draft.state === "RANKED" && draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
+  // Elegibilidad != fuerza: toda tarjeta mostrada es elegible, pero SOLO los candidatos con evidencia FUERTE entran al plan (héroe primario, posición
+  // destacada, "ELIGE AHORA"). Una columna con solo evidencia débil (p. ej. solo meta) muestra sus héroes pero no recomienda a nadie ni se destaca.
+  const ranked = drafts
+    .map((draft) => ({ position: draft.position, state: draft.state, heroIds: draft.candidates.filter((candidate) => candidate.evidenceStrength === "STRONG").map((candidate) => candidate.heroId) }))
+    .filter((draft) => draft.state === "RANKED" && draft.heroIds.length > 0)
+    .map((draft) => ({ position: draft.position, heroIds: draft.heroIds }));
   // A FILLED column is never actionable, whatever the actionability said.
   const actionable = (actionability.hasHumanAction ? actionability.eligiblePositions : []).filter((position) => drafts.find((draft) => draft.position === position)?.state !== "FILLED");
-  // Hero Pools V2: a pool is a preference, so an exhausted pool never narrows the target field.
   const unavailable = unavailableHeroesFrom(view);
-  const targetField = actionable;
-  const priority = usesPositionPriority(context.liveCapture, actionable.length)
+  // El objetivo SOLO puede ser una posición con un héroe elegible: "ELIGE AHORA" nunca cae sobre una columna sin recomendación.
+  const targetField = actionable.filter((position) => ranked.some((column) => column.position === position));
+  const priority = usesPositionPriority(context.liveCapture, targetField.length)
     ? selectLivePositionPriority({
         actionablePositions: targetField,
         phase: view.rankedAp?.phase ?? null,
         columns: ranked,
         revealedEnemies: revealedEnemyHeroes(view),
-        heroCounters: input.heroCounters,
+        heroCounters: reasonedCounters(input.heroCounters), // una ventana de counter "Lo dicen: …" no es una razón para fijar la posición ni el héroe
         playerPoolsByPosition: context.playerPoolsByPosition,
         unavailable,
         occupancy: context.ownPositionOccupancy,
@@ -332,8 +327,8 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     view,
     openPositions,
     heroPositions: input.heroPositions,
-    heroCounters: input.heroCounters,
-    heroSynergies: input.heroSynergies,
+    heroCounters: reasonedCounters(input.heroCounters),
+    heroSynergies: reasonedSynergies(input.heroSynergies),
     poolFor: (position) => configuredPoolForPosition(context.playerPoolsByPosition, position),
   });
   const board: TeamCoachBoard = {
@@ -401,16 +396,24 @@ function deriveTeamDecision(
       roundCapacity: 0,
     };
   }
+  // Sin ninguna columna con un héroe elegible no hay recomendación: ni posición destacada, ni héroe, ni texto que explique la falta.
+  if (targetField.length === 0) {
+    return { recommendedPosition: null, recommendedHeroId: null, targetBasis: null, reason: "", actionablePositions: [...actionable], roundCapacity: actionability.roundCapacity };
+  }
   // >= 2 open positions (or live): LivePositionPriorityV1. One open position: the target function V4 uses on its own.
-  const target = priority ?? selectDecisionTarget({ eligiblePositions: actionable, playerPersonalPosition: personal, viablePositions: targetField });
+  // El objetivo SOLO se elige entre las columnas con héroe elegible (`targetField`): no son "posiciones con el pool agotado", son columnas sin nada que mostrar.
+  const target = priority ?? selectDecisionTarget({ eligiblePositions: targetField, playerPersonalPosition: personal });
   const column = columns.find((candidate) => candidate.position === target.targetPosition);
   const primary = column?.top.find((candidate) => candidate.isPrimary) ?? null;
-  const heroReason = primary?.reasons[0] ?? column?.note ?? "";
+  const heroReason = primary?.reasons[0] ?? "";
+  // Solo una razón ESTRATÉGICA real (ventana de counter, último héroe del pool) se dice; "no hay prioridad / orden por fase" no es un motivo y
+  // no se muestra (dueño del producto, 2026-11-04: nada de mensajes que expliquen falta de información).
+  const targetReason = target.targetBasis === "STRATEGIC" ? target.targetRationale : "";
   return {
     recommendedPosition: target.targetPosition,
     recommendedHeroId: primary?.heroId ?? null,
     targetBasis: target.targetBasis,
-    reason: [target.targetRationale, heroReason].filter((part) => part.length > 0).join(" "),
+    reason: [targetReason, heroReason].filter((part) => part.length > 0).join(" "),
     actionablePositions: [...actionable],
     roundCapacity: actionability.roundCapacity,
   };

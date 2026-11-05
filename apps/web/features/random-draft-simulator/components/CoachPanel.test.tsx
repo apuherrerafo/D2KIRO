@@ -49,6 +49,42 @@ test("una acción a nivel de posición muestra el rol y NO nombra ningún héroe
   expect(primary.compareDocumentPosition(shortlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
+test("la frase de una acción a nivel de POSICIÓN ('prior de apertura', 'evidencia débil') NO se muestra como razón; la de un héroe concreto sí", () => {
+  const position = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(position.queryByTestId("coach-primary-rationale")).toBeNull();
+  expect(position.container.textContent).not.toContain("Prior de apertura");
+  position.unmount();
+  const hero = render(<CoachPanel coach={coach({ kind: "REVEAL_HERO", heroId: 7, position: 5, rationale: "El counter explica la ventaja." })} heroCatalog={new Map()} />);
+  expect(hero.getByTestId("coach-primary-rationale").textContent).toContain("El counter explica la ventaja.");
+});
+
+// Contrato 2026-11-04: v3 pinta los MISMOS chips que V4 (héroes y mecanismos concretos) y la marca de evidencia limitada; nada de frases genéricas sin detalle.
+const CARD_CONTEXT = {
+  opening: { openedBy: [{ heroId: 7, level: "hard" as const, why: "Su Call lo corta" }], stillFree: [{ heroId: 11, level: "medium" as const, why: "Su silencio lo deja sin hechizos" }] },
+  strengths: [{ vsHeroId: 8, level: "hard" as const, why: "Orchid lo silencia", revealed: true }],
+  synergies: [{ withHeroId: 9, why: "Combo de fixture" }],
+  steals: [],
+};
+
+test("la tarjeta v3 con `context` nombra héroes y mecanismos (bans con porqué, a quién gana, pareja) y calla la frase genérica (hideRationale)", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION, [card(7, { context: CARD_CONTEXT, hideRationale: true, rationale: "Se baneó una amenaza suya y se dice qué otras quedan", evidenceStrength: "STRONG" })])} heroCatalog={new Map()} />);
+  const rendered = view.getByTestId("coach-hero-card");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-opened"]')?.textContent).toContain("Su Call lo corta");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-still-free"]')?.textContent).toContain("Su silencio lo deja sin hechizos");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-strength"]')?.textContent).toContain("Orchid lo silencia");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-synergy"]')?.textContent).toContain("Combo de fixture");
+  expect(rendered.textContent).not.toContain("Se baneó una amenaza suya");
+  expect(rendered.querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+});
+
+test("la tarjeta v3 de evidencia LIMITADA (meta) lleva la marca y su frase con la cifra; sin context no pinta chips", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION, [card(7, { evidenceStrength: "WEAK", rationale: "Winrate de 56.0% este parche (8.000 partidas)" })])} heroCatalog={new Map()} />);
+  const rendered = view.getByTestId("coach-hero-card");
+  expect(rendered.querySelector('[data-testid="evidence-limited-mark"]')?.textContent).toBe("Evidencia limitada");
+  expect(rendered.textContent).toContain("Winrate de 56.0%");
+  expect(rendered.querySelector('[data-testid="team-coach-candidate-opened"]')).toBeNull();
+});
+
 test("sólo una acción REVEAL_HERO nombra un héroe", () => {
   const view = render(<CoachPanel coach={coach({ kind: "REVEAL_HERO", heroId: 7, position: 5, rationale: "El counter explica la ventaja." })} heroCatalog={new Map()} />);
   expect(view.getByTestId("coach-named-hero").getAttribute("data-hero-id")).toBe("7");
@@ -226,6 +262,26 @@ test("Live Companion / V3: personalHeroView con héroes se muestra (posición + 
   expect(personal.textContent).toContain("TU MID AHORA");
   expect(personal.textContent).toContain("Tu pool");
   expect(personal.textContent).toContain("Héroe 7");
+});
+
+test("Live Companion / V3: la vista personal marca 'Evidencia limitada' en lo débil y trae los chips con héroes y porqués de lo fuerte", () => {
+  const withContext = { opening: { openedBy: [{ heroId: 9, level: "hard" as const, why: "Su Call lo corta" }], stillFree: [] }, strengths: [], synergies: [], steals: [] };
+  const output: CoachOutput = {
+    ...coach(ROLE_ACTION),
+    personalHeroView: {
+      position: 2,
+      positionLabel: "TU MID AHORA",
+      seatCovered: false,
+      heroes: [
+        { heroId: 7, rank: 1, score: 10, isFromPool: false, evidenceStrength: "WEAK" },
+        { heroId: 8, rank: 2, score: 9, isFromPool: false, evidenceStrength: "STRONG", context: withContext },
+      ],
+    },
+  };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  const personal = view.getByTestId("coach-personal-hero-view");
+  expect(within(personal).getAllByTestId("evidence-limited-mark")).toHaveLength(1); // solo el débil
+  expect(within(personal).getByText(/Su Call lo corta/)).toBeTruthy(); // el fuerte dice la amenaza que desapareció y su mecanismo
 });
 
 test("Live Companion / V3: personalHeroView con el asiento cubierto lo dice", () => {

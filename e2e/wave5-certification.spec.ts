@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
 import { ROUND_HEADING, assertNoSimulatorTruthLeak, awaitRoundHandlingCollision, configureAndStart, firstEnabled, heroButton, heroNamesIn, pickHero, record, type Recorder } from "./support/wave1";
+import { announcedTargetLabel, assertTargetContract, decisionCardIds } from "./support/decision";
 
 // WAVE 5 -- PRODUCT CERTIFICATION, browser layer (real Chromium, production web build, real engine, fixture DB).
 // Entry point: `bun run test:wave5:smoke`. Reuses the Wave 1/2 harness (playwright.config.ts, e2e/support/wave1.ts).
@@ -77,15 +78,16 @@ const primary = (page: Page) => page.getByTestId("current-decision-panel");
 
 async function coachSnapshot(page: Page) {
   const panel = primary(page);
-  await expect(panel).toBeVisible({ timeout: 60_000 });
+  await expect(panel).toBeAttached({ timeout: 60_000 });
   await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
   return {
     kind: (await panel.getAttribute("data-decision-kind"))!,
     trigger: (await panel.getAttribute("data-trigger"))!,
     revision: Number(await panel.getAttribute("data-revision")),
     identity: (await panel.getAttribute("data-state-identity"))!,
-    label: (await page.getByTestId("current-decision-target").innerText()).trim(),
-    shortlist: await page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
+    // "" when the Coach announces no recommended target (2026-11-03/04: no STRATEGIC basis, nothing to announce).
+    label: await announcedTargetLabel(page),
+    shortlist: await decisionCardIds(page),
   };
 }
 
@@ -174,7 +176,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   const start = await coachSnapshot(page);
   expect(start.kind).toBe("ACTIONABLE");
   expect(start.trigger).toBe("DRAFT_PICKS_STARTED");
-  expect(start.shortlist.length).toBeGreaterThan(0);
+  // Eligibility contract (2026-11-03/04): cards only with a verifiable ground; the section exists iff there are cards (checked in decisionCardIds).
 
   // OLD_ASSERTION: a SEPARATE "TU [ROLE] AHORA" personal panel (`coach-personal-hero-view`) carried the Hero Pool, next to the team shortlist.
   // WHY_OBSOLETE: WP3 removed the parallel panel -- one visual owner. Two panels for one decision is exactly what PSR fixed.
@@ -189,15 +191,8 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // OLD_ASSERTION: data-target-position == personal position, and `current-decision-viewed` absent (recommended == viewed).
   // WHY_OBSOLETE: the recommendation (`targetPosition`) and the first view (`viewedPosition`) are two things since PSR-002/TSK-251.
   // NEW_PRODUCT_CONTRACT: the recommendation is one of the 5 open positions; the first view is the personal one; the notice renders IFF they differ.
-  const openingTarget = Number(await page.getByTestId("current-decision-target").getAttribute("data-target-position"));
-  expect([1, 2, 3, 4, 5]).toContain(openingTarget);
-  const openingNotice = page.getByTestId("current-decision-viewed");
-  if (openingTarget === config.personalPosition) {
-    await expect(openingNotice).toHaveCount(0);
-  } else {
-    await expect(openingNotice).toHaveAttribute("data-viewed-position", String(config.personalPosition));
-    await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${openingTarget}`);
-  }
+  //   Since 2026-11-03/04 the recommendation header (and so the notice) exists only with a STRATEGIC basis; `assertTargetContract` checks the notice against it.
+  await assertTargetContract(page, config.personalPosition);
   await assertPlayerFacingCopyIsClean(page);
   await shot(page, side, "1-round1-opening");
 
@@ -301,7 +296,8 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await shot(page, side, "3-round2-after-reveal");
 
   // Follow the Coach for one seat, take a pool hero (the Player's own preference) for the other.
-  const followName = FIXTURE_HERO_NAME_BY_ID.get(round2.shortlist[0]!)!;
+  // (When the Coach has no recommendation at this state -- no hero with a verifiable ground -- there is nothing to follow: any legal hero.)
+  const followName = round2.shortlist.length > 0 ? FIXTURE_HERO_NAME_BY_ID.get(round2.shortlist[0]!)! : await firstEnabled(page, [...config.pool, ...ANY_HERO]);
   await pickHero(page, followName);
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
@@ -313,7 +309,6 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await assertTimerRunning(page);
   const round3 = await coachSnapshot(page);
   expect(round3.trigger).toBe("ROUND_REVEALED");
-  expect(round3.shortlist.length).toBeGreaterThan(0);
   await pickHero(page, await firstEnabled(page, [...config.roundThreePlan, ...ANY_HERO]));
 
   // ---------------------------------------------------------------- COMPLETE
@@ -511,7 +506,9 @@ test.describe("Wave 5 -- hidden information over the real HTTP path (Task 31)", 
     for (const card of [...afterA.output.shortlist, ...afterB.output.shortlist]) {
       expect(card.badges).not.toContain("COUNTER");
     }
-    expect(startA.output.meta.trigger).toBe("DRAFT_PICKS_STARTED");
+    // Eligibility contract (2026-11-03/04): before the first pick the V3 Coach may have NO strongly-grounded hero and answer null; when it does answer, it is the
+    // start-of-draft answer. (The two worlds are compared byte for byte below, once both have sealed the same hidden state.)
+    expect(startA.output === null || startA.output.meta.trigger === "DRAFT_PICKS_STARTED").toBe(true);
     assertNoSimulatorTruthLeak([], [afterA, afterB]);
 
     // Closing the round reveals the enemy: NOW the worlds may legally diverge.
@@ -521,10 +518,20 @@ test.describe("Wave 5 -- hidden information over the real HTTP path (Task 31)", 
     expect(revealedB.view.enemyPicks.map((slot) => slot.heroId).sort()).toEqual([hiddenB1, hiddenB2].sort());
     const roundTwoA = await coachOf(request, a);
     const roundTwoB = await coachOf(request, b);
-    expect(roundTwoA.output.meta.trigger).toBe("ROUND_REVEALED");
-    expect(roundTwoA.output.meta.basedOn.stateIdentity).not.toBe(roundTwoB.output.meta.basedOn.stateIdentity);
+    // Eligibility contract (2026-11-03/04): after the reveal the V3 Coach may have no strongly-grounded hero and answer null. The divergence and the enemy beliefs are
+    // then read from what always exists: the V2 set beneath it (its state identity) and the V4 decision's role beliefs. When V3 does answer, the original checks stand.
+    const identityOf = (body: { recommendationSet: unknown }) => (body.recommendationSet as { basedOn: { stateIdentity: string } }).basedOn.stateIdentity;
+    if (roundTwoA.output) expect(roundTwoA.output.meta.trigger).toBe("ROUND_REVEALED");
+    expect(identityOf(roundTwoA)).not.toBe(identityOf(roundTwoB));
     expect(normalized(roundTwoA)).not.toBe(normalized(roundTwoB));
-    expect(roundTwoA.output.roleBeliefs.enemy.map((belief) => belief.heroId).sort()).toEqual([hiddenA1, hiddenA2].sort());
+    const enemyBeliefsV4 = async (world: World) => {
+      const response = await request.get(`${world.base}/recommendations?format=v4`);
+      expect(response.status()).toBe(200);
+      return ((await response.json()) as { output: { roleBeliefs: { enemy: { heroId: number }[] } } }).output.roleBeliefs.enemy.map((belief) => belief.heroId).sort();
+    };
+    expect(await enemyBeliefsV4(a)).toEqual([hiddenA1, hiddenA2].sort());
+    expect(await enemyBeliefsV4(b)).toEqual([hiddenB1, hiddenB2].sort());
+    if (roundTwoA.output) expect(roundTwoA.output.roleBeliefs.enemy.map((belief) => belief.heroId).sort()).toEqual([hiddenA1, hiddenA2].sort());
     await putPool(request, []);
   });
 });

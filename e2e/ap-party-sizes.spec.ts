@@ -1,4 +1,5 @@
 import { expect, test } from "./support/failure-evidence";
+import { pickAnyAvailableHero } from "./support/decision";
 import type { Page } from "@playwright/test";
 
 async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
@@ -58,10 +59,7 @@ async function playPartyDraft(
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (await page.getByText("Draft completo").isVisible()) break;
-    const hero = page.locator("button[title]:not([disabled])").first();
-    if (await hero.isVisible().catch(() => false)) {
-      await hero.click().catch(() => undefined);
-    }
+    await pickAnyAvailableHero(page);
     await page.waitForTimeout(500);
   }
 
@@ -139,7 +137,7 @@ test.describe("AP Ranked Roles -- Acceptance Journeys", () => {
       { timeout: 15_000 },
     );
 
-    await page.locator("button[title]:not([disabled])").first().click();
+    await pickAnyAvailableHero(page); // a recommended card, or the manual search when the Coach has no recommendation at all
     const accepted = await commandResponse.then((response) => response.json() as Promise<{
       accepted: boolean;
       view: { rankedAp: { phase: string } | null };

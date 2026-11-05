@@ -87,6 +87,10 @@ export interface CompositionNeeds {
   open: DraftCapabilityGap[];
   /** Los huecos críticos que ya no se pueden esperar a llenar; vacío fuera de la ventana de cierre o si un pick propio no está curado. */
   critical: DraftCapabilityGap[];
+  /** Todo hueco abierto de los tipos críticos (iniciar, atrapar, segundo tipo de daño), sin mirar la fase: base de la PRESIÓN de composición. */
+  criticalOpen: DraftCapabilityGap[];
+  /** True cuando TODOS los picks propios tienen capacidades curadas: solo entonces un hueco es dato y no desconocimiento. */
+  coverageKnown: boolean;
   /** Tipos de daño de los picks propios curados: lo que `filledGaps` necesita para saber si un candidato diversifica. */
   ownDamageTypes: DamageType[];
   /** Picks propios que faltan, contando el que se está decidiendo (5 - ya elegidos). */
@@ -105,7 +109,7 @@ export function assessCompositionNeedsOf(ownHeroes: readonly HeroId[], capabilit
   const coverageIsKnown = ownHeroes.length === own.length;
   const inClosingWindow = ownPicksRemaining >= 1 && ownPicksRemaining <= CLOSING_WINDOW_PICKS;
   const critical = coverageIsKnown && inClosingWindow ? open.filter((gap) => CRITICAL_GAP_KINDS.includes(gap)) : [];
-  return { open, critical, ownDamageTypes: own.map((entry) => entry.damageType), ownPicksRemaining };
+  return { open, critical, criticalOpen: open.filter((gap) => CRITICAL_GAP_KINDS.includes(gap)), coverageKnown: coverageIsKnown, ownDamageTypes: own.map((entry) => entry.damageType), ownPicksRemaining };
 }
 
 /**

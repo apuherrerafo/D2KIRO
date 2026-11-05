@@ -24,14 +24,14 @@ import { displayBeliefs, type CoachOpportunity, type CoachTrigger, type RoleBeli
 //                            not emit it today) or DETERMINISTIC_DEFAULT (no priority -- a stable initial
 //                            view, never presented as advice). User navigation is NOT a basis.
 //   viewedPosition        -- the position the Player is inspecting; the ONE position `candidates` belong to
-//   candidates.state      -- RANKED | UNRANKED_POSITIONAL | UNAVAILABLE: exactly one candidate
-//                            provenance, with the degradations of THAT result only
+//   candidates.state      -- always RANKED; `cards` holds ONLY heroes with a verifiable ground (recommendation-eligibility.ts) and may be
+//                            empty: no ground, no card -- never filler, never an "exploration" list. Carries the degradations of THAT result only
 //   personalPoolApplied   -- the Personal Hero Pool influenced these candidates (only possible when
 //                            targetPosition is the Player's personal position)
 //
 // STRUCTURAL GUARANTEES (tested in current-human-decision.test.ts / coherence gates):
-//   - A RANKED result carries rank/score/confidence; an UNRANKED_POSITIONAL result has NO such fields
-//     at all, so a response cannot say "ranking unavailable" while presenting ranked cards.
+//   - Every card carries rank/score/confidence AND the ground(s) that justified it (rationale/badges come from them). A ranking that
+//     is not trustworthy (invalidating degradation) yields ZERO cards, so a response cannot say "ranking unavailable" while presenting cards.
 //   - A RANKED result never carries a degradation that invalidates ranking.
 //   - NO_HUMAN_ACTION carries no target and no candidates.
 
@@ -39,7 +39,8 @@ export const RECOMMENDATION_OUTPUT_V4_SCHEMA = "recommendation-output/v4" as con
 
 export type TargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT";
 
-export type CandidateState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAILABLE";
+/** Un resultado de candidatos es siempre un ranking; "ningún héroe elegible" es un ranking con cero tarjetas (sin relleno ni mensaje). */
+export type CandidateState = "RANKED";
 
 /** A card of a ranking that survived validation for the target position. */
 export interface RankedCandidateCard {
@@ -53,6 +54,12 @@ export interface RankedCandidateCard {
   roleStatus: RoleImpactStatus;
   badges: HeroBadge[];
   rationale: string;
+  /**
+   * FUERZA de la evidencia (distinta de la elegibilidad: toda tarjeta mostrada ya es elegible). STRONG = al menos un fundamento fuerte (counter/pareja/robo
+   * duros con porqué, una amenaza relevante que de verdad desapareció, un hueco de composición sin margen); WEAK = solo fundamentos débiles (p. ej. el
+   * meta). Solo STRONG puede ser acción principal / héroe recomendado / "ELIGE AHORA". No cambia el puntaje ni el orden de V6.
+   */
+  evidenceStrength: "STRONG" | "WEAK";
   /** True exactly when `poolMembership` is IN_POOL (kept for existing consumers). */
   isFromPool: boolean;
   /**
@@ -66,9 +73,8 @@ export interface RankedCandidateCard {
    */
   context: CardContext;
   /**
-   * True cuando `rationale` es la frase de "Por su posición: …" (la única razón era el rol) Y la tarjeta ya trae una razón real del
-   * draft (`context`): la pantalla la calla y deja el motivo real, igual que el tablero. Lo decide el motor, una sola vez
-   * (`hasCardContext`), para que ninguna pantalla repita el criterio.
+   * True cuando los chips de `context` (bans que abren al héroe, a quién le gana, con quién combina) ya dicen el fundamento de la tarjeta: la
+   * pantalla calla `rationale` para no repetirlo. Lo decide el motor, una sola vez (`describeGrounds`), para que ninguna pantalla repita el criterio.
    */
   hideRationale: boolean;
   /**
@@ -94,16 +100,8 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 /** Whose pool it is: the Player's own, or a teammate's saved pool for the position. */
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
-/** A legal hero curated as credible for the target position -- no rank, score or confidence exists. */
-export interface PositionalAlternative {
-  heroId: HeroId;
-  position: Position;
-}
-
 export type CandidateResult =
-  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] }
-  | { state: "UNRANKED_POSITIONAL"; targetPosition: Position; alternatives: PositionalAlternative[]; reason: string; degradations: RecommendationDegradation[] }
-  | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: RecommendationDegradation[] };
+  { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };
 
 export type CurrentHumanDecision =
   | {

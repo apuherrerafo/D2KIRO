@@ -1,7 +1,7 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, SuggestionConfidence } from "@/features/draft/types";
-import type { TeamCoachOpening, TeamCoachSteal, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
-import { isOpening, isSteal, isStrength, isSynergy } from "@/features/team-coach/validation";
+import type { EvidenceStrength, TeamCoachOpening, TeamCoachSteal, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
+import { isEvidenceStrength, isOpening, isSteal, isStrength, isSynergy } from "@/features/team-coach/validation";
 import { parseRecommendationSet, type RecommendationSetV2 } from "./protocol-client";
 
 // AP Ranked Roles V1 / Wave 2 -- Coach output (RecommendationOutputV3) client. Espejo a mano del
@@ -32,7 +32,14 @@ export interface CoachHeroCard {
   roleStatus: CoachRoleStatus;
   confidence: SuggestionConfidence;
   badges: CoachBadge[];
+  /** La frase del fundamento (`describeGrounds`); "" cuando los chips de `context` ya lo dicen con nombres y porqué (ver `hideRationale`). */
   rationale: string;
+  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` se calla porque los chips de `context` (héroes y mecanismos concretos) ya lo dicen. */
+  hideRationale?: boolean;
+  /** FUERZA de la evidencia (elegibilidad != fuerza): WEAK se muestra con "Evidencia limitada" y nunca sostiene la acción principal. Opcional: un motor anterior no lo manda. */
+  evidenceStrength?: EvidenceStrength;
+  /** Espejo de `context` del motor (el mismo que V4 y el tablero): bans que abrieron con su porqué, a quién gana, con quién combina, robo. Opcional: un motor anterior no lo manda. */
+  context?: CardDraftContext;
   score: number;
   isFromPool: boolean;
 }
@@ -65,7 +72,7 @@ export interface CoachOutput {
   /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
   opportunity?: CoachOpportunity;
   /** `seatCovered`: the Player's own picks already fill this position, so `heroes` is empty by design (engine mirror; absent in older payloads). */
-  personalHeroView?: { position: CoachPosition; positionLabel: string; seatCovered?: boolean; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
+  personalHeroView?: { position: CoachPosition; positionLabel: string; seatCovered?: boolean; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean; evidenceStrength?: EvidenceStrength; context?: CardDraftContext }[] };
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
   roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
   meta: {
@@ -138,7 +145,10 @@ function isHeroCard(value: unknown): value is CoachHeroCard {
   const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
   return isHeroId(value.heroId) && isPosition(value.position) && roleOk && isConfidence(value.confidence)
     && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
-    && typeof value.rationale === "string" && typeof value.score === "number" && typeof value.isFromPool === "boolean";
+    && typeof value.rationale === "string" && typeof value.score === "number" && typeof value.isFromPool === "boolean"
+    && (value.hideRationale === undefined || typeof value.hideRationale === "boolean")
+    && (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength))
+    && (value.context === undefined || isCardDraftContext(value.context));
 }
 
 function isEmpiricalPatchClaim(value: unknown): boolean {
@@ -285,6 +295,8 @@ export interface RankedCandidateCard {
   roleStatus: CoachRoleStatus;
   badges: CoachBadge[];
   rationale: string;
+  /** FUERZA de la evidencia (elegibilidad != fuerza): WEAK se muestra con "Evidencia limitada" y nunca sostiene la acción principal. Opcional: un motor anterior no lo manda. */
+  evidenceStrength?: EvidenceStrength;
   /** True exactly when `poolMembership` is IN_POOL. */
   isFromPool: boolean;
   /** Is this hero in the pool that shaped the ranking? NO_POOL = no pool voted (never shown as "outside"). */
@@ -294,7 +306,7 @@ export interface RankedCandidateCard {
    * misma fuente que el tablero del equipo. Opcional para tolerar un motor anterior; ausente = no se pinta nada de esto.
    */
   context?: CardDraftContext;
-  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` ("Por su posición: …") se calla porque hay una razón real en `context`. */
+  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` (la frase genérica del fundamento) se calla porque los chips de `context` ya lo dicen. */
   hideRationale?: boolean;
   /**
    * Espejo de `risks` del motor: avisos a pesar antes de fijar este héroe (hoy sólo CRITICAL_GAP). El motor lo manda siempre
@@ -328,20 +340,16 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 /** Whose pool: the Player's own, or a teammate's saved pool for the position. Mirror of the engine contract. */
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
-export interface PositionalAlternative {
-  heroId: HeroId;
-  position: CoachPosition;
-}
-
 export interface CandidateDegradation {
   reason: string;
   detail: string;
 }
 
-export type CandidateResult =
-  | { state: "RANKED"; targetPosition: CoachPosition; cards: RankedCandidateCard[]; degradations: CandidateDegradation[] }
-  | { state: "UNRANKED_POSITIONAL"; targetPosition: CoachPosition; alternatives: PositionalAlternative[]; reason: string; degradations: CandidateDegradation[] }
-  | { state: "UNAVAILABLE"; targetPosition: CoachPosition; reason: string; degradations: CandidateDegradation[] };
+/**
+ * Contrato de elegibilidad (dueño del producto, 2026-11-03): solo hay tarjetas de héroes con un fundamento real. Un resultado SIN ninguna
+ * es un ranking con `cards: []` -- no existe un estado "exploración" ni "no disponible" con alternativas o mensaje: no se muestra nada.
+ */
+export type CandidateResult = { state: "RANKED"; targetPosition: CoachPosition; cards: RankedCandidateCard[]; degradations: CandidateDegradation[] };
 
 export type ActionableDecision = {
   kind: "ACTIONABLE";
@@ -404,6 +412,7 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
     && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL")
     && (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isCardRisk)))
     && (value.context === undefined || isCardDraftContext(value.context))
+    && (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength))
     && (value.hideRationale === undefined || typeof value.hideRationale === "boolean");
 }
 
@@ -420,28 +429,15 @@ function cardsAgreeWithPoolState(cards: unknown[], poolState: PoolState): boolea
   return cards.every((card) => isRecord(card) && ((card.poolMembership === "NO_POOL") === (poolState === "NONE")));
 }
 
-/** An unranked alternative carries exactly {heroId, position}: any ranking field is a contract violation. */
-function isPositionalAlternative(value: unknown, target: CoachPosition): value is PositionalAlternative {
-  return isRecord(value) && isHeroId(value.heroId) && value.position === target
-    && Object.keys(value).every((key) => key === "heroId" || key === "position");
-}
-
 function isDegradationList(value: unknown): value is CandidateDegradation[] {
   return Array.isArray(value) && value.every(isCoachDegradation);
 }
 
 function isCandidateResult(value: unknown, target: CoachPosition, poolState: PoolState): value is CandidateResult {
   if (!isRecord(value) || value.targetPosition !== target || !isDegradationList(value.degradations)) return false;
-  if (value.state === "RANKED") {
-    return Array.isArray(value.cards) && value.cards.length > 0 && value.cards.every((card) => isRankedCard(card, target))
-      && cardsAgreeWithPoolState(value.cards, poolState);
-  }
-  if (value.state === "UNRANKED_POSITIONAL") {
-    return typeof value.reason === "string" && Array.isArray(value.alternatives) && value.alternatives.length > 0
-      && value.alternatives.every((alternative) => isPositionalAlternative(alternative, target));
-  }
-  if (value.state === "UNAVAILABLE") return typeof value.reason === "string";
-  return false;
+  if (value.state !== "RANKED") return false;
+  // `cards: []` es válido: ningún héroe tiene fundamento y no se muestra nada.
+  return Array.isArray(value.cards) && value.cards.every((card) => isRankedCard(card, target)) && cardsAgreeWithPoolState(value.cards, poolState);
 }
 
 function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
@@ -493,11 +489,9 @@ export async function fetchCurrentDecision(sessionId: string, viewedPosition: Co
   return output;
 }
 
-/** Heroes the current decision actually shows (ranked cards or positional alternatives), in display order. */
+/** Heroes the current decision actually shows (ranked cards with a real ground), in display order. */
 export function currentDecisionHeroIds(output: CurrentDecisionOutput | null): HeroId[] {
   if (!output || output.decision.kind !== "ACTIONABLE") return [];
   const { candidates } = output.decision;
-  if (candidates.state === "RANKED") return candidates.cards.map((card) => card.heroId);
-  if (candidates.state === "UNRANKED_POSITIONAL") return candidates.alternatives.map((alternative) => alternative.heroId);
-  return [];
+  return candidates.cards.map((card) => card.heroId);
 }

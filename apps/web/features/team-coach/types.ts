@@ -10,7 +10,8 @@ import type { HeroId, TeamSide } from "@/features/draft/types";
 
 export type TeamPosition = 1 | 2 | 3 | 4 | 5;
 
-export type TeamCoachPositionState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAILABLE" | "FILLED" | "WAITING";
+/** RANKED con cero candidatos = ningún héroe con fundamento: la columna no muestra nada. */
+export type TeamCoachPositionState = "RANKED" | "UNAVAILABLE" | "FILLED" | "WAITING";
 /** PHASE_FALLBACK (live, and the simulator with >= 2 open positions): the position was chosen by draft-phase order because nothing tactical distinguishes them. */
 export type TeamCoachTargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT" | "PHASE_FALLBACK";
 
@@ -31,10 +32,18 @@ export interface TeamCoachStrength {
   revealed?: boolean;
 }
 
+/**
+ * FUERZA de la evidencia de una tarjeta (contrato de elegibilidad, 2026-11-04): toda tarjeta mostrada es elegible, pero solo STRONG puede ser acción
+ * principal / héroe recomendado / "ELIGE AHORA". WEAK = evidencia débil (p. ej. solo el meta): aparece con la marca "Evidencia limitada". Espejo a mano del motor.
+ */
+export type EvidenceStrength = "STRONG" | "WEAK";
+
 /** Un héroe que counterea al candidato, con su nivel. Espejo a mano del motor. */
 export interface TeamCoachCounterNote {
   heroId: number;
   level: "hard" | "medium";
+  /** El porqué de Dota de esa amenaza (el motor solo manda relaciones con porqué verificable). Opcional: un motor anterior no lo manda. */
+  why?: string;
   /** Solo en "sigue libre": su posición habitual ya la ocupa un rival revelado (menos probable). */
   takenPosition?: TeamPosition;
 }
@@ -61,7 +70,7 @@ export interface TeamCoachSteal {
 export interface TeamCoachCandidate {
   heroId: HeroId;
   rank: number;
-  /** `null` for an unranked positional alternative. */
+  /** V6 score of the card; kept nullable on the wire for older engines (the contract no longer emits score-less alternatives). */
   score: number | null;
   reasons: string[];
   /** Opcional: un motor anterior no lo manda. Ausente = sin riesgos conocidos. */
@@ -75,6 +84,8 @@ export interface TeamCoachCandidate {
   /** Opcional: un motor anterior no lo manda. Ausente = no es un robo. */
   steals?: TeamCoachSteal[];
   isPrimary: boolean;
+  /** Opcional: un motor anterior no lo manda (ausente = sin marca de evidencia limitada). */
+  evidenceStrength?: EvidenceStrength;
 }
 
 export interface TeamCoachColumn {

@@ -21,7 +21,7 @@ const COUNTERS = new Map<number, CuratedCounter[]>([[CARRY, [curated("hard", HAR
 
 describe("Safe Core opportunity -- Coach over the real kernel", () => {
   test("1. POSITIVO: los counters duros curados del core ya están baneados -> aparece el bloque, con la acción primaria intacta", async () => {
-    const { output } = await harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute();
+    const { output } = await harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute();
     expect(output!.opportunity).toBeDefined();
     expect(output!.opportunity).toMatchObject({ subtype: "SAFE_CORE", heroId: CARRY, evidence: "2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)" });
     expect(output!.opportunity!.label).toBe("Ventana de core: 2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)");
@@ -31,7 +31,7 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("1b. MIXTO: un counter baneado y otro en tu equipo -> el bloque dice 'ya no están disponibles' y nunca 'baneados' para el pick propio", async () => {
-    const h = harness({ bans: [HARD_A], heroCounters: COUNTERS });
+    const h = harness({ bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true });
     h.seal(h.side, 0, HARD_B); // our own team holds the second hard counter: the rival cannot take it
     const { output } = await h.compute();
     expect(output!.opportunity).toMatchObject({ subtype: "SAFE_CORE", heroId: CARRY });
@@ -46,7 +46,7 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
 
   test("1c. COBERTURA: un core con UN solo counter duro curado, ya baneado, NO produce la oportunidad (piso = 2)", async () => {
     const oneCounter = new Map<number, CuratedCounter[]>([[CARRY, [curated("hard", HARD_A), curated("medium", MEDIUM)]]]);
-    const { output } = await harness({ bans: [HARD_A], heroCounters: oneCounter }).compute();
+    const { output } = await harness({ bans: [HARD_A], heroCounters: oneCounter, strongGrounds: true }).compute();
     expect(output).not.toHaveProperty("opportunity");
     expect(JSON.stringify(output)).not.toContain('"opportunity"');
     // The normal Coach output is intact: only the block is withheld. (The shortlist lists heroes that can execute the
@@ -68,13 +68,13 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("2. NEGATIVO: el mismo core con un counter duro todavía disponible -> el bloque NO existe (ausente, no null)", async () => {
-    const { output } = await harness({ bans: [HARD_A], heroCounters: COUNTERS }).compute();
+    const { output } = await harness({ bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true }).compute();
     expect(output).not.toHaveProperty("opportunity");
     expect(JSON.stringify(output)).not.toContain('"opportunity"');
   });
 
   test("3. COUNTER CURADO BANEADO: el alivio queda registrado por héroe, con estado BANNED", async () => {
-    const { output } = await harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute();
+    const { output } = await harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute();
     expect(output!.opportunity!.counterEvidence).toEqual({
       kind: "COUNTER_RELIEF",
       sourceType: "CURATED",
@@ -87,8 +87,8 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("4. COUNTER NO BANEADO: si el counter sigue legalmente disponible no hay evidencia de 'counter baneado'", async () => {
-    const none = (await harness({ bans: [], heroCounters: COUNTERS }).compute()).output!;
-    const partial = (await harness({ bans: [HARD_A], heroCounters: COUNTERS }).compute()).output!;
+    const none = (await harness({ bans: [], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
+    const partial = (await harness({ bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     for (const output of [none, partial]) {
       expect(output).not.toHaveProperty("opportunity");
       expect(JSON.stringify(output)).not.toMatch(/ya no est[aá]n? disponibles?|baneados?/);
@@ -96,15 +96,15 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("5. PROCEDENCIA: el bloque declara evidencia CURATED y no afirma nada estadístico ni de parche", async () => {
-    const { output } = await harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute();
+    const { output } = await harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute();
     const block = JSON.stringify(output!.opportunity);
     expect(output!.opportunity!.counterEvidence.sourceType).toBe("CURATED");
     expect(block).not.toMatch(/STATISTICAL|7\.41|current|meta|win ?rate|%|estad[ií]stic|verificad/i);
   });
 
   test("6. ENEMIGO OCULTO: dos mundos que difieren SÓLO en un héroe rival oculto -> misma salida, byte a byte, antes del reveal", async () => {
-    const x = harness({ sessionId: "sc-twin", bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
-    const y = harness({ sessionId: "sc-twin", bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
+    const x = harness({ sessionId: "sc-twin", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
+    const y = harness({ sessionId: "sc-twin", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
     x.seal(x.enemy, 0, MEDIUM); // hidden: in world X the enemy secretly holds a curated MEDIUM counter of the carry
     y.seal(y.enemy, 0, 6);
     x.seal(x.side, 0, 2);
@@ -116,8 +116,8 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("7. REVEAL ENEMIGO: al revelarse un counter curado la decisión cambia; con otro héroe revelado se mantiene", async () => {
-    const x = harness({ sessionId: "sc-reveal", bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
-    const y = harness({ sessionId: "sc-reveal", bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
+    const x = harness({ sessionId: "sc-reveal", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
+    const y = harness({ sessionId: "sc-reveal", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
     for (const [h, hiddenHero] of [[x, MEDIUM], [y, 6]] as const) {
       h.seal(h.enemy, 0, hiddenHero);
       h.seal(h.enemy, 1, 10);
@@ -133,17 +133,17 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("8. LADO: Radiant vs Dire por sí solo NO cambia el resultado (el contexto de lado está bloqueado, Task 26)", async () => {
-    const radiant = (await harness({ side: "radiant", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute()).output!;
-    const dire = (await harness({ side: "dire", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute()).output!;
+    const radiant = (await harness({ side: "radiant", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
+    const dire = (await harness({ side: "dire", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     expect(dire.opportunity).toEqual(radiant.opportunity);
-    const radiantNo = (await harness({ side: "radiant", bans: [HARD_A], heroCounters: COUNTERS }).compute()).output!;
-    const direNo = (await harness({ side: "dire", bans: [HARD_A], heroCounters: COUNTERS }).compute()).output!;
+    const radiantNo = (await harness({ side: "radiant", bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
+    const direNo = (await harness({ side: "dire", bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     expect(radiantNo).not.toHaveProperty("opportunity");
     expect(direNo).not.toHaveProperty("opportunity");
   });
 
   test("9. HERO POOL: cambiar el pool personal (o la posición personal) NO cambia la decisión de equipo", async () => {
-    const h = harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
+    const h = harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
     const context = () => h.store.perspectiveRecommendationContext(h.id)!;
     const noPool = (await h.coach.recompute({ context: context(), playerPersonalPosition: 2 })).output!;
     const poolA = (await h.coach.recompute({ context: context(), playerPersonalPosition: 2, config: { heroPool: [CARRY, 4, 5] } })).output!;
@@ -152,13 +152,13 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
     expect(poolA.opportunity).toEqual(noPool.opportunity);
     expect(poolB.opportunity).toEqual(noPool.opportunity);
 
-    const closed = harness({ bans: [HARD_A], heroCounters: COUNTERS });
+    const closed = harness({ bans: [HARD_A], heroCounters: COUNTERS, strongGrounds: true });
     const withPool = (await closed.coach.recompute({ context: closed.store.perspectiveRecommendationContext(closed.id)!, playerPersonalPosition: 2, config: { heroPool: [CARRY] } })).output!;
     expect(withPool).not.toHaveProperty("opportunity"); // a pool never manufactures a window
   });
 
   test("10. DESVIACIÓN: el Player ignora la oportunidad y elige otro héroe legal -> aceptado, el Coach recomputa normalmente", async () => {
-    const h = harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
+    const h = harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
     const before = (await h.compute()).output!;
     expect(before.opportunity?.heroId).toBe(CARRY);
     h.seal(h.side, 0, 5); // seal() throws if the kernel rejected it; hero 5 is not the suggested carry
@@ -171,7 +171,7 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("10b. SEGUIR la oportunidad tampoco la deja colgada: con el core ya elegido el bloque desaparece", async () => {
-    const h = harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS });
+    const h = harness({ bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true });
     h.seal(h.side, 0, CARRY);
     const after = (await h.compute()).output!;
     expect(after).not.toHaveProperty("opportunity");
@@ -181,7 +181,7 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
     const noData = harness({ bans: [HARD_A, HARD_B] }); // no heroCounters at all
     expect((await noData.compute()).output).not.toHaveProperty("opportunity");
 
-    const ordinary = harness({ bans: [], heroCounters: COUNTERS });
+    const ordinary = harness({ bans: [], heroCounters: COUNTERS, strongGrounds: true });
     expect((await ordinary.compute()).output).not.toHaveProperty("opportunity");
     ordinary.seal(ordinary.side, 0, 2);
     expect((await ordinary.compute()).output).not.toHaveProperty("opportunity");
@@ -192,7 +192,7 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("la oportunidad es informativa: con o sin ella, primaryAction y shortlist son idénticos", async () => {
-    const withData = (await harness({ sessionId: "sc-info", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute()).output!;
+    const withData = (await harness({ sessionId: "sc-info", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     const without = (await harness({ sessionId: "sc-info", bans: [HARD_A, HARD_B] }).compute()).output!;
     expect(withData.opportunity).toBeDefined();
     expect(without.primaryAction).toEqual(withData.primaryAction);
@@ -201,14 +201,14 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
   });
 
   test("Safe Core no toca V6: el RecommendationSetV2 es idéntico con y sin evidencia curada inyectada", async () => {
-    const withData = await harness({ sessionId: "sc-v6", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute();
+    const withData = await harness({ sessionId: "sc-v6", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute();
     const without = await harness({ sessionId: "sc-v6", bans: [HARD_A, HARD_B] }).compute();
     expect(JSON.stringify(withData.recommendationSet)).toBe(JSON.stringify(without.recommendationSet));
   });
 
   test("el mismo estado visible produce el mismo bloque: determinismo", async () => {
-    const a = (await harness({ sessionId: "sc-det", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute()).output!;
-    const b = (await harness({ sessionId: "sc-det", bans: [HARD_A, HARD_B], heroCounters: COUNTERS }).compute()).output!;
+    const a = (await harness({ sessionId: "sc-det", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
+    const b = (await harness({ sessionId: "sc-det", bans: [HARD_A, HARD_B], heroCounters: COUNTERS, strongGrounds: true }).compute()).output!;
     expect(JSON.stringify(a.opportunity)).toBe(JSON.stringify(b.opportunity));
   });
 });

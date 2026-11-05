@@ -61,15 +61,15 @@ function mockSuggestionsWithPool(
           explanation: "fixture",
           sampleSize: 50,
         },
-        // motivo propio (regla "sin motivo no se recomienda", 2026-11-02); la suma de pesos no cambia
+        // fundamento propio (meta vigente con muestra suficiente, contrato de elegibilidad 2026-11-03); la suma de pesos no cambia
         {
-          signal: "team_synergy" as const,
+          signal: "patch_meta" as const,
           raw: 0.6,
           normalized: 60,
           evidenceConfidence: 1,
           weighted: 1,
-          explanation: "fixture",
-          sampleSize: 200,
+          explanation: "Winrate de 60.0% este parche en bracket bajo/medio",
+          sampleSize: 5000,
         },
         ...(item.hero === 60 ? [{
           signal: "counter" as const,

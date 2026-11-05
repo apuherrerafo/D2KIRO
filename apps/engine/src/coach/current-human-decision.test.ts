@@ -9,6 +9,7 @@ import { heroPoolFitScorer } from "../signals/hero-pool-fit";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "../server/routes/protocol-sessions";
 import { RANKING_INVALIDATING_REASONS, deriveCandidateResult } from "./current-human-decision";
+import { STRONG_OPENER, strongOpenerCounters } from "./session-harness.fixtures";
 import type { CurrentHumanDecision, RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // Product Semantics Recovery WP2 -- CurrentHumanDecision over the REAL store + REAL routes + REAL
@@ -48,7 +49,7 @@ function fixtureCompute(options: FixtureOptions = {}): ComputeSuggestionsForDraf
     const suggestions: Suggestion[] = ordered.slice(0, 12).map((hero, index) => {
       const signals: SignalContribution[] = [
         { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 99 - index, explanation: `posición de ${hero}`, sampleSize: 100 },
-        { signal: "team_synergy", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: `pareja de ${hero}`, sampleSize: 200 }, // motivo propio (regla 2026-11-02); suma de pesos intacta
+        { signal: "patch_meta", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: `pareja de ${hero}`, sampleSize: 5000 }, // fundamento propio (meta vigente con muestra suficiente, contrato 2026-11-03); suma de pesos intacta
       ];
       if (accountId !== null && options.pool?.includes(hero)) {
         signals.push({ signal: "hero_pool_fit", raw: 1, normalized: 100, evidenceConfidence: 1, weighted: 1, explanation: "En tu pool de héroes", sampleSize: 1, applicable: true });
@@ -73,7 +74,11 @@ function jsonRequest(body: unknown): Request {
 async function session(controlledPositions: Position[], options: FixtureOptions & { side?: TeamSide; humanPosition?: Position; heroPositions?: HeroPositions; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]> } = {}) {
   const side = options.side ?? "radiant";
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: options.heroPositions ?? HERO_POSITIONS, ...(options.heroCounters ? { heroCounters: options.heroCounters } : {}) });
+  const positions = options.heroPositions ?? HERO_POSITIONS;
+  // Fundamento FUERTE neutro de estos datos de prueba (ver `strongOpenerCounters`): sin él ningún héroe sería elegible con evidencia fuerte.
+  const ownCounters = options.heroCounters !== undefined;
+  const heroCounters = ownCounters ? options.heroCounters : strongOpenerCounters(Object.keys(positions).map(Number));
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: positions, heroCounters });
   const created = await routes.post(jsonRequest({
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
@@ -86,7 +91,7 @@ async function session(controlledPositions: Position[], options: FixtureOptions 
   }));
   if (created.status !== 201) throw new Error(`create failed ${created.status}`);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
+  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: ownCounters ? options.bans ?? [] : [...(options.bans ?? []), STRONG_OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
   const enemy: TeamSide = side === "radiant" ? "dire" : "radiant";
   return { store, routes, sessionId, side, enemy };
 }
@@ -105,9 +110,7 @@ function actionable(output: RecommendationOutputV4): Extract<CurrentHumanDecisio
 }
 
 function visibleHeroes(decision: Extract<CurrentHumanDecision, { kind: "ACTIONABLE" }>): number[] {
-  if (decision.candidates.state === "RANKED") return decision.candidates.cards.map((card) => card.heroId);
-  if (decision.candidates.state === "UNRANKED_POSITIONAL") return decision.candidates.alternatives.map((alternative) => alternative.heroId);
-  return [];
+  return decision.candidates.cards.map((card) => card.heroId);
 }
 
 describe("WP2 -- Solo Pos1..Pos5", () => {
@@ -215,8 +218,8 @@ describe("WP2 -- Party5", () => {
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 4, degraded: ["no_signal_available"] });
     const decision = actionable(await v4(s));
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetPosition).toBe(5); // no ranking evidence -> the habitual order, labelled as such
-    expect(decision.targetRationale).toContain("Vista sugerida");
+    expect(decision.targetPosition).toBe(4); // sin ninguna columna con héroe elegible no hay prioridad: la vista cae a tu posición, sin presentarse como estratégica
+    expect(decision.candidates.cards).toEqual([]); // y sin héroes: un ranking degradado no se rescata con relleno
   });
 });
 
@@ -229,32 +232,29 @@ describe("WP2 -- estado de candidatos explícito", () => {
     expect(decision.candidates.degradations.some((d) => RANKING_INVALIDATING_REASONS.has(d.reason))).toBe(false);
   });
 
-  test("UNRANKED_POSITIONAL: V6 caído -> alternativas legales de la posición, SIN rank/score/confidence en el wire", async () => {
+  test("V6 caído -> cero tarjetas: ni alternativas legales de relleno, ni rank/score/confidence en el wire", async () => {
     const s = await session([2], { throws: true });
     const response = await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v4"));
     const raw = await response.text();
     const decision = actionable((JSON.parse(raw) as { output: RecommendationOutputV4 }).output);
-    expect(decision.candidates.state).toBe("UNRANKED_POSITIONAL");
-    if (decision.candidates.state !== "UNRANKED_POSITIONAL") return;
-    expect(decision.candidates.alternatives.length).toBeGreaterThan(0);
-    expect(decision.candidates.alternatives.every((alternative) => heroPosition(alternative.heroId) === 2 && alternative.position === 2)).toBe(true);
-    for (const alternative of decision.candidates.alternatives) {
-      expect(Object.keys(alternative).sort()).toEqual(["heroId", "position"]);
-    }
+    expect(decision.candidates.state).toBe("RANKED");
+    expect(decision.candidates.cards).toEqual([]);
+    expect(Object.keys(decision.candidates).sort()).toEqual(["cards", "degradations", "poolCards", "state", "targetPosition"]);
+    expect(raw).not.toContain('"alternatives"');
     expect(raw).not.toContain('"rank"');
     expect(raw).not.toContain('"confidence"');
   });
 
   test("NEGATIVO: 'ranking no disponible' + cartas rankeadas es irrepresentable -- no_signal_available nunca produce RANKED", async () => {
     const decision = actionable(await v4(await session([2], { degraded: ["no_signal_available"] })));
-    expect(decision.candidates.state).not.toBe("RANKED");
+    expect(decision.candidates.cards).toEqual([]);
     expect(decision.candidates.degradations.some((d) => d.reason === "no_signal_available")).toBe(true);
   });
 
-  test("UNAVAILABLE: ningún héroe creíble y legal para el objetivo", async () => {
+  test("ningún héroe creíble y legal para el objetivo: cero tarjetas y ningún mensaje", async () => {
     const noPos2: HeroPositions = Object.fromEntries(Object.entries(HERO_POSITIONS).filter(([hero]) => heroPosition(Number(hero)) !== 2));
     const decision = actionable(await v4(await session([2], { heroPositions: noPos2 })));
-    expect(decision.candidates.state).toBe("UNAVAILABLE");
+    expect(decision.candidates.cards).toEqual([]);
     expect(decision.targetPosition).toBe(2);
   });
 });
@@ -464,7 +464,7 @@ describe("deriveCandidateResult -- resolved role vs viewed position", () => {
     const recommendation = {
       actions: [{ hero: FLEX }],
       roleImpact: { [FLEX]: impact },
-      signalsByHero: { [FLEX]: [{ signal: "team_synergy", raw: 0.6, weighted: 1, explanation: "Pareja", sampleSize: 200, applicable: true }] }, // motivo propio (regla "sin motivo no se recomienda", 2026-11-02)
+      signalsByHero: { [FLEX]: [{ signal: "patch_meta", raw: 0.6, weighted: 1, explanation: "Pareja", sampleSize: 5000, applicable: true }] }, // motivo propio (regla "sin motivo no se recomienda", 2026-11-02)
       risks: [],
       confidence: "media",
     };
@@ -478,8 +478,7 @@ describe("deriveCandidateResult -- resolved role vs viewed position", () => {
   for (const status of ["LIKELY", "CONFIRMED_FORCED"] as const) {
     test(`${status} resuelto a Pos2, objetivo Pos4 -> NO es carta rankeada de Pos4`, () => {
       const result = derive(status, 2, 4);
-      expect(result.state).not.toBe("RANKED");
-      expect(result.state).toBe("UNRANKED_POSITIONAL");
+      expect(result.cards).toEqual([]);
     });
 
     test(`${status} resuelto a Pos4, objetivo Pos4 -> sigue elegible`, () => {
@@ -524,8 +523,8 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
     degradations: [],
   } as never;
 
-  function derive(view: never) {
-    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view, heroPositions: positions, heroCounters: counters, heroSynergies: synergies, personalPoolApplied: false });
+  function derive(view: never, activePool?: number[]) {
+    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view, heroPositions: positions, heroCounters: counters, heroSynergies: synergies, personalPoolApplied: false, activePool });
     if (result.state !== "RANKED") throw new Error(`se esperaba RANKED, salió ${result.state}`);
     return result.cards[0]!;
   }
@@ -536,7 +535,7 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
       ownPicks: [{ heroId: ALLY, visibility: "REVEALED" }],
       enemyPicks: [{ heroId: ENEMY, visibility: "REVEALED" }],
     } as never);
-    expect(card.context.opening.openedBy).toEqual([{ heroId: BANNED_COUNTER, level: "hard" }]);
+    expect(card.context.opening.openedBy).toEqual([{ heroId: BANNED_COUNTER, level: "hard", why: "fixture" }]);
     expect(card.context.strengths).toEqual([{ vsHeroId: ENEMY, level: "hard", why: "Orchid lo silencia", revealed: true }]);
     expect(card.context.synergies).toEqual([{ withHeroId: ALLY, why: "Combo de fixture" }]);
     expect(card.hideRationale).toBe(true); // "Por su posición" se calla porque hay razones reales
@@ -551,23 +550,20 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
     expect(card.context.strengths).toEqual([]);
   });
 
-  test("sin bans, sin rivales revelados ni aliados: contexto vacío (la frase de posición se queda)", () => {
-    const card = derive({ bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never);
-    expect(card.context.opening).toEqual({ openedBy: [], stillFree: [] });
-    expect(card.context.strengths).toEqual([]);
-    expect(card.context.synergies).toEqual([]);
-    expect(card.hideRationale).toBe(false); // sin razón real, la frase de posición se queda
+  test("sin bans, sin rivales revelados ni aliados, y con solo la posición: no hay tarjeta (contrato de elegibilidad, 2026-11-03: ni el pool la habilita)", () => {
+    const view = { bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never;
+    for (const activePool of [undefined, [HERO]]) {
+      const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view, heroPositions: positions, heroCounters: counters, heroSynergies: synergies, personalPoolApplied: false, activePool });
+      expect(result.cards).toEqual([]);
+    }
   });
 
-  test("un counter baneado + otro FUERTE todavía libre: solo 'Ojo' (stillFree) y SIN razón positiva -> la frase de posición se queda (igual que el tablero)", () => {
+  test("un counter baneado + otro FUERTE todavía libre: solo 'Ojo' (stillFree) y SIN razón positiva -> no abre al héroe: no hay tarjeta", () => {
     const FREE_HARD = 302;
     const cs: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[HERO, [{ vs: BANNED_COUNTER, level: "hard", why: "fixture" }, { vs: FREE_HARD, level: "hard", why: "fixture" }]]]);
-    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view: { bannedHeroes: [BANNED_COUNTER], ownPicks: [], enemyPicks: [] } as never, heroPositions: positions, heroCounters: cs, personalPoolApplied: false });
-    if (result.state !== "RANKED") throw new Error("se esperaba RANKED");
-    const card = result.cards[0]!;
-    expect(card.context.opening.openedBy).toEqual([]);
-    expect(card.context.opening.stillFree).toEqual([{ heroId: FREE_HARD, level: "hard" }]);
-    expect(card.hideRationale).toBe(false);
+    const input = { targetPosition: 4 as const, targetRanking: ranking, view: { bannedHeroes: [BANNED_COUNTER], ownPicks: [], enemyPicks: [] } as never, heroPositions: positions, heroCounters: cs, personalPoolApplied: false };
+    expect(deriveCandidateResult(input).cards).toEqual([]); // el "Ojo" solo no es un fundamento
+    expect(deriveCandidateResult({ ...input, activePool: [HERO] }).cards).toEqual([]); // y el pool tampoco
   });
 });
 
@@ -599,8 +595,13 @@ describe("Safe Core en V4 -- informativa, nunca dueña de la acción", () => {
   });
 
   test("C. la oportunidad NO mueve objetivo, vista, capacidad ni el orden de candidatos", async () => {
-    const withWindow = await v4(await session([1, 2, 3, 4, 5], { bans: [201, 202], heroCounters: COUNTERS }));
-    const without = await v4(await session([1, 2, 3, 4, 5], { bans: [201, 202] }));
+    // Mismos fundamentos fuertes de fondo (el opener neutro) en ambos; SOLO cambia si los counters curados del core hacen una ventana de Safe Core.
+    const open = strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number));
+    const merged = new Map(open);
+    for (const [hero, entries] of COUNTERS) merged.set(hero, [...(open.get(hero) ?? []), ...entries]);
+    const bans = [201, 202, STRONG_OPENER];
+    const withWindow = await v4(await session([1, 2, 3, 4, 5], { bans, heroCounters: merged }));
+    const without = await v4(await session([1, 2, 3, 4, 5], { bans, heroCounters: open }));
     expect(withWindow.opportunity).toBeDefined();
     expect(without).not.toHaveProperty("opportunity");
     const a = actionable(withWindow);

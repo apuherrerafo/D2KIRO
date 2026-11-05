@@ -4,7 +4,15 @@ import { buildCoachObservableState } from "./observable-state";
 import { deriveRevealStrategy } from "./reveal-strategy";
 import { translateToRecommendationOutputV3 } from "./recommendation-output-v3";
 import { computeRoleImpact } from "../recommendation/role-impact";
-import { hidden, known, recSet, revealed, roleOnlyHero, view } from "./test.fixtures";
+import { fixtureStrongPairs, hidden, known, recSet, revealed, roleOnlyHero as positionOnlyHero, signal, view, type HeroFixture } from "./test.fixtures";
+
+// Contrato de elegibilidad (2026-11-03/04): el Coach v3 solo lista héroes con fundamento y solo una evidencia FUERTE sostiene la acción principal. Estas
+// pruebas miden la colisión de roles, no el contrato, así que cada héroe candidato trae el mismo fundamento fuerte neutro (una pareja curada con porqué
+// con los aliados de la vista). El contrato se prueba en live-contract.coach.test.ts.
+const roleOnlyHero = (heroId: number, position: 1 | 2 | 3 | 4 | 5, weighted?: number): HeroFixture => positionOnlyHero(heroId, position, weighted);
+const STRONG_PAIRS = fixtureStrongPairs(Array.from({ length: 300 }, (_, index) => index + 1), [101, 102, 103, 104, 105, 106, 107, 201, 202, 203, 204, 64, 111, 45, 119]);
+const translate = (set: Parameters<typeof translateToRecommendationOutputV3>[0], strategy: Parameters<typeof translateToRecommendationOutputV3>[1], state: Parameters<typeof translateToRecommendationOutputV3>[2], context: Parameters<typeof translateToRecommendationOutputV3>[3], config: Parameters<typeof translateToRecommendationOutputV3>[4] = {}) =>
+  translateToRecommendationOutputV3(set, strategy, state, context, { heroSynergies: STRONG_PAIRS, ...config })!;
 
 const POSITIONS_DATASET: HeroPositions = {
   // Hero 101 and 102 are Pos2-only
@@ -61,7 +69,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
     expect(strategy.rationale).not.toContain("es la posición que tu equipo aún no cubre");
 
     // 4. RecommendationOutputV3 surfaces collision and labels primary action as recovery
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
@@ -100,7 +108,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
 
     expect(strategy.rationale).not.toContain("Colisión de roles");
 
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
@@ -137,7 +145,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
       },
     )!;
 
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
@@ -240,7 +248,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
     expect(strategy.rationale).toContain("Colisión de roles en tu equipo");
     expect(strategy.rationale).toContain("Como recuperación");
 
-    const output = translateToRecommendationOutputV3(
+    const output = translate(
       candidatesSet,
       strategy,
       coachState,
