@@ -513,7 +513,7 @@ export function CopilotPanel({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
       <span className="text-heading text-content-primary">Copilot</span>
-      {/* Con `contractOnly` un coach nulo significa "ningún héroe elegible": no hay nada que calcular ni que explicar (nunca "Calculando…" para siempre). */}
+      {/* Con `contractOnly` un coach nulo significa "ningún héroe con fundamento" (los de evidencia limitada SÍ llegan, marcados): no hay nada que calcular ni que explicar (nunca "Calculando…" para siempre). */}
       <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations || (contractOnly && previewStatus === "ready")} onRetry={onRetryPreview} />
       {allDegradations.length > 0 && <DegradationsNotice degradations={allDegradations} />}
       {(legacy || coach) && <DecisionContextNotice decisionContext={decisionContext} />}

@@ -67,6 +67,11 @@ export interface CoachOutput {
   schema: "recommendation-output/v3";
   sessionId: string;
   primaryAction: { strategy: CoachStrategy; label: string };
+  /**
+   * Espejo de `actionSupport` del motor. LIMITED = solo hay héroes con evidencia limitada (o ninguno ejecuta la acción): la lista se muestra pero la acción
+   * NO es una recomendación y no se pinta. Ausente (motor anterior) = STRONG, el comportamiento de siempre.
+   */
+  actionSupport?: "STRONG" | "LIMITED";
   shortlist: CoachHeroCard[];
   roleCollision?: CoachRoleCollision;
   /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
@@ -221,7 +226,9 @@ function isOpportunity(value: unknown): boolean {
 
 function isPersonalHeroView(value: unknown): boolean {
   return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && (value.seatCovered === undefined || typeof value.seatCovered === "boolean") && Array.isArray(value.heroes)
-    && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean");
+    && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean"
+      && (hero.evidenceStrength === undefined || isEvidenceStrength(hero.evidenceStrength))
+      && (hero.context === undefined || isCardDraftContext(hero.context)));
 }
 
 function isRoleCollision(value: unknown): value is CoachRoleCollision {
@@ -234,6 +241,7 @@ function isRoleCollision(value: unknown): value is CoachRoleCollision {
 export function parseCoachOutput(value: unknown): CoachOutput | null {
   if (!isRecord(value) || value.schema !== "recommendation-output/v3" || typeof value.sessionId !== "string") return null;
   if (!isRecord(value.primaryAction) || !isStrategy(value.primaryAction.strategy) || typeof value.primaryAction.label !== "string") return null;
+  if (value.actionSupport !== undefined && value.actionSupport !== "STRONG" && value.actionSupport !== "LIMITED") return null;
   if (!Array.isArray(value.shortlist) || !value.shortlist.every(isHeroCard)) return null;
   if (!isMeta(value.meta)) return null;
   if (value.opportunity !== undefined && !isOpportunity(value.opportunity)) return null;

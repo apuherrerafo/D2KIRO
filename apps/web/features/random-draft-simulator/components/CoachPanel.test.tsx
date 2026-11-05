@@ -412,3 +412,35 @@ test("CoachPanel: enviar feedback positivo desde una carta de la shortlist trans
 });
 
 
+
+// Decisión del dueño (2026-11-05): lo de evidencia limitada se muestra, marcado, pero NUNCA como "Qué hacer ahora".
+test("actionSupport LIMITED: la lista con 'Evidencia limitada' se muestra y NO hay 'Qué hacer ahora' ni héroe nombrado", () => {
+  const output = { ...coach({ kind: "REVEAL_HERO", heroId: 7, position: 5, rationale: "x" }, [card(7, { evidenceStrength: "WEAK" }), card(8, { evidenceStrength: "WEAK" })]), actionSupport: "LIMITED" as const };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("coach-primary-action")).toBeNull();
+  expect(view.queryByTestId("coach-named-hero")).toBeNull();
+  expect(view.container.textContent).not.toContain("Qué hacer ahora");
+  expect(view.getAllByTestId("coach-hero-card")).toHaveLength(2);
+  expect(view.getByTestId("coach-shortlist").textContent).toContain("Opciones con evidencia limitada");
+  expect(view.container.textContent).toContain("Evidencia limitada");
+});
+
+test("actionSupport LIMITED con lista vacía y vista personal: solo viaja la vista personal (sin cartel de relleno)", () => {
+  const output: CoachOutput = {
+    ...coach(ROLE_ACTION, []),
+    actionSupport: "LIMITED",
+    personalHeroView: { position: 2, positionLabel: "Midlane (Pos 2)", heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: false, evidenceStrength: "WEAK" }] },
+  };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  expect(view.getByTestId("coach-personal-hero-view")).toBeTruthy();
+  expect(view.queryByTestId("coach-primary-action")).toBeNull();
+  expect(view.queryByTestId("coach-shortlist")).toBeNull();
+});
+
+test("actionSupport STRONG o ausente (motor anterior): 'Qué hacer ahora' como siempre", () => {
+  const strong = render(<CoachPanel coach={{ ...coach(ROLE_ACTION), actionSupport: "STRONG" }} heroCatalog={new Map()} />);
+  expect(strong.getByTestId("coach-primary-action")).toBeTruthy();
+  strong.unmount();
+  const legacy = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(legacy.getByTestId("coach-primary-action")).toBeTruthy();
+});

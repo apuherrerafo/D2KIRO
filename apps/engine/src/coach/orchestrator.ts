@@ -218,6 +218,7 @@ export class CoachOrchestrator {
           // behaviour exactly as it was. Non-null for an AP Simulator session: every human-facing
           // position claim below must come from this set, never from ALL_POSITIONS.
           humanOpenPositions: input.context.humanOpenPositions,
+          necessarilyOccupied: input.context.ownPositionOccupancy?.necessarilyOccupied,
         })
       : null;
     // "Reveal Pos P": the shortlist's candidate universe is decided BEFORE ranking (heroes credibly played at P), like the personal view.
@@ -228,6 +229,8 @@ export class CoachOrchestrator {
       ? translateToRecommendationOutputV3(recommendationSet, strategy, coachState, decisionContext, {
           ...input.config,
           actionRecommendationSet,
+          // La vista personal con contenido viaja aunque no haya lista de equipo ni recomendación fuerte (decisión del dueño, 2026-11-05).
+          keepWithoutShortlist: personal !== null && (personal.view.seatCovered || personal.view.heroes.length > 0),
           heroPositions: this.deps.heroPositions,
           heroCounters: this.deps.heroCounters,
           heroSynergies: this.deps.heroSynergies,

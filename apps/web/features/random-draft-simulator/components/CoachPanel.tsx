@@ -119,6 +119,8 @@ function PrimaryRationale({ strategy, isCollision }: { strategy: CoachStrategy; 
 }
 
 function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
+  // Decisión del dueño (2026-11-05): la evidencia limitada se muestra en la lista, pero nunca como "Qué hacer ahora". El motor dice cuándo (`actionSupport`).
+  if (coach.actionSupport === "LIMITED") return null;
   const { strategy, label } = coach.primaryAction;
   const isCollision = coach.roleCollision?.infeasible ?? false;
   return (
@@ -386,12 +388,17 @@ export function CoachRoleBeliefs({ roleBeliefs, heroCatalog, onAssignOwnPosition
   </div>;
 }
 
+// Con acción LIMITED la lista no es "para esta posición": son las opciones con fundamento, y cada tarjeta lleva su propia marca de evidencia.
+function shortlistTitle(coach: CoachOutput, isCollision: boolean): string {
+  if (isCollision) return "Opciones de recuperación";
+  if (coach.actionSupport !== "LIMITED") return SHORTLIST_TITLES[coach.primaryAction.strategy.kind];
+  return coach.shortlist.every((card) => card.evidenceStrength === "WEAK") ? "Opciones con evidencia limitada" : "Opciones de héroe";
+}
+
 function Shortlist({ coach, heroCatalog }: ShortlistProps) {
   if (coach.shortlist.length === 0) return null;
   const isCollision = coach.roleCollision?.infeasible ?? false;
-  const title = isCollision
-    ? "Opciones de recuperación"
-    : SHORTLIST_TITLES[coach.primaryAction.strategy.kind];
+  const title = shortlistTitle(coach, isCollision);
   const rulesetVersion =
     coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null;
   return (

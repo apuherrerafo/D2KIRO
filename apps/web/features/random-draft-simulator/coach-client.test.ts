@@ -234,3 +234,21 @@ describe("parseCoachOutput -- optional readiness and degradations structural val
     expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: [{ reason: "x", detail: 123 }] } }))).toBeNull();
   });
 });
+
+describe("parseCoachOutput -- actionSupport (decisión del dueño, 2026-11-05)", () => {
+  test("STRONG y LIMITED son válidos, ausente (motor anterior) también; cualquier otro valor se rechaza", () => {
+    expect(parseCoachOutput(coachBody({ actionSupport: "STRONG" }))?.actionSupport).toBe("STRONG");
+    expect(parseCoachOutput(coachBody({ actionSupport: "LIMITED" }))?.actionSupport).toBe("LIMITED");
+    expect(parseCoachOutput(coachBody())).not.toBeNull();
+    expect(parseCoachOutput(coachBody({ actionSupport: "WEAK" }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ actionSupport: 1 }))).toBeNull();
+  });
+
+  test("la vista personal también se valida en el borde: evidenceStrength o contexto inválidos se rechazan; los válidos y los ausentes pasan", () => {
+    const personal = (hero: Record<string, unknown>) => ({ position: 2, positionLabel: "Midlane (Pos 2)", heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: false, ...hero }] });
+    expect(parseCoachOutput(coachBody({ personalHeroView: personal({}) }))).not.toBeNull();
+    expect(parseCoachOutput(coachBody({ personalHeroView: personal({ evidenceStrength: "WEAK" }) }))).not.toBeNull();
+    expect(parseCoachOutput(coachBody({ personalHeroView: personal({ evidenceStrength: "MAYBE" }) }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ personalHeroView: personal({ context: "no es un objeto" }) }))).toBeNull();
+  });
+});
