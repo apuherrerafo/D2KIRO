@@ -13,15 +13,16 @@ async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
 // Contrato de elegibilidad (2026-11-03/04): "no hay recomendaciones" es un estado válido y NO es "el simulador está roto". Este modo lo fuerza de forma
 // determinista (el motor responde, pero sin ninguna tarjeta ni héroe recomendado en la decisión V4 ni en el tablero) para probar que la pantalla no se
 // rompe, no inventa héroes ni mensajes, y que el draft se completa igual por el camino manual con las mismas verificaciones de picks, bans y legalidad.
-async function answerWithoutAnyRecommendation(page: Page): Promise<() => number> {
-  let rewritten = 0;
+async function answerWithoutAnyRecommendation(page: Page): Promise<() => { decision: number; board: number }> {
+  let decisionRewrites = 0;
+  let boardRewrites = 0;
   await page.route(/\/recommendations\?format=v4/, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     if (body?.output?.decision?.candidates) {
       body.output.decision.candidates.cards = [];
       body.output.decision.candidates.poolCards = [];
-      rewritten += 1;
+      decisionRewrites += 1;
     }
     await route.fulfill({ response, json: body });
   });
@@ -31,14 +32,14 @@ async function answerWithoutAnyRecommendation(page: Page): Promise<() => number>
     if (body?.currentDecision) Object.assign(body.currentDecision, { recommendedPosition: null, recommendedHeroId: null, reason: "" });
     for (const column of body?.positions ?? []) Object.assign(column, { top: [], poolTop: [], primaryHeroId: null });
     body.goldenCard = null;
-    rewritten += 1;
+    boardRewrites += 1;
     await route.fulfill({ response, json: body });
   });
-  return () => rewritten;
+  return () => ({ decision: decisionRewrites, board: boardRewrites });
 }
 
 async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: string, options: { withoutAnyRecommendation?: boolean } = {}): Promise<void> {
-  const rewrittenResponses = options.withoutAnyRecommendation ? await answerWithoutAnyRecommendation(page) : () => 0;
+  const rewrittenResponses = options.withoutAnyRecommendation ? await answerWithoutAnyRecommendation(page) : () => ({ decision: 0, board: 0 });
   await page.goto("/simulator");
   const startButton = page.getByRole("button", { name: "Iniciar Draft" });
   // Neither side nor position is preselected: starting is impossible until both are chosen.
@@ -101,7 +102,11 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   expect(enemy).toHaveLength(5);
   expect(new Set([...own, ...enemy]).size).toBe(10);
   await expect(page.getByText("El motor no está recibiendo este draft.")).toHaveCount(0);
-  if (options.withoutAnyRecommendation) expect(rewrittenResponses(), "the zero-recommendation answers were really served").toBeGreaterThan(4);
+  if (options.withoutAnyRecommendation) {
+    // Both interceptions really served answers (neither can be silently broken while the other makes the count pass).
+    expect(rewrittenResponses().decision, "decision (V4) answers served with zero cards").toBeGreaterThan(2);
+    expect(rewrittenResponses().board, "board answers served with every column empty").toBeGreaterThan(2);
+  }
 }
 
 test("AP Ranked Roles: Radiant + Midlane completa 5+5 con los 5 picks del Player", async ({ page }) => {
@@ -143,7 +148,10 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   // NEW_PRODUCT_CONTRACT: navigation moves only the VIEWED position (the selector highlights it); a recommendation, when the Coach announces one,
   //   is untouched and restated by the "Estás viendo X / Coach sugiere Y" notice; with no announced recommendation there is no such notice.
   const selector = page.getByRole("group", { name: "Posición para el próximo pick" });
+  // The viewed position is refetched with `&target=chosen`: wait for THAT answer before reading anything, so the checks below cannot read the previous decision.
+  const navigated = page.waitForResponse((response) => new RegExp(`recommendations\\?format=v4&target=${chosen}\\b`).test(response.url()), { timeout: 30_000 });
   await selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) }).click();
+  await navigated;
   await expect(selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) })).toHaveClass(/border-accent-primary/, { timeout: 30_000 });
   const afterNavigation = await assertTargetContract(page, chosen);
   expect(afterNavigation.position).toBe(firstTarget); // the recommendation (or its absence) did not move with the view
@@ -160,7 +168,8 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
 
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1", { timeout: 30_000 });
   await expect(page.getByTestId("pending-human-positions")).not.toContainText(`Pos${chosen}`);
-  await expect(page.getByTestId("current-decision-panel")).toBeAttached({ timeout: 30_000 });
+  // The pick recomputes the decision (`OWN_PICK_CONFIRMED`): read the cards only after that answer replaced the previous one.
+  await expect(page.getByTestId("current-decision-panel")).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
   const cardsAfter = await decisionCardIds(page);
   // The previous (Pos`chosen`) card set is gone: a new view owns the list now. A flex hero may legitimately be credible at both positions, so the
   // check is on the set, not on each hero. (With no recommendation before there is nothing stale to show; the section must simply not be an empty frame.)

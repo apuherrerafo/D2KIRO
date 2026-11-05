@@ -176,6 +176,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     await configureAndStart(page, { side: "Radiant", position: "Posición 2 — Midlane", seed: "WAVE1RAD", banNames: ["Zeus", "Lina", "Sniper", "Kunkka"] });
     await expect(page.getByText(ROUND_HEADING(1, 2))).toBeVisible({ timeout: 60_000 });
     const advice = await snapshotOfCoach(page);
+    annotate("advice-shortlist-size", String(advice.shortlist.length)); // 0 => the "ignore the advice" path is trivially true this run (recorded, not hidden)
     // Eligibility contract (2026-11-03/04): the Coach may have NO recommendation at this state (no hero with a verifiable ground); then every legal hero is
     // "outside its advice" and the checks below (accepted, no 'wrong choice', Coach recomputes) still certify the same thing.
 

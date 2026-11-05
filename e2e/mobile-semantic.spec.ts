@@ -37,8 +37,9 @@ test("mobile semantic: Solo Pos2 renders the single V4 decision for Pos2, source
   expect(decision.roundCapacity).toBe(1);
   expect(decision.targetPosition).toBe(2);
   expect(decision.viewedPosition).toBe(2);
-  const expected = decision.candidates.state === "RANKED" ? decision.candidates.cards! : decision.candidates.alternatives ?? [];
-  expect(expected.length).toBeGreaterThan(0);
+  // Eligibility contract (2026-11-03/04): the only pending position may legitimately have NO card (no hero with a verifiable ground); the cards on
+  // screen must still be exactly the ones the engine answered, all of them for the viewed position.
+  const expected = decision.candidates.cards ?? [];
   expect(expected.every((candidate) => candidate.position === 2)).toBe(true);
 
   await expect(page.getByTestId("copilot-panel")).toBeVisible();

@@ -137,7 +137,7 @@ test.describe("AP Ranked Roles -- Acceptance Journeys", () => {
       { timeout: 15_000 },
     );
 
-    await page.locator("button[title]:not([disabled])").first().click();
+    await pickAnyAvailableHero(page); // a recommended card, or the manual search when the Coach has no recommendation at all
     const accepted = await commandResponse.then((response) => response.json() as Promise<{
       accepted: boolean;
       view: { rankedAp: { phase: string } | null };

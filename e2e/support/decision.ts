@@ -44,6 +44,11 @@ export async function assertTargetContract(page: Page, viewedPosition: number): 
   } else {
     await expect(notice).toHaveCount(0);
   }
+  // A default (non-STRATEGIC) view is only announced when there is nothing to choose between ("Única posición pendiente"): never as an opening hint among several.
+  if (basis !== "STRATEGIC") {
+    const pending = page.getByTestId("pending-human-positions");
+    if ((await pending.count()) > 0) expect(((await pending.innerText()).match(/Pos\d/g) ?? []).length).toBe(1);
+  }
   return { position, basis };
 }
 
