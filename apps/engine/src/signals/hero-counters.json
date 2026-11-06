@@ -95,7 +95,7 @@
     {
       "vs": 54,
       "level": "hard",
-      "why": "Feast daña y cura segun tu vida maxima, mientras Rage reduce mucho el impacto de Battle Hunger y del control aliado"
+      "why": "Feast daña y cura según la vida máxima del objetivo, y mientras dura Rage (3 a 6 s) Battle Hunger no le afecta. Berserker's Call y Culling Blade sí atraviesan Rage"
     },
     {
       "vs": 98,
@@ -1249,7 +1249,7 @@
     {
       "vs": 54,
       "level": "medium",
-      "why": "Feast pega según la vida máxima de Pudge, que crece con Flesh Heap, y Rage neutraliza casi todo el daño de Pudge"
+      "why": "Feast pega y cura según la vida máxima de Pudge, que crece con Flesh Heap; mientras dura Rage (3 a 6 s) Rot no le afecta, pero Meat Hook y Dismember atraviesan Rage"
     },
     {
       "vs": 36,
@@ -1398,7 +1398,7 @@
     {
       "vs": 22,
       "level": "hard",
-      "why": "Lightning Bolt da True Sight dentro de Sand Storm y ademas rompe Blink a distancia, anulando dos pilares de tu iniciación"
+      "why": "Lightning Bolt te deja con True Sight 5 s, así que Sand Storm no te esconde; y si te pega, no puedes usar Blink Dagger durante 3 s. No atraviesa BKB"
     },
     {
       "vs": 54,
@@ -1465,7 +1465,7 @@
     {
       "vs": 60,
       "level": "medium",
-      "why": "Crippling Fear silencia a Storm Spirit hasta 8 segundos de noche y sin Ball Lightning no puede escapar"
+      "why": "Crippling Fear silencia a Storm Spirit hasta 6 segundos de noche y sin Ball Lightning no puede escapar"
     },
     {
       "vs": 101,
@@ -2440,7 +2440,7 @@
     {
       "vs": 131,
       "level": "medium",
-      "why": "Tame the Beasts cancela el Black Hole y el taunt de Wheel of Wonder le impide posicionarse"
+      "why": "Tame the Beasts hace huir en pánico (hasta 1,2 s); Wheel of Wonder atrae a los héroes rivales que la miran más de 0,5 s"
     },
     {
       "vs": 42,
@@ -3267,7 +3267,7 @@
     {
       "vs": 47,
       "level": "medium",
-      "why": "Nethertoxin aplica Break y desactiva Blur y Coup de Grace"
+      "why": "Viper Strike, su definitiva, desactiva sus pasivas, como Coup de Grace"
     },
     {
       "vs": 99,
@@ -3652,7 +3652,7 @@
     {
       "vs": 47,
       "level": "hard",
-      "why": "Nethertoxin aplica Break sobre Dragon Blood y Viper Strike castiga la baja movilidad de Dragon Knight"
+      "why": "Viper Strike, su definitiva, desactiva Dragon Blood y reduce su velocidad de movimiento y de ataque"
     },
     {
       "vs": 98,
@@ -3900,7 +3900,7 @@
     {
       "vs": 98,
       "level": "medium",
-      "why": "Timber Chain atraviesa Sprout y Whirling Death destruye arboles"
+      "why": "Whirling Death destruye los árboles de Sprout; Timber Chain se clava en el primer árbol que toca"
     },
     {
       "vs": 67,
@@ -4007,7 +4007,7 @@
     {
       "vs": 33,
       "level": "medium",
-      "why": "Black Hole atraviesa la inmunidad de Rage y no se puede dispelear, así que Enigma siempre lo atrapa"
+      "why": "Black Hole atraviesa la inmunidad a debuffs de Rage y lo inmoviliza, sin dejarlo atacar ni lanzar mientras canaliza"
     },
     {
       "vs": 32,
@@ -4275,7 +4275,7 @@
     {
       "vs": 47,
       "level": "medium",
-      "why": "Nethertoxin aplica Break sobre Untouchable"
+      "why": "Viper Strike, su definitiva, desactiva sus pasivas, como Untouchable"
     },
     {
       "vs": 101,
@@ -4362,7 +4362,7 @@
     {
       "vs": 47,
       "level": "hard",
-      "why": "Nethertoxin aplica Break sobre Berserker's Blood y Poison Attack domina la línea"
+      "why": "Viper Strike, su definitiva, desactiva Berserker's Blood, y Poison Attack aplica slow acumulable y resta resistencia mágica"
     },
     {
       "vs": 36,
@@ -4777,7 +4777,7 @@
     {
       "vs": 86,
       "level": "hard",
-      "why": "Rubick roba Ice Path, Dual Breath y Macropyre y los lanza sin la preparación lenta de Jakiro, con más alcance y mejor puntería"
+      "why": "Rubick roba el último hechizo que lance Jakiro (Ice Path, Dual Breath o Macropyre, uno a la vez)"
     },
     {
       "vs": 29,
@@ -4983,7 +4983,7 @@
     {
       "vs": 47,
       "level": "hard",
-      "why": "Nethertoxin aplica Break sobre Dispersion"
+      "why": "Viper Strike, su definitiva, desactiva las pasivas de Spectre, como Dispersion, y atraviesa BKB"
     },
     {
       "vs": 82,
@@ -5172,7 +5172,7 @@
     {
       "vs": 112,
       "level": "medium",
-      "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
+      "why": "Arctic Burn le quita un porcentaje de su vida actual cada segundo (cooldown de 29 a 20 s); castiga a los héroes de fuerza con mucha vida que se quedan en la línea"
     },
     {
       "vs": 53,
@@ -5542,7 +5542,7 @@
     {
       "vs": 54,
       "level": "hard",
-      "why": "Rage lo vuelve inmune a los hechizos de Invoker mientras le pega"
+      "why": "Mientras dura Rage (3 a 6 s), la mayoría de los hechizos de Invoker no le afectan; Sun Strike sí atraviesa Rage"
     },
     {
       "vs": 129,
@@ -5746,7 +5746,7 @@
     {
       "vs": 86,
       "level": "medium",
-      "why": "Rubick le roba Astral Imprisonment y con Aghanim's Scepter tiene dos cargas, lo que le gana las peleas a Outworld Destroyer"
+      "why": "Rubick le roba Astral Imprisonment, el último hechizo que lance Outworld Destroyer"
     },
     {
       "vs": 75,
@@ -7050,7 +7050,7 @@
     {
       "vs": 3,
       "level": "medium",
-      "why": "Fiend's Grip atraviesa Shadow Dance y fija a Slark sin depender de verlo"
+      "why": "Fiend's Grip atraviesa BKB y lo fija durante su canal; Shadow Dance lo hace inmune a la detección, así que hay que lanzarlo antes de que la active"
     },
     {
       "vs": 87,
@@ -7341,7 +7341,7 @@
     {
       "vs": 112,
       "level": "medium",
-      "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
+      "why": "Arctic Burn le quita un porcentaje de su vida actual cada segundo (cooldown de 29 a 20 s); castiga a los héroes de fuerza con mucha vida que se quedan en la línea"
     },
     {
       "vs": 145,
@@ -7712,7 +7712,7 @@
     {
       "vs": 47,
       "level": "hard",
-      "why": "Nethertoxin aplica Break sobre Bristleback y elimina su reducción de daño"
+      "why": "Viper Strike, su definitiva, desactiva las pasivas de Bristleback y le quita su reducción de daño"
     },
     {
       "vs": 104,
@@ -8478,7 +8478,7 @@
     {
       "vs": 54,
       "level": "hard",
-      "why": "Rage ignora el control y daño mágico de Earth Spirit"
+      "why": "Mientras dura Rage (3 a 6 s), Boulder Smash, Rolling Boulder y Geomagnetic Grip no le afectan; Magnetize sí atraviesa Rage"
     },
     {
       "vs": 93,
@@ -8501,11 +8501,6 @@
       "why": "Con Doom lo anulas apenas entra rodando: no puede usar sus hechizos y lo matas antes de que juegue"
     },
     {
-      "vs": 103,
-      "level": "hard",
-      "why": "Cuando Earth Spirit entra rodando Elder Titan lo revienta de una: una respuesta nuclear que lo mata antes de que juegue"
-    },
-    {
       "vs": 106,
       "level": "hard",
       "why": "Searing Chains lo deja sin Rolling Boulder para escapar y, más tarde en la partida, el daño de Ember escala por encima del de Earth Spirit"
@@ -8513,7 +8508,7 @@
     {
       "vs": 33,
       "level": "hard",
-      "why": "Cuando Earth Spirit entra rodando Enigma lo revienta de una: una respuesta nuclear que lo mata antes de que juegue"
+      "why": "Si Earth Spirit cae dentro de Black Hole queda inmovilizado hasta 4 s sin poder atacar ni lanzar, y BKB no lo salva; Geomagnetic Grip no se puede usar sobre una unidad que está dentro de Black Hole"
     },
     {
       "vs": 59,
@@ -8630,7 +8625,7 @@
     {
       "vs": 112,
       "level": "hard",
-      "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
+      "why": "Arctic Burn le quita un porcentaje de su vida actual cada segundo (cooldown de 29 a 20 s); castiga a los héroes de fuerza con mucha vida que se quedan en la línea"
     },
     {
       "vs": 26,
@@ -8928,7 +8923,7 @@
     {
       "vs": 76,
       "level": "medium",
-      "why": "Arcane Orb hace daño puro que atraviesa Cold Embrace y Astral Imprisonment le corta la curación"
+      "why": "Arcane Orb suma daño puro extra, y Cold Embrace bloquea todo el daño físico"
     },
     {
       "vs": 29,
@@ -9725,7 +9720,7 @@
     {
       "vs": 75,
       "level": "hard",
-      "why": "Global Silence cancela Solar Guardian desde cualquier parte del mapa y niega la principal respuesta global de Dawnbreaker"
+      "why": "Global Silence, desde cualquier parte del mapa, le impide lanzar Solar Guardian si lo usas antes; una vez canalizada, Dawnbreaker no puede detenerla"
     },
     {
       "vs": 112,
