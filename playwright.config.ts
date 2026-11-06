@@ -119,6 +119,8 @@ export default defineConfig({
         ENGINE_DB_PATH: E2E_DB,
         INTERNAL_AUTH_SECRET,
         CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH,
+        // Cero red: la base del E2E ya trae el meta fijo; sin esto el motor bajaba OpenDota en vivo (ver index.e2e.ts).
+        E2E_OFFLINE_META: "1",
       },
     },
     {

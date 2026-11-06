@@ -20,4 +20,10 @@ runEngine({
   allowClientForcedBotSelection: true,
   // Wave 1 acceptance smoke: lets the browser suite cross a round deadline deterministically.
   allowTestClockControl: true,
+  // Cero red en el E2E: la base ya trae héroes, estadísticas de parche y matchups FIJOS (e2e/bootstrap-db.ts). Sin esto
+  // el motor la creía vieja y bajaba OpenDota en vivo a mitad de la corrida, y los bans "con semilla fija" cambiaban
+  // según el día (wave1/wave2 "B. Dire" quedaban sin ningún support legal). Lo encienden SOLO los dos lanzadores del E2E
+  // (playwright.config.ts y scripts/e2e/run.ts). `bun run dev:mvp` también arranca este archivo pero NO lo pasa: ese modo
+  // local sigue sincronizando el meta real al arrancar, como antes. index.ts (producción) nunca lee esta variable.
+  disableGlobalMetaRefresh: process.env.E2E_OFFLINE_META === "1",
 });
