@@ -74,13 +74,13 @@ describe("FreeThreatsView -- qué se ve", () => {
   test("robable: dice en qué posición(es) que te quedan lo puedes robar, con nombre de posición (nunca el número solo)", () => {
     const view = renderBoard(board([STEALABLE, STEALABLE_MANY]));
     const lines = view.getAllByTestId("free-threat-steal").map((node) => node.textContent);
-    expect(lines[0]).toBe("Puedes quitárselo al rival jugándolo como Pos3 Offlane.");
-    expect(lines[1]).toBe("Puedes quitárselo al rival jugándolo como Pos3 Offlane, Pos4 Support o Pos5 Hard Support.");
+    expect(lines[0]).toBe("Se juega como Pos3 Offlane, que aún te falta.");
+    expect(lines[1]).toBe("Se juega como Pos3 Offlane, Pos4 Support o Pos5 Hard Support, que aún te falta.");
   });
 
   test("no robable: se distingue claramente y no ofrece una posición", () => {
     const view = renderBoard(board([NOT_STEALABLE]));
-    expect(view.getByTestId("free-threat-no-steal").textContent).toBe("No encaja con tus posiciones libres: no puedes quitárselo al rival.");
+    expect(view.getByTestId("free-threat-no-steal").textContent).toBe("No encaja en tus posiciones libres.");
     expect(view.queryByTestId("free-threat-steal")).toBeNull();
   });
 
