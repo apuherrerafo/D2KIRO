@@ -21,6 +21,18 @@ export interface EngineTestOverrides {
   cmEligibilityArtifactPath?: string;
   allowClientForcedBotSelection?: boolean;
   allowTestClockControl?: boolean;
+  /**
+   * TEST-ONLY: no arrancar la sincronización automática con OpenDota. La base del E2E ya viene sembrada con datos fijos
+   * (e2e/bootstrap-db.ts) pero sin una fila `meta_sync` "ok", así que el motor la creía vieja y descargaba el meta EN VIVO
+   * a mitad de la corrida: los bans con semilla fija dependían del día (y de cuánto había avanzado la descarga), y la
+   * prueba violaba "cero red real en cualquier prueba". Solo index.e2e.ts lo enciende.
+   */
+  disableGlobalMetaRefresh?: boolean;
+}
+
+/** ¿Arranca la sincronización automática con OpenDota? Siempre en producción; nunca en el E2E. Pura. */
+export function shouldStartGlobalMetaRefresh(testOverrides: EngineTestOverrides): boolean {
+  return testOverrides.disableGlobalMetaRefresh !== true;
 }
 
 export function runEngine(testOverrides: EngineTestOverrides = {}): void {
@@ -53,7 +65,7 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
       await runMetaSync(db, openDotaClient, syncId, { patch: CURRENT_PATCH });
     },
   });
-  void globalMetaRefresh.start();
+  if (shouldStartGlobalMetaRefresh(testOverrides)) void globalMetaRefresh.start();
 
   const app = createApp({
     db,

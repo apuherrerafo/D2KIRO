@@ -20,4 +20,8 @@ runEngine({
   allowClientForcedBotSelection: true,
   // Wave 1 acceptance smoke: lets the browser suite cross a round deadline deterministically.
   allowTestClockControl: true,
+  // Cero red en el E2E: la base ya trae héroes, estadísticas de parche y matchups FIJOS (e2e/bootstrap-db.ts). Sin esto
+  // el motor la creía vieja y bajaba OpenDota en vivo a mitad de la corrida, y los bans "con semilla fija" cambiaban
+  // según el día (wave1/wave2 "B. Dire" quedaban sin ningún support legal).
+  disableGlobalMetaRefresh: true,
 });
