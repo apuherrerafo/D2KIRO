@@ -1003,11 +1003,6 @@
       "why": "Clockwerk se las arregla bien contra Phantom Lancer: Power Cogs lo encierra en las peleas"
     },
     {
-      "vs": 50,
-      "level": "medium",
-      "why": "Poison Touch convierte en hex a las ilusiones y las mata, y deja ver cuál es el Phantom Lancer real"
-    },
-    {
       "vs": 69,
       "level": "medium",
       "why": "Doom con Radiance quema las ilusiones de Phantom Lancer y Doom le corta Doppelganger"
@@ -4233,7 +4228,7 @@
     {
       "vs": 111,
       "level": "medium",
-      "why": "Fortune's End puede disipar Guardian Angel de un enemigo"
+      "why": "Fortune's End disipa en área y quita Repel, la inmunidad a debuffs de Omniknight, que sí se puede disipar"
     },
     {
       "vs": 69,
@@ -4618,7 +4613,7 @@
     {
       "vs": 28,
       "level": "hard",
-      "why": "Corrosive Haze da visión verdadera sobre Bounty Hunter y anula Shadow Walk"
+      "why": "Corrosive Haze, la definitiva de Slardar, da visión verdadera sobre Bounty Hunter y atraviesa BKB: mientras dure el debuff, Shadow Walk no lo oculta de Slardar"
     },
     {
       "vs": 22,
@@ -4727,7 +4722,7 @@
     {
       "vs": 1,
       "level": "medium",
-      "why": "Counterspell devuelve hechizos dirigidos y la resistencia mágica reduce el daño"
+      "why": "Blink le permite cazar a Jakiro, que no tiene escape propio; Counterspell le da resistencia mágica pasiva contra su daño y Mana Void castiga el maná que le falta a su objetivo"
     },
     {
       "vs": 54,
@@ -7799,7 +7794,7 @@
     {
       "vs": 54,
       "level": "medium",
-      "why": "Rage ignora Snowball y Ice Shards"
+      "why": "Con la faceta Rage, Lifestealer queda inmune a debuffs y el aturdimiento de Snowball no lo afecta mientras dura Rage (3 a 6 s)"
     },
     {
       "vs": 8,
