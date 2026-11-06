@@ -146,7 +146,7 @@ function isGoldenCard(value: unknown): boolean {
 }
 
 function isFreeThreat(value: unknown): boolean {
-  return isRecord(value) && isHeroId(value.ownHeroId) && isHeroId(value.threatHeroId) && isString(value.why) && Array.isArray(value.stealPositions) && value.stealPositions.every(isPosition);
+  return isRecord(value) && isHeroId(value.ownHeroId) && isHeroId(value.threatHeroId) && isString(value.why) && value.why.trim().length > 0 && Array.isArray(value.stealPositions) && value.stealPositions.every(isPosition);
 }
 
 export function parseTeamCoachBoard(value: unknown): TeamCoachBoardData | null {

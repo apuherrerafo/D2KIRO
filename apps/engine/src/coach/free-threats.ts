@@ -10,8 +10,10 @@ import { isPlayedEnoughToSteal, isReasonedWhy } from "./context-reorder";
 //
 // Qué dice de cada amenaza:
 //   - a quién amenaza (un pick tuyo visible), cuál es el counter y el porqué curado (el mecanismo que se puede comprobar);
-//   - `stealPositions`: en qué posiciones por llenar de tu equipo ese héroe se juega de verdad (mismo criterio que el Robo: partidas
-//     suficientes y al menos 1/4 de ellas en esa posición). Vacío = no se puede robar en ninguna posición que te quede.
+//   - `stealPositions`: en qué posiciones por llenar de tu equipo ese héroe se juega de verdad (mismo criterio de POSICIÓN que el Robo: partidas
+//     suficientes y al menos 1/4 de ellas en esa posición). Vacío = ninguna posición libre TUYA encaja con él (o no hay datos de posición).
+//     "Posiciones tuyas" = las columnas del tablero (las que controla el jugador): los asientos de un compañero o un bot no cuentan. No es
+//     idéntico al Robo del ranking: éste además descarta al héroe si un rival ya revelado lo counterea; aquí solo se mira legalidad y posición.
 // Solo lee lo que el jugador VE (picks propios visibles, bans, rivales revelados): un asiento rival sellado nunca entra. Pura: sin I/O.
 
 export interface FreeThreat {

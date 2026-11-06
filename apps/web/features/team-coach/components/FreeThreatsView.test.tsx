@@ -55,7 +55,7 @@ describe("FreeThreatsView -- qué se ve", () => {
     const view = renderBoard(board([STEALABLE]));
     const section = view.getByTestId("free-threats");
     expect(section.textContent).toContain("Amenazas libres a tus picks");
-    expect(section.textContent).toContain("Es un aviso: no cambia las recomendaciones");
+    expect(section.textContent).toContain("Es un aviso, no una recomendación: no cambia el orden de las tarjetas");
     const row = view.getByTestId("free-threat");
     expect(row.textContent).toContain("Hero 10");
     expect(row.textContent).toContain("counterea fuerte a tu");
@@ -72,13 +72,13 @@ describe("FreeThreatsView -- qué se ve", () => {
   test("robable: dice en qué posición(es) que te quedan lo puedes robar, con nombre de posición (nunca el número solo)", () => {
     const view = renderBoard(board([STEALABLE, STEALABLE_MANY]));
     const lines = view.getAllByTestId("free-threat-steal").map((node) => node.textContent);
-    expect(lines[0]).toBe("Lo puedes robar como Pos3 Offlane.");
-    expect(lines[1]).toBe("Lo puedes robar como Pos3 Offlane, Pos4 Support o Pos5 Hard Support.");
+    expect(lines[0]).toBe("Puedes quitárselo al rival jugándolo como Pos3 Offlane.");
+    expect(lines[1]).toBe("Puedes quitárselo al rival jugándolo como Pos3 Offlane, Pos4 Support o Pos5 Hard Support.");
   });
 
   test("no robable: se distingue claramente y no ofrece una posición", () => {
     const view = renderBoard(board([NOT_STEALABLE]));
-    expect(view.getByTestId("free-threat-no-steal").textContent).toBe("No lo puedes robar: no juega ninguna posición que te quede.");
+    expect(view.getByTestId("free-threat-no-steal").textContent).toBe("No encaja con tus posiciones libres: no puedes quitárselo al rival.");
     expect(view.queryByTestId("free-threat-steal")).toBeNull();
   });
 
@@ -137,6 +137,7 @@ describe("parseTeamCoachBoard -- ADVERTIR se valida en el borde", () => {
     expect(broken({ stealPositions: [6] })).toBeNull();
     expect(broken({ stealPositions: "3" })).toBeNull();
     expect(broken({ why: 42 })).toBeNull();
+    expect(broken({ why: "  " })).toBeNull(); // un aviso sin mecanismo no se pinta: el motor ya lo filtra, aquí se exige igual
     expect(broken({ threatHeroId: "10" })).toBeNull();
     expect(parseTeamCoachBoard({ ...board([]), freeThreats: "nada" })).toBeNull();
   });

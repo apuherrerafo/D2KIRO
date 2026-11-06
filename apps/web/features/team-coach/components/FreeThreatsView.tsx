@@ -39,13 +39,13 @@ function StealLine({ threat }: { threat: TeamCoachFreeThreat }) {
   if (threat.stealPositions.length === 0) {
     return (
       <span className={FREE_THREAT_NO_STEAL} data-testid="free-threat-no-steal">
-        No lo puedes robar: no juega ninguna posición que te quede.
+        No encaja con tus posiciones libres: no puedes quitárselo al rival.
       </span>
     );
   }
   return (
     <span className={FREE_THREAT_STEAL} data-testid="free-threat-steal">
-      Lo puedes robar como {joinPositions(threat)}.
+      Puedes quitárselo al rival jugándolo como {joinPositions(threat)}.
     </span>
   );
 }
