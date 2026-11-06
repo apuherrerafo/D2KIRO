@@ -4,4 +4,4 @@ export { LiveTeamCoachView } from "./components/LiveTeamCoachView";
 export { LiveDotaView } from "./components/LiveDotaView";
 export { fetchTeamBoard } from "./client";
 export { parseTeamCoachBoard, parseLiveCaptureStatus } from "./validation";
-export type { TeamCoachBoardData, TeamCoachColumn, TeamCoachCandidate, TeamPosition, LiveCaptureStatus, RequestStatus } from "./types";
+export type { TeamCoachBoardData, TeamCoachColumn, TeamCoachCandidate, TeamCoachFreeThreat, TeamPosition, LiveCaptureStatus, RequestStatus } from "./types";

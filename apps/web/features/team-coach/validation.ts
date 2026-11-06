@@ -145,6 +145,10 @@ function isGoldenCard(value: unknown): boolean {
   );
 }
 
+function isFreeThreat(value: unknown): boolean {
+  return isRecord(value) && isHeroId(value.ownHeroId) && isHeroId(value.threatHeroId) && isString(value.why) && Array.isArray(value.stealPositions) && value.stealPositions.every(isPosition);
+}
+
 export function parseTeamCoachBoard(value: unknown): TeamCoachBoardData | null {
   if (!isRecord(value) || value.schema !== "team-coach-board/v1") return null;
   if (!isString(value.sessionId) || !isString(value.stateIdentity) || !isDecision(value.currentDecision)) return null;
@@ -152,6 +156,8 @@ export function parseTeamCoachBoard(value: unknown): TeamCoachBoardData | null {
   if (!Array.isArray(value.unboundOwnHeroIds) || !value.unboundOwnHeroIds.every(isHeroId)) return null;
   // La card dorada es opcional (motor anterior) y decorativa: una forma rota rechaza el tablero ENTERO, nunca se pinta a medias.
   if (value.goldenCard !== undefined && value.goldenCard !== null && !isGoldenCard(value.goldenCard)) return null;
+  // ADVERTIR es opcional (motor anterior) e informativo: una forma rota rechaza el tablero ENTERO, nunca se pinta a medias.
+  if (value.freeThreats !== undefined && (!Array.isArray(value.freeThreats) || !value.freeThreats.every(isFreeThreat))) return null;
   // One board = one snapshot: a column ranked against another state is refused, never shown.
   if (value.positions.some((column) => column.stateIdentity !== value.stateIdentity)) return null;
   return value as unknown as TeamCoachBoardData;

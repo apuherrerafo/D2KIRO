@@ -132,6 +132,21 @@ export interface TeamCoachGoldenCard {
   synergies: TeamCoachSynergy[];
 }
 
+/**
+ * ADVERTIR: un counter FUERTE con porqué que sigue libre contra un pick tuyo ya elegido. Espejo a mano del motor (coach/free-threats.ts).
+ * Solo informa: no entra al puntaje ni al orden de las tarjetas.
+ */
+export interface TeamCoachFreeThreat {
+  /** El pick tuyo amenazado. */
+  ownHeroId: number;
+  /** El counter que sigue libre. */
+  threatHeroId: number;
+  /** El porqué curado de Dota (el mecanismo). */
+  why: string;
+  /** Posiciones que te faltan donde ese héroe se puede robar legalmente. Vacío = no se puede robar. */
+  stealPositions: TeamPosition[];
+}
+
 export interface TeamCoachBoardData {
   schema: "team-coach-board/v1";
   sessionId: string;
@@ -141,6 +156,8 @@ export interface TeamCoachBoardData {
   unboundOwnHeroIds: HeroId[];
   /** Opcional: un motor anterior no lo manda. Ausente o null = no hay card dorada. */
   goldenCard?: TeamCoachGoldenCard | null;
+  /** Opcional: un motor anterior no lo manda. Ausente o vacío = no hay amenazas fuertes libres que avisar. */
+  freeThreats?: TeamCoachFreeThreat[];
 }
 
 export type LiveConnection = "waiting" | "connected" | "stale";

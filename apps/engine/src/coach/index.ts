@@ -9,3 +9,4 @@ export * from "./current-human-decision";
 export * from "./safe-core";
 export * from "./orchestrator";
 export * from "./team-coach-board";
+export * from "./free-threats";

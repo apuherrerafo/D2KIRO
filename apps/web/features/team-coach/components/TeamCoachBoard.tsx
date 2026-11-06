@@ -26,6 +26,7 @@ import {
 } from "../styles";
 import { EvidenceLimitedMark } from "./EvidenceLimitedMark";
 import { GoldenCardView } from "./GoldenCardView";
+import { FreeThreatsView } from "./FreeThreatsView";
 import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachRisk, TeamCoachSteal, TeamCoachStrength, TeamPosition } from "../types";
 
 // <Dominio><Cosa>: el Team Coach Board -- UN componente compartido por /simulator y /live-draft.
@@ -560,6 +561,12 @@ function GoldenCardSlot({ board, heroCatalog, draftEnded, onPickHero }: Decision
   return <GoldenCardView goldenCard={goldenCard} heroCatalog={heroCatalog} onPickHero={canPick ? onPickHero : undefined} />;
 }
 
+// ADVERTIR: los counters fuertes que siguen libres contra tus picks. Con el draft terminado ya no hay nada que robar ni evitar: no se muestra.
+function FreeThreatsSlot({ board, heroCatalog, draftEnded }: { board: TeamCoachBoardData; heroCatalog: Map<number, HeroMeta>; draftEnded: boolean }) {
+  if (draftEnded) return null;
+  return <FreeThreatsView threats={board.freeThreats} heroCatalog={heroCatalog} />;
+}
+
 function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, onSelectPosition, onPickHero, onRetry, draftEnded }: TeamCoachBoardProps) {
   if (draftEnded && !board) return <DraftEndedBanner />;
   if (!board) return <BoardPlaceholder status={status} onRetry={onRetry} />;
@@ -572,6 +579,7 @@ function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, o
     <>
       <BoardBanner board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} onPickHero={pickHero} />
       <GoldenCardSlot board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} onPickHero={pickHero} />
+      <FreeThreatsSlot board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} />
       <div className={BOARD_GRID}>
         {board.positions.map((column) => (
           <Column
