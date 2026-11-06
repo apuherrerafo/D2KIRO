@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { shouldStartGlobalMetaRefresh } from "./bootstrap";
 
-// La sincronización automática con OpenDota es de PRODUCCIÓN. El E2E corre sobre una base sembrada con datos fijos y no
-// debe tocar la red: si la baja en vivo, los bans "con semilla fija" cambian según el día y la prueba se vuelve aleatoria.
+// La sincronización automática con OpenDota es de PRODUCCIÓN (y del modo local dev:mvp). El E2E corre sobre una base sembrada con
+// datos fijos y no debe tocar la red: si la baja en vivo, los bans "con semilla fija" cambian según el día y la prueba se vuelve aleatoria.
+
+const read = (...parts: string[]) => readFileSync(join(import.meta.dir, ...parts), "utf8");
 
 describe("bootstrap -- sincronización automática del meta", () => {
   test("producción (sin overrides) sí la arranca; solo el flag de prueba la apaga", () => {
@@ -13,10 +15,14 @@ describe("bootstrap -- sincronización automática del meta", () => {
     expect(shouldStartGlobalMetaRefresh({ disableGlobalMetaRefresh: true })).toBe(false);
   });
 
-  test("el entrypoint del E2E la apaga y el de producción nunca lo hace", () => {
-    const e2e = readFileSync(join(import.meta.dir, "index.e2e.ts"), "utf8");
-    const production = readFileSync(join(import.meta.dir, "index.ts"), "utf8");
-    expect(e2e).toContain("disableGlobalMetaRefresh: true");
-    expect(production).not.toContain("disableGlobalMetaRefresh");
+  test("solo los lanzadores del E2E la apagan: producción y dev:mvp siguen sincronizando", () => {
+    expect(read("index.e2e.ts")).toContain('disableGlobalMetaRefresh: process.env.E2E_OFFLINE_META === "1"');
+    expect(read("..", "..", "..", "playwright.config.ts")).toContain('E2E_OFFLINE_META: "1"');
+    expect(read("..", "..", "..", "scripts", "e2e", "run.ts")).toContain('E2E_OFFLINE_META: "1"');
+    expect(read("..", "..", "..", "scripts", "dev-mvp.ts")).not.toContain("E2E_OFFLINE_META");
+    expect(read("index.ts")).not.toContain("disableGlobalMetaRefresh");
+    expect(read("index.ts")).not.toContain("E2E_OFFLINE_META");
+    // bootstrap.ts no lee el flag de ninguna variable de entorno: solo de sus overrides.
+    expect(read("bootstrap.ts")).not.toContain("E2E_OFFLINE_META");
   });
 });

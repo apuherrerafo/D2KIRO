@@ -128,6 +128,8 @@ async function main(): Promise<number> {
     ENGINE_DB_PATH: runtime.dbPath,
     INTERNAL_AUTH_SECRET: internalAuthSecret,
     CM_ELIGIBILITY_ARTIFACT_PATH: runtime.eligibilityPath,
+    // Cero red: la base del E2E ya trae el meta fijo; sin esto el motor bajaba OpenDota en vivo (ver index.e2e.ts).
+    E2E_OFFLINE_META: "1",
   });
   await waitForHttp(`http://127.0.0.1:${enginePort}/health`, "E2E engine", 120_000);
 
