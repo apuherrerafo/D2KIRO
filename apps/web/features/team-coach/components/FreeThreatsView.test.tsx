@@ -56,6 +56,8 @@ describe("FreeThreatsView -- qué se ve", () => {
     const section = view.getByTestId("free-threats");
     expect(section.textContent).toContain("Amenazas libres a tus picks");
     expect(section.textContent).toContain("Es un aviso, no una recomendación: no cambia el orden de las tarjetas");
+    // La lista es parcial (solo relaciones auditadas): la ausencia de un héroe nunca se presenta como "seguro".
+    expect(section.textContent).toContain("Que un héroe no aparezca aquí no quiere decir que sea seguro");
     const row = view.getByTestId("free-threat");
     expect(row.textContent).toContain("Hero 10");
     expect(row.textContent).toContain("counterea fuerte a tu");

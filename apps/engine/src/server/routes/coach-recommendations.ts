@@ -1,4 +1,5 @@
 import { buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
+import { loadAdvertirApproved } from "../../coach/advertir-approved";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
@@ -47,6 +48,8 @@ export interface CoachRecommendationsDeps {
   heroSynergies?: ReadonlyMap<number, readonly CuratedSynergy[]>;
   /** Curated capabilities (injectable, S9). Absent = the validated `capabilities.json` -- the file `team_synergy` reads. Feeds the CRITICAL_GAP card notice only. */
   heroCapabilities?: readonly HeroCapabilities[];
+  /** ADVERTIR: relaciones habilitadas para avisar ("counter>víctima"). Absent = the validated `advertir-approved.json`, loaded once. */
+  advertirApproved?: ReadonlySet<string>;
 }
 
 export interface CoachRecommendations {
@@ -72,6 +75,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   const heroCounters = deps.heroCounters ?? MODULE_HERO_COUNTERS;
   const heroSynergies = deps.heroSynergies ?? MODULE_HERO_SYNERGIES;
   const heroCapabilities = deps.heroCapabilities ?? loadHeroCapabilities();
+  const advertirApproved = deps.advertirApproved ?? MODULE_ADVERTIR_APPROVED;
   // Assignments are per observer/account. A pool overlay must not accidentally share state with
   // another account that happens to inspect the same simulator session.
   const coaches: { accountId: string; coach: CoachOrchestrator }[] = [];
@@ -175,7 +179,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   function teamBoardInput(context: PerspectiveRecommendationContext, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null) {
     const buildTargetRanking = (boardContext: PerspectiveRecommendationContext, position: 1 | 2 | 3 | 4 | 5) =>
       buildTeamTargetRanking(boardContext, position, position === playerPersonalPosition ? accountId : null);
-    return { context, playerPersonalPosition, heroPositions, heroCounters, heroSynergies, heroCapabilities, buildTargetRanking };
+    return { context, playerPersonalPosition, heroPositions, heroCounters, heroSynergies, heroCapabilities, buildTargetRanking, advertirApproved };
   }
   return {
     async recommendTeamBoard(sessionId, playerPersonalPosition, accountId = null) {
@@ -213,3 +217,4 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
 const MODULE_HERO_COUNTERS = loadHeroCounters();
 const MODULE_HERO_SYNERGIES = loadHeroSynergies();
+const MODULE_ADVERTIR_APPROVED = loadAdvertirApproved();

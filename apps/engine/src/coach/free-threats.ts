@@ -2,6 +2,7 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { HeroId } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import { advertirKey } from "./advertir-approved";
 import { isPlayedEnoughToSteal, isReasonedWhy } from "./context-reorder";
 
 // ADVERTIR (PO, 2026-11-05): "Amenazas libres a tus picks". Una amenaza libre es un counter FUERTE y con porqué (relación curada `hard`,
@@ -15,6 +16,10 @@ import { isPlayedEnoughToSteal, isReasonedWhy } from "./context-reorder";
 //     "Posiciones tuyas" = las columnas del tablero (las que controla el jugador): los asientos de un compañero o un bot no cuentan. No es
 //     idéntico al Robo del ranking: éste además descarta al héroe si un rival ya revelado lo counterea; aquí solo se mira legalidad y posición.
 // Solo lee lo que el jugador VE (picks propios visibles, bans, rivales revelados): un asiento rival sellado nunca entra. Pura: sin I/O.
+//
+// FILTRO EXPLÍCITO (PO, 2026-11-06): además de ser `hard` con porqué en la base, la relación tiene que estar en `approved` (advertir-approved.json,
+// auditada por dos analistas). El filtro solo quita avisos: nunca agrega uno que la base no tenga como fuerte, y una relación ausente no se presenta
+// como "segura" -- simplemente no se avisa.
 
 export interface FreeThreat {
   /** El pick tuyo que amenaza. */
@@ -38,6 +43,8 @@ export interface FreeThreatsInput {
   heroPositions: HeroPositions | undefined;
   /** Posiciones de tu equipo que todavía no tienen héroe. */
   unfilledPositions: readonly Position[];
+  /** Relaciones habilitadas para ADVERTIR ("counter>víctima", advertir-approved.ts). Vacío = no se avisa nada. */
+  approved: ReadonlySet<string>;
 }
 
 /**
@@ -45,11 +52,11 @@ export interface FreeThreatsInput {
  * counter que amenaza a dos picks tuyos aparece una vez por pick (cada uno con su porqué).
  */
 export function freeThreatsOf(input: FreeThreatsInput): FreeThreat[] {
-  if (!input.heroCounters || input.ownPicks.size === 0) return [];
+  if (!input.heroCounters || input.ownPicks.size === 0 || input.approved.size === 0) return [];
   const threats: FreeThreat[] = [];
   for (const own of input.ownPicks) {
     for (const entry of input.heroCounters.get(own) ?? []) {
-      if (entry.level !== "hard" || !isReasonedWhy(entry.why)) continue;
+      if (entry.level !== "hard" || !isReasonedWhy(entry.why) || !input.approved.has(advertirKey(entry.vs, own))) continue;
       const free = !input.banned.has(entry.vs) && !input.ownPicks.has(entry.vs) && !input.revealedEnemies.has(entry.vs);
       if (!free) continue;
       const stealPositions = [...input.unfilledPositions]

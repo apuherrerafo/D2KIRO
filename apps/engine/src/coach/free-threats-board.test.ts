@@ -47,7 +47,12 @@ interface Scenario {
   enemies?: number[];
   counters?: ReadonlyMap<number, readonly CuratedCounter[]>;
   controlled?: Position[];
+  /** Relaciones habilitadas para ADVERTIR. Ausente = todas las del fixture (el filtro se prueba en su propio describe). */
+  approved?: ReadonlySet<string>;
 }
+
+// Todas las relaciones fuertes del fixture habilitadas para ADVERTIR ("counter>víctima").
+const FIXTURE_APPROVED: ReadonlySet<string> = new Set([`${OFFLANER}>${CARRY}`, `${SOFT_SUPPORT}>${CARRY}`, `6>${CARRY}`, `${OFFLANER}>${MID}`]);
 
 async function boardOf(scenario: Scenario): Promise<TeamCoachBoard> {
   const h = harness({ adapterKind: "simulator", controlledPositions: scenario.controlled ?? ALL });
@@ -68,6 +73,7 @@ async function boardOf(scenario: Scenario): Promise<TeamCoachBoard> {
     playerPersonalPosition: 4,
     heroPositions: HERO_POSITIONS,
     heroCounters: scenario.counters,
+    advertirApproved: scenario.approved ?? FIXTURE_APPROVED,
     buildTargetRanking: (ctx, targetPosition) =>
       buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, targetPosition, teamOpening: false, singleSlotEvaluation: true }),
   });
@@ -197,5 +203,20 @@ describe("ADVERTIR -- el tablero trae las amenazas y se actualiza", () => {
   test("sin picks propios, o con solo relaciones medium, la sección está vacía", async () => {
     expect((await boardOf(SCENARIOS[0]!)).freeThreats).toEqual([]);
     expect((await boardOf(SCENARIOS[5]!)).freeThreats).toEqual([]);
+  });
+});
+
+describe("ADVERTIR -- filtro explícito en el tablero", () => {
+  test("solo avisa las relaciones aprobadas; las demás fuertes no aparecen", async () => {
+    const board = await boardOf({ ...SCENARIOS[1]!, approved: new Set([`${OFFLANER}>${CARRY}`]) });
+    expect(board.freeThreats.map((threat) => threat.threatHeroId)).toEqual([OFFLANER]);
+  });
+
+  test("sin lista aprobada no avisa nada, y el resto del tablero es idéntico (el filtro no toca tarjetas, Robo ni ELIGE AHORA)", async () => {
+    const withList = await boardOf(SCENARIOS[1]!);
+    const withoutList = await boardOf({ ...SCENARIOS[1]!, approved: new Set() });
+    expect(withoutList.freeThreats).toEqual([]);
+    expect(fingerprint(withoutList)).toBe(fingerprint(withList));
+    expect(readable(withoutList)).toBe(readable(withList));
   });
 });

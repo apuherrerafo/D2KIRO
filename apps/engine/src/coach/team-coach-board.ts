@@ -141,9 +141,12 @@ export interface BuildTeamCoachBoardInput {
   /** The V4 target ranking for one position (team-level, never an account's pool). */
   buildTargetRanking(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   topSize?: number;
+  /** ADVERTIR: relaciones habilitadas para avisar (advertir-approved.ts). Ausente = ninguna: la sección queda vacía, nunca se inventa un aviso. */
+  advertirApproved?: ReadonlySet<string>;
 }
 
 const UNASSIGNED_COST = 1_000;
+const NO_ADVERTIR_APPROVED: ReadonlySet<string> = new Set();
 
 /**
  * Deterministic primary plan over each position's ranked candidates: an injective assignment
@@ -353,6 +356,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       heroCounters: input.heroCounters,
       heroPositions: input.heroPositions,
       unfilledPositions: columns.filter((column) => !column.alreadyFilled).map((column) => column.position),
+      approved: input.advertirApproved ?? NO_ADVERTIR_APPROVED,
     }),
   };
   return { board, priority };

@@ -30,8 +30,12 @@ const COUNTERS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
   ]],
 ]);
 
+// Todas las relaciones del fixture habilitadas para ADVERTIR, para probar la regla; el filtro se prueba aparte.
+const ALL_APPROVED: ReadonlySet<string> = new Set([`${OFFLANER}>${ALLY}`, `${SUPPORT}>${ALLY}`, `${MEDIUM_ONLY}>${ALLY}`, `${ATTRIBUTION}>${ALLY}`, `${OFFLANER}>${SECOND_ALLY}`, `14>${SECOND_ALLY}`]);
+
 function input(over: Partial<FreeThreatsInput> = {}): FreeThreatsInput {
   return {
+    approved: ALL_APPROVED,
     banned: new Set(),
     ownPicks: new Set([ALLY]),
     revealedEnemies: new Set(),
@@ -126,5 +130,25 @@ describe("freeThreatsOf -- se actualiza cuando cambia el draft", () => {
     expect(afterBan.length).toBe(1);
     expect(afterFill.find((threat) => threat.threatHeroId === OFFLANER)?.stealPositions).toEqual([]);
     expect(afterPick.map((threat) => threat.ownHeroId)).toContain(SECOND_ALLY);
+  });
+});
+
+describe("freeThreatsOf -- filtro explícito de ADVERTIR (relaciones aprobadas)", () => {
+  test("una relación fuerte con porqué que NO está aprobada no se avisa", () => {
+    const onlyOfflaner = new Set([`${OFFLANER}>${ALLY}`]);
+    expect(freeThreatsOf(input({ approved: onlyOfflaner })).map((threat) => threat.threatHeroId)).toEqual([OFFLANER]);
+  });
+
+  test("sin relaciones aprobadas no se avisa nada (nunca se dice que el héroe esté seguro: simplemente no hay aviso)", () => {
+    expect(freeThreatsOf(input({ approved: new Set() }))).toEqual([]);
+  });
+
+  test("el filtro solo quita avisos: una relación aprobada que en la base es medium o 'Lo dicen' sigue sin avisarse", () => {
+    const threats = freeThreatsOf(input({ approved: new Set([`${MEDIUM_ONLY}>${ALLY}`, `${ATTRIBUTION}>${ALLY}`]) }));
+    expect(threats).toEqual([]);
+  });
+
+  test("la dirección importa: aprobar 'víctima>counter' no habilita 'counter>víctima'", () => {
+    expect(freeThreatsOf(input({ approved: new Set([`${ALLY}>${OFFLANER}`]) }))).toEqual([]);
   });
 });
