@@ -7845,6 +7845,11 @@
       "vs": 126,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 54,
+      "level": "medium",
+      "why": "Mientras dura Rage (3 a 6 s), el aturdimiento de Snowball no afecta a Lifestealer. Rage no frena a Walrus PUNCH!, que atraviesa la inmunidad, ni la barrera de Ice Shards"
     }
   ],
   "101": [
