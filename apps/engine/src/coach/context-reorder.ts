@@ -297,7 +297,7 @@ export interface StealNote {
 }
 
 /** ¿Se juega de verdad? Partidas suficientes y, si ya sabes la posición que eliges, que la juegue en al menos 1/4 de sus partidas. */
-function isPlayedEnoughToSteal(heroId: HeroId, input: Pick<ContextReorderInput, "heroPositions" | "targetPosition">): boolean {
+export function isPlayedEnoughToSteal(heroId: HeroId, input: Pick<ContextReorderInput, "heroPositions" | "targetPosition">): boolean {
   const shares = input.heroPositions?.[heroId] ?? [];
   const total = shares.reduce((sum, entry) => sum + entry.matches, 0);
   if (total < STEAL_MIN_GAMES) return false;

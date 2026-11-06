@@ -1,0 +1,10 @@
+{
+  "schema": "advertir-approved/v1",
+  "note": "Relaciones habilitadas para ADVERTIR (Amenazas libres a tus picks). Es un FILTRO de presentación: no cambia hero-counters.json, sus niveles, el Robo, el ranking ni ELIGE AHORA. Solo entra una relación auditada por dos analistas independientes con el mismo veredicto VALIDATED_HARD y mecanismo comprobado en el juego instalado.",
+  "audit": "tanda-1 (2026-11-06), 25 relaciones HARD de mayor impacto; build local del juego del 27-oct-2026 (7.41f)",
+  "relations": [
+    { "counter": 7, "victim": 12, "counterName": "Earthshaker", "victimName": "Phantom Lancer", "status": "VALIDATED_HARD", "mechanism": "earthshaker_echo_slam: cada enemigo golpeado (ilusiones incluidas) causa un eco" },
+    { "counter": 2, "victim": 12, "counterName": "Axe", "victimName": "Phantom Lancer", "status": "VALIDATED_HARD", "mechanism": "axe_counter_helix: daño puro en área tras una cantidad de golpes recibidos; las ilusiones taunteadas lo cargan" },
+    { "counter": 2, "victim": 50, "counterName": "Axe", "victimName": "Dazzle", "status": "VALIDATED_HARD", "mechanism": "axe_culling_blade, nota oficial: la muerte por Culling Blade no se evita con Shallow Grave" }
+  ]
+}

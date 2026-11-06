@@ -57,6 +57,9 @@ describe("summarizeBoard", () => {
     const withCard = summarizeBoard({ ...board("s1", {}), goldenCard: golden }) as { goldenCard: unknown };
     expect(withCard.goldenCard).toEqual(golden);
     expect((summarizeBoard(board("s1", {})) as { goldenCard: unknown }).goldenCard).toBeNull(); // campo ausente (motor anterior) -> null
+    const threat = { ownHeroId: 1, threatHeroId: 10, why: "Silencia al carry", stealPositions: [3 as const] };
+    expect((summarizeBoard({ ...board("s1", {}), freeThreats: [threat] }) as { freeThreats: unknown }).freeThreats).toEqual([threat]);
+    expect((summarizeBoard(board("s1", {})) as { freeThreats: unknown }).freeThreats).toEqual([]); // campo ausente (motor anterior) -> []
   });
 
   test("copia los campos extra del candidato sin conocerlos (p. ej. señales que el motor agregue)", () => {

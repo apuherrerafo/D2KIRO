@@ -9,6 +9,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
 import { alliesAnswering, reasonedCounters, reasonedSynergies, type BanOpening } from "./context-reorder";
+import { freeThreatsOf, type FreeThreat } from "./free-threats";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
 import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { revealedEnemyHeroes } from "./hero-card";
@@ -121,6 +122,11 @@ export interface TeamCoachBoard {
   unboundOwnHeroIds: HeroId[];
   /** La card dorada: UN héroe fuera de tu pool que encaja de verdad con este draft (ver golden-card.ts). null = ninguno cumple el estándar. */
   goldenCard: GoldenCard | null;
+  /**
+   * ADVERTIR: counters FUERTES con porqué que siguen libres contra tus picks ya elegidos (free-threats.ts). Solo informa: no entra al puntaje, al
+   * ranking, a las cinco tarjetas ni a "ELIGE AHORA". Vacío = ninguna amenaza fuerte libre.
+   */
+  freeThreats: FreeThreat[];
 }
 
 export interface BuildTeamCoachBoardInput {
@@ -135,9 +141,12 @@ export interface BuildTeamCoachBoardInput {
   /** The V4 target ranking for one position (team-level, never an account's pool). */
   buildTargetRanking(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   topSize?: number;
+  /** ADVERTIR: relaciones habilitadas para avisar (advertir-approved.ts). Ausente = ninguna: la sección queda vacía, nunca se inventa un aviso. */
+  advertirApproved?: ReadonlySet<string>;
 }
 
 const UNASSIGNED_COST = 1_000;
+const NO_ADVERTIR_APPROVED: ReadonlySet<string> = new Set();
 
 /**
  * Deterministic primary plan over each position's ranked candidates: an injective assignment
@@ -339,6 +348,16 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     positions: columns,
     unboundOwnHeroIds,
     goldenCard,
+    // ADVERTIR: solo lee el draft visible (picks propios, bans, rivales revelados) y las posiciones que a tu equipo todavía le faltan.
+    freeThreats: freeThreatsOf({
+      banned: bannedSet,
+      ownPicks: ownPickSet,
+      revealedEnemies: revealedSet,
+      heroCounters: input.heroCounters,
+      heroPositions: input.heroPositions,
+      unfilledPositions: columns.filter((column) => !column.alreadyFilled).map((column) => column.position),
+      approved: input.advertirApproved ?? NO_ADVERTIR_APPROVED,
+    }),
   };
   return { board, priority };
 }
