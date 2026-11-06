@@ -4612,8 +4612,8 @@
   "62": [
     {
       "vs": 28,
-      "level": "hard",
-      "why": "Corrosive Haze, la definitiva de Slardar, da visión verdadera sobre Bounty Hunter y atraviesa BKB: mientras dure el debuff, Shadow Walk no lo oculta de Slardar"
+      "level": "medium",
+      "why": "Con Corrosive Haze (la definitiva de Slardar, nivel 6, alcance 900), Bounty Hunter queda a la vista aunque use Shadow Walk, siempre que se lance antes de que desaparezca"
     },
     {
       "vs": 22,
@@ -7791,11 +7791,6 @@
     }
   ],
   "100": [
-    {
-      "vs": 54,
-      "level": "medium",
-      "why": "Cuando Lifestealer usa Rage (3 a 6 s), queda inmune a debuffs y el aturdimiento de Snowball no lo afecta mientras dura"
-    },
     {
       "vs": 8,
       "level": "medium",
