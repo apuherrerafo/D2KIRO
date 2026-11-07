@@ -272,7 +272,7 @@
   {
     "a": 62,
     "b": 55,
-    "why": "Shadow Walk le da invisibilidad a Dark Seer para farmear y sacar XP en el early game; en las peleas casi no hay sinergia"
+    "why": "Track de Bounty Hunter aumenta el daño que recibe el objetivo (8 a 16 %), y Dark Seer le suma daño con Ion Shell, Vacuum y Wall of Replica"
   },
   {
     "a": 62,
@@ -302,7 +302,7 @@
   {
     "a": 62,
     "b": 30,
-    "why": "El stun de Shadow Walk de Bounty Hunter dura 3,2 s y se encadena con los stuns de Witch Doctor al salir de la invisibilidad: con Maledict y Death Ward matan a cualquiera"
+    "why": "El ataque con el que Bounty Hunter rompe Shadow Walk aturde de 1 a 1,6 s, y ese aturdimiento le da a Witch Doctor tiempo para lanzar Maledict y Death Ward"
   },
   {
     "a": 78,
@@ -847,7 +847,7 @@
   {
     "a": 121,
     "b": 19,
-    "why": "Ink Swell sobre Tiny agrega un stun en área a su entrada con Blink Dagger"
+    "why": "Ink Swell sobre Tiny lo acelera y, al terminar, aplica daño y aturdimiento en área proporcional al tiempo que hubo héroes cerca"
   },
   {
     "a": 121,
