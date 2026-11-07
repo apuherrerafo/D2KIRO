@@ -76,7 +76,9 @@ function fixtureCounters(bannedHero: number, extra: ReadonlyMap<number, readonly
   return strongOpenerCounters(POOL, bannedHero, extra);
 }
 
-function simulatorBoard(bannedHero = BANNED, extraCounters?: ReadonlyMap<number, readonly { vs: number; level: "hard"; why: string }[]>) {
+type CuratedCounters = ReturnType<typeof strongOpenerCounters>;
+
+function simulatorBoard(bannedHero = BANNED, extraCounters?: ReadonlyMap<number, readonly { vs: number; level: "hard"; why: string }[]>, curatedOverride?: CuratedCounters) {
   const store = new ProtocolSessionStore();
   const created = store.create({
     sessionId: "sim-parity",
@@ -95,7 +97,7 @@ function simulatorBoard(bannedHero = BANNED, extraCounters?: ReadonlyMap<number,
   ];
   const applied = store.applyAtomically("sim-parity", commands);
   if (!applied?.ok) throw new Error("simulator bans failed");
-  return { store, routes: routes(store, fixtureCounters(bannedHero, extraCounters)), sessionId: "sim-parity" };
+  return { store, routes: routes(store, curatedOverride ?? fixtureCounters(bannedHero, extraCounters)), sessionId: "sim-parity" };
 }
 
 function liveBoard(bannedHero = BANNED, extraCounters?: ReadonlyMap<number, readonly { vs: number; level: "hard"; why: string }[]>) {
@@ -110,8 +112,8 @@ function liveBoard(bannedHero = BANNED, extraCounters?: ReadonlyMap<number, read
 }
 
 /** One fully revealed Round 1 through each product's real ingestion path. */
-async function resolvedSimulatorRound(enemyHeroes: readonly [number, number] = [9, 8], extraCounters?: ReadonlyMap<number, readonly { vs: number; level: "hard"; why: string }[]>) {
-  const simulator = simulatorBoard(BANNED, extraCounters);
+async function resolvedSimulatorRound(enemyHeroes: readonly [number, number] = [9, 8], extraCounters?: ReadonlyMap<number, readonly { vs: number; level: "hard"; why: string }[]>, curatedOverride?: CuratedCounters) {
+  const simulator = simulatorBoard(BANNED, extraCounters, curatedOverride);
   expect((await simulator.routes.postCommand(commandRequest(0, 1, 1), simulator.sessionId)).status).toBe(202);
   expect((await simulator.routes.postCommand(commandRequest(1, 2, 5), simulator.sessionId)).status).toBe(202);
   expect(simulator.store.apply(simulator.sessionId, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: enemyHeroes[0] })?.rejected).toBeUndefined();
@@ -162,12 +164,17 @@ describe("Party 5 simulator ↔ Live Companion parity", () => {
     const simulatorCoach = await coachOf(simulator.routes.getRecommendations, simulator.sessionId);
     const liveBoard = await boardOf(live.routes.getTeamRecommendations, live.sessionId);
 
-    // Same facts and roles arrived, but this fixture supplies V3's fake scorer with an invented
-    // counter signal while the Live policy receives no matching curated 5 -> 9 relation.
+    // Same facts and roles arrived. The divergence is an EVIDENCE-INPUT one: V3's fake scorer emits a
+    // statistical counter signal for hero 5 once enemy 9 is revealed (raw 0.8), while Live only raises
+    // priority from CURATED evidence (hero-counters). Fixture direction: `heroCounters.get(9)` lists the
+    // entries with `vs === 5`; the shared-counter test below builds exactly that entry and Live then agrees.
     expect(simulatorCoach.output.meta.basedOn.stateIdentity).toBe(liveBoard.stateIdentity);
     const v3Counter = simulatorCoach.recommendationSet.recommendations.find((recommendation) => recommendation.actions.some((action) => action.hero === 5))?.signalsByHero[5]?.find((signal) => signal.signal === "counter");
     expect(v3Counter).toMatchObject({ raw: 0.8, hasRevealedEnemyCounterEvidence: true });
-    expect(fixtureCounters(BANNED).get(5)?.some((entry) => entry.vs === 9)).toBe(false);
+    expect(fixtureCounters(BANNED).get(9)?.some((entry) => entry.vs === 5) ?? false).toBe(false);
+    // Positive control for the same lookup: once the curated entry exists, the lookup finds it.
+    const withCuratedEntry = fixtureCounters(BANNED, new Map([[9, [{ vs: 5, level: "hard" as const, why: "control" }]]]));
+    expect(withCuratedEntry.get(9)?.some((entry) => entry.vs === 5)).toBe(true);
 
     // Actual Simulator Party 5 path: CoachOrchestrator -> RecommendationOutputV3.
     expect(simulatorCoach.output.primaryAction.strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 3 });
@@ -219,5 +226,18 @@ describe("Party 5 simulator ↔ Live Companion parity", () => {
     expect(plainCounter).toMatchObject({ raw: null, hasRevealedEnemyCounterEvidence: false });
     expect(plainV3.output.primaryAction.strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 4 });
     expect(plainBoard.currentDecision).toMatchObject({ recommendedPosition: 4, recommendedHeroId: 3, targetBasis: "PHASE_FALLBACK" });
+  });
+
+  test("V3 never turns a statistics-only counter into a strong action (no curated evidence at all)", async () => {
+    // Empty curated catalog: the ONLY counter signal is V3's statistical one (hero 5 vs revealed 9,
+    // raw 0.8). Per the eligibility contract, COUNTER_STATS is a complement, never a standalone ground.
+    const simulator = await resolvedSimulatorRound([9, 8], undefined, new Map());
+    const v3 = await coachOf(simulator.routes.getRecommendations, simulator.sessionId);
+    const counter = v3.recommendationSet.recommendations.find((recommendation) => recommendation.actions.some((action) => action.hero === 5))?.signalsByHero[5]?.find((signal) => signal.signal === "counter");
+    expect(counter).toMatchObject({ raw: 0.8, hasRevealedEnemyCounterEvidence: true }); // the statistic really is present
+
+    expect(v3.output.actionSupport).toBe("LIMITED"); // "ELIGE AHORA" is withheld
+    expect(v3.output.shortlist.length).toBeGreaterThan(0);
+    expect(v3.output.shortlist.filter((candidate) => candidate.evidenceStrength === "STRONG")).toEqual([]);
   });
 });
