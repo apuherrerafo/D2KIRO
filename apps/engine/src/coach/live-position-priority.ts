@@ -2,6 +2,7 @@ import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { OwnPositionOccupancy } from "../recommendation/perspective-context";
 import type { CuratedCounter } from "../signals/hero-counters";
+import type { CompositionNeed } from "./composition-need";
 import { positionPhrase } from "./reveal-strategy";
 
 // LivePositionPriorityV1 -- WHICH of our open positions to pick for now, in a live Party5 draft.
@@ -20,7 +21,10 @@ import { positionPhrase } from "./reveal-strategy";
 //      is on its shortlist -- securing it now, before it is taken.
 //   4. PHASE_FALLBACK: no tactical distinction. Commitment order -- reveal first what tells the rival least (hard
 //      support, support, offlane) and keep the counterable cores (carry, then mid) for later. Named for what it is:
-//      an ordering by draft phase, NOT a strategic advantage.
+//      an ordering by draft phase, NOT a strategic advantage. When the caller passes `compositionNeed` (live, with picks
+//      whose seat nobody stated), the fallback skips the positions our picks already cover more likely than not -- same commitment order
+//      among the rest -- so a team that already holds two supports is not sent to a third or fourth. It is a preference over the
+//      order, never an identity: nothing is marked occupied, no column is narrowed, and it never beats a STRATEGIC signal.
 //
 // A tie inside a strategic signal narrows the field to the tied positions and the next step decides among them;
 // only a signal that singles out ONE position is called STRATEGIC. Pure; never reads what the Player is viewing.
@@ -28,7 +32,7 @@ import { positionPhrase } from "./reveal-strategy";
 export const LIVE_POSITION_PRIORITY_VERSION = "live-position-priority/v1" as const;
 
 export type LivePriorityBasis = "STRATEGIC" | "PHASE_FALLBACK" | "DETERMINISTIC_DEFAULT";
-export type LivePrioritySignal = "SINGLE_POSITION" | "COUNTER_WINDOW" | "POOL_SCARCITY" | "PHASE";
+export type LivePrioritySignal = "SINGLE_POSITION" | "COUNTER_WINDOW" | "POOL_SCARCITY" | "PHASE" | "COMPOSITION_NEED";
 
 /** Commitment order of the phase fallback: least revealing first. Mid is the most counterable lane, so it goes last. */
 export const PHASE_COMMITMENT_ORDER: readonly Position[] = [5, 4, 3, 1, 2];
@@ -50,6 +54,8 @@ export interface LivePositionPriorityInput {
   /** Heroes no longer pickable (bans + every visible pick). */
   unavailable: ReadonlySet<HeroId>;
   occupancy?: OwnPositionOccupancy | null;
+  /** Live only: how little our visible picks can cover each position (1 = not at all). Absent/null = the plain phase order, as always. */
+  compositionNeed?: CompositionNeed | null;
 }
 
 export interface LivePositionPriority {
@@ -111,7 +117,7 @@ export function selectLivePositionPriority(input: LivePositionPriorityInput): Li
   if (contested.length > 0 && clear.length > 0) notes.push(`${listPhrase(contested)} queda en duda: un héroe tuyo sin rol confirmado podría estar ahí.`);
   if (clear.length === 0) {
     notes.push("Todas tus posiciones pendientes están en duda: un héroe tuyo sin rol confirmado podría ocupar cualquiera, así que no hay prioridad táctica que afirmar.");
-    return phaseFallback(eligible, input.phase, notes);
+    return phaseFallback(eligible, input.phase, notes, input.compositionNeed);
   }
 
   let field = clear;
@@ -167,11 +173,25 @@ export function selectLivePositionPriority(input: LivePositionPriorityInput): Li
   }
 
   // 4. PHASE_FALLBACK.
-  return phaseFallback(field, input.phase, notes);
+  return phaseFallback(field, input.phase, notes, input.compositionNeed);
 }
 
-function phaseFallback(field: readonly Position[], phase: RankedApPhase | null, notes: readonly string[]): LivePositionPriority {
-  const target = PHASE_COMMITMENT_ORDER.find((position) => field.includes(position)) ?? field[0]!;
+function phaseFallback(field: readonly Position[], phase: RankedApPhase | null, notes: readonly string[], need?: CompositionNeed | null): LivePositionPriority {
+  const uncovered = need ? notYetCovered(field, need) : field;
+  const target = PHASE_COMMITMENT_ORDER.find((position) => uncovered.includes(position)) ?? field[0]!;
+  if (uncovered.length < field.length) {
+    const covered = field.filter((position) => !uncovered.includes(position));
+    return {
+      targetPosition: target,
+      targetBasis: "PHASE_FALLBACK",
+      signal: "COMPOSITION_NEED",
+      signalHeroId: null,
+      targetRationale: [
+        `${roundLabel(phase)}, sin una ventaja táctica que distinga tus posiciones: tus héroes ya elegidos probablemente cubren ${listPhrase(covered)}, así que se sigue el orden de fase con lo que todavía falta. Vista sugerida: ${positionPhrase(target)}. Es una estimación con las posiciones habituales de tus héroes, no una posición confirmada ni una ventaja.`,
+        ...notes,
+      ].join(" "),
+    };
+  }
   return {
     targetPosition: target,
     targetBasis: "PHASE_FALLBACK",
@@ -182,4 +202,14 @@ function phaseFallback(field: readonly Position[], phase: RankedApPhase | null, 
       ...notes,
     ].join(" "),
   };
+}
+
+/**
+ * Regla de mayoría, sin umbral calibrado: una posición cuenta como cubierta cuando es más probable que no que alguno de nuestros picks la
+ * ocupe (cobertura > 1/2, es decir necesidad < 1/2). Las demás conservan el orden de fase de siempre. Si todas quedaran cubiertas no hay
+ * nada que preferir y se devuelve el campo entero (comportamiento de siempre).
+ */
+function notYetCovered(field: readonly Position[], need: CompositionNeed): Position[] {
+  const missing = field.filter((position) => need[position] * 2 >= 1);
+  return missing.length > 0 ? missing : [...field];
 }

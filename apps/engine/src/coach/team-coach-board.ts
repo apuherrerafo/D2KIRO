@@ -13,6 +13,7 @@ import { freeThreatsOf, type FreeThreat } from "./free-threats";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
 import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { revealedEnemyHeroes } from "./hero-card";
+import { compositionNeedForContext } from "./composition-need";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
@@ -310,6 +311,8 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         playerPoolsByPosition: context.playerPoolsByPosition,
         unavailable,
         occupancy: context.ownPositionOccupancy,
+        // Live: picks whose seat nobody stated still say what the team can NOT cover (null in the simulator and with nothing to infer).
+        compositionNeed: compositionNeedForContext(context, heroPositions),
       })
     : null;
   const plan = planWithPriority(ranked, priority);
