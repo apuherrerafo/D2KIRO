@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { CuratedCounter } from "../signals/hero-counters";
+import type { CompositionNeed } from "./composition-need";
 import { selectLivePositionPriority, type LivePositionPriorityInput } from "./live-position-priority";
 
 // P0-3 -- LivePositionPriorityV1 (pure). Columns, counters and pools are inline fixtures.
@@ -84,5 +85,64 @@ describe("LivePositionPriorityV1", () => {
 
   test("a single open position is not a priority decision", () => {
     expect(selectLivePositionPriority(input({ actionablePositions: [2] }))).toMatchObject({ targetPosition: 2, targetBasis: "DETERMINISTIC_DEFAULT", signal: "SINGLE_POSITION" });
+  });
+});
+
+describe("LivePositionPriorityV1 -- necesidad de composición (Live, picks sin posición declarada)", () => {
+  // Qué posiciones cubren los picks propios (más probable que no). El selector sólo consume `covered`.
+  const need = (covered: Position[]): CompositionNeed => ({ covered, need: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, ...Object.fromEntries(covered.map((position) => [position, 0])) } as CompositionNeed["need"] });
+  const SUPPORTS_COVERED = need([4, 5]); // Lion + Crystal Maiden (+ Rubick): los dos asientos de support
+  const IN_DOUBT = { necessarilyOccupied: [] as Position[], possiblyOccupied: [1, 2, 3, 4, 5] as Position[], unresolvedHeroes: [] };
+
+  test("Lion + CM + Rubick (todo en duda): ya no manda a un tercer support; va al offlane (el primero del orden de fase entre los que faltan)", () => {
+    const priority = selectLivePositionPriority(input({ phase: "PICK_ROUND_2", occupancy: IN_DOUBT, compositionNeed: SUPPORTS_COVERED }));
+    expect(priority).toMatchObject({ targetPosition: 3, targetBasis: "PHASE_FALLBACK", signal: "COMPOSITION_NEED", signalHeroId: null });
+  });
+
+  test("sin compositionNeed el resultado es el de siempre (orden fijo por fase): candado de regresión", () => {
+    const plain = selectLivePositionPriority(input({ phase: "PICK_ROUND_2", occupancy: IN_DOUBT }));
+    expect(plain).toMatchObject({ targetPosition: 5, targetBasis: "PHASE_FALLBACK", signal: "PHASE" });
+    expect(selectLivePositionPriority(input({ phase: "PICK_ROUND_2", occupancy: IN_DOUBT, compositionNeed: null }))).toEqual(plain);
+  });
+
+  test("nada cubierto (primer pick, o un solo flex): el orden por fase decide igual que hoy, con señal PHASE", () => {
+    const withNeed = selectLivePositionPriority(input({ compositionNeed: need([]) }));
+    expect(withNeed).toEqual(selectLivePositionPriority(input()));
+    expect(withNeed.signal).toBe("PHASE");
+  });
+
+  test("la señal COMPOSITION_NEED sólo se nombra cuando MOVIÓ el objetivo: si lo cubierto no estaba en el camino, es PHASE", () => {
+    const priority = selectLivePositionPriority(input({ compositionNeed: need([1, 2]) })); // el orden de fase empieza en 5, no tocado
+    expect(priority).toMatchObject({ targetPosition: 5, signal: "PHASE" });
+  });
+
+  test("el orden por fase sigue mandando entre posiciones igual de faltantes (offlane antes que carry), sin obligar al carry", () => {
+    expect(selectLivePositionPriority(input({ compositionNeed: SUPPORTS_COVERED })).targetPosition).toBe(3);
+    expect(selectLivePositionPriority(input({ actionablePositions: [1, 2, 4, 5], compositionNeed: need([4, 5, 2]) })).targetPosition).toBe(1);
+  });
+
+  test("si todas las posiciones accionables ya están cubiertas no hay nada que preferir: el orden por fase de siempre", () => {
+    expect(selectLivePositionPriority(input({ actionablePositions: [4, 5], compositionNeed: SUPPORTS_COVERED }))).toMatchObject({ targetPosition: 5, signal: "PHASE" });
+  });
+
+  test("sólo ordena lo accionable: una posición cubierta/llena que no está en la lista nunca aparece", () => {
+    const priority = selectLivePositionPriority(input({ actionablePositions: [2, 4, 5], compositionNeed: SUPPORTS_COVERED }));
+    expect(priority.targetPosition).toBe(2);
+  });
+
+  test("una ventana de counter STRATEGIC le gana a la necesidad de composición (el contexto estratégico real manda)", () => {
+    const priority = selectLivePositionPriority(input({ revealedEnemies: [ENEMY], heroCounters: COUNTERS, compositionNeed: SUPPORTS_COVERED }));
+    expect(priority).toMatchObject({ targetPosition: 4, targetBasis: "STRATEGIC", signal: "COUNTER_WINDOW" });
+  });
+
+  test("una sola posición pendiente sigue siendo DETERMINISTIC_DEFAULT: la necesidad no se consulta", () => {
+    expect(selectLivePositionPriority(input({ actionablePositions: [5], compositionNeed: SUPPORTS_COVERED }))).toMatchObject({ targetPosition: 5, signal: "SINGLE_POSITION" });
+  });
+
+  test("honestidad: la razón dice que es una estimación, nunca una ventaja ni una posición confirmada", () => {
+    const rationale = selectLivePositionPriority(input({ compositionNeed: SUPPORTS_COVERED })).targetRationale;
+    expect(rationale).toContain("estimación");
+    expect(rationale).toContain("no una posición confirmada");
+    expect(rationale).not.toContain("Ventana de counter");
   });
 });
