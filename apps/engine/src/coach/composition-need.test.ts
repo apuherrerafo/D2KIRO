@@ -22,6 +22,10 @@ const PURE_C = 403;
 const PURE_D = 404;
 const PUDGE = 501; // soft support con offlane posible
 const UNDYING = 502; // soft support con offlane posible
+const LION_REAL = 701; // Lion de verdad: 37% pos 4 / 52% pos 5 / 11% mid
+const CRYSTAL_REAL = 702; // Crystal Maiden de verdad: 16% pos 4 / 84% pos 5
+const HALF_A = 801; // dos héroes con 40% de offlane / 60% de carry cada uno
+const HALF_B = 802;
 const SPREAD_A = 601; // reparte su juego entre offlane (60%) y soft support (40%)
 const SPREAD_B = 602; // reparte su juego entre soft support (40%) y hard support (60%)
 
@@ -41,6 +45,10 @@ const POSITIONS: HeroPositions = {
   [PURE_D]: [share(5, 5000), share(4, 5000)],
   [PUDGE]: [share(4, 6800), share(3, 2400), share(2, 700), share(1, 100)],
   [UNDYING]: [share(4, 7200), share(3, 2800)],
+  [LION_REAL]: [share(5, 5200), share(4, 3700), share(2, 1100)],
+  [CRYSTAL_REAL]: [share(5, 8400), share(4, 1600)],
+  [HALF_A]: [share(3, 4000), share(1, 6000)],
+  [HALF_B]: [share(3, 4000), share(1, 6000)],
   [SPREAD_A]: [share(3, 6000), share(4, 4000)],
   [SPREAD_B]: [share(4, 4000), share(5, 6000)],
 };
@@ -93,16 +101,46 @@ describe("deriveCompositionNeed -- qué cubren los picks propios cuando no se sa
     }
   });
 
-  test("un solo support: sólo su asiento más probable queda cubierto; no se obliga a nada más", () => {
-    expect(covered([CRYSTAL])!.covered).toEqual([5]);
-    expect(covered([LION])!.covered).toEqual([4]);
+  test("un solo pick propio: nada que inferir -> null (el primer/segundo pick queda como siempre, aunque sea un hard support dominante)", () => {
+    expect(covered([CRYSTAL])).toBeNull();
+    expect(covered([LION])).toBeNull();
+    expect(covered([LION_REAL])).toBeNull();
   });
 
-  test("los flex cuentan con toda su distribución: Ogre Magi + Zeus dejan el hard support sin cubrir y no cierran carry ni offlane", () => {
+  test("BLOQUE DE SUPPORTS: Lion real (37/52) + Crystal Maiden real (16/84) cubren pos 4 y pos 5 aunque ninguno domine la 4 (sola daría 0,47)", () => {
+    const result = covered([LION_REAL, CRYSTAL_REAL])!;
+    expect(result.covered).toEqual([4, 5]);
+    expect(result.need[1]).toBeCloseTo(1, 6);
+    expect(result.need[3]).toBeCloseTo(1, 6);
+  });
+
+  test("BLOQUE con un asiento declarado: Lion real afirmado en pos 4 + Crystal Maiden real -> pos 4 y 5 cubiertas, igual que sin declarar", () => {
+    expect(covered([LION_REAL, CRYSTAL_REAL], [[LION_REAL, 4]])!.covered).toEqual([4, 5]);
+  });
+
+  test("el bloque necesita DOS supports probables: un support + un core no cubre el otro asiento de support", () => {
+    const result = covered([LION_REAL, CARRY])!;
+    expect(result.covered).not.toContain(4);
+    expect(result.covered).toContain(1);
+  });
+
+  test("dos flex que sólo con suerte son los dos supports (Pudge + Undying, 49%) NO forman bloque; el offlane tampoco queda cubierto", () => {
+    const result = covered([PUDGE, UNDYING])!;
+    expect(result.covered).not.toContain(5);
+    expect(result.covered).not.toContain(3);
+  });
+
+  test("los flex cuentan con toda su distribución: Ogre Magi + Zeus (56% de ser los dos supports) no cierran carry ni offlane", () => {
     const result = covered([OGRE, ZEUS])!;
     expect(result.covered).not.toContain(1);
-    expect(result.covered).not.toContain(5);
+    expect(result.covered).not.toContain(3);
     expect(result.need[3]).toBeGreaterThan(0.5);
+  });
+
+  test("la cobertura de una posición suma las dos probabilidades (no es el máximo): dos héroes con 40% de offlane cada uno la cubren, uno solo no", () => {
+    // P(al menos uno la juega) = 1 − 0,6 × 0,6 = 0,64 > 1/2; con el máximo (0,40) no pasaría.
+    expect(covered([HALF_A, HALF_B])!.covered).toContain(3);
+    expect(covered([HALF_A, CARRY])!.covered).not.toContain(3);
   });
 
   test("Pudge + Undying (soft supports con offlane posible): el offlane NO cuenta como cubierto por una mayoría aparente", () => {
@@ -182,12 +220,24 @@ describe("compositionNeedForContext -- sólo el Live, sólo lo que el jugador ve
     expect(compositionNeedForContext(context(true, [LION, CRYSTAL, RUBICK]), POSITIONS)!.covered).toEqual([4, 5]);
   });
 
+  test("las posiciones afirmadas por una fuente (ownAssignedPositions) llegan al cálculo: Ogre Magi afirmado en offlane lo deja cubierto", () => {
+    const withAssigned = { ...context(true, [OGRE, CRYSTAL]), ownAssignedPositions: new Map<number, Position>([[OGRE, 3]]) } as PerspectiveRecommendationContext;
+    expect(compositionNeedForContext(withAssigned, POSITIONS)!.covered).toContain(3);
+    expect(compositionNeedForContext(context(true, [OGRE, CRYSTAL]), POSITIONS)!.covered).not.toContain(3);
+  });
+
   test("sin picks propios (primer pick) es null: el primer pick queda idéntico", () => {
     expect(compositionNeedForContext(context(true, []), POSITIONS)).toBeNull();
   });
 
-  test("nunca lanza: con datos de posición corruptos devuelve null y el Coach sigue como siempre", () => {
-    const broken = { [LION]: [{ position: 9, matches: Number.NaN }] } as unknown as HeroPositions;
-    expect(() => compositionNeedForContext(context(true, [LION, CRYSTAL]), broken)).not.toThrow();
+  test("nunca lanza: si leer los datos de posición explota, devuelve null y el Coach sigue como siempre", () => {
+    const exploding = new Proxy({}, { get: () => { throw new Error("datos de posición ilegibles"); } }) as unknown as HeroPositions;
+    expect(() => deriveCompositionNeed({ ownHeroes: [LION, CRYSTAL], heroPositions: exploding })).toThrow();
+    expect(compositionNeedForContext(context(true, [LION, CRYSTAL]), exploding)).toBeNull();
+  });
+
+  test("datos corruptos (partidas NaN / Infinity) -> null, nunca una cobertura NaN", () => {
+    const corrupt = { [LION]: [{ position: 4, matches: Number.NaN }], [CRYSTAL]: [{ position: 5, matches: Number.POSITIVE_INFINITY }] } as unknown as HeroPositions;
+    expect(deriveCompositionNeed({ ownHeroes: [LION, CRYSTAL], heroPositions: corrupt })).toBeNull();
   });
 });

@@ -15,6 +15,10 @@ import type { HeroPositions } from "../signals/hero-positions";
 // La factibilidad sola engaña: tres supports que sólo caben en {mid, soft, hard} "cubren" el mid con certeza aunque quien lo juegue sea el 12%
 // de las veces. Por eso una posición cuenta como cubierta sólo si LAS DOS dicen que más probable que no lo está, y nunca hay más posiciones
 // cubiertas que héroes propios (un límite estructural, no un número elegido).
+// Excepción de bloque: dos héroes que probablemente SON los dos supports cubren juntos los dos asientos de support (4 y 5) aunque ninguno
+// domine uno en particular (Lion 37% pos 4 / 52% pos 5 + Crystal Maiden 16% / 84%: la pos 4 sola queda en 0,47 y, sin esto, seguiría
+// "abierta"). Se activa cuando la probabilidad de que al menos dos se sienten en {4, 5} supera 1/2; el mismo criterio de mayoría de siempre.
+// Con un solo pick propio no hay nada que inferir: se queda el comportamiento de siempre.
 //
 // Es una PREFERENCIA de orden, nunca una identidad: no marca ninguna posición como ocupada, no vincula ningún héroe, no toca la
 // elegibilidad ni el ranking de ninguna columna, y sólo mira los picks propios visibles (nada del rival, nada oculto). Pura.
@@ -36,9 +40,11 @@ export interface CompositionNeedInput {
 
 const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 const MAX_TEAM = 5;
+const MIN_TEAM = 2;
+const SUPPORT_SEATS: readonly Position[] = [4, 5];
 
 /**
- * `null` = no hay nada que añadir y el llamador se queda con su comportamiento de siempre: sin datos de posición, sin picks, todos los picks
+ * `null` = no hay nada que añadir y el llamador se queda con su comportamiento de siempre: sin datos de posición, menos de dos picks, todos los picks
  * ya confirmados (nada que inferir), más de 5 héroes, o una contradicción entre asientos afirmados (no se repara).
  *
  * Cuatro supports para los tres asientos que pueden cubrir no admiten una asignación completa: alguno juega fuera de rol. Eso no borra lo que se
@@ -48,7 +54,7 @@ const MAX_TEAM = 5;
 export function deriveCompositionNeed(input: CompositionNeedInput): CompositionNeed | null {
   const { confirmed, heroPositions } = input;
   const ownHeroes = [...new Set(input.ownHeroes)];
-  if (!heroPositions || ownHeroes.length === 0 || ownHeroes.length > MAX_TEAM) return null;
+  if (!heroPositions || ownHeroes.length < MIN_TEAM || ownHeroes.length > MAX_TEAM) return null;
   if (ownHeroes.every((heroId) => confirmed?.has(heroId))) return null;
 
   const beliefs = new Map<HeroId, RoleBelief>(ownHeroes.map((heroId) => [heroId, computeRoleBelief({ heroId, confirmedPosition: confirmed?.get(heroId) ?? null, heroPositions })]));
@@ -69,13 +75,31 @@ export function deriveCompositionNeed(input: CompositionNeedInput): CompositionN
 
   // Probabilidad de que AL MENOS UN héroe propio juegue la posición, con la distribución de cada uno por separado.
   const played = (position: Position): number => 1 - ownHeroes.reduce((miss, heroId) => miss * (1 - beliefs.get(heroId)!.probabilities[position]), 1);
-  const coverage = (position: Position): number => Math.min(1 - jointNeed[position], played(position));
+  const supportPair = probabilityAtLeastTwo(ownHeroes.map((heroId) => SUPPORT_SEATS.reduce((mass, position) => mass + beliefs.get(heroId)!.probabilities[position], 0)));
+  const coverage = (position: Position): number => {
+    const own = Math.min(1 - jointNeed[position], played(position));
+    return SUPPORT_SEATS.includes(position) && supportPair * 2 > 1 ? Math.max(own, supportPair) : own;
+  };
+  if (!POSITIONS.every((position) => Number.isFinite(coverage(position)))) return null; // datos corruptos: el Coach sigue como siempre
   const need = Object.fromEntries(POSITIONS.map((position) => [position, Math.min(1, Math.max(0, 1 - coverage(position)))])) as Record<Position, number>;
   const covered = POSITIONS.filter((position) => coverage(position) * 2 > 1)
     .sort((a, b) => coverage(b) - coverage(a) || a - b)
     .slice(0, ownHeroes.length)
     .sort((a, b) => a - b);
   return { need, covered };
+}
+
+/** Probabilidad de que al menos dos de los héroes (cada uno con su masa de probabilidad independiente) caigan en el conjunto. */
+function probabilityAtLeastTwo(masses: readonly number[]): number {
+  let none = 1;
+  let one = 0;
+  let two = 0;
+  for (const mass of masses) {
+    two += one * mass;
+    one = one * (1 - mass) + none * mass;
+    none *= 1 - mass;
+  }
+  return two;
 }
 
 /**

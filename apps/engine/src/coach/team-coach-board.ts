@@ -13,7 +13,7 @@ import { freeThreatsOf, type FreeThreat } from "./free-threats";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
 import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { revealedEnemyHeroes } from "./hero-card";
-import { compositionNeedForContext, uncoveredPositions } from "./composition-need";
+import { compositionNeedForContext, uncoveredPositions, type CompositionNeed } from "./composition-need";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
@@ -205,6 +205,22 @@ interface ColumnDraft {
   note: string | null;
 }
 
+/**
+ * Live: ¿lo que TODAVÍA le falta a la composición no tiene ningún candidato con evidencia fuerte? Sólo entonces se calla ELIGE AHORA. Una columna
+ * que falló al calcularse (UNAVAILABLE) no es "sin candidato": ahí no se calla y manda el orden de siempre. Sin dato de composición, nunca.
+ */
+export function nothingStrongForWhatIsMissing(
+  need: CompositionNeed | null,
+  actionable: readonly Position[],
+  targetField: readonly Position[],
+  stateOf: (position: Position) => TeamCoachPositionState | undefined,
+): boolean {
+  if (need === null) return false;
+  const missing = uncoveredPositions(actionable, need);
+  if (missing.length === 0 || !missing.every((position) => stateOf(position) === "RANKED")) return false;
+  return uncoveredPositions(targetField, need).length === 0;
+}
+
 /** LivePositionPriorityV1 decides the target when a human has >= 2 open positions to choose from, or on a live capture. */
 export function usesPositionPriority(liveCapture: boolean | undefined, openPositions: number): boolean {
   return openPositions > 0 && (liveCapture === true || openPositions >= 2);
@@ -220,7 +236,9 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
 
 /**
  * The position priority the board's own currentDecision uses, or null when none applies (one open position, no human
- * action, no controlled positions). V4 takes its target from here so the two surfaces cannot diverge.
+ * action, no controlled positions). V4 takes its target from here so the two surfaces do not diverge -- except in one Live-only case: when
+ * nothing strong exists for what is still missing the board is silent (priority null) and a V4 request (`?format=v4`, consumed only by the
+ * simulator) falls back to `selectDecisionTarget`.
  */
 export async function buildTeamPositionPriority(input: BuildTeamCoachBoardInput): Promise<LivePositionPriority | null> {
   return (await computeTeamCoach(input))?.priority ?? null;
@@ -305,8 +323,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   // fuerte, no se inventa un ELIGE AHORA ni se vuelve al orden fijo por fase (que mandaría a otro support). Las tarjetas elegibles de cada columna se
   // conservan tal cual; sólo se calla la recomendación de a dónde ir primero.
   const compositionNeed = compositionNeedForContext(context, heroPositions);
-  const missingWithoutCandidate = compositionNeed !== null && uncoveredPositions(actionable, compositionNeed).length > 0 && uncoveredPositions(targetField, compositionNeed).length === 0;
-  const decisionField = missingWithoutCandidate ? [] : targetField;
+  const decisionField = nothingStrongForWhatIsMissing(compositionNeed, actionable, targetField, (position) => drafts.find((draft) => draft.position === position)?.state) ? [] : targetField;
   const priority = usesPositionPriority(context.liveCapture, decisionField.length)
     ? selectLivePositionPriority({
         actionablePositions: decisionField,

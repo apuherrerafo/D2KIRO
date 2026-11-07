@@ -25,6 +25,9 @@ const ZEUS = 46; // flex de verdad: mid / soft
 const CARRIES = [11, 12, 13];
 const MIDS = [21, 22];
 const OFFLANERS = [31, 32, 33];
+const LION_REAL = 51; // Lion de verdad: 37% pos 4 / 52% pos 5 / 11% mid
+const CRYSTAL_REAL = 52; // Crystal Maiden de verdad: 16% pos 4 / 84% pos 5
+const HARD_SUPPORT = 53; // hard support dominante: 65% pos 5 / 25% pos 4 / 10% mid
 const PURE_SUPPORTS = [47, 48, 49, 50]; // supports que en los datos sólo juegan pos 4/5 (sin ningún mid)
 
 const POSITIONS: HeroPositions = {
@@ -37,6 +40,9 @@ const POSITIONS: HeroPositions = {
   [GRIMSTROKE]: [share(5, 5000), share(4, 3000), share(2, 900)],
   [OGRE]: [share(3, 2500), share(4, 4000), share(5, 3500)],
   [ZEUS]: [share(2, 2500), share(4, 6000), share(5, 1500)],
+  [LION_REAL]: [share(5, 5200), share(4, 3700), share(2, 1100)],
+  [CRYSTAL_REAL]: [share(5, 8400), share(4, 1600)],
+  [HARD_SUPPORT]: [share(5, 6500), share(4, 2500), share(2, 1000)],
   ...Object.fromEntries(PURE_SUPPORTS.map((hero, index) => [hero, index % 2 === 0 ? [share(4, 6000), share(5, 4000)] : [share(5, 6000), share(4, 4000)]])),
 };
 const ALL_HEROES = Object.keys(POSITIONS).map(Number);
@@ -268,5 +274,48 @@ describe("Live: ELIGE AHORA y la composición de cinco", () => {
     t.enemy(E2);
     const after = (await t.board()).currentDecision.recommendedPosition;
     expect(after).toBe(before);
+  });
+});
+
+describe("Live: bloque de supports, un solo pick y columna faltante", () => {
+  test("DOS SUPPORTS PEGADOS (perfil real): Lion 37/52 + Crystal Maiden 16/84 ya cubren los dos asientos de support -> el tercer pick no va a un support", async () => {
+    const t = setup("composition-15");
+    round1(t, [LION_REAL], [CRYSTAL_REAL]);
+    t.ally(CARRIES[0]!);
+    const body = await t.board();
+    expect(SUPPORT_SEATS).not.toContain(body.currentDecision.recommendedPosition!);
+    expect(body.currentDecision.recommendedPosition).toBe(3);
+  });
+
+  test("DOS SUPPORTS PEGADOS con el mid faltante y un core ya elegido: el quinto pick tampoco es un tercer support", async () => {
+    const t = setup("composition-16");
+    round1(t, [LION_REAL], [CRYSTAL_REAL]);
+    t.ally(CARRIES[0]!);
+    t.ally(OFFLANERS[0]!);
+    t.enemy(E2);
+    t.enemy(E3);
+    const body = await t.board();
+    expect(body.currentDecision.recommendedPosition).toBe(2);
+  });
+
+  test("UN SOLO hard support dominante: ELIGE AHORA no se mueve (con un solo pick no hay nada que inferir), igual que el primer pick", async () => {
+    const t = setup("composition-17");
+    t.ally(HARD_SUPPORT);
+    t.enemy(E0);
+    const body = await t.board();
+    expect(body.currentDecision.recommendedPosition).toBe(5);
+    expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
+  });
+
+  test("CARRY faltante sin candidato fuerte: tampoco se vuelve a mandar a otro support (mismo gate que el mid)", async () => {
+    const t = setup("composition-18", { withoutEvidence: CARRIES });
+    round1(t, [LION_REAL], [CRYSTAL_REAL]);
+    t.ally(MIDS[0]!);
+    t.ally(OFFLANERS[0]!);
+    t.enemy(E2);
+    t.enemy(E3);
+    const body = await t.board();
+    expect(body.currentDecision.recommendedPosition).toBeNull();
+    expect(body.currentDecision.recommendedHeroId).toBeNull();
   });
 });
