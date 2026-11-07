@@ -128,6 +128,14 @@ describe("deriveCompositionNeed -- qué cubren los picks propios cuando no se sa
     expect(result.covered).toContain(1);
   });
 
+  test("Lion + Pudge: una asignación conjunta viable de pos 4/5 conserva el bloque sin convertir ninguno de los flex en asiento declarado", () => {
+    // Lion puede ser pos 5 y Pudge pos 4; la cobertura es conjunta, pero no se declara una identidad individual.
+    const result = covered([LION_REAL, PUDGE])!;
+    expect(result.covered).toEqual([4, 5]);
+    expect(result.need[4]).toBeGreaterThan(0);
+    expect(result.need[5]).toBeGreaterThan(0);
+  });
+
   test("dos flex que sólo con suerte son los dos supports (Pudge + Undying, 49%) NO forman bloque; el offlane tampoco queda cubierto", () => {
     const result = covered([PUDGE, UNDYING])!;
     expect(result.covered).not.toContain(5);
