@@ -13,7 +13,7 @@ import { freeThreatsOf, type FreeThreat } from "./free-threats";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
 import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { revealedEnemyHeroes } from "./hero-card";
-import { compositionNeedForContext } from "./composition-need";
+import { compositionNeedForContext, uncoveredPositions } from "./composition-need";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
@@ -301,9 +301,15 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const unavailable = unavailableHeroesFrom(view);
   // El objetivo SOLO puede ser una posición con un héroe elegible: "ELIGE AHORA" nunca cae sobre una columna sin recomendación.
   const targetField = actionable.filter((position) => ranked.some((column) => column.position === position));
-  const priority = usesPositionPriority(context.liveCapture, targetField.length)
+  // Live, con picks cuya posición no se afirmó: si lo que TODAVÍA le falta a la composición (mid, carry...) no tiene ningún candidato con evidencia
+  // fuerte, no se inventa un ELIGE AHORA ni se vuelve al orden fijo por fase (que mandaría a otro support). Las tarjetas elegibles de cada columna se
+  // conservan tal cual; sólo se calla la recomendación de a dónde ir primero.
+  const compositionNeed = compositionNeedForContext(context, heroPositions);
+  const missingWithoutCandidate = compositionNeed !== null && uncoveredPositions(actionable, compositionNeed).length > 0 && uncoveredPositions(targetField, compositionNeed).length === 0;
+  const decisionField = missingWithoutCandidate ? [] : targetField;
+  const priority = usesPositionPriority(context.liveCapture, decisionField.length)
     ? selectLivePositionPriority({
-        actionablePositions: targetField,
+        actionablePositions: decisionField,
         phase: view.rankedAp?.phase ?? null,
         columns: ranked,
         revealedEnemies: revealedEnemyHeroes(view),
@@ -311,8 +317,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         playerPoolsByPosition: context.playerPoolsByPosition,
         unavailable,
         occupancy: context.ownPositionOccupancy,
-        // Live: picks whose seat nobody stated still say what the team can NOT cover (null in the simulator and with nothing to infer).
-        compositionNeed: compositionNeedForContext(context, heroPositions),
+        compositionNeed,
       })
     : null;
   const plan = planWithPriority(ranked, priority);
@@ -347,7 +352,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     schema: TEAM_COACH_BOARD_SCHEMA,
     sessionId: view.sessionId,
     stateIdentity,
-    currentDecision: deriveTeamDecision(actionability, actionable, targetField, columns, input.playerPersonalPosition, priority),
+    currentDecision: deriveTeamDecision(actionability, actionable, decisionField, columns, input.playerPersonalPosition, priority),
     positions: columns,
     unboundOwnHeroIds,
     goldenCard,

@@ -2,7 +2,7 @@ import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { OwnPositionOccupancy } from "../recommendation/perspective-context";
 import type { CuratedCounter } from "../signals/hero-counters";
-import type { CompositionNeed } from "./composition-need";
+import { uncoveredPositions, type CompositionNeed } from "./composition-need";
 import { positionPhrase } from "./reveal-strategy";
 
 // LivePositionPriorityV1 -- WHICH of our open positions to pick for now, in a live Party5 draft.
@@ -22,8 +22,8 @@ import { positionPhrase } from "./reveal-strategy";
 //   4. PHASE_FALLBACK: no tactical distinction. Commitment order -- reveal first what tells the rival least (hard
 //      support, support, offlane) and keep the counterable cores (carry, then mid) for later. Named for what it is:
 //      an ordering by draft phase, NOT a strategic advantage. When the caller passes `compositionNeed` (live, with picks
-//      whose seat nobody stated), the fallback skips the positions our picks already cover more likely than not -- same commitment order
-//      among the rest -- so a team that already holds two supports is not sent to a third or fourth. It is a preference over the
+//      whose seat nobody stated), the fallback skips the positions our picks already cover more likely than not (feasibility AND probability, see
+//      composition-need.ts) -- same commitment order among the rest -- so a team that already holds two supports is not sent to a third. It is a preference over the
 //      order, never an identity: nothing is marked occupied, no column is narrowed, and it never beats a STRATEGIC signal.
 //
 // A tie inside a strategic signal narrows the field to the tied positions and the next step decides among them;
@@ -54,7 +54,7 @@ export interface LivePositionPriorityInput {
   /** Heroes no longer pickable (bans + every visible pick). */
   unavailable: ReadonlySet<HeroId>;
   occupancy?: OwnPositionOccupancy | null;
-  /** Live only: how little our visible picks can cover each position (1 = not at all). Absent/null = the plain phase order, as always. */
+  /** Live only: which positions our visible picks already cover more likely than not. Absent/null = the plain phase order, as always. */
   compositionNeed?: CompositionNeed | null;
 }
 
@@ -177,9 +177,11 @@ export function selectLivePositionPriority(input: LivePositionPriorityInput): Li
 }
 
 function phaseFallback(field: readonly Position[], phase: RankedApPhase | null, notes: readonly string[], need?: CompositionNeed | null): LivePositionPriority {
-  const uncovered = need ? notYetCovered(field, need) : field;
+  const plainTarget = PHASE_COMMITMENT_ORDER.find((position) => field.includes(position)) ?? field[0]!;
+  const uncovered = need ? stillMissing(field, need) : field;
   const target = PHASE_COMMITMENT_ORDER.find((position) => uncovered.includes(position)) ?? field[0]!;
-  if (uncovered.length < field.length) {
+  // La señal sólo se nombra cuando de verdad movió el objetivo respecto del orden de fase de siempre.
+  if (target !== plainTarget) {
     const covered = field.filter((position) => !uncovered.includes(position));
     return {
       targetPosition: target,
@@ -205,11 +207,10 @@ function phaseFallback(field: readonly Position[], phase: RankedApPhase | null, 
 }
 
 /**
- * Regla de mayoría, sin umbral calibrado: una posición cuenta como cubierta cuando es más probable que no que alguno de nuestros picks la
- * ocupe (cobertura > 1/2, es decir necesidad < 1/2). Las demás conservan el orden de fase de siempre. Si todas quedaran cubiertas no hay
- * nada que preferir y se devuelve el campo entero (comportamiento de siempre).
+ * Lo que todavía falta dentro de `field`: lo que los picks propios no cubren (ver composition-need.ts). Si todo lo accionable ya está cubierto no
+ * hay nada que preferir y se devuelve el campo entero (el orden de fase de siempre).
  */
-function notYetCovered(field: readonly Position[], need: CompositionNeed): Position[] {
-  const missing = field.filter((position) => need[position] * 2 >= 1);
+function stillMissing(field: readonly Position[], need: CompositionNeed): Position[] {
+  const missing = uncoveredPositions(field, need);
   return missing.length > 0 ? missing : [...field];
 }

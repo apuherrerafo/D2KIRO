@@ -1,70 +1,117 @@
 import { computeJointRoleAssignment, type JointAssignmentHeroInput } from "../draft-protocol/roles/joint-assignment";
-import { computeRoleBelief, type Position } from "../draft-protocol/roles/role-belief";
+import { computeRoleBelief, type Position, type RoleBelief } from "../draft-protocol/roles/role-belief";
 import type { HeroId } from "../draft-protocol/types";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { HeroPositions } from "../signals/hero-positions";
 
-// Qué posiciones le faltan a la composición propia cuando el Live NO sabe qué posición ocupa cada pick.
+// Qué posiciones le faltan a la composición propia cuando el Live NO sabe (o sabe sólo en parte) qué posición ocupa cada pick.
 //
 // El resolver del Live (live-position-resolver.ts) no vincula un héroe a una posición sin que una fuente lo diga: correcto, y esto no lo
 // cambia. Pero "no sé cuál es cuál" no es "no sé nada": Lion + Crystal Maiden + Rubick no pueden cubrir carry ni offlane, estén en el
-// asiento que estén. Esta función le pregunta eso al sistema de asignación conjunta que ya existe (S4: `computeJointRoleAssignment`),
-// que enumera TODAS las asignaciones viables de los héroes propios (los flex incluidos, con su distribución completa, no su posición más
-// popular) y devuelve cuánto queda sin cubrir cada posición.
+// asiento que estén. Esta función reutiliza dos cosas que ya existen y las exige a la vez para dar una posición por cubierta:
+//   - FACTIBILIDAD (S4, `computeJointRoleAssignment`): enumera todas las asignaciones viables del equipo completo, los asientos afirmados por una
+//     fuente incluidos como hechos, y dice qué posición queda cubierta en ellas.
+//   - PROBABILIDAD (S4, `computeRoleBelief`): cuánto juega de verdad cada héroe cada posición (su distribución completa, flex incluidos).
+// La factibilidad sola engaña: tres supports que sólo caben en {mid, soft, hard} "cubren" el mid con certeza aunque quien lo juegue sea el 12%
+// de las veces. Por eso una posición cuenta como cubierta sólo si LAS DOS dicen que más probable que no lo está, y nunca hay más posiciones
+// cubiertas que héroes propios (un límite estructural, no un número elegido).
 //
 // Es una PREFERENCIA de orden, nunca una identidad: no marca ninguna posición como ocupada, no vincula ningún héroe, no toca la
 // elegibilidad ni el ranking de ninguna columna, y sólo mira los picks propios visibles (nada del rival, nada oculto). Pura.
 
-export type CompositionNeed = Readonly<Record<Position, number>>;
+export interface CompositionNeed {
+  /** `1 − cobertura` por posición: 1 = ningún pick propio puede sentarse ahí, ~0 = alguno la ocupa seguro. */
+  readonly need: Readonly<Record<Position, number>>;
+  /** Las posiciones que los picks propios cubren más probable que no (cobertura > 1/2): a lo sumo una por héroe propio. */
+  readonly covered: readonly Position[];
+}
 
 export interface CompositionNeedInput {
   /** Picks propios visibles (KNOWN/REVEALED). */
   ownHeroes: readonly HeroId[];
-  /** Posiciones que una fuente afirmó para algún pick propio: se respetan como hechos y nunca se reinfieren. */
+  /** Posiciones que una fuente afirmó para algún pick propio: se respetan como hechos y nunca se reinfieren ni se sacan de la cuenta. */
   confirmed?: ReadonlyMap<HeroId, Position>;
   heroPositions: HeroPositions | undefined;
 }
 
+const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 const MAX_TEAM = 5;
 
 /**
- * `null` = no hay nada que añadir y el llamador se queda con su comportamiento de siempre: sin datos de posición, sin picks, todos los
- * picks ya confirmados (nada que inferir), más de 5 héroes, o dos picks que una fuente afirmó en la misma posición (no se repara).
- * Si no, `1 − cobertura` por posición: 1 = ningún pick propio puede sentarse ahí, ~0 = alguno la ocupa seguro.
+ * `null` = no hay nada que añadir y el llamador se queda con su comportamiento de siempre: sin datos de posición, sin picks, todos los picks
+ * ya confirmados (nada que inferir), más de 5 héroes, o una contradicción entre asientos afirmados (no se repara).
  *
- * Cuatro supports para los tres asientos que pueden cubrir no admiten una asignación completa: alguno juega fuera de rol. Eso no borra lo que
- * se sabe de los otros: se calcula con cada subconjunto de héroes que sí cabe (dejando uno afuera) y cada posición se considera tan cubierta
- * como en el mejor de ellos. Sólo cuando el choque no involucra a un pick afirmado por una fuente; si lo involucra, el choque es de verdad y devuelve null.
+ * Cuatro supports para los tres asientos que pueden cubrir no admiten una asignación completa: alguno juega fuera de rol. Eso no borra lo que se
+ * sabe de los otros: se calcula con cada subconjunto que sí cabe dejando afuera el menor número de héroes SIN posición afirmada (los asientos
+ * confirmados nunca se sacan) y la factibilidad de cada posición es la del mejor de ellos.
  */
 export function deriveCompositionNeed(input: CompositionNeedInput): CompositionNeed | null {
-  const { ownHeroes, confirmed, heroPositions } = input;
+  const { confirmed, heroPositions } = input;
+  const ownHeroes = [...new Set(input.ownHeroes)];
   if (!heroPositions || ownHeroes.length === 0 || ownHeroes.length > MAX_TEAM) return null;
   if (ownHeroes.every((heroId) => confirmed?.has(heroId))) return null;
-  const jointOf = (team: readonly HeroId[]) =>
-    computeJointRoleAssignment(
-      team.map((heroId): JointAssignmentHeroInput => ({
-        heroId,
-        belief: computeRoleBelief({ heroId, confirmedPosition: confirmed?.get(heroId) ?? null, heroPositions }),
-      })),
-    );
-  const result = jointOf(ownHeroes);
-  if (!result.rejected) return result.expectedPositionNeed;
-  if (result.rejected !== "IMPOSSIBLE_ASSIGNMENT") return null;
-  // Un choque que involucra a un pick afirmado por una fuente es de verdad (dos héroes en el mismo asiento): no se repara. Uno entre picks
-  // sin posición afirmada es sólo "más héroes de este rol que asientos que pueden cubrir".
-  if ((result.conflicts ?? []).some((conflict) => conflict.heroIds.some((heroId) => confirmed?.has(heroId)))) return null;
-  const subsets = ownHeroes.map((_, left) => jointOf(ownHeroes.filter((__, index) => index !== left))).filter((subset) => !subset.rejected);
-  if (subsets.length === 0) return null;
-  const need = (position: Position): number => Math.min(...subsets.map((subset) => subset.expectedPositionNeed[position]));
-  return { 1: need(1), 2: need(2), 3: need(3), 4: need(4), 5: need(5) };
+
+  const beliefs = new Map<HeroId, RoleBelief>(ownHeroes.map((heroId) => [heroId, computeRoleBelief({ heroId, confirmedPosition: confirmed?.get(heroId) ?? null, heroPositions })]));
+  const jointOf = (team: readonly HeroId[]) => computeJointRoleAssignment(team.map((heroId): JointAssignmentHeroInput => ({ heroId, belief: beliefs.get(heroId)! })));
+
+  const full = jointOf(ownHeroes);
+  let jointNeed: Readonly<Record<Position, number>>;
+  if (!full.rejected) {
+    jointNeed = full.expectedPositionNeed;
+  } else if (full.rejected === "IMPOSSIBLE_ASSIGNMENT") {
+    const fits = largestFittingTeams(ownHeroes, confirmed, jointOf);
+    if (fits.length === 0) return null;
+    const best = (position: Position): number => Math.min(...fits.map((subset) => subset.expectedPositionNeed[position]));
+    jointNeed = { 1: best(1), 2: best(2), 3: best(3), 4: best(4), 5: best(5) };
+  } else {
+    return null;
+  }
+
+  // Probabilidad de que AL MENOS UN héroe propio juegue la posición, con la distribución de cada uno por separado.
+  const played = (position: Position): number => 1 - ownHeroes.reduce((miss, heroId) => miss * (1 - beliefs.get(heroId)!.probabilities[position]), 1);
+  const coverage = (position: Position): number => Math.min(1 - jointNeed[position], played(position));
+  const need = Object.fromEntries(POSITIONS.map((position) => [position, Math.min(1, Math.max(0, 1 - coverage(position)))])) as Record<Position, number>;
+  const covered = POSITIONS.filter((position) => coverage(position) * 2 > 1)
+    .sort((a, b) => coverage(b) - coverage(a) || a - b)
+    .slice(0, ownHeroes.length)
+    .sort((a, b) => a - b);
+  return { need, covered };
+}
+
+/**
+ * Los equipos más grandes que SÍ admiten una asignación completa, dejando afuera el menor número posible de héroes SIN posición afirmada (los
+ * asientos confirmados nunca se sacan). Cuatro supports para los asientos que pueden cubrir: se saca uno; cuatro supports puros 4/5: se sacan dos.
+ */
+function largestFittingTeams<T extends { rejected?: string }>(
+  ownHeroes: readonly HeroId[],
+  confirmed: ReadonlyMap<HeroId, Position> | undefined,
+  jointOf: (team: readonly HeroId[]) => T,
+): T[] {
+  const free = ownHeroes.filter((heroId) => !confirmed?.has(heroId));
+  let leftOut: HeroId[][] = [[]];
+  for (let dropped = 1; dropped <= free.length; dropped += 1) {
+    leftOut = leftOut.flatMap((chosen) => free.filter((heroId) => !chosen.includes(heroId) && (chosen.length === 0 || heroId > chosen[chosen.length - 1]!)).map((heroId) => [...chosen, heroId]));
+    const fits = leftOut.map((drop) => jointOf(ownHeroes.filter((heroId) => !drop.includes(heroId)))).filter((subset) => !subset.rejected);
+    if (fits.length > 0) return fits;
+  }
+  return [];
+}
+
+/** Las posiciones de `positions` que los picks propios todavía NO cubren (más probable que no). */
+export function uncoveredPositions(positions: readonly Position[], need: CompositionNeed): Position[] {
+  return positions.filter((position) => !need.covered.includes(position));
 }
 
 /**
  * Sólo una captura en vivo. En el simulador cada pick queda atado a su posición al elegirlo, así que no hay nada que inferir y el
- * resultado es siempre `null` (comportamiento idéntico al de antes).
+ * resultado es siempre `null` (comportamiento idéntico al de antes). Nunca lanza: ante cualquier fallo el Coach sigue como siempre.
  */
 export function compositionNeedForContext(context: PerspectiveRecommendationContext, heroPositions: HeroPositions | undefined): CompositionNeed | null {
   if (context.liveCapture !== true) return null;
-  const ownHeroes = context.view.ownPicks.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
-  return deriveCompositionNeed({ ownHeroes, confirmed: context.ownAssignedPositions ?? undefined, heroPositions });
+  try {
+    const ownHeroes = context.view.ownPicks.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
+    return deriveCompositionNeed({ ownHeroes, confirmed: context.ownAssignedPositions ?? undefined, heroPositions });
+  } catch {
+    return null;
+  }
 }
