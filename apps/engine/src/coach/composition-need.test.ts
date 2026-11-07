@@ -28,6 +28,8 @@ const HALF_A = 801; // dos héroes con 40% de offlane / 60% de carry cada uno
 const HALF_B = 802;
 const SPREAD_A = 601; // reparte su juego entre offlane (60%) y soft support (40%)
 const SPREAD_B = 602; // reparte su juego entre soft support (40%) y hard support (60%)
+const MIRANA = 901; // flex: support probable, pero sólo support (pos 4), nunca hard support
+const WINDRANGER = 902; // flex: support probable, pero sólo support (pos 4), nunca hard support
 
 const POSITIONS: HeroPositions = {
   [LION]: [share(4, 5000), share(5, 3500), share(2, 1000)],
@@ -51,6 +53,8 @@ const POSITIONS: HeroPositions = {
   [HALF_B]: [share(3, 4000), share(1, 6000)],
   [SPREAD_A]: [share(3, 6000), share(4, 4000)],
   [SPREAD_B]: [share(4, 4000), share(5, 6000)],
+  [MIRANA]: [share(4, 8000), share(2, 2000)],
+  [WINDRANGER]: [share(4, 8000), share(3, 2000)],
 };
 
 const covered = (ownHeroes: number[], confirmed?: [number, Position][]) =>
@@ -128,6 +132,15 @@ describe("deriveCompositionNeed -- qué cubren los picks propios cuando no se sa
     const result = covered([PUDGE, UNDYING])!;
     expect(result.covered).not.toContain(5);
     expect(result.covered).not.toContain(3);
+  });
+
+  test("Mirana + Windranger: dos masas altas de support no sustituyen una asignación conjunta; sin pos 5 viable, el hard support sigue abierto", () => {
+    // El cálculo independiente anterior veía 0.8 × 0.8 = 64% de que hubiera dos supports y
+    // declaraba ambos asientos. El solver conjunto sabe que ambas masas son únicamente pos 4.
+    const result = covered([MIRANA, WINDRANGER])!;
+    expect(result.covered).toContain(4);
+    expect(result.covered).not.toContain(5);
+    expect(result.need[5]).toBeCloseTo(1, 6);
   });
 
   test("los flex cuentan con toda su distribución: Ogre Magi + Zeus (56% de ser los dos supports) no cierran carry ni offlane", () => {

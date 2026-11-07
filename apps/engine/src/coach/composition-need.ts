@@ -1,4 +1,4 @@
-import { computeJointRoleAssignment, type JointAssignmentHeroInput } from "../draft-protocol/roles/joint-assignment";
+import { computeJointRoleAssignment, type JointAssignmentHeroInput, type JointRoleAssignmentResult } from "../draft-protocol/roles/joint-assignment";
 import { computeRoleBelief, type Position, type RoleBelief } from "../draft-protocol/roles/role-belief";
 import type { HeroId } from "../draft-protocol/types";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
@@ -53,7 +53,8 @@ const SUPPORT_SEATS: readonly Position[] = [4, 5];
  */
 export function deriveCompositionNeed(input: CompositionNeedInput): CompositionNeed | null {
   const { confirmed, heroPositions } = input;
-  const ownHeroes = [...new Set(input.ownHeroes)];
+  // Canonical order keeps the solver's floating-point accumulation deterministic across capture order.
+  const ownHeroes = [...new Set(input.ownHeroes)].sort((a, b) => a - b);
   if (!heroPositions || ownHeroes.length < MIN_TEAM || ownHeroes.length > MAX_TEAM) return null;
   if (ownHeroes.every((heroId) => confirmed?.has(heroId))) return null;
 
@@ -62,20 +63,26 @@ export function deriveCompositionNeed(input: CompositionNeedInput): CompositionN
 
   const full = jointOf(ownHeroes);
   let jointNeed: Readonly<Record<Position, number>>;
+  let fittingAssignments: readonly JointRoleAssignmentResult[];
   if (!full.rejected) {
     jointNeed = full.expectedPositionNeed;
+    fittingAssignments = [full];
   } else if (full.rejected === "IMPOSSIBLE_ASSIGNMENT") {
     const fits = largestFittingTeams(ownHeroes, confirmed, jointOf);
     if (fits.length === 0) return null;
-    const best = (position: Position): number => Math.min(...fits.map((subset) => subset.expectedPositionNeed[position]));
-    jointNeed = { 1: best(1), 2: best(2), 3: best(3), 4: best(4), 5: best(5) };
+    // A favourable subset cannot declare a seat covered when another largest viable subset leaves it open.
+    const worst = (position: Position): number => Math.max(...fits.map((subset) => subset.expectedPositionNeed[position]));
+    jointNeed = { 1: worst(1), 2: worst(2), 3: worst(3), 4: worst(4), 5: worst(5) };
+    fittingAssignments = fits;
   } else {
     return null;
   }
 
   // Probabilidad de que AL MENOS UN héroe propio juegue la posición, con la distribución de cada uno por separado.
   const played = (position: Position): number => 1 - ownHeroes.reduce((miss, heroId) => miss * (1 - beliefs.get(heroId)!.probabilities[position]), 1);
-  const supportPair = probabilityAtLeastTwo(ownHeroes.map((heroId) => SUPPORT_SEATS.reduce((mass, position) => mass + beliefs.get(heroId)!.probabilities[position], 0)));
+  // This is mass from complete injective assignments, not independent per-hero support chances.
+  // For an impossible full team, every largest viable subset must support the claim.
+  const supportPair = Math.min(...fittingAssignments.map(probabilityBothSupportSeatsCovered));
   const coverage = (position: Position): number => {
     const own = Math.min(1 - jointNeed[position], played(position));
     return SUPPORT_SEATS.includes(position) && supportPair * 2 > 1 ? Math.max(own, supportPair) : own;
@@ -89,17 +96,12 @@ export function deriveCompositionNeed(input: CompositionNeedInput): CompositionN
   return { need, covered };
 }
 
-/** Probabilidad de que al menos dos de los héroes (cada uno con su masa de probabilidad independiente) caigan en el conjunto. */
-function probabilityAtLeastTwo(masses: readonly number[]): number {
-  let none = 1;
-  let one = 0;
-  let two = 0;
-  for (const mass of masses) {
-    two += one * mass;
-    one = one * (1 - mass) + none * mass;
-    none *= 1 - mass;
-  }
-  return two;
+/** Probability mass of S4 assignments that cover both support seats. */
+function probabilityBothSupportSeatsCovered(assignment: JointRoleAssignmentResult): number {
+  return assignment.candidates.reduce(
+    (total, candidate) => total + (SUPPORT_SEATS.every((position) => [...candidate.assignment.values()].includes(position)) ? candidate.probability : 0),
+    0,
+  );
 }
 
 /**
