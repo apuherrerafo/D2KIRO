@@ -7239,7 +7239,7 @@
     {
       "vs": 2,
       "level": "hard",
-      "why": "Berserker's Call obliga a Troll a pegarle a Axe y Culling Blade puede matarlo incluso dentro de Battle Trance"
+      "why": "Con Battle Trance el daño no lo mata mientras dura, pero Valve documenta que Culling Blade sí puede matarlo: hace de 275 a 475 de daño puro y solo remata si ese daño alcanza su vida actual. Berserker's Call (atraviesa BKB) lo obliga a pegarle a Axe"
     },
     {
       "vs": 112,
