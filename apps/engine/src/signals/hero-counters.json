@@ -8623,11 +8623,6 @@
       "why": "Si Tusk empieza la pelea, Snowball y Walrus PUNCH! revientan a Underlord antes de que use Pit of Malice"
     },
     {
-      "vs": 112,
-      "level": "hard",
-      "why": "Arctic Burn le quita un porcentaje de su vida actual cada segundo (cooldown de 29 a 20 s); castiga a los héroes de fuerza con mucha vida que se quedan en la línea"
-    },
-    {
       "vs": 26,
       "level": "medium",
       "why": "Hex le desactiva todas las habilidades a Underlord y Finger of Death le da el daño que necesita"
