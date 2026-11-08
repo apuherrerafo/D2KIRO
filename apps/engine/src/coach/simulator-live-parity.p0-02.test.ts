@@ -10,6 +10,9 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { TeamCoachBoard } from "./team-coach-board";
 import type { RecommendationOutputV4 } from "./recommendation-output-v4";
 import { fakeCompute, HERO_POSITIONS, POOL } from "./session-harness.fixtures";
+import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
+import { buildSuggestions } from "../signals/mix";
+import type { MetaSnapshot } from "../signals/types";
 
 // P0-02 -- Simulator <-> Live Companion strategic-core parity (Party 5, Ranked All Pick).
 //
@@ -45,10 +48,10 @@ interface Facts {
 }
 
 // ---------- the two ingestion paths ----------
-function coachFor(store: ProtocolSessionStore, facts: Facts): CoachRecommendations {
+function coachFor(store: ProtocolSessionStore, facts: Facts, compute: ComputeSuggestionsForRecommendation = fakeCompute(POOL, HERO_POSITIONS)): CoachRecommendations {
   return createCoachRecommendations({
     source: store,
-    computeSuggestions: fakeCompute(POOL, HERO_POSITIONS),
+    computeSuggestions: compute,
     heroPositions: HERO_POSITIONS,
     heroCounters: facts.counters ?? NO_COUNTERS,
     heroSynergies: facts.synergies ?? NO_SYNERGIES,
@@ -265,11 +268,11 @@ function diffStrategy(stage: Stage, a: StrategyView, b: StrategyView, presentati
 
 interface ScenarioResult { divergences: Divergence[]; firstStage: Stage | null; sim: StrategyView; simBoard: StrategyView; live: StrategyView; flags: { simulator: CaptureFlags; live: CaptureFlags } }
 
-async function runScenario(facts: Facts, options: { reportPositions?: boolean } = {}): Promise<ScenarioResult> {
+async function runScenario(facts: Facts, options: { reportPositions?: boolean; compute?: ComputeSuggestionsForRecommendation } = {}): Promise<ScenarioResult> {
   const sim = await ingestSimulator(facts);
   const live = ingestLive(facts, options);
-  const simCoach = coachFor(sim.store, facts);
-  const liveCoach = coachFor(live.store, facts);
+  const simCoach = coachFor(sim.store, facts, options.compute);
+  const liveCoach = coachFor(live.store, facts, options.compute);
   const simBoardRaw = await simCoach.recommendTeamBoard(sim.sessionId, null, null);
   const liveBoardRaw = await liveCoach.recommendTeamBoard(live.sessionId, null, null);
   if (!simBoardRaw || !liveBoardRaw) throw new Error("board unavailable");
@@ -339,7 +342,7 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     ]);
   });
 
-  test("B. STRONG counter vs revealed enemy: identical columns; the Simulator headline ignores the counter Live headlines", async () => {
+  test("B. STRONG counter vs revealed enemy: same columns AND same headline (position + hero)", async () => {
     const result = await runScenario(SCENARIOS.B!.facts);
     print("B", result);
     expect(byStage(result, "S1_INPUT")).toEqual([]);
@@ -348,15 +351,16 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     for (const view of [result.sim, result.live]) {
       expect(view.perPosition[3]?.[0]).toMatchObject({ heroId: 5, evidenceStrength: "STRONG" });
     }
-    // KNOWN DIVERGENCE (unjustified strategic): same facts, same ranking, different headline.
-    expect(presentation(result)).toEqual([
-      { field: "recommendedPosition", simulator: 2, live: 3 },
-      { field: "targetHead(ELIGE AHORA)", simulator: 4, live: 5 },
-    ]);
-    expect(result.sim.perPosition[2]?.[0]?.evidenceStrength).toBe("WEAK"); // V4 points the Player at a column with no strong ground
+    // P0-03: ONE target policy. Same facts => same position and same head hero, and a WEAK column never displaces the STRONG one.
+    expect(presentation(result)).toEqual([]);
+    expect(result.divergences).toEqual([]);
+    expect(result.sim.recommendedPosition).toBe(3);
+    expect(result.sim.targetHead).toBe(5);
+    expect(result.live.recommendedPosition).toBe(3);
+    expect(result.live.targetHead).toBe(5);
   });
 
-  test("C. curated synergy with a selected ally: identical columns; headline diverges the same way as B", async () => {
+  test("C. curated synergy with a selected ally: same columns AND same headline (position + hero)", async () => {
     const result = await runScenario(SCENARIOS.C!.facts);
     print("C", result);
     expect(byStage(result, "S1_INPUT")).toEqual([]);
@@ -365,10 +369,12 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     for (const view of [result.simBoard, result.live]) {
       expect(view.perPosition[4]?.[0]).toMatchObject({ heroId: 3, evidenceStrength: "STRONG" });
     }
-    expect(presentation(result)).toEqual([
-      { field: "recommendedPosition", simulator: 2, live: 4 },
-      { field: "targetHead(ELIGE AHORA)", simulator: 4, live: 3 },
-    ]);
+    expect(presentation(result)).toEqual([]);
+    expect(result.divergences).toEqual([]);
+    expect(result.sim.recommendedPosition).toBe(4);
+    expect(result.sim.targetHead).toBe(3);
+    expect(result.live.recommendedPosition).toBe(4);
+    expect(result.live.targetHead).toBe(3);
     // NOTE: the contract has only STRONG | WEAK evidence (recommendation-eligibility.ts). There is no MEDIUM tier to test;
     // a reasoned curated synergy pair is STRONG. Reported as BLOCKED for the literal "MEDIUM" wording.
   });
@@ -396,6 +402,29 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     // It still advises the counter that is VISIBLE in the draft (hero 5 vs revealed 9), exactly as when positions are known (scenario B).
     expect(result.live.perPosition[3]?.[0]).toMatchObject({ heroId: 5, evidenceStrength: "STRONG" });
     expect(result.live.recommendedPosition).toBe(3);
+  });
+
+  test("B-V6. same parity with the REAL V6 scorer (buildSuggestions) over deterministic inline data", async () => {
+    // Inline MetaSnapshot: hero 5 beats revealed 9 on the statistics too (200 games, 76%). No file, no SQLite, no network.
+    const meta: MetaSnapshot = {
+      heroes: Object.fromEntries(POOL.concat([9, 10, 11]).map((hero) => [hero, { id: hero, localizedName: `Hero ${hero}` }])),
+      matchups: { 5: [{ vsHero: 9, games: 200, wins: 152 }] },
+    };
+    const facts = SCENARIOS.B!.facts;
+    const compute: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
+      buildSuggestions(state, meta, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map(facts.counters ?? NO_COUNTERS) as Map<number, CuratedCounter[]>, heroSynergies: new Map(NO_SYNERGIES) as Map<number, CuratedSynergy[]> });
+    const result = await runScenario(facts, { compute });
+    print("B-V6", result);
+    expect(byStage(result, "S1_INPUT")).toEqual([]);
+    expect(byStage(result, "S2_RANKING")).toEqual([]);
+    expect(presentation(result)).toEqual([]);
+    // The headline is a real, STRONG-backed one (not a default): same position and hero in both products.
+    expect(result.sim.recommendedPosition).not.toBeNull();
+    expect(result.sim.recommendedPosition).toBe(result.live.recommendedPosition);
+    expect(result.sim.targetHead).not.toBeNull();
+    expect(result.sim.targetHead).toBe(result.live.targetHead);
+    const column = result.live.perPosition[result.live.recommendedPosition!]!;
+    expect(column.find((candidate) => candidate.heroId === result.live.targetHead)?.evidenceStrength).toBe("STRONG");
   });
 
   test("E2. a half-read live draft is refused (409), never ranked", async () => {

@@ -16,8 +16,7 @@ import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
 import { deriveOpportunity, translateToRecommendationOutputV3, type CoachOpportunity, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
 import { deriveRevealStrategy } from "./reveal-strategy";
-import { buildCurrentHumanDecision, deriveCandidateResult, derivePoolInfo, rankingAppliedPersonalPool, resolveViewedPosition, selectDecisionTarget, targetFromPriority } from "./current-human-decision";
-import type { LivePositionPriority } from "./live-position-priority";
+import { buildCurrentHumanDecision, deriveCandidateResult, derivePoolInfo, rankingAppliedPersonalPool, resolveViewedPosition, selectDecisionTarget, type DecisionTarget } from "./current-human-decision";
 import { buildRecommendationOutputV4, type RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // AP Ranked Roles V1 / Wave 2 (task 19) -- Coach orchestration: one continuous pipeline
@@ -92,10 +91,10 @@ export interface CurrentDecisionRecomputeInput extends CoachRecomputeInput {
   /** Position the Player chose to view in the selector (validated as eligible by selectDecisionTarget). */
   requestedTarget?: Position | null;
   /**
-   * The position priority the Team Coach board uses (buildTeamPositionPriority), so V4 and the board name the same
-   * position. Absent with one open position -- then selectDecisionTarget decides, exactly as before.
+   * The target the Team Coach board resolves (buildTeamDecisionTarget), so V4 and the board name the same position.
+   * Null/absent when the board names nobody (no STRONG evidence) or with one open position: selectDecisionTarget decides, a neutral default.
    */
-  positionPriority?: LivePositionPriority | null;
+  teamTarget?: DecisionTarget | null;
 }
 
 export interface CurrentDecisionRecomputation {
@@ -285,7 +284,7 @@ export class CoachOrchestrator {
       sourceSet = await buildTeamEvaluation(input.context);
     } else {
       // Hero Pools V2: a pool is a preference, so an exhausted pool never closes a position as a target.
-      const target = targetFromPriority(input.positionPriority, actionability.eligiblePositions)
+      const target = (input.teamTarget && actionability.eligiblePositions.includes(input.teamTarget.targetPosition) ? input.teamTarget : null)
         ?? selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       // The first view is the Player's own position, not the suggested one (Pos 5 first must not take it away).

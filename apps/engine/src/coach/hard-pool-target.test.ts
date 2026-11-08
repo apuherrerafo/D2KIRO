@@ -3,7 +3,7 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import { buildRecommendationSetFromPerspective } from "../recommendation/build-from-perspective";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import { CoachOrchestrator } from "./orchestrator";
-import { buildTeamCoachBoard, buildTeamPositionPriority } from "./team-coach-board";
+import { buildTeamCoachBoard, buildTeamDecisionTarget } from "./team-coach-board";
 import { selectDecisionTarget, targetFromPriority } from "./current-human-decision";
 import { selectLivePositionPriority } from "./live-position-priority";
 import { poolsByConfirmedPosition, type SavedTeamMember } from "../recommendation/team-positions";
@@ -129,8 +129,8 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
   // What the route does: V4 takes the board's position priority when >= 2 positions are open.
   async function v4LikeTheRoute(pools: Pools | null, bans: number[], personal: Position) {
     const input = boardInput(pools, bans, personal);
-    const positionPriority = await buildTeamPositionPriority(input);
-    const result = await coachFor().recomputeCurrentDecision({ context: input.context, playerPersonalPosition: personal, positionPriority });
+    const teamTarget = await buildTeamDecisionTarget(input);
+    const result = await coachFor().recomputeCurrentDecision({ context: input.context, playerPersonalPosition: personal, teamTarget });
     const decision = result!.output.decision;
     if (decision.kind !== "ACTIONABLE") throw new Error("expected ACTIONABLE");
     return decision;

@@ -1,4 +1,4 @@
-import { buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
+import { buildTeamCoachBoard, buildTeamDecisionTarget, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
 import { loadAdvertirApproved } from "../../coach/advertir-approved";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
@@ -198,10 +198,10 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       // With >= 2 open positions V4 names the SAME position as the board (LivePositionPriorityV1); with one, nothing is
       // computed here and selectDecisionTarget decides as before -- the individual mode never pays for the extra rankings.
       const openPositions = context.humanActionability?.hasHumanAction ? context.humanActionability.eligiblePositions.length : 0;
-      const positionPriority = openPositions >= 2
-        ? await buildTeamPositionPriority(teamBoardInput(context, playerPersonalPosition, accountId))
+      const teamTarget = openPositions >= 2
+        ? await buildTeamDecisionTarget(teamBoardInput(context, playerPersonalPosition, accountId))
         : null;
-      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null, requestedTarget, positionPriority });
+      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null, requestedTarget, teamTarget });
     },
     async assignPosition(sessionId, playerPersonalPosition, accountId, heroId, position) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
