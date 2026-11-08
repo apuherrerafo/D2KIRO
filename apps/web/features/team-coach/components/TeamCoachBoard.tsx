@@ -1,6 +1,7 @@
 "use client";
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
+import { OffPoolTag } from "@/components/off-pool-tag/OffPoolTag";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { ADVISORY_NOTE, BANNER_LABEL, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PICK_HINT, PICK_NOW_LABEL, WHY_LABEL, teamPositionName, teamPositionTitle } from "../constants";
 import {
@@ -347,6 +348,7 @@ function CandidateHead({ candidate, heroCatalog }: { candidate: TeamCoachCandida
       <span className="text-content-muted">{candidate.rank}.</span>
       <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
       <EvidenceLimitedMark strength={candidate.evidenceStrength} />
+      <OffPoolTag membership={candidate.poolMembership} testId="team-coach-off-pool-tag" />
       <PlanBadge candidate={candidate} />
     </span>
   );

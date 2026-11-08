@@ -15,7 +15,7 @@ import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } fr
 import { revealedEnemyHeroes } from "./hero-card";
 import { compositionNeedForContext, uncoveredPositions, type CompositionNeed } from "./composition-need";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
-import type { RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import type { PoolMembership, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
 
 // Team Coach Board -- ONE projection of every human-controlled position from ONE perspective-safe
@@ -77,6 +77,12 @@ export interface TeamCoachCandidate {
   isPrimary: boolean;
   /** FUERZA de la evidencia (ver `RankedCandidateCard.evidenceStrength`): solo un candidato STRONG puede ser primario / héroe recomendado. */
   evidenceStrength: "STRONG" | "WEAK";
+  /**
+   * P0-03D -- the SAME pool identification V4 gives the card (`RankedCandidateCard.poolMembership`), so the Simulator panel and the Live board say the
+   * same thing: `OUTSIDE_POOL` (a pool is configured for this position and the hero is not in it) is what the UI shows as OFF-POOL; `NO_POOL` shows nothing.
+   * INFORMATIVE only: never a reason, never part of the score or the order.
+   */
+  poolMembership: PoolMembership;
 }
 
 export interface TeamCoachPosition {
@@ -308,6 +314,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       steals,
       isPrimary: false,
       evidenceStrength: card.evidenceStrength,
+      poolMembership: card.poolMembership,
     };
   };
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.

@@ -49,14 +49,16 @@ function withPool(owner: "PLAYER" | "TEAMMATE", memberships: ("IN_POOL" | "OUTSI
 test("Hero Pools V2: el pool de un compañero NUNCA se rotula 'Tu pool'; se rotula como del compañero, y lo de fuera, fuera", () => {
   const view = render(<CurrentDecisionPanel output={withPool("TEAMMATE", ["IN_POOL", "OUTSIDE_POOL"])} heroCatalog={new Map()} />);
   expect(view.getByTestId("current-decision-pool-badge").textContent).toBe("Pool del compañero");
-  expect(view.getByTestId("current-decision-outside-pool-badge").textContent).toBe("Fuera del pool del compañero");
+  expect(view.getByTestId("current-decision-outside-pool-badge").textContent).toBe("OFF-POOL");
+  expect(view.getByTestId("current-decision-outside-pool-badge").getAttribute("title")).toBe("Fuera del pool del compañero");
   expect(view.container.textContent).not.toContain("Tu pool");
 });
 
 test("Hero Pools V2: el pool del propio jugador sí es 'Tu pool'; sin pool no hay ni 'dentro' ni 'fuera'", () => {
   const own = render(<CurrentDecisionPanel output={withPool("PLAYER", ["IN_POOL", "OUTSIDE_POOL"])} heroCatalog={new Map()} />);
   expect(own.getByTestId("current-decision-pool-badge").textContent).toBe("Tu pool");
-  expect(own.getByTestId("current-decision-outside-pool-badge").textContent).toBe("Fuera de tu pool");
+  expect(own.getByTestId("current-decision-outside-pool-badge").textContent).toBe("OFF-POOL");
+  expect(own.getByTestId("current-decision-outside-pool-badge").getAttribute("title")).toBe("Fuera de tu pool");
   cleanup();
   const none = render(<CurrentDecisionPanel output={output(RANKED)} heroCatalog={new Map()} />);
   expect(none.queryByTestId("current-decision-pool-badge")).toBeNull();

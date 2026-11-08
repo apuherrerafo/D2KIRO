@@ -88,7 +88,8 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
     (value.synergies === undefined || (Array.isArray(value.synergies) && value.synergies.every(isSynergy))) &&
     (value.steals === undefined || (Array.isArray(value.steals) && value.steals.every(isSteal))) &&
     typeof value.isPrimary === "boolean" &&
-    (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength))
+    (value.evidenceStrength === undefined || isEvidenceStrength(value.evidenceStrength)) &&
+    (value.poolMembership === undefined || value.poolMembership === "IN_POOL" || value.poolMembership === "OUTSIDE_POOL" || value.poolMembership === "NO_POOL")
   );
 }
 

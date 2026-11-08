@@ -1,6 +1,7 @@
 "use client";
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
+import { OffPoolTag } from "@/components/off-pool-tag/OffPoolTag";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
@@ -120,13 +121,13 @@ interface PoolBadgeProps {
   owner: PoolOwner | null;
 }
 
-// A pool mark says whose pool it is; "outside" appears only when a pool really voted (NO_POOL shows nothing).
+// A pool mark says whose pool it is; "outside" is the shared OFF-POOL tag and appears only when a pool really voted (NO_POOL shows nothing).
 function PoolBadge({ membership, owner }: PoolBadgeProps) {
   if (membership === "NO_POOL" || owner === null) return null;
   if (membership === "IN_POOL") {
     return <span className="rounded-md border border-accent-primary px-2 py-1 text-caption text-accent-primary" data-testid="current-decision-pool-badge">{POOL_BADGE_LABELS[owner].inside}</span>;
   }
-  return <span className="rounded-md border border-surface-border px-2 py-1 text-caption text-content-muted" data-testid="current-decision-outside-pool-badge">{POOL_BADGE_LABELS[owner].outside}</span>;
+  return <OffPoolTag membership={membership} title={POOL_BADGE_LABELS[owner].outside} testId="current-decision-outside-pool-badge" />;
 }
 
 interface CardReasonsProps {

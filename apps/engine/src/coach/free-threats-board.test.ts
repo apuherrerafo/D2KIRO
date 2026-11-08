@@ -115,35 +115,35 @@ const SCENARIOS: Scenario[] = [
 const BASELINE: Record<string, { readable: string; fingerprint: string }> = {
   "draft vacío, sin counters": {
     readable: "p1:RANKED:primary=-:[1@21.000W] | p2:RANKED:primary=-:[4@21.000W,6@20.000W] | p3:RANKED:primary=-:[5@21.000W] | p4:RANKED:primary=-:[3@21.000W] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p-/h- golden=-",
-    fingerprint: "e9134c0bcd6a5910",
+    fingerprint: "da1c733832767ae1",
   },
   "un pick (carry) con dos amenazas fuertes libres": {
     readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@21.000W+robo1m,6@20.000W] | p3:RANKED:primary=5:[5@21.000S+robo1h] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "ec37f49df9ce08d2",
+    fingerprint: "3230c458109c919b",
   },
   "lo mismo con el offlaner baneado": {
     readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=4:[4@21.000S+robo1m,6@20.000W] | p3:RANKED:primary=-:[] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "2f60c5271edb1a28",
+    fingerprint: "cb9ef065a120eeb3",
   },
   "lo mismo con la amenaza ya elegida por el rival": {
     readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[6@20.000W,4@21.000W] | p3:RANKED:primary=-:[] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "116e6b2c2212d033",
+    fingerprint: "3bb674f070f87c6a",
   },
   "dos picks (carry y mid), posiciones 1 y 2 llenas": {
     readable: "p1:FILLED:primary=-:[] | p2:FILLED:primary=-:[] | p3:RANKED:primary=5:[5@21.000S+robo1h4h,6@20.000W] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "803e43ba8fbd750a",
+    fingerprint: "9f428d99f36ded51",
   },
   "un pick con solo relaciones medium (nada que avisar)": {
     readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@21.000W,6@20.000W] | p3:RANKED:primary=-:[5@21.000W+robo1m] | p4:RANKED:primary=-:[3@21.000W] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p-/h- golden=-",
-    fingerprint: "19b8789e8165296c",
+    fingerprint: "1421b6ec03ec75cc",
   },
   "draft donde el orden de pos 2 depende del bono de Robo": {
     readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=6:[6@20.000S+robo1h,4@21.000W] | p3:RANKED:primary=-:[5@21.000W] | p4:RANKED:primary=-:[3@21.000W] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p2/h6 golden=-",
-    fingerprint: "d3f5341c455b0a08",
+    fingerprint: "3eaec9615357e02f",
   },
   "el jugador solo controla pos 1 y pos 2": {
     readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@21.000W+robo1m,6@20.000W] || ELIGE AHORA=p-/h- golden=-",
-    fingerprint: "34cc4344ce63b952",
+    fingerprint: "130227f94966a0bb",
   },
 };
 

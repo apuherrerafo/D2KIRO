@@ -33,7 +33,7 @@ export const BADGE_LABELS: Record<CoachBadge, string> = {
   META: "Aporta el meta",
   FLEX: "Flex",
   YOUR_POOL: "Tu pool",
-  OUTSIDE_YOUR_POOL: "Fuera de tu pool",
+  OUTSIDE_YOUR_POOL: "OFF-POOL",
 };
 
 const SHORTLIST_TITLES: Record<CoachStrategy["kind"], string> = {

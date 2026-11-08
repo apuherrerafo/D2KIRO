@@ -493,6 +493,41 @@ describe("TeamCoachBoard -- live Party5 P0 (engine mirror)", () => {
     expect(parseTeamCoachBoard(badWhy)).toBeNull();
   });
 
+  // P0-03D -- OFF-POOL: el mismo tablero sirve a /simulator y a /live-draft, así que la etiqueta es idéntica en los dos.
+  test("OFF-POOL aparece SOLO en el héroe OUTSIDE_POOL; IN_POOL, NO_POOL y un motor anterior (sin el campo) no muestran nada", () => {
+    const mixed = column(2);
+    mixed.top[0] = { ...mixed.top[0]!, poolMembership: "OUTSIDE_POOL", evidenceStrength: "STRONG" };
+    mixed.top[1] = { ...mixed.top[1]!, poolMembership: "IN_POOL" };
+    mixed.top[2] = { ...mixed.top[2]!, poolMembership: "NO_POOL" };
+    const view = renderBoard({ ...board([2], 2), positions: [mixed] });
+    const rows = view.getAllByTestId("team-coach-candidate");
+    expect(rows[0]!.querySelector('[data-testid="team-coach-off-pool-tag"]')?.textContent).toBe("OFF-POOL");
+    expect(rows[1]!.querySelector('[data-testid="team-coach-off-pool-tag"]')).toBeNull();
+    expect(rows[2]!.querySelector('[data-testid="team-coach-off-pool-tag"]')).toBeNull();
+    cleanup();
+    const legacy = renderBoard({ ...board([2], 2), positions: [column(2)] });
+    expect(legacy.queryByTestId("team-coach-off-pool-tag")).toBeNull();
+  });
+
+  test("OFF-POOL es información: no cambia la marca de evidencia ni quién es el plan (un héroe fuera del pool con evidencia FUERTE sigue siendo el recomendado)", () => {
+    const outside = column(2);
+    outside.top[0] = { ...outside.top[0]!, poolMembership: "OUTSIDE_POOL", evidenceStrength: "STRONG" };
+    const view = renderBoard({ ...board([2], 2), positions: [outside] }, { onPickHero: () => {} });
+    const first = view.getAllByTestId("team-coach-candidate")[0]!;
+    expect(first.querySelector('[data-testid="evidence-limited-mark"]')).toBeNull();
+    expect(first.getAttribute("data-primary")).toBe("true");
+    expect(view.getByTestId("team-coach-pick-recommended")).toBeTruthy();
+  });
+
+  test("el payload con poolMembership se valida; un valor desconocido se rechaza entero", () => {
+    const withMembership = board([2], 2);
+    withMembership.positions[0]!.top[0] = { ...withMembership.positions[0]!.top[0]!, poolMembership: "OUTSIDE_POOL" };
+    expect(parseTeamCoachBoard(JSON.parse(JSON.stringify(withMembership)))).not.toBeNull();
+    const bad = JSON.parse(JSON.stringify(withMembership));
+    bad.positions[0].top[0].poolMembership = "OFF-POOL";
+    expect(parseTeamCoachBoard(bad)).toBeNull();
+  });
+
   test("a position our picks fill without a confirmed hero renders as filled, with the engine's note and no candidates", () => {
     const note = "Ocupada por uno de tus héroes cuyo rol exacto todavía no se confirmó.";
     const data = board([1, 2, 3, 4, 5], 2, { 3: { state: "FILLED", alreadyFilled: true, filledHeroId: null, eligibleNow: false, primaryHeroId: null, top: [], note } });
