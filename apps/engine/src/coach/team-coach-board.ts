@@ -248,12 +248,17 @@ export async function buildTeamPositionPriority(input: BuildTeamCoachBoardInput)
  * The ONE target policy (P0-03): which position to look at first, resolved by the SAME rule the board's `currentDecision` uses
  * (`resolveTeamTarget`: LivePositionPriorityV1 when it applies, else the default over the positions that have STRONG evidence).
  * V4 (`?format=v4`, the Simulator) takes its target from here, so a position without STRONG evidence can never displace one that has it.
- * Null when no position has STRONG evidence (the board names nobody then) or there is no human action: the caller shows its neutral default.
+ * THREE outcomes, never conflated (P0-03C):
+ *   undefined -> the board could NOT be computed (no controlled positions / no actionability): the caller falls back to its own default;
+ *   null      -> the board WAS computed and decided to stay silent (no STRONG hero, or live composition says nothing strong exists for what is
+ *                missing): the caller must not recommend anybody, and must not derive a recommendation from its own cards;
+ *   target    -> the board recommends; `primaryHeroId` is the hero it names.
  */
-export async function buildTeamDecisionTarget(input: BuildTeamCoachBoardInput): Promise<DecisionTarget | null> {
+export async function buildTeamDecisionTarget(input: BuildTeamCoachBoardInput): Promise<DecisionTarget | null | undefined> {
   const computed = await computeTeamCoach(input);
-  const resolved = computed?.target ?? null;
-  if (computed === null || resolved === null) return null;
+  if (computed === null) return undefined;
+  const resolved = computed.target;
+  if (resolved === null) return null;
   // V4's wire has no PHASE_FALLBACK: the habitual commitment order is "no clear strategic priority", so it travels as DETERMINISTIC_DEFAULT.
   return { targetPosition: resolved.targetPosition, targetBasis: resolved.targetBasis === "STRATEGIC" ? "STRATEGIC" : "DETERMINISTIC_DEFAULT", targetRationale: resolved.targetRationale, primaryHeroId: computed.board.currentDecision.recommendedHeroId };
 }

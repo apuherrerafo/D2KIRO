@@ -92,7 +92,9 @@ export interface CurrentDecisionRecomputeInput extends CoachRecomputeInput {
   requestedTarget?: Position | null;
   /**
    * The target the Team Coach board resolves (buildTeamDecisionTarget), so V4 and the board name the same position.
-   * Null/absent when the board names nobody (no STRONG evidence) or with one open position: selectDecisionTarget decides, a neutral default.
+   * Tri-state: a target = the board recommends; `null` = the board was computed and decided NOT to recommend (V4 keeps a neutral default view
+   * and NEVER derives a recommendation from its own cards); `undefined` = the board was not computed (selectDecisionTarget decides and the
+   * recommendation is derived from the viewed candidates).
    */
   teamTarget?: DecisionTarget | null;
 }
@@ -284,8 +286,10 @@ export class CoachOrchestrator {
       sourceSet = await buildTeamEvaluation(input.context);
     } else {
       // Hero Pools V2: a pool is a preference, so an exhausted pool never closes a position as a target.
-      const target = (input.teamTarget && actionability.eligiblePositions.includes(input.teamTarget.targetPosition) ? input.teamTarget : null)
-        ?? selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
+      const boardTarget = input.teamTarget && actionability.eligiblePositions.includes(input.teamTarget.targetPosition) ? input.teamTarget : null;
+      const baseTarget = boardTarget ?? selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
+      // The board's explicit silence is respected: the default view stays, but no hero recommendation is claimed.
+      const target = input.teamTarget === null ? { ...baseTarget, primaryHeroId: null } : baseTarget;
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       // The first view is the Player's own position, not the suggested one (Pos 5 first must not take it away).
       const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget, personal);

@@ -195,12 +195,13 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
     async recommendCurrentDecision(sessionId, playerPersonalPosition, accountId = null, requestedTarget = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return undefined;
-      // With >= 2 open positions V4 names the SAME position as the board (LivePositionPriorityV1); with one, nothing is
-      // computed here and selectDecisionTarget decides as before -- the individual mode never pays for the extra rankings.
+      // With >= 2 open positions -- or on a LIVE capture, even with one -- V4 takes the board's decision (position AND hero, or its explicit
+      // silence). Only a Simulator session with one open position skips the board: there the viewed column IS the target and nothing can be
+      // suppressed (composition need exists only on a live capture), so the individual mode never pays for the extra rankings.
       const openPositions = context.humanActionability?.hasHumanAction ? context.humanActionability.eligiblePositions.length : 0;
-      const teamTarget = openPositions >= 2
+      const teamTarget = openPositions >= 2 || (openPositions >= 1 && context.liveCapture === true)
         ? await buildTeamDecisionTarget(teamBoardInput(context, playerPersonalPosition, accountId))
-        : null;
+        : undefined;
       return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null, requestedTarget, teamTarget });
     },
     async assignPosition(sessionId, playerPersonalPosition, accountId, heroId, position) {
