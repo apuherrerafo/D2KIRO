@@ -5541,8 +5541,8 @@
     },
     {
       "vs": 54,
-      "level": "hard",
-      "why": "Mientras dura Rage (3 a 6 s), la mayoría de los hechizos de Invoker no le afectan; Sun Strike sí atraviesa Rage"
+      "level": "medium",
+      "why": "Mientras dura Rage (3 a 6 s) Lifestealer es inmune a debuffs y tiene 80 % de resistencia mágica. Según los archivos del juego, Cold Snap, Tornado, Deafening Blast, E.M.P. y Chaos Meteor no atraviesan la inmunidad, pero Sun Strike sí lo golpea. Rage enfría 18 a 21 s: Invoker puede esperar a que termine"
     },
     {
       "vs": 129,
