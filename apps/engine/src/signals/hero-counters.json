@@ -4776,8 +4776,8 @@
     },
     {
       "vs": 86,
-      "level": "hard",
-      "why": "Rubick roba el último hechizo que lance Jakiro (Ice Path, Dual Breath o Macropyre, uno a la vez)"
+      "level": "medium",
+      "why": "Si Jakiro lanza primero, Rubick (alcance 1000, atraviesa BKB) le roba el último hechizo —Ice Path, que aturde de 1,25 a 2 s, Dual Breath o Macropyre— y puede usarlo; roba uno a la vez y solo el último que lance"
     },
     {
       "vs": 29,
