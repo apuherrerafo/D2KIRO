@@ -312,6 +312,19 @@ const SCENARIOS: Record<string, { facts: Facts; options?: { reportPositions?: bo
   E: { facts: { bans: [BAN], picks: [own(1, 1), own(2, 5), enemy(9), enemy(8)], counters: counter9ByHero5 }, options: { reportPositions: false } },
 };
 
+// P0-03B -- the hero-level recommendation contract (V4 `primaryRecommendation`), independent of the position priority.
+type V4Decision = Extract<RecommendationOutputV4["decision"], { kind: "ACTIONABLE" }>;
+async function v4Decision(facts: Facts, viewed: Position | null = null): Promise<V4Decision> {
+  const sim = await ingestSimulator(facts);
+  const output = (await coachFor(sim.store, facts).recommendCurrentDecision(sim.sessionId, null, null, viewed))!.output;
+  if (output.decision.kind !== "ACTIONABLE") throw new Error("expected an actionable decision");
+  return output.decision;
+}
+const BOTH_STRONG: Facts = { ...SCENARIOS_B_FACTS(), synergies: synergyOneWithTwo };
+function SCENARIOS_B_FACTS(): Facts {
+  return { bans: [BAN], picks: [own(1, 1), own(2, 5), enemy(9), enemy(8)], counters: counter9ByHero5 };
+}
+
 const byStage = (result: ScenarioResult, stage: Stage) => result.divergences.filter((divergence) => divergence.stage === stage);
 const presentation = (result: ScenarioResult) => byStage(result, "S3_PRESENTATION").map(({ field, simulator, live }) => ({ field, simulator, live }));
 
@@ -425,6 +438,47 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     expect(result.sim.targetHead).toBe(result.live.targetHead);
     const column = result.live.perPosition[result.live.recommendedPosition!]!;
     expect(column.find((candidate) => candidate.heroId === result.live.targetHead)?.evidenceStrength).toBe("STRONG");
+  });
+
+  test("P0-03B one STRONG position: the hero recommendation exists even though the position priority is only the default", async () => {
+    const decision = await v4Decision(SCENARIOS.B!.facts);
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT"); // priority between positions: NOT promoted to STRATEGIC
+    expect(decision.primaryRecommendation).toEqual({ position: 3, heroId: 5 });
+    const live = await runScenario(SCENARIOS.B!.facts);
+    expect(live.live.targetHead).toBe(decision.primaryRecommendation!.heroId); // the Live board names the same hero
+    expect(live.live.recommendedPosition).toBe(decision.primaryRecommendation!.position);
+  });
+
+  test("P0-03B no STRONG position: no recommendation is claimed (no ELIGE AHORA)", async () => {
+    const decision = await v4Decision(SCENARIOS.A!.facts);
+    expect(decision.primaryRecommendation).toBeNull();
+    expect(decision.candidates.cards.every((card) => card.evidenceStrength === "WEAK")).toBe(true);
+    const nothingStrongHere = await v4Decision({ bans: [BAN], picks: [own(1, 1), own(2, 5), enemy(7), enemy(8)] }); // mid-draft, still only meta
+    expect(nothingStrongHere.primaryRecommendation).toBeNull();
+  });
+
+  test("P0-03B several STRONG positions: V4 and Live agree on position, priority basis and hero", async () => {
+    const decision = await v4Decision(BOTH_STRONG);
+    const result = await runScenario(BOTH_STRONG);
+    expect(result.divergences).toEqual([]);
+    // Both Pos 3 (counter of a revealed enemy) and Pos 4 (curated pair) have STRONG heroes...
+    for (const position of [3, 4]) expect(result.live.perPosition[position]?.[0]?.evidenceStrength).toBe("STRONG");
+    // ...so the priority between positions is a real signal (counter window) and the hero follows it.
+    expect(decision.targetBasis).toBe("STRATEGIC");
+    expect(decision.primaryRecommendation?.position).toBe(result.live.recommendedPosition as Position);
+    expect(decision.primaryRecommendation?.heroId).toBe(result.live.targetHead as number);
+    expect(decision.primaryRecommendation).toEqual({ position: 3, heroId: 5 });
+  });
+
+  test("P0-03B viewed position differs from the recommendation: navigation never moves or erases it", async () => {
+    const atTarget = await v4Decision(SCENARIOS.B!.facts);
+    const viewingOther = await v4Decision(SCENARIOS.B!.facts, 2);
+    expect(viewingOther.viewedPosition).toBe(2);
+    expect(viewingOther.candidates.targetPosition).toBe(2); // the cards belong to the viewed column (all five stay reachable)
+    expect(viewingOther.targetPosition).toBe(atTarget.targetPosition);
+    expect(viewingOther.targetBasis).toBe(atTarget.targetBasis);
+    expect(viewingOther.primaryRecommendation).toEqual({ position: 3, heroId: 5 }); // still Pos 3 / hero 5, not the viewed column
+    expect(viewingOther.candidates.cards.every((card) => card.evidenceStrength === "WEAK")).toBe(true);
   });
 
   test("E2. a half-read live draft is refused (409), never ranked", async () => {

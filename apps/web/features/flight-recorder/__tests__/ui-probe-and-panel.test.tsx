@@ -80,6 +80,7 @@ describe("ui-probe -- lee lo que la pantalla muestra de verdad", () => {
         targetPosition: 2,
         targetBasis: "STRATEGIC",
         targetRationale: "porque sí",
+        primaryRecommendation: { position: 2, heroId: 1 },
         viewedPosition: 3,
         candidates: {
           state: "RANKED",

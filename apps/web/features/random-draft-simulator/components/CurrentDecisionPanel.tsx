@@ -32,23 +32,30 @@ const NO_ACTION_COPY: Record<NoHumanActionReason, string> = {
   DRAFT_COMPLETE: "El draft terminó.",
 };
 
+// Solo una razón ESTRATÉGICA real (ventana de counter, último héroe del pool) se dice; con prioridad por defecto no hay nada que explicar.
+function StrategicRationale({ decision }: TargetHeaderProps) {
+  if (decision.targetBasis !== "STRATEGIC") return null;
+  return <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">{decision.targetRationale}</span>;
+}
+
 interface TargetHeaderProps {
   decision: ActionableDecision;
 }
 
 // The Coach RECOMMENDATION only (targetPosition/targetBasis). Contrato de elegibilidad (dueño del producto, 2026-11-03): una recomendación solo
-// existe si hay un héroe elegible detrás. "Objetivo recomendado" sale únicamente con base STRATEGIC (una señal real: ventana de counter o último
-// héroe del pool; el motor solo la emite sobre una posición con héroes elegibles) y, si se está viendo esa misma posición, solo con tarjetas a la
-// vista. Una vista por defecto ("No hay una prioridad clara", "Vista inicial sugerida") es un mensaje de falta de información: ya no se muestra.
+// existe si hay un héroe con evidencia FUERTE detrás. "Objetivo recomendado" sale únicamente cuando el motor manda `primaryRecommendation` (el héroe
+// primario de la posición objetivo es STRONG; la MISMA regla que el "ELIGE AHORA" del tablero en vivo) y, si se está viendo esa misma posición, solo
+// con tarjetas a la vista. La prioridad entre posiciones (`targetBasis`) solo decide si hay una razón estratégica que decir: una vista por defecto
+// ("No hay una prioridad clara", "Vista inicial sugerida") es un mensaje de falta de información y nunca se muestra.
 function TargetHeader({ decision }: TargetHeaderProps) {
   const common = { "data-testid": "current-decision-target", "data-target-position": decision.targetPosition, "data-target-basis": decision.targetBasis };
-  if (decision.targetBasis === "STRATEGIC") {
+  if (decision.primaryRecommendation !== null) {
     const viewingTarget = decision.viewedPosition === decision.targetPosition;
     if (viewingTarget && decision.candidates.cards.length === 0) return null;
     return (
       <div className="flex flex-col gap-1 rounded-lg border border-accent-primary bg-surface-overlay p-3" {...common}>
         <span className="text-caption font-semibold text-accent-primary">Objetivo recomendado: {positionName(decision.targetPosition)}</span>
-        <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">{decision.targetRationale}</span>
+        <StrategicRationale decision={decision} />
         <span className="text-caption text-content-muted">Es una sugerencia: puedes elegir cualquier posición pendiente y cualquier héroe legal.</span>
       </div>
     );
@@ -71,8 +78,8 @@ interface ViewedPositionNoticeProps {
 // navigation, and the recommendation is restated unchanged -- clicking never re-labels the Coach's advice.
 function ViewedPositionNotice({ decision }: ViewedPositionNoticeProps) {
   if (decision.viewedPosition === decision.targetPosition) return null;
-  // "Coach sugiere X" es una recomendación: sin base STRATEGIC el objetivo es solo una vista por defecto y no se afirma nada.
-  if (decision.targetBasis !== "STRATEGIC") return null;
+  // "Coach sugiere X" es una recomendación: sin héroe STRONG detrás el objetivo es solo una vista por defecto y no se afirma nada.
+  if (decision.primaryRecommendation === null) return null;
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="current-decision-viewed" data-viewed-position={decision.viewedPosition}>
       <span className="text-caption font-semibold text-content-primary">Estás viendo {positionName(decision.viewedPosition)}</span>

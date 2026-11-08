@@ -251,10 +251,11 @@ export async function buildTeamPositionPriority(input: BuildTeamCoachBoardInput)
  * Null when no position has STRONG evidence (the board names nobody then) or there is no human action: the caller shows its neutral default.
  */
 export async function buildTeamDecisionTarget(input: BuildTeamCoachBoardInput): Promise<DecisionTarget | null> {
-  const resolved = (await computeTeamCoach(input))?.target ?? null;
-  if (resolved === null) return null;
+  const computed = await computeTeamCoach(input);
+  const resolved = computed?.target ?? null;
+  if (computed === null || resolved === null) return null;
   // V4's wire has no PHASE_FALLBACK: the habitual commitment order is "no clear strategic priority", so it travels as DETERMINISTIC_DEFAULT.
-  return { targetPosition: resolved.targetPosition, targetBasis: resolved.targetBasis === "STRATEGIC" ? "STRATEGIC" : "DETERMINISTIC_DEFAULT", targetRationale: resolved.targetRationale };
+  return { targetPosition: resolved.targetPosition, targetBasis: resolved.targetBasis === "STRATEGIC" ? "STRATEGIC" : "DETERMINISTIC_DEFAULT", targetRationale: resolved.targetRationale, primaryHeroId: computed.board.currentDecision.recommendedHeroId };
 }
 
 /** Shared by the board's decision and V4: priority when it applies, else the stable default, ONLY over positions with an eligible STRONG hero. */

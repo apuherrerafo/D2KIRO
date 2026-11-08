@@ -25,7 +25,7 @@ function output(candidates: CandidateResult, targetBasis: TargetBasis = "STRATEG
   return {
     schema: "recommendation-output/v4",
     sessionId: "s",
-    decision: { kind: "ACTIONABLE", actionablePositions, roundCapacity: 2, targetPosition: recommended, targetBasis, targetRationale: "rationale fixture", viewedPosition: candidates.targetPosition, candidates, personalPoolApplied: false, poolState: "NONE", poolOwner: null },
+    decision: { kind: "ACTIONABLE", actionablePositions, roundCapacity: 2, targetPosition: recommended, targetBasis, targetRationale: "rationale fixture", primaryRecommendation: targetBasis === "STRATEGIC" ? { position: recommended, heroId: 1 } : null, viewedPosition: candidates.targetPosition, candidates, personalPoolApplied: false, poolState: "NONE", poolOwner: null },
     roleBeliefs: { own: [], enemy: [] },
     meta: { round: 1, phase: "PICK_ROUND_1", decisionContext: "team_opening", trigger: "DRAFT_PICKS_STARTED", revision: 1, basedOn: { stateIdentity: "id", evidenceVersion: "v" } },
   };
@@ -107,6 +107,44 @@ test("PSR-002 + contrato: mirando otra posición con un objetivo solo por defect
   expect(view.queryByTestId("current-decision-coach-suggests")).toBeNull();
   expect(view.queryByTestId("current-decision-viewed")).toBeNull();
   expect(view.queryByTestId("current-decision-target")).toBeNull();
+});
+
+// P0-03B -- la recomendación de héroe (`primaryRecommendation`) es independiente de la prioridad entre posiciones (`targetBasis`).
+function withPrimary(base: CurrentDecisionOutput, primaryRecommendation: { position: 1 | 2 | 3 | 4 | 5; heroId: number } | null): CurrentDecisionOutput {
+  if (base.decision.kind !== "ACTIONABLE") throw new Error("fixture must be actionable");
+  return { ...base, decision: { ...base.decision, primaryRecommendation } };
+}
+
+test("P0-03B: héroe STRONG detrás + prioridad solo por defecto -> SÍ se muestra 'Objetivo recomendado', sin inventar razón estratégica", () => {
+  const view = render(<CurrentDecisionPanel output={withPrimary(output(RANKED, "DETERMINISTIC_DEFAULT"), { position: 3, heroId: 11 })} heroCatalog={new Map()} />);
+  const banner = view.getByTestId("current-decision-target");
+  expect(banner.getAttribute("data-target-basis")).toBe("DETERMINISTIC_DEFAULT"); // la base NO se promueve a STRATEGIC
+  expect(banner.textContent).toContain("Objetivo recomendado: Pos3");
+  expect(view.queryByTestId("current-decision-rationale")).toBeNull(); // "No hay una prioridad clara…" jamás se pinta
+  expect(view.container.textContent).not.toContain("prioridad estratégica");
+});
+
+test("P0-03B: sin héroe STRONG (primaryRecommendation null) no se inventa 'Objetivo recomendado' aunque el motor mande una vista por defecto", () => {
+  const view = render(<CurrentDecisionPanel output={withPrimary(output(RANKED, "DETERMINISTIC_DEFAULT"), null)} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("current-decision-target")).toBeNull();
+  expect(view.container.textContent).not.toContain("Objetivo recomendado");
+  expect(view.getByTestId("current-decision-candidates").textContent).toContain("Ranking para Pos3"); // la columna sigue visible
+});
+
+test("P0-03B: viendo otra posición, la recomendación STRONG (base por defecto) se mantiene y la navegación queda declarada", () => {
+  const rankedPos5: CandidateResult = { ...RANKED, targetPosition: 5, cards: RANKED.cards.map((card) => ({ ...card, position: 5 as const })) };
+  const view = render(<CurrentDecisionPanel output={withPrimary(output(rankedPos5, "DETERMINISTIC_DEFAULT", [1, 2, 3, 4, 5], 1), { position: 1, heroId: 11 })} heroCatalog={new Map()} />);
+  expect(view.getByTestId("current-decision-target").textContent).toContain("Objetivo recomendado: Pos1");
+  expect(view.getByTestId("current-decision-coach-suggests").textContent).toBe("Coach sugiere Pos1 Carry");
+  expect(view.getByTestId("current-decision-viewed").textContent).toContain("Estás viendo Pos5");
+  expect(view.getByTestId("current-decision-candidates").textContent).toContain("Ranking para Pos5");
+});
+
+test("P0-03B: parseCurrentDecisionOutput rechaza una primaryRecommendation que no pertenece a la posición objetivo", () => {
+  const good = withPrimary(output(RANKED, "DETERMINISTIC_DEFAULT"), { position: 3, heroId: 11 });
+  expect(parseCurrentDecisionOutput(JSON.parse(JSON.stringify(good)))).not.toBeNull();
+  const wrongPosition = withPrimary(output(RANKED, "DETERMINISTIC_DEFAULT"), { position: 2, heroId: 11 });
+  expect(parseCurrentDecisionOutput(JSON.parse(JSON.stringify(wrongPosition)))).toBeNull();
 });
 
 test("DETERMINISTIC_DEFAULT con una sola posición: 'Única posición pendiente'", () => {

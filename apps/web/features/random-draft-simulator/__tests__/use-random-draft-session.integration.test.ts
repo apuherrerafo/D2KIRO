@@ -166,6 +166,7 @@ class FakeApProtocolEngine {
           targetPosition,
           targetBasis: "DETERMINISTIC_DEFAULT",
           targetRationale: "fixture",
+          primaryRecommendation: null,
           viewedPosition,
           candidates: {
             state: "RANKED",
