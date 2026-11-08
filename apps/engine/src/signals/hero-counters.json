@@ -4377,7 +4377,7 @@
     {
       "vs": 2,
       "level": "medium",
-      "why": "Huskar juega con poca vida y Axe vive de rematar a los que tienen poca vida: Call, Blade Mail y Culling Blade lo matan"
+      "why": "Huskar juega con poca vida y Axe vive de rematar a los que tienen poca vida: Berserker's Call lo obliga a pegarle a Axe (atraviesa BKB) y Culling Blade le hace de 275 a 475 de daño puro. Blade Mail es un ítem, no una habilidad de Axe: si lo compra, cada golpe de Huskar le devuelve daño antes de reducciones"
     },
     {
       "vs": 4,
@@ -8687,7 +8687,7 @@
     {
       "vs": 2,
       "level": "medium",
-      "why": "El daño puro de Axe ignora la armadura de Terrorblade, que tiene poca vida y ataca rápido: Call, Blade Mail y Culling Blade lo matan"
+      "why": "El daño puro de Axe (Counter Helix y Culling Blade) ignora la armadura de Terrorblade, que tiene poca vida y ataca rápido: Berserker's Call lo obliga a pegarle a Axe (atraviesa BKB). Blade Mail es un ítem, no una habilidad de Axe: si lo compra, cada golpe de Terrorblade le devuelve daño antes de reducciones"
     },
     {
       "vs": 103,
