@@ -1398,7 +1398,7 @@
     {
       "vs": 22,
       "level": "medium",
-      "why": "Lightning Bolt te deja con True Sight 5 s, así que Sand Storm no te esconde; y si te pega, no puedes usar Blink Dagger durante 3 s. No atraviesa BKB"
+      "why": "Lightning Bolt le da a Zeus True Sight 5 s sobre Sand King, así que Sand Storm no lo esconde; y si lo golpea, Sand King no puede usar Blink Dagger durante 3 s. No atraviesa BKB"
     },
     {
       "vs": 54,
@@ -3652,7 +3652,7 @@
     {
       "vs": 47,
       "level": "medium",
-      "why": "Viper Strike (alcance 750, atraviesa BKB) lo ralentiza 60 a 80 % en movimiento y 100 a 180 % en velocidad de ataque durante 6 s (el efecto decrece) y desactiva sus pasivas, pero la única pasiva de Dragon Knight es Dragon Blood (+2 de armadura y de regeneración); Elder Dragon Form es activa y Break no la apaga"
+      "why": "Viper Strike (alcance 750, atraviesa BKB) lo ralentiza 60 a 80 % en movimiento y 100 a 180 % en velocidad de ataque durante 6 s (el efecto decrece) y desactiva sus pasivas, Dragon Blood (+2 de armadura y de regeneración) y Wyrm's Wrath (más área en habilidades e ítems); Elder Dragon Form es activa y Break no la apaga. Lo que más pesa es la ralentización"
     },
     {
       "vs": 98,
@@ -4377,7 +4377,7 @@
     {
       "vs": 2,
       "level": "medium",
-      "why": "Huskar juega con poca vida y Axe vive de rematar a los que tienen poca vida: Berserker's Call lo obliga a pegarle a Axe (atraviesa BKB) y Culling Blade le hace de 275 a 475 de daño puro. Blade Mail es un ítem, no una habilidad de Axe: si lo compra, cada golpe de Huskar le devuelve daño antes de reducciones"
+      "why": "Huskar juega con poca vida y Axe vive de rematar a los que tienen poca vida: Berserker's Call lo obliga a pegarle a Axe (atraviesa BKB) y Culling Blade le hace de 275 a 475 de daño puro. Blade Mail es un ítem, no una habilidad de Axe: si lo compra, su activa devuelve el 85 % del daño recibido durante 5,5 s (enfría 25 s)"
     },
     {
       "vs": 4,
@@ -8478,7 +8478,7 @@
     {
       "vs": 54,
       "level": "hard",
-      "why": "Mientras dura Rage (3 a 6 s), Boulder Smash, Rolling Boulder y Geomagnetic Grip no le afectan; Magnetize sí atraviesa Rage"
+      "why": "Mientras dura Rage (3 a 6 s), el control de Earth Spirit (Boulder Smash, Rolling Boulder y Geomagnetic Grip) no le afecta, aunque el daño mágico sí entra reducido (80 % de resistencia); Magnetize atraviesa Rage"
     },
     {
       "vs": 93,
@@ -8682,7 +8682,7 @@
     {
       "vs": 2,
       "level": "medium",
-      "why": "El daño puro de Axe (Counter Helix y Culling Blade) ignora la armadura de Terrorblade, que tiene poca vida y ataca rápido: Berserker's Call lo obliga a pegarle a Axe (atraviesa BKB). Blade Mail es un ítem, no una habilidad de Axe: si lo compra, cada golpe de Terrorblade le devuelve daño antes de reducciones"
+      "why": "El daño puro de Axe (Counter Helix y Culling Blade) ignora la armadura de Terrorblade, que tiene poca vida y ataca rápido: Berserker's Call lo obliga a pegarle a Axe (atraviesa BKB). Blade Mail es un ítem, no una habilidad de Axe: si lo compra, su activa devuelve el 85 % del daño recibido durante 5,5 s (enfría 25 s)"
     },
     {
       "vs": 103,
