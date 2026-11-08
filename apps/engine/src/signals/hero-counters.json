@@ -9720,7 +9720,7 @@
     {
       "vs": 75,
       "level": "medium",
-      "why": "Global Silence, desde cualquier parte del mapa, le impide lanzar Solar Guardian si lo usas antes; una vez canalizada, Dawnbreaker no puede detenerla. Si gana inmunidad a debuffs (BKB), el silencio se quita"
+      "why": "Global Silence, desde cualquier parte del mapa, le impide lanzar Solar Guardian solo si lo usas ANTES de que empiece a canalizar; si ya está canalizando, el silencio no la detiene. Si gana inmunidad a debuffs (BKB), el silencio se quita"
     },
     {
       "vs": 112,
