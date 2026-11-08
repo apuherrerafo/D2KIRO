@@ -3651,8 +3651,8 @@
   "49": [
     {
       "vs": 47,
-      "level": "hard",
-      "why": "Viper Strike, su definitiva, desactiva Dragon Blood y reduce su velocidad de movimiento y de ataque"
+      "level": "medium",
+      "why": "Viper Strike (alcance 750, atraviesa BKB) lo ralentiza 60 a 80 % en movimiento y 100 a 180 % en velocidad de ataque durante 6 s (el efecto decrece) y desactiva sus pasivas, pero la única pasiva de Dragon Knight es Dragon Blood (+2 de armadura y de regeneración); Elder Dragon Form es activa y Break no la apaga"
     },
     {
       "vs": 98,
