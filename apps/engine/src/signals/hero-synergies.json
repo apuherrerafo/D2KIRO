@@ -271,11 +271,6 @@
   },
   {
     "a": 62,
-    "b": 55,
-    "why": "Shadow Walk le da invisibilidad a Dark Seer para farmear y sacar XP en el early game; en las peleas casi no hay sinergia"
-  },
-  {
-    "a": 62,
     "b": 31,
     "why": "Bounty Hunter maxea Shadow Walk para encadenar su stun y solo necesita algo de daño, que ponen Lich y Witch Doctor"
   },
@@ -298,11 +293,6 @@
     "a": 62,
     "b": 71,
     "why": "Track da vista verdadera del objetivo, así que Charge of Darkness puede apuntarle desde cualquier lugar"
-  },
-  {
-    "a": 62,
-    "b": 30,
-    "why": "El stun de Shadow Walk de Bounty Hunter dura 3,2 s y se encadena con los stuns de Witch Doctor al salir de la invisibilidad: con Maledict y Death Ward matan a cualquiera"
   },
   {
     "a": 78,
@@ -843,11 +833,6 @@
     "a": 121,
     "b": 71,
     "why": "Ink Swell lo acelera mientras carga y aturde al terminar"
-  },
-  {
-    "a": 121,
-    "b": 19,
-    "why": "Ink Swell sobre Tiny agrega un stun en área a su entrada con Blink Dagger"
   },
   {
     "a": 121,
