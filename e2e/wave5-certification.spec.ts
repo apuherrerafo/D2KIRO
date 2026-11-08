@@ -191,7 +191,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // OLD_ASSERTION: data-target-position == personal position, and `current-decision-viewed` absent (recommended == viewed).
   // WHY_OBSOLETE: the recommendation (`targetPosition`) and the first view (`viewedPosition`) are two things since PSR-002/TSK-251.
   // NEW_PRODUCT_CONTRACT: the recommendation is one of the 5 open positions; the first view is the personal one; the notice renders IFF they differ.
-  //   Since 2026-11-03/04 the recommendation header (and so the notice) exists only with a STRATEGIC basis; `assertTargetContract` checks the notice against it.
+  //   Since P0-03B the recommendation header (and so the notice) exists only with a `primaryRecommendation` (a STRONG hero), whatever `targetBasis` says; `assertTargetContract` checks the notice against it.
   await assertTargetContract(page, config.personalPosition);
   await assertPlayerFacingCopyIsClean(page);
   await shot(page, side, "1-round1-opening");
