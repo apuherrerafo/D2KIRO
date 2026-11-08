@@ -1815,11 +1815,6 @@
   ],
   "23": [
     {
-      "vs": 54,
-      "level": "hard",
-      "why": "Rage reduce el daño y control de Torrent y dificulta X Marks, mientras Feast castiga la gran vida con la que Kunkka frontlanea"
-    },
-    {
       "vs": 98,
       "level": "medium",
       "why": "Whirling Death castiga tu fuerza y Timbersaw soporta Tidebringer mientras te devuelve daño puro en peleas largas"
@@ -3793,11 +3788,6 @@
     }
   ],
   "51": [
-    {
-      "vs": 54,
-      "level": "hard",
-      "why": "Rage vuelve a Lifestealer inmune a Battery Assault y Power Cogs"
-    },
     {
       "vs": 8,
       "level": "medium",
@@ -7254,7 +7244,7 @@
     {
       "vs": 2,
       "level": "hard",
-      "why": "Berserker's Call fuerza a Troll a atacar a Axe y Blade Mail devuelve su daño durante Battle Trance"
+      "why": "Berserker's Call obliga a Troll a pegarle a Axe y Culling Blade puede matarlo incluso dentro de Battle Trance"
     },
     {
       "vs": 112,
@@ -8878,11 +8868,6 @@
     }
   ],
   "111": [
-    {
-      "vs": 2,
-      "level": "hard",
-      "why": "Culling Blade ejecuta al objetivo bajo False Promise si entra en el umbral"
-    },
     {
       "vs": 68,
       "level": "medium",
