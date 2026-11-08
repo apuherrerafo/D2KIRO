@@ -178,7 +178,7 @@ function strategyOfBoard(board: TeamCoachBoard): StrategyView {
       evidenceStrength: candidate.evidenceStrength,
       reasons: [...candidate.reasons],
       risks: candidate.risks.map((risk) => `${risk.vsHeroId}:${risk.why}`),
-      steals: candidate.steals.map((steal) => steal.heroId),
+      steals: candidate.steals.map((steal) => steal.protectsHeroId),
     }))])),
   };
 }
@@ -199,7 +199,7 @@ async function strategyOfV4(coach: CoachRecommendations, sessionId: string): Pro
       evidenceStrength: card.evidenceStrength,
       reasons: card.rationale === "" ? [] : [card.rationale],
       risks: card.risks.map((risk) => risk.kind),
-      steals: card.context.steals.map((steal) => steal.heroId),
+      steals: card.context.steals.map((steal) => steal.protectsHeroId),
     }));
   }
   return { recommendedPosition: decision.targetPosition, recommendedBasis: decision.targetBasis, targetHead: perPosition[decision.targetPosition]?.[0]?.heroId ?? null, actionable: [...decision.actionablePositions], perPosition };
