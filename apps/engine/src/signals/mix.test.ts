@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "./hero-positions";
 import type { HeroCapabilities } from "../draft-paths/types";
-import { buildAvailableSignalsReport, buildComparison, buildSuggestions, dataReady, mixScore, nonVotingReason, structurallyApplicableSignals, votingSignals, type AvailableSignalsReport, type Suggestion } from "./mix";
+import { buildAvailableSignalsReport, buildComparison, buildSuggestions, dataReady, mixScore, patchMetaReady, nonVotingReason, structurallyApplicableSignals, votingSignals, type AvailableSignalsReport, type Suggestion } from "./mix";
 import { parseCalibration, type Calibration } from "./calibration";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
 import type { MetaReadiness } from "../meta/readiness";
@@ -1384,12 +1384,13 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
       return stats;
     }
 
-    test("parche fresco con cobertura real (30 héroes, >=500 partidas c/u) -> patch_meta vota", () => {
+    test("parche fresco con cobertura real (30 héroes, >=500 partidas c/u) -> patchMetaReady=true pero patch_meta NO vota (P0-04: winrate global informativo)", () => {
       const state = draftState({ patch: "7.41e" });
       const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 30) });
 
-      expect(dataReady("patch_meta", state, snapshot)).toBe(true);
-      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(true);
+      expect(patchMetaReady(state, snapshot)).toBe(true);
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(false);
     });
 
     test("parche equivocado (dataset fresco pero de OTRO parche) -> patch_meta no vota", () => {

@@ -1,6 +1,5 @@
 import { filledGaps } from "../draft-paths/gaps";
 import type { DraftCapabilityGap } from "../draft-paths/types";
-import { winrateClearlyAboveEven } from "../signals/patch-meta";
 import type { SignalContribution } from "../signals/types";
 import { cardContextOf, type CardContext } from "./card-context";
 import type { CardCompositionContext } from "./card-critical-gap";
@@ -28,7 +27,6 @@ export type GroundKind =
   | "SYNERGY_PAIR" //         hace pareja curada (con porqué) con un aliado YA elegido
   | "STEAL" //                le quita un counter a un pick tuyo ya elegido
   | "COMPOSITION_CRITICAL" // llena un hueco crítico del equipo cuando los picks que quedan no alcanzan para cubrirlo después
-  | "PATCH_META" //           el meta vigente con ventaja sostenida (`winrateClearlyAboveEven`): débil, por sí solo no es acción principal
   | "COUNTER_STATS" //        counter estadístico contra un rival ya revelado: SOLO complementa otro fundamento
   | "ARCHETYPE_INTENT"; //    la intención elegida (`archetype_fit` votó con datos): SOLO complementa otro fundamento (es una preferencia)
 
@@ -103,14 +101,6 @@ function compositionGround(candidate: HeroCandidate, composition: CardCompositio
   return { kind: "COMPOSITION_CRITICAL", strength: "STRONG", text: `Cubre ${listNaturally(filled.map((gap) => GAP_LABEL[gap]))}, que tus aliados ya elegidos no tienen, y ${when}: no hay margen para dejarlo para después`, shownByContext: false };
 }
 
-function metaGround(candidate: HeroCandidate): Ground | null {
-  const signal = signalOf(candidate, "patch_meta");
-  if (!signal || !votedWithData(signal) || signal.raw === null) return null;
-  if (candidate.recommendation.risks.some((risk) => risk.kind === "degraded_meta")) return null; // meta viejo: no es evidencia vigente
-  if (!winrateClearlyAboveEven(signal.raw, signal.sampleSize)) return null;
-  return { kind: "PATCH_META", strength: "WEAK", text: `${signal.explanation} (${signal.sampleSize.toLocaleString("es-PE")} partidas)`, shownByContext: false };
-}
-
 /**
  * Un ban NO abre automáticamente a un héroe. La fuerza depende de qué amenaza relevante desapareció y de qué otras permanecen: es FUERTE solo si
  * lo baneado pesa MÁS que lo que sigue libre y probable (counters con porqué o no: una atribución sigue siendo una amenaza que queda, aunque no
@@ -140,8 +130,7 @@ export function evaluateEligibility(candidate: HeroCandidate, input: Eligibility
   }
   const composition = compositionGround(candidate, input.composition);
   if (composition) independent.push(composition);
-  const meta = metaGround(candidate);
-  if (meta) independent.push(meta);
+  // P0-04: el winrate global (`patch_meta`) NO es fundamento -- ni fuerte ni débil. Se muestra como dato, jamás habilita una tarjeta.
   if (independent.length === 0) return { grounds: [], strength: null, context };
 
   // Complementos: refuerzan un fundamento que YA existe; solos no habilitan nada.
@@ -187,7 +176,6 @@ export function badgesFromGrounds(grounds: readonly Ground[]): HeroBadge[] {
   for (const ground of grounds) {
     if (ground.kind === "COUNTER_REVEALED") badges.add("COUNTER");
     if (ground.kind === "SYNERGY_PAIR") badges.add("SYNERGY"); // la composición NO es sinergia: su fundamento va en la frase, sin la etiqueta "Sinergia"
-    if (ground.kind === "PATCH_META") badges.add("META");
   }
   return [...badges];
 }

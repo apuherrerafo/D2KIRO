@@ -280,8 +280,8 @@ export function structurallyApplicableSignals(
   if (facts.ownPicks.length > 0) applicable.add("team_synergy");
 
   // `patch_meta` aplica a la estructura de CUALQUIER estado -> estructuralmente aplicable siempre.
-  // Que vote o no lo decide `dataReady` (Task 12), nunca la calibración ni el `raw` del scorer. En
-  // R0 los datos de parche están stale/incompletos (audit §4.3) y `patch_meta` no vota todavía.
+  // P0-04: aun así NUNCA vota -- es el winrate GLOBAL del héroe, dato informativo (ver
+  // `INFORMATIONAL_SIGNALS` y `dataReady` abajo).
   applicable.add("patch_meta");
 
   // NOTA (Task 12 -- residual DIFERIDO, no resuelto): `hero_pool_fit` sigue mirando la presencia
@@ -339,7 +339,15 @@ export { patchMetaReady };
 // S9) y se consideran listos (`default: true`). El split estructura/`dataReady` de `hero_pool_fit`
 // queda DIFERIDO -- ver la NOTA en `structurallyApplicableSignals`; con `default: true` aquí el
 // comportamiento es byte-idéntico porque la estructura ya lo gatea por pool presente.
+// P0-04 (neutralidad del winrate): señales que se CALCULAN y se muestran pero jamás deciden. `patch_meta` es el winrate global del héroe en el parche:
+// con dos héroes de igual fundamento estratégico, el de más winrate NO puede ganar por eso. No vota -> no consume peso, no diluye a las demás ni toca
+// `stateMean`; su `SignalContribution` viaja en `signals[]` con `weighted = 0` para que la UI pueda mostrar la cifra. `SCORING_WEIGHTS_V6.patch_meta`
+// (0.117) queda congelado e intacto: simplemente no entra a la redistribución por estado (el resto se renormaliza, igual que ya pasaba cuando
+// `patchMetaReady` era falso). El winrate de un MATCHUP (señal `counter`) es evidencia contextual distinta y no se toca.
+export const INFORMATIONAL_SIGNALS: ReadonlySet<SignalId> = new Set<SignalId>(["patch_meta"]);
+
 export function dataReady(signal: SignalId, state: DraftState, meta: MetaSnapshot): boolean {
+  if (INFORMATIONAL_SIGNALS.has(signal)) return false;
   switch (signal) {
     case "patch_meta":
       return patchMetaReady(state, meta);
@@ -966,7 +974,8 @@ export function buildSuggestions(
 
   const applicable = structurallyApplicableSignals(state, meta, options);
   const voting = votingSignals(state, meta, options);
-  if (applicable.has("patch_meta") && !voting.has("patch_meta")) {
+  // La bandera avisa de una señal que DEBERÍA votar y no pudo (dato faltante). Una señal informativa por diseño no es una degradación: sería ruido permanente.
+  if (applicable.has("patch_meta") && !voting.has("patch_meta") && !INFORMATIONAL_SIGNALS.has("patch_meta")) {
     degraded.push("patch_meta_data_not_ready");
   }
 

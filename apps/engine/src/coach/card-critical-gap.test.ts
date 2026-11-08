@@ -5,7 +5,7 @@ import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
 import { deriveCandidateResult } from "./current-human-decision";
 import { extractHeroCandidates } from "./hero-card";
-import { hidden, known, recSet, resolvedImpact, signal, view, type HeroFixture } from "./test.fixtures";
+import { fixtureStrongPairs, hidden, known, recSet, resolvedImpact, signal, view, type HeroFixture } from "./test.fixtures";
 
 // Aviso CRITICAL_GAP (rescatado de TSK-254, cadena F1). Fixtures inline (costura S9): jamás capabilities.json real.
 // Los ids de héroe son etiquetas arbitrarias.
@@ -99,7 +99,7 @@ describe("CRITICAL_GAP -- candado de regresión cero: no toca el ranking ni el r
     { heroId: 8, signals: [signal("position_fit", 0.8, 19, { sampleSize: 3000 }), signal("patch_meta", 0.6, 1, { sampleSize: 5000 })], impact: resolvedImpact(1) },
   ];
   const derive = (heroCapabilities: HeroCapabilities[] | undefined) =>
-    deriveCandidateResult({ targetPosition: 1, targetRanking: recSet(heroes), view: closing(), heroPositions: POSITIONS, heroCapabilities, personalPoolApplied: false });
+    deriveCandidateResult({ targetPosition: 1, targetRanking: recSet(heroes), view: closing(), heroPositions: POSITIONS, heroCapabilities, heroSynergies: fixtureStrongPairs([7, 8], [1]), personalPoolApplied: false });
 
   test("con y sin capacidades: orden, puntajes, etiquetas y frase idénticos; solo cambian los avisos (con margen -- 1 hueco y 2 picks -- cubrir el hueco no es todavía un fundamento)", () => {
     const without = derive(undefined);

@@ -70,7 +70,7 @@ const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 const SIGNAL_BADGES: Partial<Record<SignalId, HeroBadge>> = {
   counter: "COUNTER",
   team_synergy: "SYNERGY",
-  patch_meta: "META",
+  // P0-04: `patch_meta` (winrate global) ya NO produce etiqueta: es informativo, nunca una razón para recomendar.
 };
 
 /** Signals whose citation needs a positive `raw` (V6's existing counterContributed / synergyContributed). */
@@ -135,14 +135,12 @@ export function deriveHeroBadges(
   counterContext?: CounterEvidenceContext,
 ): HeroBadge[] {
   const badges: HeroBadge[] = [];
-  const metaStale = recommendation.risks.some((risk) => risk.kind === "degraded_meta");
 
   for (const signal of recommendation.signalsByHero[heroId] ?? []) {
     const badge = SIGNAL_BADGES[signal.signal];
     if (!badge || !votedWithData(signal)) continue;
     if (NEEDS_POSITIVE_RAW.has(signal.signal) && (signal.raw ?? 0) <= 0) continue;
     if (badge === "COUNTER" && !hasRevealedEnemyCounterEvidence(heroId, signal, counterContext)) continue;
-    if (badge === "META" && metaStale) continue;
     badges.push(badge);
   }
 
