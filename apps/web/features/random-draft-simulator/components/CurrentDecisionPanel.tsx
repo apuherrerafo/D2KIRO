@@ -1,6 +1,7 @@
 "use client";
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
+import { OffPoolTag } from "@/components/off-pool-tag/OffPoolTag";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
@@ -32,23 +33,30 @@ const NO_ACTION_COPY: Record<NoHumanActionReason, string> = {
   DRAFT_COMPLETE: "El draft terminó.",
 };
 
+// Solo una razón ESTRATÉGICA real (ventana de counter, último héroe del pool) se dice; con prioridad por defecto no hay nada que explicar.
+function StrategicRationale({ decision }: TargetHeaderProps) {
+  if (decision.targetBasis !== "STRATEGIC") return null;
+  return <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">{decision.targetRationale}</span>;
+}
+
 interface TargetHeaderProps {
   decision: ActionableDecision;
 }
 
 // The Coach RECOMMENDATION only (targetPosition/targetBasis). Contrato de elegibilidad (dueño del producto, 2026-11-03): una recomendación solo
-// existe si hay un héroe elegible detrás. "Objetivo recomendado" sale únicamente con base STRATEGIC (una señal real: ventana de counter o último
-// héroe del pool; el motor solo la emite sobre una posición con héroes elegibles) y, si se está viendo esa misma posición, solo con tarjetas a la
-// vista. Una vista por defecto ("No hay una prioridad clara", "Vista inicial sugerida") es un mensaje de falta de información: ya no se muestra.
+// existe si hay un héroe con evidencia FUERTE detrás. "Objetivo recomendado" sale únicamente cuando el motor manda `primaryRecommendation` (el héroe
+// primario de la posición objetivo es STRONG; la MISMA regla que el "ELIGE AHORA" del tablero en vivo) y, si se está viendo esa misma posición, solo
+// con tarjetas a la vista. La prioridad entre posiciones (`targetBasis`) solo decide si hay una razón estratégica que decir: una vista por defecto
+// ("No hay una prioridad clara", "Vista inicial sugerida") es un mensaje de falta de información y nunca se muestra.
 function TargetHeader({ decision }: TargetHeaderProps) {
   const common = { "data-testid": "current-decision-target", "data-target-position": decision.targetPosition, "data-target-basis": decision.targetBasis };
-  if (decision.targetBasis === "STRATEGIC") {
+  if (decision.primaryRecommendation !== null) {
     const viewingTarget = decision.viewedPosition === decision.targetPosition;
     if (viewingTarget && decision.candidates.cards.length === 0) return null;
     return (
       <div className="flex flex-col gap-1 rounded-lg border border-accent-primary bg-surface-overlay p-3" {...common}>
         <span className="text-caption font-semibold text-accent-primary">Objetivo recomendado: {positionName(decision.targetPosition)}</span>
-        <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">{decision.targetRationale}</span>
+        <StrategicRationale decision={decision} />
         <span className="text-caption text-content-muted">Es una sugerencia: puedes elegir cualquier posición pendiente y cualquier héroe legal.</span>
       </div>
     );
@@ -71,8 +79,8 @@ interface ViewedPositionNoticeProps {
 // navigation, and the recommendation is restated unchanged -- clicking never re-labels the Coach's advice.
 function ViewedPositionNotice({ decision }: ViewedPositionNoticeProps) {
   if (decision.viewedPosition === decision.targetPosition) return null;
-  // "Coach sugiere X" es una recomendación: sin base STRATEGIC el objetivo es solo una vista por defecto y no se afirma nada.
-  if (decision.targetBasis !== "STRATEGIC") return null;
+  // "Coach sugiere X" es una recomendación: sin héroe STRONG detrás el objetivo es solo una vista por defecto y no se afirma nada.
+  if (decision.primaryRecommendation === null) return null;
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="current-decision-viewed" data-viewed-position={decision.viewedPosition}>
       <span className="text-caption font-semibold text-content-primary">Estás viendo {positionName(decision.viewedPosition)}</span>
@@ -113,13 +121,13 @@ interface PoolBadgeProps {
   owner: PoolOwner | null;
 }
 
-// A pool mark says whose pool it is; "outside" appears only when a pool really voted (NO_POOL shows nothing).
+// A pool mark says whose pool it is; "outside" is the shared OFF-POOL tag and appears only when a pool really voted (NO_POOL shows nothing).
 function PoolBadge({ membership, owner }: PoolBadgeProps) {
   if (membership === "NO_POOL" || owner === null) return null;
   if (membership === "IN_POOL") {
     return <span className="rounded-md border border-accent-primary px-2 py-1 text-caption text-accent-primary" data-testid="current-decision-pool-badge">{POOL_BADGE_LABELS[owner].inside}</span>;
   }
-  return <span className="rounded-md border border-surface-border px-2 py-1 text-caption text-content-muted" data-testid="current-decision-outside-pool-badge">{POOL_BADGE_LABELS[owner].outside}</span>;
+  return <OffPoolTag membership={membership} title={POOL_BADGE_LABELS[owner].outside} testId="current-decision-outside-pool-badge" />;
 }
 
 interface CardReasonsProps {

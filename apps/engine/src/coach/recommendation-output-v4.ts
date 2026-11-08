@@ -100,6 +100,12 @@ export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
 /** Whose pool it is: the Player's own, or a teammate's saved pool for the position. */
 export type PoolOwner = "PLAYER" | "TEAMMATE";
 
+/** The hero the Coach recommends picking now, and the position it belongs to. */
+export interface PrimaryRecommendation {
+  position: Position;
+  heroId: HeroId;
+}
+
 export type CandidateResult =
   { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] };
 
@@ -112,6 +118,12 @@ export type CurrentHumanDecision =
       targetPosition: Position;
       targetBasis: TargetBasis;
       targetRationale: string;
+      /**
+       * P0-03B -- the hero-level recommendation ("ELIGE AHORA"), DISTINCT from `targetBasis` (which is only the PRIORITY between positions):
+       * non-null exactly when the target position's primary hero rests on STRONG evidence (the same hero the Team Coach board names).
+       * Null = no STRONG evidence anywhere -> no recommendation is claimed. Independent of navigation: it always belongs to `targetPosition`.
+       */
+      primaryRecommendation: PrimaryRecommendation | null;
       /** The position the Player is INSPECTING; `candidates` belong to it. Equals targetPosition unless the Player navigated. */
       viewedPosition: Position;
       candidates: CandidateResult;

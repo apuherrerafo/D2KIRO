@@ -86,7 +86,14 @@ export interface TeamCoachCandidate {
   isPrimary: boolean;
   /** Opcional: un motor anterior no lo manda (ausente = sin marca de evidencia limitada). */
   evidenceStrength?: EvidenceStrength;
+  /**
+   * P0-03D -- espejo de `RankedCandidateCard.poolMembership` del motor: `OUTSIDE_POOL` = hay un pool configurado para la posición y el héroe no está en él
+   * (se muestra como OFF-POOL); `NO_POOL` = nadie configuró pool (no se muestra nada). Solo informativo. Opcional: un motor anterior no lo manda.
+   */
+  poolMembership?: TeamCoachPoolMembership;
 }
+
+export type TeamCoachPoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
 
 export interface TeamCoachColumn {
   position: TeamPosition;

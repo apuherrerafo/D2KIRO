@@ -12,7 +12,7 @@ import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
 import { buildHeroCard, candidateServesPosition, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import { eligibilityInputOf } from "./eligibility-input";
 import { badgesFromGrounds, describeGrounds, evaluateEligibility } from "./recommendation-eligibility";
-import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PrimaryRecommendation, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
 import { positionPhrase } from "./reveal-strategy";
 
@@ -48,6 +48,11 @@ export interface DecisionTarget {
   targetPosition: Position;
   targetBasis: TargetBasis;
   targetRationale: string;
+  /**
+   * The STRONG-backed hero the Team Coach board names for `targetPosition` (null = none). Present only when the target came from the board
+   * (`buildTeamDecisionTarget`); absent = derive it from the viewed candidates when they belong to the target position.
+   */
+  primaryHeroId?: HeroId | null;
 }
 
 export interface SelectDecisionTargetInput {
@@ -250,6 +255,19 @@ export interface BuildCurrentHumanDecisionInput {
   poolOwner?: PoolOwner | null;
 }
 
+/**
+ * P0-03B -- the hero-level recommendation, kept apart from the position priority: a STRONG-backed hero may exist while the priority
+ * between positions is only the habitual default. Never invented: no STRONG hero -> null.
+ */
+function primaryRecommendationOf(target: DecisionTarget, candidates: CandidateResult): PrimaryRecommendation | null {
+  const heroId = target.primaryHeroId !== undefined
+    ? target.primaryHeroId
+    : candidates.targetPosition === target.targetPosition
+      ? candidates.cards.find((card) => card.evidenceStrength === "STRONG")?.heroId ?? null
+      : null;
+  return heroId === null ? null : { position: target.targetPosition, heroId };
+}
+
 /** Assembles the decision. With no human action nothing else is carried -- no target, no candidates. */
 export function buildCurrentHumanDecision(input: BuildCurrentHumanDecisionInput): CurrentHumanDecision {
   const { actionability } = input;
@@ -264,6 +282,7 @@ export function buildCurrentHumanDecision(input: BuildCurrentHumanDecisionInput)
     targetPosition: input.target.targetPosition,
     targetBasis: input.target.targetBasis,
     targetRationale: input.target.targetRationale,
+    primaryRecommendation: primaryRecommendationOf(input.target, input.candidates),
     // ...and the position the candidates below belong to (what the Player is inspecting).
     viewedPosition: input.candidates.targetPosition,
     candidates: input.candidates,

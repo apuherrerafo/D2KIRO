@@ -7,7 +7,7 @@ import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
-import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
+import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget, type DecisionTarget } from "./current-human-decision";
 import { alliesAnswering, reasonedCounters, reasonedSynergies, type BanOpening } from "./context-reorder";
 import { freeThreatsOf, type FreeThreat } from "./free-threats";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
@@ -15,7 +15,7 @@ import { type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } fr
 import { revealedEnemyHeroes } from "./hero-card";
 import { compositionNeedForContext, uncoveredPositions, type CompositionNeed } from "./composition-need";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
-import type { RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import type { PoolMembership, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
 
 // Team Coach Board -- ONE projection of every human-controlled position from ONE perspective-safe
@@ -77,6 +77,12 @@ export interface TeamCoachCandidate {
   isPrimary: boolean;
   /** FUERZA de la evidencia (ver `RankedCandidateCard.evidenceStrength`): solo un candidato STRONG puede ser primario / héroe recomendado. */
   evidenceStrength: "STRONG" | "WEAK";
+  /**
+   * P0-03D -- the SAME pool identification V4 gives the card (`RankedCandidateCard.poolMembership`), so the Simulator panel and the Live board say the
+   * same thing: `OUTSIDE_POOL` (a pool is configured for this position and the hero is not in it) is what the UI shows as OFF-POOL; `NO_POOL` shows nothing.
+   * INFORMATIVE only: never a reason, never part of the score or the order.
+   */
+  poolMembership: PoolMembership;
 }
 
 export interface TeamCoachPosition {
@@ -244,7 +250,32 @@ export async function buildTeamPositionPriority(input: BuildTeamCoachBoardInput)
   return (await computeTeamCoach(input))?.priority ?? null;
 }
 
-async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ board: TeamCoachBoard; priority: LivePositionPriority | null } | null> {
+/**
+ * The ONE target policy (P0-03): which position to look at first, resolved by the SAME rule the board's `currentDecision` uses
+ * (`resolveTeamTarget`: LivePositionPriorityV1 when it applies, else the default over the positions that have STRONG evidence).
+ * V4 (`?format=v4`, the Simulator) takes its target from here, so a position without STRONG evidence can never displace one that has it.
+ * THREE outcomes, never conflated (P0-03C):
+ *   undefined -> the board could NOT be computed (no controlled positions / no actionability): the caller falls back to its own default;
+ *   null      -> the board WAS computed and decided to stay silent (no STRONG hero, or live composition says nothing strong exists for what is
+ *                missing): the caller must not recommend anybody, and must not derive a recommendation from its own cards;
+ *   target    -> the board recommends; `primaryHeroId` is the hero it names.
+ */
+export async function buildTeamDecisionTarget(input: BuildTeamCoachBoardInput): Promise<DecisionTarget | null | undefined> {
+  const computed = await computeTeamCoach(input);
+  if (computed === null) return undefined;
+  const resolved = computed.target;
+  if (resolved === null) return null;
+  // V4's wire has no PHASE_FALLBACK: the habitual commitment order is "no clear strategic priority", so it travels as DETERMINISTIC_DEFAULT.
+  return { targetPosition: resolved.targetPosition, targetBasis: resolved.targetBasis === "STRATEGIC" ? "STRATEGIC" : "DETERMINISTIC_DEFAULT", targetRationale: resolved.targetRationale, primaryHeroId: computed.board.currentDecision.recommendedHeroId };
+}
+
+/** Shared by the board's decision and V4: priority when it applies, else the stable default, ONLY over positions with an eligible STRONG hero. */
+function resolveTeamTarget(targetField: readonly Position[], personal: Position | null, priority: LivePositionPriority | null): { targetPosition: Position; targetBasis: TeamTargetBasis; targetRationale: string } | null {
+  if (targetField.length === 0) return null;
+  return priority ?? selectDecisionTarget({ eligiblePositions: targetField, playerPersonalPosition: personal });
+}
+
+async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ board: TeamCoachBoard; priority: LivePositionPriority | null; target: ReturnType<typeof resolveTeamTarget> } | null> {
   const { context, heroPositions } = input;
   const { view } = context;
   const actionability = context.humanActionability;
@@ -283,6 +314,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       steals,
       isPrimary: false,
       evidenceStrength: card.evidenceStrength,
+      poolMembership: card.poolMembership,
     };
   };
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
@@ -384,7 +416,8 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       approved: input.advertirApproved ?? NO_ADVERTIR_APPROVED,
     }),
   };
-  return { board, priority };
+  const target = actionability.hasHumanAction ? resolveTeamTarget(decisionField, input.playerPersonalPosition, priority) : null;
+  return { board, priority, target };
 }
 
 const MAX_RISKS_PER_CANDIDATE = 2;
@@ -446,7 +479,7 @@ function deriveTeamDecision(
   }
   // >= 2 open positions (or live): LivePositionPriorityV1. One open position: the target function V4 uses on its own.
   // El objetivo SOLO se elige entre las columnas con héroe elegible (`targetField`): no son "posiciones con el pool agotado", son columnas sin nada que mostrar.
-  const target = priority ?? selectDecisionTarget({ eligiblePositions: targetField, playerPersonalPosition: personal });
+  const target = resolveTeamTarget(targetField, personal, priority)!; // targetField is non-empty here (early return above)
   const column = columns.find((candidate) => candidate.position === target.targetPosition);
   const primary = column?.top.find((candidate) => candidate.isPrimary) ?? null;
   const heroReason = primary?.reasons[0] ?? "";

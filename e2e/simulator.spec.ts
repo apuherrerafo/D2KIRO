@@ -81,7 +81,7 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   //   IFF viewed != recommended; the selector highlights the VIEWED position (BlindRoundPanel `selectedTarget`);
   //   the recommendation is an open position and never moves with the view.
   const personal = position.match(/\d/)?.[0] ?? "";
-  // The recommendation header exists only with a STRATEGIC basis (2026-11-03/04): the notice is checked against it, never assumed.
+  // The recommendation header exists only with a `primaryRecommendation` (a STRONG hero, P0-03B -- not tied to `targetBasis`): the notice is checked against it, never assumed.
   await assertTargetContract(page, Number(personal));
   const viewedButton = page.getByRole("group", { name: "Posición para el próximo pick" }).getByRole("button", { name: new RegExp(`Pos${personal} `) });
   await expect(viewedButton).toHaveClass(/border-accent-primary/);
@@ -138,7 +138,7 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
 
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "2", { timeout: 60_000 });
   await expect(page.getByTestId("current-decision-panel")).toBeAttached({ timeout: 60_000 });
-  // The recommendation header exists only with a STRATEGIC basis (2026-11-03/04); the opening view is the Player's own position (Pos2).
+  // The recommendation header exists only with a `primaryRecommendation` (a STRONG hero, P0-03B); the opening view is the Player's own position (Pos2).
   const opening = await assertTargetContract(page, 2);
   const firstTarget = opening.position;
   const chosen = firstTarget === 5 ? 4 : 5; // deliberately not Pos1, and a navigation away from the Coach's recommendation

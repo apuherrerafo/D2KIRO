@@ -359,6 +359,12 @@ export interface CandidateDegradation {
  */
 export type CandidateResult = { state: "RANKED"; targetPosition: CoachPosition; cards: RankedCandidateCard[]; degradations: CandidateDegradation[] };
 
+/** Espejo a mano del motor (recommendation-output-v4.ts): el héroe que el Coach recomienda elegir ahora y su posición. */
+export interface PrimaryRecommendation {
+  position: CoachPosition;
+  heroId: HeroId;
+}
+
 export type ActionableDecision = {
   kind: "ACTIONABLE";
   actionablePositions: CoachPosition[];
@@ -367,6 +373,11 @@ export type ActionableDecision = {
   targetPosition: CoachPosition;
   targetBasis: TargetBasis;
   targetRationale: string;
+  /**
+   * La recomendación a nivel de HÉROE ("ELIGE AHORA"), distinta de `targetBasis` (que solo es la prioridad entre posiciones): no es null
+   * exactamente cuando el héroe primario de `targetPosition` tiene evidencia STRONG. Es lo ÚNICO que habilita mostrar "Objetivo recomendado".
+   */
+  primaryRecommendation: PrimaryRecommendation | null;
   /** The position the Player is INSPECTING; `candidates` belong to it. */
   viewedPosition: CoachPosition;
   candidates: CandidateResult;
@@ -448,6 +459,11 @@ function isCandidateResult(value: unknown, target: CoachPosition, poolState: Poo
   return Array.isArray(value.cards) && value.cards.every((card) => isRankedCard(card, target)) && cardsAgreeWithPoolState(value.cards, poolState);
 }
 
+function isPrimaryRecommendation(value: unknown, target: CoachPosition): boolean {
+  if (value === null) return true;
+  return isRecord(value) && value.position === target && typeof value.heroId === "number" && Number.isInteger(value.heroId) && value.heroId > 0;
+}
+
 function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
   if (!isRecord(value) || !Array.isArray(value.actionablePositions) || !value.actionablePositions.every(isPosition)) return false;
   if (value.kind === "NO_HUMAN_ACTION") {
@@ -459,6 +475,7 @@ function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
   if (!isPosition(value.targetPosition) || !value.actionablePositions.includes(value.targetPosition)) return false;
   if (value.targetBasis !== "STRATEGIC" && value.targetBasis !== "DETERMINISTIC_DEFAULT") return false;
   if (typeof value.targetRationale !== "string" || typeof value.personalPoolApplied !== "boolean") return false;
+  if (!isPrimaryRecommendation(value.primaryRecommendation, value.targetPosition)) return false;
   if (!isPoolState(value.poolState)) return false;
   if (value.poolOwner !== null && value.poolOwner !== "PLAYER" && value.poolOwner !== "TEAMMATE") return false;
   if ((value.poolState === "NONE") !== (value.poolOwner === null)) return false;
