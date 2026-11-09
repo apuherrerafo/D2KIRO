@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import type { TeamCoachBoard } from "../coach";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import { createTeamGroup, getTeamGroup } from "../db/queries";
@@ -25,6 +26,9 @@ const POSITIONS: HeroPositions = Object.fromEntries(
   [1, 2, 3, 4, 5].flatMap((p) => [0, 1, 2, 3].map((k) => [p * 10 + k, [{ position: p as 1 | 2 | 3 | 4 | 5, matches: 1000 }]])),
 );
 const ALL = Object.keys(POSITIONS).map(Number);
+// P0-04: el winrate global ya no habilita tarjetas. El fundamento de esta prueba de FLUJO de pools es un ban que abre a todos por igual (counter duro, con porqué, de un id
+// que no existe en Dota y que la captura visual banea antes de pedir el tablero): cada héroe es elegible y de evidencia fuerte; la prueba mide lo suyo (el pool).
+const OPENER = 99;
 const POOLS = [[12, 13], [22, 23], [32, 33], [42, 43], [52, 53]];
 
 function poolAwareCompute(): ComputeSuggestionsForRecommendation {
@@ -43,7 +47,7 @@ function poolAwareCompute(): ComputeSuggestionsForRecommendation {
           // El segundo es el fundamento propio de cada héroe (meta vigente con muestra suficiente, contrato 2026-11-03), con peso 0: el orden no cambia.
           signals: [
             { signal: "position_fit" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted, explanation: "fixture", sampleSize: 100 },
-            { signal: "patch_meta" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 },
+            { signal: "patch_meta" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 0, explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 }, // P0-04: informativo, peso 0
           ],
           reason: "fixture",
           confidence: "alta" as const,
@@ -68,7 +72,7 @@ function setup() {
   const store = new ProtocolSessionStore();
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now: () => clock });
   const routes = createLiveGsiRoutes({ links: createGsiLinkStore(db), registry, now: () => clock, loadTeamGroup: (id, accountId) => getTeamGroup(db, id, accountId) });
-  const protocol = createProtocolSessionRoutes({ store, computeSuggestions: poolAwareCompute(), heroPositions: POSITIONS, heroCounters: new Map() });
+  const protocol = createProtocolSessionRoutes({ store, computeSuggestions: poolAwareCompute(), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(ALL, OPENER) });
   type Link = { liveId: string; token: string; sessionId: string };
   let seq = 0;
 
@@ -183,6 +187,7 @@ describe("visual capture -- Team Coach and Party 5", () => {
     const applied = await t.routes.putTeamGroup(new Request("http://127.0.0.1/api/live/team-group", { method: "PUT", body: JSON.stringify({ teamGroupId: t.group(A, POOLS) }) }), A);
     expect(((await applied.json()) as { applied: boolean }).applied).toBe(true);
     await t.gsiPartial(link);
+    expect((await t.send(link, { type: "hero_banned", hero: OPENER, side: "unknown" })).status).toBe(200);
     const before = await t.board(link.sessionId);
     expect(t.top(before, 2).slice(0, 2).sort()).toEqual([22, 23]);
 

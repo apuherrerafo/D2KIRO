@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { TeamCoachBoard } from "../coach";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
+import { strongOpenerCounters } from "../coach/session-harness.fixtures";
 import { createTeamGroup, getTeamGroup } from "../db/queries";
 import { createLiveGsiRoutes } from "../server/routes/live-gsi";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
@@ -26,6 +27,9 @@ const POSITIONS: HeroPositions = Object.fromEntries(
   [1, 2, 3, 4, 5].flatMap((p) => [0, 1, 2, 3].map((k) => [p * 10 + k, [{ position: p as 1 | 2 | 3 | 4 | 5, matches: 1000 }]])),
 );
 const ALL = Object.keys(POSITIONS).map(Number);
+// P0-04: el winrate global ya no habilita tarjetas. El fundamento de estas pruebas de FLUJO de pools es un ban que abre a todos por igual (counter duro, con porqué, de
+// un id que no existe en Dota y que el draft banea al arrancar): cada héroe es elegible y de evidencia fuerte, y la prueba mide lo suyo (el pool), no la regla.
+const OPENER = 99;
 
 function poolAwareCompute(): ComputeSuggestionsForRecommendation {
   return async (state, _accountId, options) => {
@@ -41,8 +45,8 @@ function poolAwareCompute(): ComputeSuggestionsForRecommendation {
           rank: Math.min(index + 1, 6) as Suggestion["rank"],
           score: weighted,
           signals: [
-            { signal: "position_fit" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: weighted - 1, explanation: "fixture", sampleSize: 100 },
-            { signal: "patch_meta" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: "fixture", sampleSize: 5000 }, // motivo propio (regla 2026-11-02); suma intacta
+            { signal: "position_fit" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted, explanation: "fixture", sampleSize: 100 },
+            { signal: "patch_meta" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 0, explanation: "fixture", sampleSize: 5000 }, // P0-04: informativo, peso 0
             { signal: "hero_pool_fit" as const, raw: boost.has(hero) ? 0.9 : 0.1, normalized: boost.has(hero) ? 90 : 10, evidenceConfidence: 1, weighted: 0, explanation: "fixture", sampleSize: 1, applicable: boost.size > 0 },
           ],
           reason: "fixture",
@@ -75,7 +79,7 @@ function setup() {
     // Same wiring as app.ts: the account-scoped query.
     loadTeamGroup: (id, accountId) => getTeamGroup(db, id, accountId),
   });
-  const protocol = createProtocolSessionRoutes({ store, computeSuggestions: poolAwareCompute(), heroPositions: POSITIONS, heroCounters: new Map() });
+  const protocol = createProtocolSessionRoutes({ store, computeSuggestions: poolAwareCompute(), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(ALL, OPENER) });
 
   function group(accountId: number, pools: number[][], partySize: 1 | 2 | 3 | 5 = 5): number {
     const created = createTeamGroup(db, {
@@ -109,7 +113,7 @@ function setup() {
     expect(response.status).toBe(200);
   }
   async function startDraft(link: { liveId: string; token: string }) {
-    await ingest(link, { teamName: "radiant", draft: "empty" });
+    await ingest(link, { teamName: "radiant", draft: { radiant: { bans: [OPENER] } } });
   }
   const top = (b: TeamCoachBoard, position: number) => b.positions.find((column) => column.position === position)!.top.map((candidate) => candidate.heroId);
   return { db, store, registry, routes, protocol, group, issue, select, board, ingest, startDraft, top };

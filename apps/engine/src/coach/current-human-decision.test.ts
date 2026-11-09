@@ -10,6 +10,7 @@ import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "../server/routes/protocol-sessions";
 import { RANKING_INVALIDATING_REASONS, deriveCandidateResult } from "./current-human-decision";
 import { STRONG_OPENER, strongOpenerCounters } from "./session-harness.fixtures";
+import { NEUTRAL_ALLY, neutralSynergies } from "./neutral-ground.fixtures";
 import type { CurrentHumanDecision, RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // Product Semantics Recovery WP2 -- CurrentHumanDecision over the REAL store + REAL routes + REAL
@@ -457,14 +458,14 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
 describe("deriveCandidateResult -- resolved role vs viewed position", () => {
   const FLEX = 900;
   const flexPositions: HeroPositions = { [FLEX]: [{ position: 2, matches: 1000 }, { position: 4, matches: 1000 }] };
-  const view = { bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never;
+  const view = { bannedHeroes: [], ownPicks: [{ heroId: NEUTRAL_ALLY, visibility: "REVEALED" }], enemyPicks: [] } as never; // P0-04: aliado ya elegido que da la pareja neutral
 
   function ranking(status: "LIKELY" | "CONFIRMED_FORCED" | "UNRESOLVED", resolvedPosition: Position | null) {
     const impact = { status, position: resolvedPosition, marginals: { 1: 0, 2: 0.5, 3: 0, 4: 0.5, 5: 0 }, entropy: 1 };
     const recommendation = {
       actions: [{ hero: FLEX }],
       roleImpact: { [FLEX]: impact },
-      signalsByHero: { [FLEX]: [{ signal: "patch_meta", raw: 0.6, weighted: 1, explanation: "Pareja", sampleSize: 5000, applicable: true }] }, // motivo propio (regla "sin motivo no se recomienda", 2026-11-02)
+      signalsByHero: { [FLEX]: [{ signal: "patch_meta", raw: 0.6, weighted: 0, explanation: "Winrate", sampleSize: 5000, applicable: true }] }, // P0-04: el winrate global no es motivo; el fundamento es la pareja neutral
       risks: [],
       confidence: "media",
     };
@@ -472,7 +473,7 @@ describe("deriveCandidateResult -- resolved role vs viewed position", () => {
   }
 
   function derive(status: "LIKELY" | "CONFIRMED_FORCED" | "UNRESOLVED", resolvedPosition: Position | null, targetPosition: Position) {
-    return deriveCandidateResult({ targetPosition, targetRanking: ranking(status, resolvedPosition), view, heroPositions: flexPositions, personalPoolApplied: false });
+    return deriveCandidateResult({ targetPosition, targetRanking: ranking(status, resolvedPosition), view, heroPositions: flexPositions, heroSynergies: neutralSynergies([FLEX]), personalPoolApplied: false });
   }
 
   for (const status of ["LIKELY", "CONFIRMED_FORCED"] as const) {

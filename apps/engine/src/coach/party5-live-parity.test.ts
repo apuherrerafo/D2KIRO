@@ -150,12 +150,13 @@ describe("Party 5 simulator ↔ Live Companion parity", () => {
     const sim = productDecision(await boardOf(simulator.routes.getTeamRecommendations, simulator.sessionId));
     const observed = productDecision(await boardOf(live.routes.getTeamRecommendations, live.sessionId));
 
-    // V6's raw scores are unchanged; only the Live capture refuses the ban, so it withholds the
-    // strong "opened by ban" basis and therefore ELIGE AHORA. This is a data-validity divergence,
-    // not a candidate-scoring or Dota-strategy regression.
-    expect(observed.scoreByPosition).toEqual(sim.scoreByPosition);
+    // Only the Live capture refuses the ban, so it withholds the strong "opened by ban" basis and
+    // therefore ELIGE AHORA. P0-04: without that ground no hero has a basis at all (the global winrate
+    // is informational), so Live shows no card while the simulator, which accepted the ban, does.
+    // This is a data-validity divergence, not a candidate-scoring or Dota-strategy regression.
+    expect(Object.values(observed.scoreByPosition).every((score) => score === null)).toBe(true);
+    expect(Object.values(sim.scoreByPosition).some((score) => score !== null)).toBe(true);
     expect(observed.chooseNow).not.toEqual(sim.chooseNow);
-    expect(observed.reasons).not.toEqual(sim.reasons);
   });
 
   test("causal repro: same stateIdentity is insufficient when V3's scorer and Live's curated evidence differ", async () => {
@@ -232,12 +233,13 @@ describe("Party 5 simulator ↔ Live Companion parity", () => {
     // Empty curated catalog: the ONLY counter signal is V3's statistical one (hero 5 vs revealed 9,
     // raw 0.8). Per the eligibility contract, COUNTER_STATS is a complement, never a standalone ground.
     const simulator = await resolvedSimulatorRound([9, 8], undefined, new Map());
-    const v3 = await coachOf(simulator.routes.getRecommendations, simulator.sessionId);
+    const response = await simulator.routes.getRecommendations(simulator.sessionId, new URL(`http://127.0.0.1/api/session/protocol/${simulator.sessionId}/recommendations?format=v3`));
+    expect(response.status).toBe(200);
+    const v3 = await response.json() as { output: RecommendationOutputV3 | null; recommendationSet: RecommendationSetV2 };
     const counter = v3.recommendationSet.recommendations.find((recommendation) => recommendation.actions.some((action) => action.hero === 5))?.signalsByHero[5]?.find((signal) => signal.signal === "counter");
     expect(counter).toMatchObject({ raw: 0.8, hasRevealedEnemyCounterEvidence: true }); // the statistic really is present
 
-    expect(v3.output.actionSupport).toBe("LIMITED"); // "ELIGE AHORA" is withheld
-    expect(v3.output.shortlist.length).toBeGreaterThan(0);
-    expect(v3.output.shortlist.filter((candidate) => candidate.evidenceStrength === "STRONG")).toEqual([]);
+    // P0-04: with no other ground (and the global winrate informational) the statistic alone gives no card and no action at all.
+    expect(v3.output).toBeNull();
   });
 });

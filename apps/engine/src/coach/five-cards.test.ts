@@ -3,7 +3,7 @@ import type { HeroPositions } from "../signals/hero-positions";
 import { buildRecommendationSetFromPerspective } from "../recommendation/build-from-perspective";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import { deriveCandidateResult } from "./current-human-decision";
-import { fakeCompute, harness } from "./session-harness.fixtures";
+import { fakeCompute, harness, STRONG_OPENER, strongOpenerCounters } from "./session-harness.fixtures";
 
 // Reporte del usuario en ranked: al avanzar picks y bans, el Team Coach se quedaba con 3, 2 o 1 tarjeta por columna; lo esperado es
 // SIEMPRE 5 "subiendo a los de atrás". V6 entrega 6 candidatos y el Coach filtra después (aquí: los de "solo rol", sin sinergia).
@@ -31,8 +31,12 @@ function cappedCompute(): ComputeSuggestionsForRecommendation {
   };
 }
 
+const SOLO_ROL = new Map(HEROES.slice(0, 6).map((hero) => [hero, []] as const));
+const roleOnlyCounters = strongOpenerCounters(HEROES.slice(6), STRONG_OPENER, SOLO_ROL); // el resto: counter duro del héroe baneado por el harness
+
 async function cardsFor(candidateLimit: number | undefined, bans: number[] = []) {
-  const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5], pool: HEROES, heroPositions: POSITIONS, bans });
+  // P0-04: "solo rol" = sin fundamento. Los 6 primeros declaran SIN counters (lista vacía); al resto el harness le suma el ban abre-a-todos (fundamento fuerte neutro).
+  const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5], pool: HEROES, heroPositions: POSITIONS, bans, heroCounters: SOLO_ROL, strongGrounds: true });
   h.seal(h.side, 0, 14); // un pick propio a la vista: desde aquí el draft "dice algo" y se filtra a los de solo rol
   const context = h.store.perspectiveRecommendationContext(h.id)!;
   const ranking = await buildRecommendationSetFromPerspective({
@@ -45,7 +49,7 @@ async function cardsFor(candidateLimit: number | undefined, bans: number[] = [])
     outputLimit: candidateLimit ?? 6,
     ...(candidateLimit !== undefined ? { candidateLimit } : {}),
   });
-  return deriveCandidateResult({ targetPosition: 1, targetRanking: ranking, view: context.view, heroPositions: POSITIONS, personalPoolApplied: false });
+  return deriveCandidateResult({ targetPosition: 1, targetRanking: ranking, view: context.view, heroPositions: POSITIONS, heroCounters: roleOnlyCounters, personalPoolApplied: false });
 }
 
 describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los de atrás)", () => {

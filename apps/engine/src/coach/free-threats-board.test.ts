@@ -37,6 +37,10 @@ const THREATS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
 // Un solo counter fuerte del carry que juega pos 2/3 (héroe 6): en la columna de pos 2 compite con el héroe 4 por puntaje casi igual, así que el ORDEN
 // de esa columna depende del bono de Robo. Si ADVERTIR (o cualquier cambio) moviera el bono, el orden cambia y la huella lo delata.
 const ORDER_SENSITIVE: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[CARRY, [hard(6, "Su ulti rompe la invisibilidad del carry")]]]);
+// P0-04: el winrate global ya no sostiene tarjetas, así que el 4 (pos 2) necesita un fundamento propio para competir con el 6 en esa columna: un counter
+// MEDIUM documentado contra un rival ya revelado (WEAK). Es la versión del candado de orden que no depende del meta.
+const REVEALED_ENEMY = 7;
+const ORDER_SENSITIVE_GROUNDED: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[CARRY, [hard(6, "Su ulti rompe la invisibilidad del carry")]], [REVEALED_ENEMY, [medium(MID)]]]); // la clave es la víctima: el rival revelado 7 pierde contra el 4 (medium)
 const NO_THREATS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[CARRY, [medium(OFFLANER)]]]);
 
 interface Scenario {
@@ -109,41 +113,52 @@ const SCENARIOS: Scenario[] = [
   { name: "un pick con solo relaciones medium (nada que avisar)", own: [CARRY], assigned: [[CARRY, 1]], counters: NO_THREATS },
   { name: "draft donde el orden de pos 2 depende del bono de Robo", own: [CARRY], assigned: [[CARRY, 1]], counters: ORDER_SENSITIVE },
   { name: "el jugador solo controla pos 1 y pos 2", own: [CARRY], assigned: [[CARRY, 1]], counters: THREATS, controlled: [1, 2] },
+  { name: "orden de pos 2 con dos héroes sustentados (el 6 por Robo, el 4 por counter medium)", own: [CARRY], assigned: [[CARRY, 1]], enemies: [REVEALED_ENEMY], counters: ORDER_SENSITIVE_GROUNDED },
 ];
 
-// GRABADO con d768863f (antes de ADVERTIR). Para regenerarlo: RECORD_ADVERTIR=1 bun test src/coach/free-threats-board.test.ts en ese commit.
+// BASELINE RE-GRABADO en P0-04 (neutralidad del winrate global). El original se grabó con d768863f (antes de ADVERTIR), cuando el winrate global
+// sostenía tarjetas WEAK y sumaba +1 al puntaje. Comparación semántica antes/después, escenario por escenario:
+//   - los puntajes bajan exactamente 1.000 (el peso de `patch_meta` que ya no vota); la fuerza (S/W), los chips de Robo, el héroe principal, ELIGE AHORA
+//     y la card dorada de CADA tarjeta que sobrevive son los mismos;
+//   - lo único que desaparece son tarjetas que existían SOLO por el winrate (sin counter, ban, pareja ni Robo detrás): Dota no las recomendaba.
+// El candado de que ADVERTIR no mueve nada ya no depende de estas huellas: el test "INDEPENDIENTE DE LAS HUELLAS" compara, para CADA escenario, el
+// tablero con la sección y sin ella (lista aprobada vacía) en el mismo código. Las huellas quedan como regresión del resto del motor.
 const BASELINE: Record<string, { readable: string; fingerprint: string }> = {
   "draft vacío, sin counters": {
-    readable: "p1:RANKED:primary=-:[1@21.000W] | p2:RANKED:primary=-:[4@21.000W,6@20.000W] | p3:RANKED:primary=-:[5@21.000W] | p4:RANKED:primary=-:[3@21.000W] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p-/h- golden=-",
-    fingerprint: "da1c733832767ae1",
+    readable: "p1:RANKED:primary=-:[] | p2:RANKED:primary=-:[] | p3:RANKED:primary=-:[] | p4:RANKED:primary=-:[] | p5:RANKED:primary=-:[] || ELIGE AHORA=p-/h- golden=-",
+    fingerprint: "588ea0ba29ece43e",
   },
   "un pick (carry) con dos amenazas fuertes libres": {
-    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@21.000W+robo1m,6@20.000W] | p3:RANKED:primary=5:[5@21.000S+robo1h] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "3230c458109c919b",
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@20.000W+robo1m] | p3:RANKED:primary=5:[5@20.000S+robo1h] | p4:RANKED:primary=3:[3@20.000S+robo1h] | p5:RANKED:primary=-:[] || ELIGE AHORA=p4/h3 golden=-",
+    fingerprint: "12cbc02ff3d6784a",
   },
   "lo mismo con el offlaner baneado": {
-    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=4:[4@21.000S+robo1m,6@20.000W] | p3:RANKED:primary=-:[] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "cb9ef065a120eeb3",
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=4:[4@20.000S+robo1m] | p3:RANKED:primary=-:[] | p4:RANKED:primary=3:[3@20.000S+robo1h] | p5:RANKED:primary=-:[] || ELIGE AHORA=p4/h3 golden=-",
+    fingerprint: "b99905e9b0bbfdce",
   },
   "lo mismo con la amenaza ya elegida por el rival": {
-    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[6@20.000W,4@21.000W] | p3:RANKED:primary=-:[] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "3bb674f070f87c6a",
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[] | p3:RANKED:primary=-:[] | p4:RANKED:primary=3:[3@20.000S+robo1h] | p5:RANKED:primary=-:[] || ELIGE AHORA=p4/h3 golden=-",
+    fingerprint: "aee5b41b76faa637",
   },
   "dos picks (carry y mid), posiciones 1 y 2 llenas": {
-    readable: "p1:FILLED:primary=-:[] | p2:FILLED:primary=-:[] | p3:RANKED:primary=5:[5@21.000S+robo1h4h,6@20.000W] | p4:RANKED:primary=3:[3@21.000S+robo1h] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p4/h3 golden=-",
-    fingerprint: "9f428d99f36ded51",
+    readable: "p1:FILLED:primary=-:[] | p2:FILLED:primary=-:[] | p3:RANKED:primary=5:[5@20.000S+robo1h4h] | p4:RANKED:primary=3:[3@20.000S+robo1h] | p5:RANKED:primary=-:[] || ELIGE AHORA=p4/h3 golden=-",
+    fingerprint: "77fe78288d414b2e",
   },
   "un pick con solo relaciones medium (nada que avisar)": {
-    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@21.000W,6@20.000W] | p3:RANKED:primary=-:[5@21.000W+robo1m] | p4:RANKED:primary=-:[3@21.000W] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p-/h- golden=-",
-    fingerprint: "1421b6ec03ec75cc",
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[] | p3:RANKED:primary=-:[5@20.000W+robo1m] | p4:RANKED:primary=-:[] | p5:RANKED:primary=-:[] || ELIGE AHORA=p-/h- golden=-",
+    fingerprint: "85c1351568060226",
   },
   "draft donde el orden de pos 2 depende del bono de Robo": {
-    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=6:[6@20.000S+robo1h,4@21.000W] | p3:RANKED:primary=-:[5@21.000W] | p4:RANKED:primary=-:[3@21.000W] | p5:RANKED:primary=-:[2@21.000W] || ELIGE AHORA=p2/h6 golden=-",
-    fingerprint: "3eaec9615357e02f",
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=6:[6@19.000S+robo1h] | p3:RANKED:primary=-:[] | p4:RANKED:primary=-:[] | p5:RANKED:primary=-:[] || ELIGE AHORA=p2/h6 golden=-",
+    fingerprint: "0af1792fad9565b6",
   },
   "el jugador solo controla pos 1 y pos 2": {
-    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@21.000W+robo1m,6@20.000W] || ELIGE AHORA=p-/h- golden=-",
-    fingerprint: "130227f94966a0bb",
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=-:[4@20.000W+robo1m] || ELIGE AHORA=p-/h- golden=-",
+    fingerprint: "7595df3bc45f39a7",
+  },
+  "orden de pos 2 con dos héroes sustentados (el 6 por Robo, el 4 por counter medium)": {
+    readable: "p1:FILLED:primary=-:[] | p2:RANKED:primary=6:[6@19.000S+robo1h,4@20.000W] | p3:RANKED:primary=-:[] | p4:RANKED:primary=-:[] | p5:RANKED:primary=-:[] || ELIGE AHORA=p2/h6 golden=-",
+    fingerprint: "6de651096b08e85e",
   },
 };
 
@@ -158,6 +173,16 @@ describe("ADVERTIR -- cero cambios en recomendaciones (mismos drafts, con y sin 
       expect(fingerprint(board)).toBe(expected!.fingerprint);
     });
   }
+
+  test("INDEPENDIENTE DE LAS HUELLAS: en cada escenario, el tablero con ADVERTIR activo y con la lista vacía es idéntico salvo `freeThreats`", async () => {
+    for (const scenario of SCENARIOS) {
+      const withAdvertir = await boardOf(scenario);
+      const withoutAdvertirBoard = await boardOf({ ...scenario, approved: new Set() });
+      expect(withoutAdvertirBoard.freeThreats).toEqual([]);
+      expect(readable(withoutAdvertirBoard)).toBe(readable(withAdvertir));
+      expect(JSON.stringify(withoutAdvertir(withoutAdvertirBoard))).toBe(JSON.stringify(withoutAdvertir(withAdvertir)));
+    }
+  });
 
   test("el candado tiene dientes: en estos drafts el Robo SÍ está activo (hay chips de Robo en las tarjetas)", async () => {
     expect(readable(await boardOf(SCENARIOS[1]!))).toContain("+robo");

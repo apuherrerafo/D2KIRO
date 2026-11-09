@@ -5,6 +5,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import { cardContextOf, hasCardContext } from "./card-context";
 import { contextBonus, reorderByContext, stealsOf, type ContextReorderInput } from "./context-reorder";
 import { deriveCandidateResult } from "./current-human-decision";
+import { NEUTRAL_ALLY, neutralSynergies } from "./neutral-ground.fixtures";
 
 // El "robo" del segundo pick (decisión del usuario 2026-11-02, estándar de un experto de Dota): un héroe LIBRE que counterea a un pick
 // TUYO ya elegido sube, porque si lo eliges tú el rival no lo tiene. Fixtures inline (familia S9): ninguna prueba lee
@@ -151,7 +152,7 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
     const recommendations = V6_ORDER.map((hero, index) => ({
       actions: [{ hero }],
       roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
-      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - Math.floor(index / 4), explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 5000, applicable: true }] },
+      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 100 - Math.floor(index / 4), explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 0, explanation: `Winrate ${hero}`, sampleSize: 5000, applicable: true }] },
       risks: [],
       confidence: "media",
     }));
@@ -161,8 +162,10 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
   const positions: HeroPositions = { 108: [{ position: 1, matches: 3000 }], 107: [{ position: 1, matches: 3000 }] };
   const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[STORM, [{ vs: 108, level: "hard", why: "Le quita el maná" }]]]);
 
-  function derive(own: number[], heroCounters: ReadonlyMap<number, readonly CuratedCounter[]> | undefined) {
-    return deriveCandidateResult({ targetPosition: 1, targetRanking: ranking(), view: view(own), heroPositions: positions, heroCounters, personalPoolApplied: false });
+  // `neutral`: P0-04 -- el winrate ya no habilita tarjetas. Para probar "el orden es EXACTAMENTE el de V6" los 8 necesitan un fundamento que no sea un robo: una
+  // pareja neutral uniforme con un aliado ya elegido (sintética, no es conocimiento de Dota; no mueve el orden entre ellos).
+  function derive(own: number[], heroCounters: ReadonlyMap<number, readonly CuratedCounter[]> | undefined, neutral = false) {
+    return deriveCandidateResult({ targetPosition: 1, targetRanking: ranking(), view: view(neutral ? [...own, NEUTRAL_ALLY] : own), heroPositions: positions, heroCounters, ...(neutral ? { heroSynergies: neutralSynergies(V6_ORDER) } : {}), personalPoolApplied: false });
   }
 
   function ids(result: ReturnType<typeof derive>): number[] {
@@ -179,7 +182,7 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
   });
 
   test("CANDADO: sin tu pick 1 (ronda 1) o sin counters curados, el orden es EXACTAMENTE el de V6 y nadie trae robo", () => {
-    for (const result of [derive([], counters), derive([STORM], undefined), derive([STORM], new Map())]) {
+    for (const result of [derive([], counters, true), derive([STORM], undefined, true), derive([STORM], new Map(), true)]) {
       expect(ids(result)).toEqual([101, 102, 103, 104, 105]);
       if (result.state !== "RANKED") throw new Error("esperaba RANKED");
       expect(result.cards.every((card) => card.context?.steals.length === 0)).toBe(true);

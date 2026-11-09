@@ -16,9 +16,10 @@ import { fakeCompute } from "./session-harness.fixtures";
 // V6's scorer is the shared deterministic stand-in and every curated input is inline (no real JSON, no SQLite, no network).
 //
 //   Pos 3 universe:  5 = the "Underlord" (outside the pool; hard counter of revealed enemy 9)
-//                    6 = "Axe" and 10 = "Centaur" (the player's pool; only the generic meta behind them -> WEAK)
+//                    6 = "Axe" and 10 = "Centaur" (the player's pool; a MEDIUM counter of revealed enemy 8 behind them -> WEAK)
 //   Own picks: 1 (Pos 1) and 2 (Pos 5) are already locked, so Pos 2, 3 and 4 stay open. Enemy 9 is revealed in the STRONG
-//   scenarios. Every other candidate has only the generic meta behind it (WEAK).
+//   scenarios. Every other candidate (4 at Pos 2, 3 at Pos 4) has the same documented MEDIUM counter of enemy 8 behind it (WEAK).
+//   P0-04: the global winrate is informational and grounds nothing, so WEAK evidence now comes from a real (medium) counter, never from the meta.
 
 const POSITIONS = [1, 2, 3, 4, 5] as Position[];
 const OPEN_POSITIONS = [2, 3, 4] as Position[];
@@ -34,7 +35,12 @@ const HERO_POSITIONS: HeroPositions = {
   10: [{ position: 3, matches: 1000 }],
 };
 const UNIVERSE = [1, 2, 3, 4, 5, 6, 10];
-const COUNTER_5_BEATS_9 = new Map<number, readonly CuratedCounter[]>([[9, [{ vs: 5, level: "hard", why: "fixture: 5 le gana a 9 en la linea" }]]]);
+// Key = victim. Enemy 8 loses (medium) to the pool heroes 6 and 10 and to the Pos 2 / Pos 4 candidates 4 and 3: a documented WEAK ground, never a recommendation by itself.
+const WEAK_VS_8: readonly [number, readonly CuratedCounter[]] = [8, [6, 10, 4, 3].map((vs): CuratedCounter => ({ vs, level: "medium", why: "fixture: contrapunto medio contra 8" }))];
+const COUNTER_5_BEATS_9 = new Map<number, readonly CuratedCounter[]>([[9, [{ vs: 5, level: "hard", why: "fixture: 5 le gana a 9 en la linea" }]], WEAK_VS_8]);
+/** WEAK candidates only: no STRONG hero anywhere. */
+const WEAK_ONLY = new Map<number, readonly CuratedCounter[]>([WEAK_VS_8]);
+/** Nothing at all behind any hero (not even the global winrate that the stand-in scorer carries on every hero). */
 const NO_COUNTERS = new Map<number, readonly CuratedCounter[]>();
 
 interface Facts { bans: number[]; enemies: number[]; counters: ReadonlyMap<number, readonly CuratedCounter[]>; pools?: Partial<Record<Position, number[]>> }
@@ -201,7 +207,7 @@ describe("P0-03D 3. exhausted pool (A): every pool hero is banned -> an outside 
 });
 
 describe("P0-03D 4. inadequate pool (B): pool heroes are available but have no STRONG ground -> no invented hero, and it is NOT 'exhausted'", () => {
-  const facts = withPool(POOL_AXE_CENTAUR as unknown as Partial<Record<Position, number[]>>, { counters: NO_COUNTERS, enemies: [7, 8] });
+  const facts = withPool(POOL_AXE_CENTAUR as unknown as Partial<Record<Position, number[]>>, { counters: WEAK_ONLY, enemies: [7, 8] });
   test("Simulator V4: no primary, state ACTIVE (never EXHAUSTED), pool heroes shown as WEAK", async () => {
     const decision = await v4(facts);
     expect(decision.primaryRecommendation).toBeNull();
@@ -219,10 +225,23 @@ describe("P0-03D 4. inadequate pool (B): pool heroes are available but have no S
 describe("P0-03D 5. no STRONG hero anywhere (inside or outside the pool) -> no principal recommendation", () => {
   for (const [name, pools] of [["with a pool", POOL_AXE_CENTAUR], ["without a pool", undefined]] as const) {
     test(name, async () => {
-      const facts = withPool((pools ?? {}) as Partial<Record<Position, number[]>>, { counters: NO_COUNTERS, enemies: [7, 8] });
+      const facts = withPool((pools ?? {}) as Partial<Record<Position, number[]>>, { counters: WEAK_ONLY, enemies: [7, 8] });
       expect((await v4(facts)).primaryRecommendation).toBeNull();
       expect((await liveBoard(facts)).currentDecision.recommendedHeroId).toBeNull();
       expect((await simBoard(facts)).currentDecision.recommendedHeroId).toBeNull();
+    });
+  }
+
+  // P0-04: with NOTHING behind any hero except the global winrate every hero carries (60 % over 5,000 games), the product stays silent: no card, no principal recommendation.
+  for (const [name, pools] of [["with a pool", POOL_AXE_CENTAUR], ["without a pool", undefined]] as const) {
+    test(`${name}: the global winrate alone grounds nothing -> zero cards, zero principal recommendation, manual selection untouched`, async () => {
+      const facts = withPool((pools ?? {}) as Partial<Record<Position, number[]>>, { counters: NO_COUNTERS, enemies: [7, 8] });
+      const decision = await v4(facts);
+      expect(decision.primaryRecommendation).toBeNull();
+      for (const position of OPEN_POSITIONS) expect((await v4(facts, position)).candidates.cards).toEqual([]);
+      const board = await liveBoard(facts);
+      expect(board.currentDecision.recommendedHeroId).toBeNull();
+      for (const position of OPEN_POSITIONS) expect(columnOf(board, position).top).toEqual([]);
     });
   }
 });
@@ -250,7 +269,7 @@ describe("P0-03D 7. Simulator <-> Live parity with equivalent pools", () => {
     ["pool STRONG available", withPool({ 3: [5, 6] })],
     ["pool WEAK + outside STRONG", withPool(POOL_AXE_CENTAUR as unknown as Partial<Record<Position, number[]>>)],
     ["pool exhausted", withPool({ 3: [6] }, { bans: [BAN, 6] })],
-    ["pool inadequate", withPool(POOL_AXE_CENTAUR as unknown as Partial<Record<Position, number[]>>, { counters: NO_COUNTERS, enemies: [7, 8] })],
+    ["pool inadequate", withPool(POOL_AXE_CENTAUR as unknown as Partial<Record<Position, number[]>>, { counters: WEAK_ONLY, enemies: [7, 8] })],
   ];
   for (const [name, facts] of scenarios) {
     test(name, async () => {

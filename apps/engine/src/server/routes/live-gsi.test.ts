@@ -302,16 +302,16 @@ describe("draft capture through the kernel", () => {
   test("full draft block: Team Coach recomputes from the normalized state (banned/picked heroes leave every column)", async () => {
     const t = setup();
     const issued = await t.issue(ACCOUNT_A);
-    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", draft: { radiant: { bans: [10] }, dire: { bans: [20] } } }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", draft: { radiant: { bans: [10] }, dire: { bans: [20, 98] } } }));
     const before = await t.board(issued.sessionId);
-    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, draft: { radiant: { bans: [10], picks: [11] }, dire: { bans: [20] } } }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, draft: { radiant: { bans: [10], picks: [11] }, dire: { bans: [20, 98] } } }));
     const after = await t.board(issued.sessionId);
     const ranked = (board: TeamCoachBoard) => board.positions.flatMap((column) => column.top.map((candidate) => candidate.heroId));
     for (const unavailable of [10, 20]) expect(ranked(before)).not.toContain(unavailable);
     expect(ranked(before)).toContain(11);
     expect(ranked(after)).not.toContain(11);
     expect(after.stateIdentity).not.toBe(before.stateIdentity);
-    expect(t.status(issued.sessionId)).toMatchObject({ captureHealth: "ok", captureDetail: null, bans: 2, picks: 1 });
+    expect(t.status(issued.sessionId)).toMatchObject({ captureHealth: "ok", captureDetail: null, bans: 3, picks: 1 }); // 10, 20 y el 98 que abre a todos (fundamento neutro del harness)
   });
 
   test("a completed draft is not restarted by the next identical update (manual facts survive COMPLETE)", async () => {

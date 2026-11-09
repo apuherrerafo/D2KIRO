@@ -31,6 +31,14 @@ const positionOnly = (heroId: number, weighted = 20): HeroFixture => roleOnlyHer
 const withSignal = (hero: HeroFixture, extra: HeroFixture["signals"][number]): HeroFixture => ({ ...hero, signals: [...hero.signals.filter((entry) => entry.signal !== extra.signal), extra] });
 /** `vs` baneado con un porqué de Dota abre a `heroId` (un counter suyo se baneó). */
 const openedByBan = (heroId: number, why = "Su stun interrumpe la cadena de habilidades"): ReadonlyMap<number, readonly CuratedCounter[]> => new Map([[heroId, [{ vs: BANNED, level: "hard", why }]]]);
+// P0-04: el winrate global ya NO da evidencia débil. La evidencia DÉBIL de Dota que usan estas pruebas es un ban que abre al héroe PERO con otra amenaza dura
+// suya todavía libre: lo baneado (hard = 2) no pesa MÁS que lo que sigue libre (dos medium = 2), así que el héroe aparece (hay un fundamento) y nunca sostiene la acción.
+const FREE_THREAT = 98;
+const FREE_THREAT_2 = 97;
+const weakByBan = (...heroIds: number[]): ReadonlyMap<number, readonly CuratedCounter[]> =>
+  new Map(heroIds.map((heroId) => [heroId, [{ vs: BANNED, level: "hard" as const, why: "Su stun interrumpe la cadena de habilidades" }, { vs: FREE_THREAT, level: "medium" as const, why: "Lo silencia en la línea" }, { vs: FREE_THREAT_2, level: "medium" as const, why: "Le corta la mana" }]]));
+const mergeCounters = (...maps: ReadonlyMap<number, readonly CuratedCounter[]>[]): ReadonlyMap<number, readonly CuratedCounter[]> =>
+  new Map(maps.flatMap((map) => [...map.entries()]));
 const pairWithAlly = (heroId: number, why: string): ReadonlyMap<number, readonly CuratedSynergy[]> => new Map([[heroId, [{ with: OWN_ALLY, why }]]]);
 
 function translate(heroes: HeroFixture[], strategy: RevealStrategy, config: Parameters<typeof translateToRecommendationOutputV3>[4] = {}) {
@@ -80,27 +88,25 @@ describe("Coach v3 -- fundamentos verificables sí cuentan, y la tarjeta los dic
     expect(output).toBeNull(); // ninguno de los dos tiene un fundamento verificable: ni tarjeta ni acción principal
   });
 
-  test("(b) el meta vigente cuenta SOLO con evidencia suficiente y es DÉBIL: aparece en la lista junto a un héroe fuerte, con su cifra, pero nunca sostiene la acción", () => {
-    const metaHero = withSignal(positionOnly(3), signal("patch_meta", 0.6, 4, { explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 }));
-    const notEnough = withSignal(positionOnly(2), signal("patch_meta", 0.51, 4, { explanation: "Winrate de 51.0% este parche en bracket bajo/medio", sampleSize: 500 }));
+  test("(b) un ban que abre al héroe con otra amenaza suya aún libre es evidencia DÉBIL: aparece junto a un héroe fuerte, marcada WEAK, pero nunca sostiene la acción", () => {
+    // El winrate global (60 % con 5.000 partidas) viaja en la señal del héroe 3 y NO cambia nada: lo que lo habilita es el ban, y lo débil es la amenaza libre.
+    const weakHero = withSignal(positionOnly(3), signal("patch_meta", 0.6, 0, { explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 }));
+    const winrateOnly = withSignal(positionOnly(2), signal("patch_meta", 0.7, 0, { explanation: "Winrate de 70.0% este parche en bracket bajo/medio", sampleSize: 9000 }));
     const opened = positionOnly(4);
-    const output = translate([metaHero, notEnough, opened], POSITION_5, { heroCounters: openedByBan(4) })!;
+    const output = translate([weakHero, winrateOnly, opened], POSITION_5, { heroCounters: mergeCounters(weakByBan(3), openedByBan(4)) })!;
     const byHero = new Map(output.shortlist.map((card) => [card.heroId, card]));
-    expect([...byHero.keys()].sort()).toEqual([3, 4]); // el 2 no tiene evidencia suficiente: no aparece
+    expect([...byHero.keys()].sort()).toEqual([3, 4]); // el 2 solo tiene winrate (aunque sea 70 %): no hay fundamento, no aparece
     expect(byHero.get(3)!.evidenceStrength).toBe("WEAK");
-    expect(byHero.get(3)!.badges).toContain("META");
-    expect(byHero.get(3)!.rationale).toContain("Winrate de 60.0%");
+    expect(byHero.get(3)!.badges).not.toContain("META"); // el winrate ya no es una razón: no hay etiqueta
     expect(byHero.get(4)!.evidenceStrength).toBe("STRONG"); // el fuerte es el que sostiene la acción principal
   });
 });
 
 describe("Coach v3 -- elegibilidad != fuerza (f)", () => {
-  const META = signal("patch_meta", 0.6, 4, { explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 });
-
-  test("(f) solo-meta (evidencia débil): hay elegibles pero NINGUNO es fuerte -> se muestran como evidencia limitada y la acción NO es una recomendación (LIMITED)", () => {
-    const heroes = [3, 2, 1].map((id) => withSignal(positionOnly(id), META));
+  test("(f) solo evidencia débil: hay elegibles pero NINGUNO es fuerte -> se muestran como evidencia limitada y la acción NO es una recomendación (LIMITED)", () => {
+    const heroes = [3, 2, 1].map((id) => positionOnly(id));
     for (const strategy of [POSITION_5, { kind: "DEFER_POSITION", position: 1, rationale: "r" } as RevealStrategy]) {
-      const output = translate(heroes, strategy)!;
+      const output = translate(heroes, strategy, { heroCounters: weakByBan(3, 2, 1) })!;
       expect(output).not.toBeNull();
       expect(output.actionSupport).toBe("LIMITED");
       expect(output.shortlist.length).toBeGreaterThan(0);
@@ -111,31 +117,31 @@ describe("Coach v3 -- elegibilidad != fuerza (f)", () => {
   });
 
   test("(f) la confianza de una acción LIMITED es baja aunque V6 diga alta (sin empate que la baje por sí solo)", () => {
-    const heroes = [withSignal(positionOnly(3, 30), META), withSignal(positionOnly(2, 10), META)];
-    expect(translate(heroes, POSITION_5)!.actionSupport).toBe("LIMITED");
-    expect(translate(heroes, POSITION_5)!.meta.confidence).toBe("baja");
+    const heroes = [positionOnly(3, 30), positionOnly(2, 10)];
+    expect(translate(heroes, POSITION_5, { heroCounters: weakByBan(3, 2) })!.actionSupport).toBe("LIMITED");
+    expect(translate(heroes, POSITION_5, { heroCounters: weakByBan(3, 2) })!.meta.confidence).toBe("baja");
     // Contraste: con un fuerte (misma V6 "alta", puntajes distintos) la confianza sigue su regla de siempre y NO queda en baja.
-    const withStrong = translate([withSignal(positionOnly(3, 30), META), positionOnly(4, 10)], POSITION_5, { heroCounters: openedByBan(4) })!;
+    const withStrong = translate([positionOnly(3, 30), positionOnly(4, 10)], POSITION_5, { heroCounters: mergeCounters(weakByBan(3), openedByBan(4)) })!;
     expect(withStrong.actionSupport).toBe("STRONG");
     expect(withStrong.meta.confidence).not.toBe("baja");
   });
 
   test("(f) un fuerte SÍ da acción principal (STRONG): el soporte lo decide el héroe fuerte que sirve a la acción", () => {
-    const output = translate([withSignal(positionOnly(3), META), positionOnly(4)], POSITION_5, { heroCounters: openedByBan(4) })!;
+    const output = translate([positionOnly(3), positionOnly(4)], POSITION_5, { heroCounters: mergeCounters(weakByBan(3), openedByBan(4)) })!;
     expect(output.actionSupport).toBe("STRONG");
   });
 
   test("(f) un fuerte SÍ da acción principal, y los débiles que sirven a la acción acompañan en la lista, marcados WEAK", () => {
-    const output = translate([withSignal(positionOnly(3), META), positionOnly(4), withSignal(positionOnly(2), META)], POSITION_5, { heroCounters: openedByBan(4) });
+    const output = translate([positionOnly(3), positionOnly(4), positionOnly(2)], POSITION_5, { heroCounters: mergeCounters(weakByBan(3, 2), openedByBan(4)) });
     expect(output).not.toBeNull();
     expect(output!.primaryAction.strategy.kind).toBe("REVEAL_POSITION");
     expect(output!.shortlist.map((card) => [card.heroId, card.evidenceStrength]).sort()).toEqual([[2, "WEAK"], [3, "WEAK"], [4, "STRONG"]]);
   });
 
   test("(f) REVEAL_HERO de un héroe DÉBIL no se nombra aunque haya otro héroe fuerte; el fuerte sí", () => {
-    const weakHero = withSignal(positionOnly(3), META);
+    const weakHero = positionOnly(3);
     const strongHero = positionOnly(4);
-    const config = { heroCounters: openedByBan(4) };
+    const config = { heroCounters: mergeCounters(weakByBan(3), openedByBan(4)) };
     const weakNamed = translate([weakHero, strongHero], { kind: "REVEAL_HERO", heroId: 3, position: 5, rationale: "r" }, config)!;
     expect(weakNamed.actionSupport).toBe("LIMITED"); // nombrar al débil no es una recomendación: la UI no pinta "Qué hacer ahora"
     const named = translate([weakHero, strongHero], { kind: "REVEAL_HERO", heroId: 4, position: 5, rationale: "r" }, config)!;
@@ -194,8 +200,6 @@ describe("Coach v3 -- sin elegibles no hay acción principal (d) y nunca nombra 
 });
 
 describe("Coach v3 -- evidencia limitada se muestra, nunca como recomendación principal (decisión del dueño, 2026-11-05)", () => {
-  const META = signal("patch_meta", 0.6, 4, { explanation: "Winrate de 60.0% este parche en bracket bajo/medio", sampleSize: 5000 });
-
   test("sin ningún héroe con fundamento NO se muestra nada: ni relleno ni salida (sigue siendo null)", () => {
     expect(translate([1, 2, 3].map((id) => positionOnly(id)), POSITION_5)).toBeNull();
   });
@@ -208,15 +212,15 @@ describe("Coach v3 -- evidencia limitada se muestra, nunca como recomendación p
   });
 
   test("lo limitado nunca habilita la Oportunidad (Safe Core) aunque exista un counter curado sobre un rival que no está en el draft", () => {
-    const heroes = [3, 2].map((id) => withSignal(positionOnly(id), META));
-    const output = translate(heroes, POSITION_5, { heroCounters: new Map([[3, [{ vs: 98, level: "hard" as const, why: "x" }]]]) })!;
+    const heroes = [3, 2].map((id) => positionOnly(id));
+    const output = translate(heroes, POSITION_5, { heroCounters: weakByBan(3, 2) })!; // las amenazas libres (98 y 97) no están en el draft: son counters curados sobre rivales ausentes
     expect(output.actionSupport).toBe("LIMITED");
     expect(output.opportunity).toBeUndefined();
   });
 
   test("una acción respaldada por un héroe FUERTE nunca se muestra sin él, aunque V6 ponga cinco débiles por delante", () => {
-    const weak = [1, 2, 3, 5, 6].map((id, index) => withSignal(positionOnly(id, 30 - index), META));
-    const output = translate([...weak, positionOnly(4, 5)], POSITION_5, { heroCounters: openedByBan(4) })!;
+    const weak = [1, 2, 3, 5, 6].map((id, index) => positionOnly(id, 30 - index));
+    const output = translate([...weak, positionOnly(4, 5)], POSITION_5, { heroCounters: mergeCounters(weakByBan(1, 2, 3, 5, 6), openedByBan(4)) })!;
     expect(output.actionSupport).toBe("STRONG");
     expect(output.shortlist).toHaveLength(5);
     expect(output.shortlist.map((card) => card.heroId)).toContain(4); // el héroe que sostiene "Qué hacer ahora" está en la lista
@@ -224,13 +228,14 @@ describe("Coach v3 -- evidencia limitada se muestra, nunca como recomendación p
   });
 
   test("un tamaño de lista 0 sigue siendo 0: el héroe fuerte no se cuela sin plaza", () => {
-    const output = translate([withSignal(positionOnly(3, 30), META), positionOnly(4, 10)], POSITION_5, { heroCounters: openedByBan(4), shortlistSize: 0 })!;
+    const output = translate([positionOnly(3, 30), positionOnly(4, 10)], POSITION_5, { heroCounters: mergeCounters(weakByBan(3), openedByBan(4)), shortlistSize: 0 })!;
     expect(output.shortlist).toEqual([]);
   });
 
-  test("por el orquestador real, solo-meta: la lista y la VISTA PERSONAL viajan (antes desaparecían las dos), marcadas WEAK y sin acción fuerte", async () => {
-    // `heroCounters` propio y vacío: sin el ban abre-a-todos del harness, lo único que habilita a los héroes es el meta (débil).
-    const h = harness({ adapterKind: "manual", heroCounters: new Map() });
+  test("por el orquestador real, solo evidencia débil: la lista y la VISTA PERSONAL viajan (antes desaparecían las dos), marcadas WEAK y sin acción fuerte", async () => {
+    // `heroCounters` propio: cada héroe del harness trae el ban 90 que lo abre, pero otras dos amenazas medium (91, 92) siguen libres -> fundamento DÉBIL para todos.
+    const weakAll: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([1, 2, 3, 4, 5, 6, 7, 8].map((heroId) => [heroId, [{ vs: 90, level: "hard" as const, why: "Su stun interrumpe la cadena de habilidades" }, { vs: 91, level: "medium" as const, why: "Lo silencia en la línea" }, { vs: 92, level: "medium" as const, why: "Le corta la mana" }]]));
+    const h = harness({ adapterKind: "manual", heroCounters: weakAll, bans: [90] });
     const result = await h.compute(2);
     const output = result.output!;
     expect(output).not.toBeNull();
@@ -243,16 +248,18 @@ describe("Coach v3 -- evidencia limitada se muestra, nunca como recomendación p
   });
 
   test("por el orquestador real: lista de equipo VACÍA (nadie con fundamento) pero vista personal con contenido -> la vista personal viaja, sin lista ni héroes inventados", async () => {
-    const h = harness({ adapterKind: "manual" });
-    const stripMeta = <T extends { signal: string }>(signals: readonly T[]): T[] => signals.filter((entry) => entry.signal !== "patch_meta");
+    // Hero 4 y 6 juegan Pos 2: son los únicos con fundamento (DÉBIL: ban 90 + amenazas libres 91 y 92). El EQUIPO no los ve (su cómputo los excluye); la vista personal sí.
+    const weakPos2: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([4, 6].map((heroId) => [heroId, [{ vs: 90, level: "hard" as const, why: "Su stun interrumpe la cadena de habilidades" }, { vs: 91, level: "medium" as const, why: "Lo silencia en la línea" }, { vs: 92, level: "medium" as const, why: "Le corta la mana" }]]));
+    const h = harness({ adapterKind: "manual", heroCounters: weakPos2, bans: [90] });
     const base = fakeCompute();
-    // El EQUIPO no ve el meta (sin ningún fundamento); la vista personal sí lo ve (débil): el caso real "sin lista de equipo, con vista personal".
+    const withoutPos2Heroes = <T extends { hero: number }>(entries: readonly T[]): T[] => entries.filter((entry) => entry.hero !== 4 && entry.hero !== 6);
     const computeForTeam: ComputeSuggestionsForRecommendation = async (...args) => {
       const set = await base(...args);
-      return { ...set, suggestions: set.suggestions.map((suggestion) => ({ ...suggestion, signals: stripMeta(suggestion.signals) })) };
+      return { ...set, suggestions: withoutPos2Heroes(set.suggestions) };
     };
     const coach = new CoachOrchestrator({
       heroPositions: HERO_POSITIONS,
+      heroCounters: weakPos2,
       buildRecommendationSet: (ctx) => buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: computeForTeam, heroPositions: HERO_POSITIONS }),
       buildPersonalRecommendation: (ctx, position) => buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: base, heroPositions: HERO_POSITIONS, targetPosition: position, teamOpening: false, singleSlotEvaluation: true }),
     });

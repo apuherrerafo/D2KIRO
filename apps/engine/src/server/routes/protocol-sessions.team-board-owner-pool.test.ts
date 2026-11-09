@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TeamCoachBoard } from "../../coach";
-import { fakeCompute } from "../../coach/session-harness.fixtures";
+import { fakeCompute, strongOpenerCounters } from "../../coach/session-harness.fixtures";
 import type { ComputeSuggestionsForRecommendation } from "../../recommendation/perspective-context";
 import type { HeroPositions } from "../../signals/hero-positions";
 import type { SignalContribution } from "../../signals/types";
@@ -25,6 +25,7 @@ const POSITIONS: HeroPositions = {
 };
 const POOL = [1, 2, 4, 5, 6, 7, 9, 11, 12, 13];
 const OWNER_ACCOUNT = 777;
+const OPENER = 98; // un id que no existe en Dota: ban + counter duro de todos, el fundamento fuerte neutro de esta prueba de FLUJO
 // The owner's personal pool holds hero 11, which V6 would otherwise rank BELOW hero 9 at Pos 4.
 const PERSONAL_HERO = 11;
 
@@ -47,7 +48,7 @@ function recordingCompute(calls: ComputeCall[]): ComputeSuggestionsForRecommenda
 async function setup(humanPosition: 1 | 2 | 3 | 4 | 5) {
   const calls: ComputeCall[] = [];
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: recordingCompute(calls), heroPositions: POSITIONS, heroCounters: new Map() });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: recordingCompute(calls), heroPositions: POSITIONS, heroCounters: strongOpenerCounters(POOL, OPENER) }); // P0-04: el winrate no habilita tarjetas; el ban 98 abre a todos por igual
   const created = await routes.post(new Request("http://127.0.0.1/x", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -64,7 +65,7 @@ async function setup(humanPosition: 1 | 2 | 3 | 4 | 5) {
   }));
   expect(created.status).toBe(201);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [OPENER] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   async function board(accountId?: number): Promise<TeamCoachBoard> {
     calls.length = 0;
     const response = await routes.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`), accountId);

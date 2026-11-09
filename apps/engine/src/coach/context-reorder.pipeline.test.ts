@@ -10,12 +10,13 @@ const AXE = 20;
 const LION = 21;
 const ANCIENT = 22;
 const ALLY = 900;
+const ALLY_2 = 902;
 
 function ranking() {
   const recommendations = V6_ORDER.map((hero, index) => ({
     actions: [{ hero }],
     roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
-    signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - index * 0.5, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 5000, applicable: true }] }, // patch_meta = motivo propio (regla 2026-11-02); suma de pesos intacta
+    signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 100 - index * 0.5, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 0, explanation: `Winrate ${hero}`, sampleSize: 5000, applicable: true }] }, // P0-04: el winrate global viaja con peso 0 y no es motivo
     risks: [],
     confidence: "media",
   }));
@@ -36,14 +37,23 @@ const COUNTERS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
   [101, [{ vs: AXE, level: "hard", why: "a" }, { vs: LION, level: "hard", why: "b" }, { vs: ANCIENT, level: "medium", why: "c" }]],
 ]);
 
+// P0-04: el winrate global ya NO es fundamento. Todo héroe del fixture es elegible (y de evidencia FUERTE) por una pareja curada, con porqué, con un aliado
+// YA elegido (`NEUTRAL_ALLY`). Es uniforme para los 8, así que no mueve el orden entre ellos; el puntaje de la tarjeta sigue siendo el de V6.
+const NEUTRAL_ALLY = 901;
+function withNeutralGround(base: ReadonlyMap<number, readonly CuratedSynergy[]> | undefined, heroes: readonly number[] = V6_ORDER): ReadonlyMap<number, readonly CuratedSynergy[]> {
+  const merged = new Map<number, readonly CuratedSynergy[]>(base ?? []);
+  for (const hero of heroes) merged.set(hero, [...(merged.get(hero) ?? []), { with: NEUTRAL_ALLY, why: "fixture: pareja neutral que habilita a todos por igual" }]);
+  return merged;
+}
+
 function derive(input: { banned?: number[]; own?: number[]; enemy?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroSynergies?: ReadonlyMap<number, readonly CuratedSynergy[]>; activePool?: number[]; poolShortlistSize?: number; shortlistSize?: number }) {
   const result = deriveCandidateResult({
     targetPosition: 1,
     targetRanking: ranking(),
-    view: view(input),
+    view: view({ ...input, own: [...(input.own ?? []), NEUTRAL_ALLY] }),
     heroPositions: {},
     heroCounters: input.heroCounters,
-    heroSynergies: input.heroSynergies,
+    heroSynergies: withNeutralGround(input.heroSynergies),
     personalPoolApplied: false,
     activePool: input.activePool,
     poolShortlistSize: input.poolShortlistSize,
@@ -81,8 +91,9 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
   test("S05 del juez de Dota en V4 (decisión del usuario 2026-10-30): el héroe que el rival counterea fuerte baja 12, sin ir al fondo de oficio", () => {
     // Meepo-like 30 (90) contra Axe-like 40 revelado; alternativas 31 (50) y 32 (40). RB-4 ya no aplica en Team Coach/Copilot:
     // Meepo baja 12 (90 → 78) y sigue primero porque V6 le saca más de 12 a las alternativas. RB-4 sigue en V3.
-    const ranking = { recommendations: [[30, 90], [31, 50], [32, 40]].map(([hero, score]) => ({ actions: [{ hero }], roleImpact: { [hero!]: { status: "LIKELY", position: 2, marginals: { 1: 0, 2: 1, 3: 0, 4: 0, 5: 0 }, entropy: 0 } }, signalsByHero: { [hero!]: [{ signal: "position_fit", raw: 1, weighted: score! - 1, explanation: "x", sampleSize: 1, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 1, explanation: "x", sampleSize: 5000, applicable: true }] }, risks: [], confidence: "media" })), degradations: [] } as never;
-    const result = deriveCandidateResult({ targetPosition: 2, targetRanking: ranking, view: view({ enemy: [40] }), heroPositions: {}, heroCounters: new Map([[30, [{ vs: 40, level: "hard", why: "x" }]]]), personalPoolApplied: false });
+    const ranking = { recommendations: [[30, 90], [31, 50], [32, 40]].map(([hero, score]) => ({ actions: [{ hero }], roleImpact: { [hero!]: { status: "LIKELY", position: 2, marginals: { 1: 0, 2: 1, 3: 0, 4: 0, 5: 0 }, entropy: 0 } }, signalsByHero: { [hero!]: [{ signal: "position_fit", raw: 1, weighted: score! - 1, explanation: "x", sampleSize: 1, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 0, explanation: "x", sampleSize: 5000, applicable: true }] }, risks: [], confidence: "media" })), degradations: [] } as never;
+    // P0-04: 31 y 32 son elegibles por la pareja neutral con un aliado ya elegido; 30 la tiene también y además el counter revelado (que lo baja 12).
+    const result = deriveCandidateResult({ targetPosition: 2, targetRanking: ranking, view: view({ enemy: [40], own: [NEUTRAL_ALLY] }), heroPositions: {}, heroCounters: new Map([[30, [{ vs: 40, level: "hard", why: "x" }]]]), heroSynergies: withNeutralGround(undefined, [30, 31, 32]), personalPoolApplied: false });
     if (result.state !== "RANKED") throw new Error(result.state);
     expect(result.cards.map((card) => card.heroId)).toEqual([30, 31, 32]);
   });
@@ -93,10 +104,11 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     expect(result.poolCards.map((card) => card.heroId)).toEqual(generalInPool.slice(0, 3));
   });
 
-  test("una pareja curada con un aliado YA elegido sube al héroe; sin ese aliado no se mueve", () => {
-    const synergies: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[107, [{ with: ALLY, why: "combo" }]]]);
+  test("una pareja curada con aliados YA elegidos sube al héroe; sin esos aliados no se mueve", () => {
+    // Todos traen ya la pareja neutral; el 107 suma dos parejas más (cada aliado extra con razón vale +1) y recién con ellos en tu equipo pasa al 5.º.
+    const synergies: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[107, [{ with: ALLY, why: "combo" }, { with: ALLY_2, why: "combo 2" }]]]);
     expect(derive({ heroSynergies: synergies }).cards.map((card) => card.heroId)).not.toContain(107);
-    expect(derive({ heroSynergies: synergies, own: [ALLY] }).cards.map((card) => card.heroId)).toContain(107);
+    expect(derive({ heroSynergies: synergies, own: [ALLY, ALLY_2] }).cards.map((card) => card.heroId)).toContain(107);
   });
 
   test("lista del pool: solo héroes del pool, en el orden reordenado, con su propio rank y su tope", () => {

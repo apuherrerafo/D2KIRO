@@ -19,6 +19,7 @@ type Pools = Partial<Record<Position, readonly number[]>>;
 function coachFor() {
   return new CoachOrchestrator({
     heroPositions: HERO_POSITIONS,
+    heroCounters: strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number)), // P0-04: fundamento fuerte neutro (el harness ya banea al opener); el winrate no habilita tarjetas
     buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS }),
     buildTeamEvaluation: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, singleSlotEvaluation: true }),
     buildTargetRanking: (context, targetPosition) =>
