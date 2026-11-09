@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { OpenDotaClient } from "../meta/opendota-client";
+import { PERMISSIVE_SYNC_GATES } from "../meta/quality-gates";
 import { syncMeta } from "../meta/sync";
 import { buildMetaSnapshot, invalidateMetaSnapshotCache } from "../meta/provider";
 import { hydrateBaseline } from "./baseline";
@@ -14,6 +15,7 @@ function createTestDb() {
     CREATE TABLE hero_patch_stats (hero_id INTEGER NOT NULL, patch TEXT NOT NULL, bracket TEXT NOT NULL, picks INTEGER NOT NULL, wins INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (hero_id, patch, bracket));
     CREATE TABLE hero_matchups (hero_id INTEGER NOT NULL, vs_hero_id INTEGER NOT NULL, games INTEGER NOT NULL, wins INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (hero_id, vs_hero_id));
     CREATE TABLE meta_sync (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL, rows_written INTEGER NOT NULL DEFAULT 0, error TEXT);
+    CREATE TABLE meta_sync_run (sync_id INTEGER PRIMARY KEY NOT NULL, owner_id TEXT NOT NULL, heartbeat_at TEXT NOT NULL, patch_label TEXT, patch_verified INTEGER NOT NULL DEFAULT 0, patch_basis TEXT, quality_report TEXT);
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE accounts (steam_account_id INTEGER PRIMARY KEY, personal_baseline_winrate REAL, created_at TEXT NOT NULL);
     CREATE TABLE hero_pool (account_id INTEGER NOT NULL, hero_id INTEGER NOT NULL, source TEXT NOT NULL, personal_winrate REAL, personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY (account_id, hero_id));
@@ -72,7 +74,7 @@ test("OpenDota no disponible no borra el baseline", async () => {
   const before = db.select().from(heroes).all().length;
   const unavailable = new OpenDotaClient({ fetchImpl: (async () => new Response("offline", { status: 503 })) as unknown as typeof fetch, sleepImpl: async () => {} });
 
-  const result = await syncMeta(db, unavailable, { patch: "7.41", heroIdsForMatchups: [] });
+  const result = await syncMeta(db, unavailable, { patch: "7.41", heroIdsForMatchups: [], qualityGates: PERMISSIVE_SYNC_GATES });
 
   expect(result.status).toBe("failed");
   expect(db.select().from(heroes).all()).toHaveLength(before);

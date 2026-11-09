@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { db } from "./db/client";
 import { OpenDotaClient } from "./meta/opendota-client";
 import { beginMetaSync, runMetaSync } from "./meta/sync";
@@ -7,7 +6,7 @@ import { getMetaFreshness } from "./meta/provider";
 import { createApp } from "./server/app";
 import { createTokenRateLimiter } from "./server/edge";
 import { CURRENT_PATCH } from "./server/routes/meta";
-import { metaSync } from "./db/schema";
+import { hasActiveSync } from "./meta/sync-lock";
 
 // R1 S7 (final blocker repair, Blocker 1) -- the real process startup, factored out of index.ts so
 // it has exactly ONE caller-supplied seam for TEST-ONLY capabilities, instead of index.ts reading
@@ -53,8 +52,9 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
   const globalMetaRefresh = createGlobalMetaRefresh({
     getState: async () => {
       const freshness = await getMetaFreshness(db);
-      const hasRunningSync = db.select({ id: metaSync.id }).from(metaSync).where(eq(metaSync.status, "running")).limit(1).all().length > 0;
-      return { isStale: freshness.isStale, isRunning: hasRunningSync };
+      // P0-05F: una fila `running` huérfana (el proceso murió a mitad de sync) ya NO bloquea el refresco:
+      // hasActiveSync la cierra como `failed` y sólo cuenta un sync realmente vivo.
+      return { isStale: freshness.isStale, isRunning: hasActiveSync(db) };
     },
     runSync: async () => {
       // AP Solo Mid data/signal repair: `heroIdsForMatchups` ya NO se pre-calcula acá -- un
@@ -62,7 +62,7 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
       // primera sincronización de una base vacía, dejando `hero_matchups` permanentemente vacío
       // (ver la nota en `runMetaSync`, sync.ts). Se omite el campo para que `runMetaSync` lo
       // derive él mismo, después de sincronizar héroes.
-      const syncId = beginMetaSync(db);
+      const syncId = beginMetaSync(db, undefined, { patch: CURRENT_PATCH });
       await runMetaSync(db, openDotaClient, syncId, { patch: CURRENT_PATCH });
     },
   });

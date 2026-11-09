@@ -1,9 +1,10 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { metaSync } from "../../db/schema";
+import { metaSync, metaSyncRun } from "../../db/schema";
 import type { OpenDotaClient } from "../../meta/opendota-client";
 import { getCachedMetaSnapshot, getMetaFreshness, getMetaReadiness } from "../../meta/provider";
-import { beginMetaSync, runMetaSync } from "../../meta/sync";
+import { beginMetaSync, runMetaSync, UNVERIFIED_PATCH_BASIS } from "../../meta/sync";
+import { reapAbandonedSyncs } from "../../meta/sync-lock";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
 // TSK-068: única fuente de verdad del lado del motor para "qué parche está activo" -- OpenDota no
@@ -26,12 +27,40 @@ export interface MetaRouteDeps<TSchema extends Record<string, unknown>> {
   heroPositions?: HeroPositions;
 }
 
+export interface PatchProvenanceView {
+  label: string | null;
+  verified: boolean;
+  basis: string;
+}
+
+// Procedencia del último sync `ok`. Bases anteriores a la migración 0012 no tienen la tabla: sin dato,
+// se declara "no verificado", nunca se asume.
+function lastOkPatchProvenance<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>): PatchProvenanceView {
+  try {
+    const [row] = db
+      .select({ label: metaSyncRun.patchLabel, verified: metaSyncRun.patchVerified, basis: metaSyncRun.patchBasis })
+      .from(metaSyncRun)
+      .innerJoin(metaSync, eq(metaSync.id, metaSyncRun.syncId))
+      .where(eq(metaSync.status, "ok"))
+      .orderBy(desc(metaSync.id))
+      .limit(1)
+      .all();
+    if (row) return { label: row.label, verified: row.verified === 1, basis: row.basis ?? UNVERIFIED_PATCH_BASIS };
+  } catch {
+    // tabla ausente en una base sin migrar
+  }
+  return { label: null, verified: false, basis: "sin procedencia registrada (sync anterior a P0-05F)" };
+}
+
 export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: MetaRouteDeps<TSchema>) {
   async function status(): Promise<Response> {
     const freshness = await getMetaFreshness(deps.db);
     const readiness = await getMetaReadiness(deps.db);
     const [lastAttempt] = deps.db.select().from(metaSync).orderBy(desc(metaSync.id)).limit(1).all();
     return Response.json({
+      // P0-05F: la FECHA de sync y el PARCHE son ejes distintos. `syncedAt` dice cuándo se bajó el dato;
+      // `patchProvenance` dice qué rótulo de parche lleva y si alguien lo verificó (OpenDota no lo reporta).
+      patchProvenance: lastOkPatchProvenance(deps.db),
       syncedAt: freshness.syncedAt,
       lastUpdatedAt: freshness.syncedAt,
       isStale: freshness.isStale,
@@ -74,7 +103,8 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
     // primera sincronización de una base vacía, dejando `hero_matchups` permanentemente vacío
     // (confirmado: `meta_sync` con `status=ok` y `hero_matchups` en 0 filas). Se omite el campo
     // para que `runMetaSync` lo derive él mismo, después de sincronizar héroes.
-    const syncId = beginMetaSync(deps.db);
+    reapAbandonedSyncs(deps.db); // un `running` huérfano de un proceso muerto no puede quedarse para siempre
+    const syncId = beginMetaSync(deps.db, undefined, { patch });
     void runMetaSync(deps.db, deps.openDotaClient, syncId, { patch });
 
     return Response.json({ syncId }, { status: 202 });

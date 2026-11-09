@@ -52,6 +52,26 @@ export const metaSync = sqliteTable("meta_sync", {
   error: text("error"),
 });
 
+// P0-05F: bookkeeping de cada corrida de sync, en tabla propia (1:1 con `meta_sync.id`) para no tocar
+// `meta_sync` -- lectores y bases viejas siguen funcionando sin la columna nueva.
+//  - owner_id + heartbeat_at: distinguen un sync ACTIVO de uno huérfano (el proceso murió y la fila
+//    quedó en `running` para siempre, bloqueando el refresco automático).
+//  - patch_label / patch_verified / patch_basis: la FECHA de sync (meta_sync.finished_at) y el PARCHE son
+//    cosas distintas. OpenDota no reporta parche: el rótulo lo pone el proyecto y NUNCA cuenta como
+//    verificado salvo evidencia explícita.
+//  - quality_report: JSON con conteos y resultado de los quality gates de esa corrida.
+export const metaSyncRun = sqliteTable("meta_sync_run", {
+  syncId: integer("sync_id")
+    .primaryKey()
+    .references(() => metaSync.id),
+  ownerId: text("owner_id").notNull(),
+  heartbeatAt: text("heartbeat_at").notNull(),
+  patchLabel: text("patch_label"),
+  patchVerified: integer("patch_verified").notNull().default(0),
+  patchBasis: text("patch_basis"),
+  qualityReport: text("quality_report"),
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
