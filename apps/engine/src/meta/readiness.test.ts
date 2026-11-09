@@ -246,7 +246,7 @@ describe("Phase B Readiness and Provenance Semantics", () => {
       expect(readiness.syncFreshness.isFresh).toBe(true);
       expect(readiness.patchCompatibility).toBe("compatible");
       expect(readiness.patchMeta.ready).toBe(true);
-      expect(readiness.patchMeta.nonVotingReason).toBeNull();
+      expect(readiness.patchMeta.nonVotingReason).toBe("informational_only"); // datos válidos, pero el winrate global no tiene derecho a votar
 
       const suggestions = buildSuggestions(state, meta, { metaReadiness: readiness, now });
       expect(suggestions.degraded).not.toContain("patch_meta_data_not_ready");

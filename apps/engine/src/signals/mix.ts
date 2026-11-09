@@ -310,7 +310,11 @@ export function structurallyApplicableSignals(
 // señal sí estructuralmente aplicable (→ `"data_not_ready"`). NUNCA se infiere de `raw:null`
 // (`raw` es ortogonal a `votes`). Fijado en design §4.3(b); lo reusan Task 13
 // (`StateWeightedContribution`) y Task 16 (`AvailableSignalsReport`).
-export type NonVotingReason = "data_not_ready" | "not_structurally_applicable";
+//
+// P0-04 añade `"informational_only"`: la señal es aplicable Y sus datos están listos, pero su política de voto la deja fuera por diseño (`INFORMATIONAL_SIGNALS`, hoy
+// `patch_meta`: el winrate global). Distingue "no hay datos" (`data_not_ready`) de "hay datos y NO tienen derecho a decidir". Los consumidores que tipan este campo
+// (`meta/readiness.ts`, `coach-client.ts` en web) lo tratan como string; ninguno ramifica por valor.
+export type NonVotingReason = "data_not_ready" | "not_structurally_applicable" | "informational_only";
 
 // AP Solo Mid data/signal repair (Dota Judge root cause 1, 2026-09): `patch_meta` votaba `false`
 // siempre -- un literal hardcodeado (`return false`) cuya justificación en el código citaba datos
@@ -346,8 +350,9 @@ export { patchMetaReady };
 // `patchMetaReady` era falso). El winrate de un MATCHUP (señal `counter`) es evidencia contextual distinta y no se toca.
 export const INFORMATIONAL_SIGNALS: ReadonlySet<SignalId> = new Set<SignalId>(["patch_meta"]);
 
+// Tres conceptos separados (P0-04): estructura (`structurallyApplicableSignals`), datos (`dataReady`: ¿hay datos válidos?) y política de voto (`INFORMATIONAL_SIGNALS`:
+// ¿tiene derecho a afectar decisiones?). `dataReady` NO mira la política: `patch_meta` con datos válidos es `dataReady = true` y aun así `votes = false`.
 export function dataReady(signal: SignalId, state: DraftState, meta: MetaSnapshot): boolean {
-  if (INFORMATIONAL_SIGNALS.has(signal)) return false;
   switch (signal) {
     case "patch_meta":
       return patchMetaReady(state, meta);
@@ -367,7 +372,7 @@ export function votingSignals(
   options: BuildSuggestionsOptions = {},
 ): Set<SignalId> {
   const applicable = structurallyApplicableSignals(state, meta, options);
-  return new Set([...applicable].filter((signal) => dataReady(signal, state, meta)));
+  return new Set([...applicable].filter((signal) => !INFORMATIONAL_SIGNALS.has(signal) && dataReady(signal, state, meta)));
 }
 
 // Etiqueta de no-voto por señal (CP3: "toda señal que no vota se etiqueta con `nonVotingReason`").
@@ -382,6 +387,7 @@ export function nonVotingReason(
 ): NonVotingReason | null {
   if (!structurallyApplicableSignals(state, meta, options).has(signal)) return "not_structurally_applicable";
   if (!dataReady(signal, state, meta)) return "data_not_ready";
+  if (INFORMATIONAL_SIGNALS.has(signal)) return "informational_only";
   return null; // vota
 }
 
@@ -586,7 +592,7 @@ function mixCandidateByState(
       dataReady: dataReadyFlag,
       votes,
       usedStateMean,
-      nonVotingReason: votes ? null : structurallyApplicable ? "data_not_ready" : "not_structurally_applicable",
+      nonVotingReason: votes ? null : !structurallyApplicable ? "not_structurally_applicable" : !dataReadyFlag ? "data_not_ready" : "informational_only",
       explanation: c.explanation,
       sampleSize: c.sampleSize,
       ...(c.applicable !== undefined ? { applicable: c.applicable } : {}),
