@@ -163,6 +163,12 @@ export function describeGrounds(grounds: readonly Ground[]): { rationale: string
   // dicen los chips (nombres + porqué), la frase se calla.
   const hasStrong = grounds.some((ground) => ground.strength === "STRONG");
   const standalone = grounds.find((ground) => !ground.shownByContext && (!hasStrong || ground.strength !== "WEAK"));
+  // P0-05D / F-01: el dato estadístico es un COMPLEMENTO -- nunca sustituye al fundamento que habilitó la tarjeta. La frase abre con ese fundamento
+  // (el más fuerte, el más concreto primero) y el número va detrás como contexto.
+  if (standalone && standalone.kind === "COUNTER_STATS") {
+    const foundation = grounds.find((ground) => ground.strength === "STRONG") ?? grounds.find((ground) => ground.strength !== "COMPLEMENT");
+    if (foundation) return { rationale: `${foundation.text} · ${standalone.text}`, hide: false };
+  }
   if (standalone) return { rationale: standalone.text, hide: false };
   return { rationale: grounds[0]?.text ?? "", hide: grounds.length > 0 };
 }

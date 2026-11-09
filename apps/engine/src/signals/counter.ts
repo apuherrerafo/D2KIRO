@@ -100,29 +100,6 @@ interface EnemyDelta {
   observedWinrate: number;
 }
 
-// Explicación cuando SÓLO hubo capa estadística.
-function buildStatisticalExplanation(
-  meta: MetaSnapshot,
-  deltas: EnemyDelta[],
-  badgeMinGames = STATISTICAL_COUNTER_BADGE_MIN_GAMES,
-  badgeMinDelta = STATISTICAL_COUNTER_BADGE_MIN_DELTA,
-): string {
-  const qualifying = deltas
-    .filter((d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta)
-    .sort((a, b) => b.delta - a.delta)
-    .slice(0, MAX_NAMED_ENEMIES)
-    .map((d) => heroName(meta, d.vsHero));
-  if (qualifying.length > 0) return `Fuerte contra ${qualifying.join(" y ")}`;
-
-  const strongAgainst = deltas
-    .filter((d) => d.delta > 0)
-    .sort((a, b) => b.delta - a.delta)
-    .slice(0, MAX_NAMED_ENEMIES)
-    .map((d) => heroName(meta, d.vsHero));
-  if (strongAgainst.length === 0) return "Sin ventaja de contrapick conocida en este draft";
-  return `Fuerte contra ${strongAgainst.join(" y ")}`;
-}
-
 // Explicación cuando hubo al menos una contribución curada: los `why` de los counters en tu
 // contra primero (hasta 2), luego los rivales a los que les ganas.
 function buildCuratedExplanation(negativeWhy: string[], positiveNames: string[]): string {
@@ -301,9 +278,9 @@ export function createCounterScorer(
         const qualifyingNames = qualifyingStatDeltas
           .sort((a, b) => b.delta - a.delta)
           .slice(0, MAX_NAMED_ENEMIES)
-          .map((d) => `${heroName(meta, d.vsHero)} (${Math.round(d.observedWinrate * 100)}% en ${d.games} partidas)`);
-        // Esta capa es solo winrate: se dice con las cifras a la vista, no como si fuera una razón de Dota.
-        const base = `Fuerte contra ${qualifyingNames.join(" y ")}`;
+          .map((d) => `${Math.round(d.observedWinrate * 100)}% de victorias vs ${heroName(meta, d.vsHero)} (${d.games} partidas analizadas)`);
+        // P0-05D / F-01: esta capa es solo winrate. Se muestra como dato neutral -- jamás "Fuerte contra", que sería afirmar una razón de Dota.
+        const base = qualifyingNames.join(" y ");
         explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
       } else if (contribs.length > 0) {
         // No qualifying positive counter against revealed enemies.

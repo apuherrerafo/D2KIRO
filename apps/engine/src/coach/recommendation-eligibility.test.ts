@@ -229,12 +229,13 @@ describe("ELEGIBILIDAD != FUERZA: un héroe puede aparecer sin poder ser acción
   });
 
   test("un counter ESTADÍSTICO solo complementa: con un fundamento aparece como frase; solo, no habilita", () => {
-    const statistical = signal("counter", 0.12, 5, { explanation: "Fuerte contra Enemy (58.0% en 400 partidas)", hasRevealedEnemyCounterEvidence: true, sampleSize: 400 });
+    const statistical = signal("counter", 0.12, 5, { explanation: "58.0% de victorias vs Enemy (400 partidas analizadas)", hasRevealedEnemyCounterEvidence: true, sampleSize: 400 });
     expect(shown(derive([only(A, 90, [statistical])], { view: withEnemy() }))).toEqual([]);
     const pairs = new Map([[A, [{ with: ALLY, why: "Combo de stun y daño en área" }]]]);
     const result = derive([only(A, 90, [statistical])], { view: view("PICK_ROUND_2", [known(ALLY)], [revealed(ENEMY)]), heroSynergies: pairs });
     expect(shown(result)).toEqual([A]);
-    expect(result.cards[0]?.rationale).toBe("Fuerte contra Enemy (58.0% en 400 partidas)");
+    // P0-05D: el fundamento (la pareja) abre la frase; el dato estadístico va detrás, neutral, y nunca la sustituye.
+    expect(result.cards[0]?.rationale).toBe("Hace pareja con un aliado ya elegido · 58.0% de victorias vs Enemy (400 partidas analizadas)");
     expect(result.cards[0]?.badges).toEqual(["SYNERGY"]); // COUNTER es solo para el counter curado con porqué
   });
 });
@@ -337,7 +338,7 @@ describe("ramas del contrato que no pueden colarse por otro camino", () => {
   });
 
   test("counter ESTADÍSTICO contra un rival ya revelado (sin relación curada) NO es fundamento: no nombra un mecanismo y la mayoría es indistinguible del azar", () => {
-    const fromStats = statCounter("Fuerte contra Enemy (58.0% en 400 partidas)");
+    const fromStats = statCounter("58.0% de victorias vs Enemy (400 partidas analizadas)");
     for (const state of [withEnemy(), firstPick()]) expect(shown(derive([only(A, 90, [fromStats])], { view: state }))).toEqual([]);
   });
 
