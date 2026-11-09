@@ -180,7 +180,7 @@ describe("Party 5 simulator ↔ Live Companion parity", () => {
     // Actual Simulator Party 5 path: CoachOrchestrator -> RecommendationOutputV3.
     expect(simulatorCoach.output.primaryAction.strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 3 });
     expect(simulatorCoach.output.shortlist).toEqual(expect.arrayContaining([
-      expect.objectContaining({ heroId: 5, position: 3, evidenceStrength: "STRONG", rationale: "counter de 5" }),
+      expect.objectContaining({ heroId: 5, position: 3, evidenceStrength: "STRONG", rationale: "Se baneó una amenaza suya y se dice qué otras quedan · counter de 5" }),
     ]));
     expect(simulatorCoach.output.roleBeliefs.own).toEqual(expect.arrayContaining([
       expect.objectContaining({ heroId: 1, positions: [1] }),
@@ -190,7 +190,7 @@ describe("Party 5 simulator ↔ Live Companion parity", () => {
     // Actual Live Companion path: LiveCaptureRegistry -> TeamCoachBoard.
     const livePos3 = liveBoard.positions.find((column) => column.position === 3)!;
     expect(livePos3.top).toEqual(expect.arrayContaining([
-      expect.objectContaining({ heroId: 5, reasons: ["counter de 5"] }),
+      expect.objectContaining({ heroId: 5, reasons: ["Se baneó una amenaza suya y se dice qué otras quedan · counter de 5"] }),
     ]));
     expect(liveBoard.currentDecision).toMatchObject({ recommendedPosition: 4, recommendedHeroId: 3, targetBasis: "PHASE_FALLBACK" });
 
