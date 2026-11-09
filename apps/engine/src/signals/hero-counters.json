@@ -53,7 +53,7 @@
     {
       "vs": 32,
       "level": "medium",
-      "why": "Smoke Screen silencia a Anti-Mage (apaga su Blink, que es habilidad) y lo hace fallar ataques, aunque no bloquea ítems como Manta Style; Mana Void saca poco de Riki porque su reserva de maná es muy chica"
+      "why": "Smoke Screen silencia a Anti-Mage (apaga su Blink, que es habilidad) y lo hace fallar ataques, aunque no bloquea ítems como Manta Style; Mana Void depende del maná que le falte a Riki, y su reserva es chica"
     },
     {
       "vs": 95,
