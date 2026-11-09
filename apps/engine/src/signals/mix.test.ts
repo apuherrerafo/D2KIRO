@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "./hero-positions";
 import type { HeroCapabilities } from "../draft-paths/types";
-import { buildAvailableSignalsReport, buildComparison, buildSuggestions, dataReady, mixScore, nonVotingReason, structurallyApplicableSignals, votingSignals, type AvailableSignalsReport, type Suggestion } from "./mix";
+import { buildAvailableSignalsReport, buildComparison, buildSuggestions, dataReady, mixScore, patchMetaReady, nonVotingReason, structurallyApplicableSignals, votingSignals, type AvailableSignalsReport, type Suggestion } from "./mix";
 import { parseCalibration, type Calibration } from "./calibration";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
 import type { MetaReadiness } from "../meta/readiness";
@@ -1384,12 +1384,30 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
       return stats;
     }
 
-    test("parche fresco con cobertura real (30 héroes, >=500 partidas c/u) -> patch_meta vota", () => {
+    test("parche fresco con cobertura real (30 héroes, >=500 partidas c/u) -> dataReady=true pero patch_meta NO vota (P0-04: winrate global informativo)", () => {
       const state = draftState({ patch: "7.41e" });
       const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 30) });
 
-      expect(dataReady("patch_meta", state, snapshot)).toBe(true);
-      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(true);
+      expect(patchMetaReady(state, snapshot)).toBe(true);
+      expect(dataReady("patch_meta", state, snapshot)).toBe(true); // datos válidos: eso es independiente de la política de voto
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(false);
+      expect(nonVotingReason("patch_meta", state, snapshot, bareOptions())).toBe("informational_only");
+    });
+
+    test("P0-04 contrato A/B: con datos válidos -> dataReady=true, votes=false, weighted=0, 'informational_only'; sin datos -> dataReady=false, votes=false, weighted=0, 'data_not_ready'; el score no cambia", () => {
+      const state = draftState({ patch: "7.41e", picks: { radiant: [7], dire: [50] } });
+      const withData = meta({}, { patchStats: richPatchStats("7.41e", 30) });
+      const withoutData = meta({}, { patchStats: {} });
+      const rowWith = buildAvailableSignalsReport(state, withData, bareOptions()).signals.find((s) => s.signal === "patch_meta")!;
+      const rowWithout = buildAvailableSignalsReport(state, withoutData, bareOptions()).signals.find((s) => s.signal === "patch_meta")!;
+      expect(rowWith).toMatchObject({ structurallyApplicable: true, dataReady: true, votes: false, nonVotingReason: "informational_only" });
+      expect(rowWithout).toMatchObject({ structurallyApplicable: true, dataReady: false, votes: false, nonVotingReason: "data_not_ready" });
+      const suggestionsWith = buildSuggestions(state, withData, bareOptions());
+      const suggestionsWithout = buildSuggestions(state, withoutData, bareOptions());
+      // La señal viaja con peso 0 en ambos casos y el score/orden es idéntico con y sin datos de winrate.
+      expect(suggestionsWith.suggestions.map((s) => [s.hero, s.score])).toEqual(suggestionsWithout.suggestions.map((s) => [s.hero, s.score]));
+      for (const s of suggestionsWith.suggestions) expect(s.signals.find((c) => c.signal === "patch_meta")?.weighted ?? 0).toBe(0);
+      expect(suggestionsWith.degraded).not.toContain("patch_meta_data_not_ready");
     });
 
     test("parche equivocado (dataset fresco pero de OTRO parche) -> patch_meta no vota", () => {

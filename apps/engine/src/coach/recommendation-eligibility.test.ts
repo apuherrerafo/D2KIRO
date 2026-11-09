@@ -159,23 +159,22 @@ describe("lo que SÍ es fundamento: verificable, con su porqué, y la tarjeta lo
     expect(noWeight.cards[0]?.hideRationale).toBe(true); // sin peso no votó: no complementa, y los chips de la amenaza ya dicen todo
   });
 
-  test("el meta vigente cuenta SOLO con evidencia suficiente: 54 % sobre 5000 partidas sí; 54 % sobre 500 no; un winrate bajo no", () => {
+  test("P0-04: el winrate global NO es fundamento, con cualquier cifra y cualquier muestra (la función estadística pura se conserva, ya no decide)", () => {
     const meta = (raw: number, games: number) => signal("patch_meta", raw, 4, { sampleSize: games, explanation: `Winrate de ${(raw * 100).toFixed(1)}% este parche en bracket bajo/medio` });
-    expect(shown(derive([only(A, 80, [meta(0.54, 5000)])]))).toEqual([A]);
-    expect(shown(derive([only(A, 80, [meta(0.54, 500)])]))).toEqual([]);
-    expect(shown(derive([only(A, 80, [meta(0.505, 270_000)])]))).toEqual([]); // significativo pero irrelevante: con muestras enormes casi todo "supera 50 %"
-    expect(shown(derive([only(A, 80, [meta(0.49, 50_000)])]))).toEqual([]);
+    for (const [raw, games] of [[0.54, 5000], [0.54, 500], [0.505, 270_000], [0.49, 50_000], [0.65, 270_000]] as const) {
+      expect(shown(derive([only(A, 80, [meta(raw, games)])]))).toEqual([]);
+    }
     expect(winrateClearlyAboveEven(0.54, 5000)).toBe(true);
     expect(winrateClearlyAboveEven(0.54, 500)).toBe(false);
     expect(winrateClearlyAboveEven(0.505, 270_000)).toBe(false);
   });
 
-  test("la frase y las etiquetas salen de los fundamentos: el meta se dice con su cifra y NUNCA aparece 'Por su posición'", () => {
+  test("P0-04: con un fundamento real, el winrate no agrega frase ni etiqueta META", () => {
     const meta = signal("patch_meta", 0.56, 4, { sampleSize: 8000, explanation: "Winrate de 56.0% este parche en bracket bajo/medio" });
-    const [card] = derive([only(A, 80, [meta])]).cards;
-    expect(card?.rationale).toContain("Winrate de 56.0%");
-    expect(card?.badges).toEqual(["META"]);
-    expect(card?.rationale.startsWith("Por su posición")).toBe(false);
+    const counters = new Map([[A, [counter(BANNED, WHY)]]]);
+    const [card] = derive([only(A, 80, [meta])], { view: firstPick([BANNED]), heroCounters: counters }).cards;
+    expect(card?.rationale).not.toContain("Winrate");
+    expect(card?.badges).not.toContain("META");
   });
 
   test("orden: con fundamentos solo se reordena entre los elegibles; con menos de cinco válidos se muestran menos de cinco", () => {
@@ -187,28 +186,29 @@ describe("lo que SÍ es fundamento: verificable, con su porqué, y la tarjeta lo
 });
 
 describe("ELEGIBILIDAD != FUERZA: un héroe puede aparecer sin poder ser acción principal", () => {
-  const meta = (hero: number) => signal("patch_meta", 0.58, 4, { sampleSize: 20_000, explanation: `Winrate de 58.0% este parche en bracket bajo/medio (${hero})` });
   const MEDIUM_A = 701;
+  // P0-04: el fundamento DÉBIL de estas pruebas ya no es el winrate sino un ban equilibrado (baneado 2 = libre 2: aparece, pero no sostiene la acción).
+  const balanced = (hero: number) => [counter(BANNED, WHY), counter(MEDIUM_A, "Su stun lo corta a media pelea", "medium"), counter(701 + hero, "Su silencio le apaga el hechizo clave", "medium")];
   const MEDIUM_B = 702;
 
-  test("el meta SOLO es DÉBIL: el héroe aparece con su cifra, marcado WEAK", () => {
-    const result = derive([only(A, 80, [meta(A)])]);
+  test("un fundamento DÉBIL solo (ban equilibrado): el héroe aparece, marcado WEAK", () => {
+    const result = derive([only(A, 80)], { view: firstPick([BANNED]), heroCounters: new Map([[A, balanced(A)]]) });
     expect(shown(result)).toEqual([A]);
     expect(result.cards[0]?.evidenceStrength).toBe("WEAK");
   });
 
-  test("meta + un fundamento fuerte = FUERTE (el fuerte manda)", () => {
+  test("débil + un fundamento fuerte = FUERTE (el fuerte manda)", () => {
     const counters = new Map([[A, [counter(BANNED, WHY)]]]);
-    const result = derive([only(A, 80, [meta(A)])], { view: firstPick([BANNED]), heroCounters: counters });
+    const result = derive([only(A, 80)], { view: firstPick([BANNED]), heroCounters: counters });
     expect(result.cards[0]?.evidenceStrength).toBe("STRONG");
   });
 
   test("la fuerza NO cambia el orden ni el puntaje de V6: el débil con más puntaje sigue primero en la lista", () => {
-    const counters = new Map([[B, [counter(BANNED, WHY)]]]);
-    const withoutStrength = derive([only(A, 90, [meta(A)]), only(B, 60)], { view: firstPick([BANNED]), heroCounters: counters });
+    const counters = new Map([[A, balanced(A)], [B, [counter(BANNED, WHY)]]]);
+    const withoutStrength = derive([only(A, 90), only(B, 60)], { view: firstPick([BANNED]), heroCounters: counters });
     expect(shown(withoutStrength)).toEqual([A, B]);
     expect(withoutStrength.cards.map((card) => card.evidenceStrength)).toEqual(["WEAK", "STRONG"]);
-    expect(withoutStrength.cards.map((card) => card.score)).toEqual([94, 60]); // 90 de posición + 4 de meta; el puntaje es el de V6, intacto
+    expect(withoutStrength.cards.map((card) => card.score)).toEqual([90, 60]); // el puntaje es el de V6, intacto
   });
 
   test("un ban NO abre automáticamente: lo baneado debe pesar MÁS que lo que sigue libre para que sea FUERTE", () => {

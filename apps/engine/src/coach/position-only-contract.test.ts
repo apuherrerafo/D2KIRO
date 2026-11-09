@@ -16,6 +16,8 @@ import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures
 const ALL: Position[] = [1, 2, 3, 4, 5];
 const BANNED = 8;
 const WHY = "Orchid lo silencia y no puede hacer nada";
+// P0-04: fundamento DÉBIL de Dota (el winrate ya no lo da): el ban (hard = 2) abre al héroe, pero otras dos amenazas medium (1 + 1) siguen libres -> no alcanza para sostenerlo.
+const weakByBan = (): readonly CuratedCounter[] => [{ vs: BANNED, level: "hard", why: WHY }, { vs: 97, level: "medium", why: WHY }, { vs: 98, level: "medium", why: WHY }];
 
 /** El mismo stand-in de V6, pero a todos se les quita lo que no sea posición: solo queda el rol (Terrorblade/Invoker/CM de la captura). */
 function positionOnlyCompute(): ComputeSuggestionsForRecommendation {
@@ -105,15 +107,26 @@ describe("contrato de elegibilidad -- tablero y acción principal", () => {
     expect(built.currentDecision.recommendedHeroId).toBe(3);
   });
 
-  test("ELEGIBILIDAD != FUERZA: solo meta (débil) -> los héroes aparecen con su cifra y marca WEAK, pero NADIE es primario, ni héroe recomendado, ni posición destacada", async () => {
+  test("WINRATE ALTO SIN FUNDAMENTO (P0-04): el 60 % de winrate global de todos los héroes NO habilita ninguna tarjeta, ni primario, ni ELIGE AHORA", async () => {
+    // `fakeCompute()` trae en cada héroe patch_meta con 60 % sobre 5.000 partidas (peso 0: informativo). Sin un counter, ban, pareja ni composición detrás, Dota no recomienda nada.
     const { board: built } = await board({ compute: fakeCompute() });
+    expect(built.positions.flatMap((column) => column.top)).toEqual([]);
+    for (const column of built.positions) expect(column.primaryHeroId).toBeNull();
+    expect(built.currentDecision.recommendedHeroId).toBeNull(); // sin "ELIGE AHORA"
+    expect(built.currentDecision.recommendedPosition).toBeNull();
+    expect(built.currentDecision.reason).toBe("");
+  });
+
+  test("ELEGIBILIDAD != FUERZA: un fundamento DÉBIL (ban con amenazas libres que pesan igual) aparece marcado WEAK, pero NADIE es primario, ni héroe recomendado, ni posición destacada", async () => {
+    const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[3, weakByBan()], [2, weakByBan()]]);
+    const { board: built } = await board({ bans: [BANNED], heroCounters: counters, compute: fakeCompute() });
     const heroes = built.positions.flatMap((column) => column.top);
-    expect(heroes.length).toBeGreaterThan(0);
+    expect(heroes.map((candidate) => candidate.heroId).sort()).toEqual([2, 3]);
     for (const candidate of heroes) {
       expect(candidate.evidenceStrength).toBe("WEAK");
       expect(candidate.isPrimary).toBe(false);
-      expect(candidate.reasons[0]).toContain("Winrate de 60.0%");
-      expect(candidate.reasons[0]?.startsWith("Por su posición")).toBe(false);
+      expect(candidate.reasons.join(" ")).not.toContain("Winrate"); // el winrate no es la razón
+      expect(candidate.reasons.every((reason) => !reason.startsWith("Por su posición"))).toBe(true);
     }
     for (const column of built.positions) expect(column.primaryHeroId).toBeNull();
     expect(built.currentDecision.recommendedHeroId).toBeNull(); // sin "ELIGE AHORA"
@@ -122,7 +135,7 @@ describe("contrato de elegibilidad -- tablero y acción principal", () => {
   });
 
   test("un héroe FUERTE entre débiles es el único que puede ser primario/recomendado, aunque los débiles tengan más puntaje de V6", async () => {
-    const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[3, [{ vs: BANNED, level: "hard", why: WHY }]]]);
+    const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[3, [{ vs: BANNED, level: "hard", why: WHY }]], [2, weakByBan()], [5, weakByBan()]]);
     const { board: built } = await board({ bans: [BANNED], heroCounters: counters, compute: fakeCompute() });
     const strong = built.positions.flatMap((column) => column.top).filter((candidate) => candidate.evidenceStrength === "STRONG");
     expect(strong.map((candidate) => candidate.heroId)).toEqual([3]);

@@ -3,7 +3,7 @@ import type { DraftState } from "../draft/reducer";
 import type { MetaSnapshot } from "../signals/types";
 import { patchMetaReady } from "../signals/patch-meta";
 
-export type NonVotingReason = "data_not_ready" | "not_structurally_applicable";
+export type NonVotingReason = "data_not_ready" | "not_structurally_applicable" | "informational_only";
 
 
 // Phase B -- Readiness and Provenance Semantics Contract.
@@ -192,7 +192,7 @@ export function computeMetaReadiness(input: ComputeMetaReadinessInput = {}): Met
   if (input.state && input.meta) {
     const ready = patchMetaReady(input.state, input.meta);
     if (ready) {
-      patchMeta = { ready: true, nonVotingReason: null };
+      patchMeta = { ready: true, nonVotingReason: "informational_only" }; // P0-04: hay datos válidos, pero el winrate global no tiene derecho a votar
     } else {
       let detail: string;
       if (patchCompatibility === "mismatched") {

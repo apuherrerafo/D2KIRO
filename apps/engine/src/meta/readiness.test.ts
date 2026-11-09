@@ -202,7 +202,8 @@ describe("Phase B Readiness and Provenance Semantics", () => {
       expect(voting.has("patch_meta")).toBe(false);
 
       const suggestions = buildSuggestions(state, meta, { now });
-      expect(suggestions.degraded).toContain("patch_meta_data_not_ready");
+      // P0-04: `patch_meta` es informativa por diseño -> su falta de datos ya no es una degradación (sería ruido permanente).
+      expect(suggestions.degraded).not.toContain("patch_meta_data_not_ready");
 
       // Verify each suggestion has patch_meta with raw: null, weighted: 0, and non-voting status
       for (const suggestion of suggestions.suggestions) {
@@ -221,12 +222,12 @@ describe("Phase B Readiness and Provenance Semantics", () => {
       expect(patchMetaReady(state, meta)).toBe(false);
 
       const suggestions = buildSuggestions(state, meta, { now });
-      expect(suggestions.degraded).toContain("patch_meta_data_not_ready");
+      expect(suggestions.degraded).not.toContain("patch_meta_data_not_ready"); // P0-04: informativa, no degradación
     });
   });
 
   describe("Case 5: Successful / ready state", () => {
-    test("when fresh and with adequate coverage for target patch, patch_meta votes and no degradation flag", () => {
+    test("when fresh and with adequate coverage for target patch, patch_meta is ready but informational (never votes) and no degradation flag", () => {
       const heroIds = Array.from({ length: 25 }, (_, i) => i + 1);
       const meta = createMockMeta(heroIds, "7.41e", 1000);
       const state = createMockDraftState({ patch: "7.41e" });
@@ -245,14 +246,15 @@ describe("Phase B Readiness and Provenance Semantics", () => {
       expect(readiness.syncFreshness.isFresh).toBe(true);
       expect(readiness.patchCompatibility).toBe("compatible");
       expect(readiness.patchMeta.ready).toBe(true);
-      expect(readiness.patchMeta.nonVotingReason).toBeNull();
+      expect(readiness.patchMeta.nonVotingReason).toBe("informational_only"); // datos válidos, pero el winrate global no tiene derecho a votar
 
       const suggestions = buildSuggestions(state, meta, { metaReadiness: readiness, now });
       expect(suggestions.degraded).not.toContain("patch_meta_data_not_ready");
       expect(suggestions.degraded).not.toContain("stale_meta");
 
+      // P0-04: aun con el parche listo y fresco, `patch_meta` (winrate global) NUNCA vota.
       const voting = votingSignals(state, meta);
-      expect(voting.has("patch_meta")).toBe(true);
+      expect(voting.has("patch_meta")).toBe(false);
     });
   });
 

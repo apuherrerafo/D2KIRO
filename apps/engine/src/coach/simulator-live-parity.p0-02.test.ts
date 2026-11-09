@@ -348,10 +348,11 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     expect(result.live.targetHead).toBeNull();
     // KNOWN (presentation, not strategy): V4 always names a default view; its own contract says DETERMINISTIC_DEFAULT is "never advice".
     expect(result.sim.recommendedBasis).toBe("DETERMINISTIC_DEFAULT");
+    // P0-04: with the global winrate informational NO hero has a ground in an empty draft, so the Simulator no longer fronts a default hero either: no ELIGE AHORA on either side.
+    expect(result.sim.targetHead).toBeNull();
     expect(presentation(result)).toEqual([
       { field: "recommendedPosition", simulator: 1, live: null },
       { field: "targetBasis", simulator: "DETERMINISTIC_DEFAULT", live: null },
-      { field: "targetHead(ELIGE AHORA)", simulator: 1, live: null },
     ]);
   });
 
@@ -398,7 +399,9 @@ describe("P0-02 Simulator <-> Live parity (Party 5)", () => {
     expect(result.divergences).toEqual([]);
     expect(result.sim.perPosition[3]?.[0]).toMatchObject({ heroId: 5, evidenceStrength: "STRONG" });
     expect(result.live.perPosition[3]?.[0]).toMatchObject({ heroId: 5, evidenceStrength: "STRONG" });
-    expect(result.sim.perPosition[3]?.[1]).toMatchObject({ heroId: 6, evidenceStrength: "WEAK" }); // the hero that does not fill the gap stays WEAK
+    // P0-04: the hero that does not fill the gap (6) had only the global winrate behind it; that grounds nothing, so it is not listed at all.
+    expect(result.sim.perPosition[3]?.map((candidate) => candidate.heroId)).toEqual([5]);
+    expect(result.live.perPosition[3]?.map((candidate) => candidate.heroId)).toEqual([5]);
     expect(result.live.targetHead).toBe(5);
     expect(result.sim.targetHead).toBe(5);
   });

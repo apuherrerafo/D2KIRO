@@ -64,7 +64,12 @@ test("gate: degenerate engine payload crosses the web wire contract", () => {
 
   expect(engineDegenerate.suggestions).toEqual([]);
   expect(engineDegenerate.degraded).toContain("no_signal_available");
-  expect(engineDegenerate.degraded).toContain("patch_meta_data_not_ready");
+  // P0-04: el winrate global es informativo -> su falta de datos ya NO es una degradación que el motor levante. El valor sigue siendo parte del contrato (versiones previas del
+  // motor lo emiten): el espejo web lo acepta, así que un payload con la bandera heredada sigue cruzando el cable.
+  expect(engineDegenerate.degraded).not.toContain("patch_meta_data_not_ready");
   expect(engineDegenerate.decisionContext).toBe("no_signal_available");
   expect(isValidServerMessage(payload)).toBe(true);
+  const legacy = JSON.parse(JSON.stringify(payload)) as { payload: { degraded: string[] } };
+  legacy.payload.degraded.push("patch_meta_data_not_ready");
+  expect(isValidServerMessage(legacy)).toBe(true);
 });

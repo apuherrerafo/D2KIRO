@@ -4,7 +4,7 @@ import { buildRecommendationSetFromPerspective } from "../recommendation/build-f
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import { poolsByConfirmedPosition, type SavedTeamMember } from "../recommendation/team-positions";
 import { CoachOrchestrator } from "./orchestrator";
-import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures";
+import { fakeCompute, harness, HERO_POSITIONS, strongOpenerCounters } from "./session-harness.fixtures";
 
 // Hero Pools V2 / F2 -- the HYBRID behaviour of F1 (a pool is a preference, never a filter) holds for the pool the
 // resolver activates for the seat played THIS match. Saved team -> resolver -> REAL kernel/store/Coach; inline fixtures.
@@ -26,6 +26,7 @@ const person: SavedTeamMember = {
 function coachFor() {
   return new CoachOrchestrator({
     heroPositions: HERO_POSITIONS,
+    heroCounters: strongOpenerCounters(Object.keys(HERO_POSITIONS).map(Number)), // P0-04: fundamento fuerte neutro (el harness ya banea al opener); el winrate no habilita tarjetas
     buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS }),
     buildTeamEvaluation: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, singleSlotEvaluation: true }),
     buildTargetRanking: (context, targetPosition) =>

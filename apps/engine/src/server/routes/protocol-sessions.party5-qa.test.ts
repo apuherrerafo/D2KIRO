@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { strongOpenerCounters } from "../../coach/session-harness.fixtures";
 import type { CurrentDecisionRecomputation } from "../../coach";
 import type { HeroCard } from "../../coach/hero-card";
 import type { FunctionalRecommendationEvidence } from "../../recommendation/evidence";
@@ -57,17 +58,17 @@ function mockSuggestionsWithPool(
           raw: 0.5,
           normalized: 50,
           evidenceConfidence: 1,
-          weighted: 49,
+          weighted: 50,
           explanation: "fixture",
           sampleSize: 50,
         },
-        // fundamento propio (meta vigente con muestra suficiente, contrato de elegibilidad 2026-11-03); la suma de pesos no cambia
+        // P0-04: el winrate global es informativo (peso 0) y no es fundamento; la suma de pesos no cambia (position_fit absorbe el 1)
         {
           signal: "patch_meta" as const,
           raw: 0.6,
           normalized: 60,
           evidenceConfidence: 1,
-          weighted: 1,
+          weighted: 0,
           explanation: "Winrate de 60.0% este parche en bracket bajo/medio",
           sampleSize: 5000,
         },
@@ -93,6 +94,8 @@ function mockSuggestionsWithPool(
     functionalEvidence,
   };
 }
+
+const OPENER = 119;
 
 describe("Party 5 QA Readiness Integration Tests", () => {
   const POS1_POOL = [1, 2, 3, 4, 5];
@@ -170,6 +173,9 @@ describe("Party 5 QA Readiness Integration Tests", () => {
       store,
       computeSuggestions,
       heroPositions: HERO_POSITIONS,
+      // P0-04: el winrate global ya no habilita tarjetas. Fundamento fuerte neutro de esta prueba de FLUJO: el ban OPENER (que la prueba 6 pide como preferencia) es counter duro,
+      // con porqué, de todo el universo. Un id que no existe en Dota; no es conocimiento de Dota.
+      heroCounters: strongOpenerCounters(Array.from({ length: 120 }, (_, i) => i + 1), OPENER),
       loadTeamGroup: async (id) => (id === 42 ? MOCK_TEAM_GROUP : null),
       heroUniverse: async () => ({
         allHeroIds: Array.from({ length: 120 }, (_, i) => i + 1),
@@ -304,7 +310,7 @@ describe("Party 5 QA Readiness Integration Tests", () => {
 
   test("6. Hero Pools V2: the pool is a preference -- Pos 3's pool heroes are marked, credible heroes outside it still rank", async () => {
     const { routes, sessionId } = await createParty5Harness();
-    await routes.postResolveBans(jsonRequest({ playerBanPreferences: [] }), sessionId);
+    await routes.postResolveBans(jsonRequest({ playerBanPreferences: [OPENER] }), sessionId);
 
     // Pos 3 is not the owner's seat: its saved pool shapes the ranking but admits nothing and expels nothing.
     const urlPos3 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=3`);
@@ -325,7 +331,7 @@ describe("Party 5 QA Readiness Integration Tests", () => {
 
   test("7. The owner's own seat (Pos 1) is NOT bound to the team's Pos-1 pool: a credible hero outside it still ranks", async () => {
     const { routes, sessionId } = await createParty5Harness();
-    await routes.postResolveBans(jsonRequest({ playerBanPreferences: [] }), sessionId);
+    await routes.postResolveBans(jsonRequest({ playerBanPreferences: [OPENER] }), sessionId);
 
     const urlPos1 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=1`);
     const resp = await routes.getRecommendations(sessionId, urlPos1);

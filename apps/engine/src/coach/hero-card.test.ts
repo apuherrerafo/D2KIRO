@@ -43,7 +43,7 @@ describe("deriveHeroBadges", () => {
       impact: resolvedImpact(1),
     };
     // COUNTER additionally needs a REVEALED enemy to be about (Dota-Judge RB-3); POSITION_FIT is never a badge.
-    expect(deriveHeroBadges(singleRec(hero), [], 1, [], { revealedEnemies: [50] })).toEqual(["COUNTER", "SYNERGY", "META"]);
+    expect(deriveHeroBadges(singleRec(hero), [], 1, [], { revealedEnemies: [50] })).toEqual(["COUNTER", "SYNERGY"]); // P0-04: patch_meta (winrate global) ya no produce etiqueta
   });
 
   describe("Dota-Judge RB-3 -- semántica de insignias", () => {
@@ -201,10 +201,10 @@ describe("deriveHeroBadges", () => {
     expect(deriveHeroBadges(singleRec(bare), [])).toEqual([]);
   });
 
-  test("META se suprime cuando el meta está stale", () => {
+  test("P0-04: el winrate global (patch_meta) NUNCA produce etiqueta META, con meta fresco o stale", () => {
     const meta: HeroFixture = { heroId: 1, signals: [signal("patch_meta", 0.6, 20)], impact: resolvedImpact(1) };
     const fresh = singleRec(meta);
-    expect(deriveHeroBadges(fresh, [])).toContain("META");
+    expect(deriveHeroBadges(fresh, [])).not.toContain("META");
     const stale = { ...fresh, risks: [{ kind: "degraded_meta" as const, detail: "stale" }] };
     expect(deriveHeroBadges(stale, [])).not.toContain("META");
   });
@@ -352,11 +352,11 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       expect(card.hideRationale).toBe(false);
     });
 
-    test("el meta solo es evidencia DÉBIL: la tarjeta aparece pero evidenceStrength es WEAK", () => {
+    test("P0-04: el winrate global NO es evidencia -- ni siquiera débil: sin otro fundamento no hay fundamentos ni etiqueta", () => {
       const meta = signal("patch_meta", 0.6, 4, { sampleSize: 5000, explanation: "Winrate de 60.0% este parche en bracket bajo/medio" });
       const { card, grounds } = cardOf(hero([meta]), eligibilityOf());
-      expect(grounds.map((ground) => ground.kind)).toEqual(["PATCH_META"]);
-      expect(card.evidenceStrength).toBe("WEAK");
+      expect(grounds).toEqual([]);
+      expect(card.badges).not.toContain("META");
     });
 
     test("pool y FLEX informan pero no habilitan: pertenecer al pool no crea fundamento", () => {
