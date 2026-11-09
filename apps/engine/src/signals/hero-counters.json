@@ -33,7 +33,7 @@
     {
       "vs": 104,
       "level": "medium",
-      "why": "Counterspell no protege de nada contra Duel"
+      "why": "Duel atraviesa BKB y le quita a Anti-Mage las habilidades (Blink incluido) y los ítems; un Counterspell activo puede bloquearlo, así que se lanza con Counterspell en enfriamiento"
     },
     {
       "vs": 60,
@@ -53,7 +53,7 @@
     {
       "vs": 32,
       "level": "medium",
-      "why": "Smoke Screen no le deja usar Blink ni Manta, y Mana Void casi no daña a Riki porque tiene poco maná"
+      "why": "Smoke Screen silencia a Anti-Mage (apaga su Blink, que es habilidad) y lo hace fallar ataques, aunque no bloquea ítems como Manta Style; Mana Void depende del maná que le falte a Riki, y su reserva es chica"
     },
     {
       "vs": 95,
@@ -1435,7 +1435,7 @@
     {
       "vs": 88,
       "level": "hard",
-      "why": "Spiked Carapace de Nyx aturde a Storm en cada Ball Lightning o Remnant y Mana Burn le vacía el recurso"
+      "why": "Spiked Carapace devuelve el daño que Storm le haga a Nyx y lo aturde, y la Mana Burn innata de Nyx quema maná con cada ataque, el recurso que Storm gasta en cada Ball Lightning"
     },
     {
       "vs": 32,
@@ -1547,7 +1547,7 @@
     {
       "vs": 46,
       "level": "medium",
-      "why": "Meld le baja la armadura y Refraction absorbe un número limitado de golpes, justo lo que Sven necesita para matar rápido"
+      "why": "Refraction absorbe por completo cada golpe de Sven, por grande que sea, hasta gastar sus cargas, y Meld le baja la armadura para que Templar Assassin le pegue más fuerte"
     },
     {
       "vs": 34,
