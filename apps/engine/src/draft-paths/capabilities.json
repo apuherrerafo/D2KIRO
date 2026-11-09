@@ -19,7 +19,7 @@
   { "hero": 18, "damageType": "physical", "hasInitiation": true, "hasCatch": true, "hasWaveclear": true, "structuralDamage": "high", "teamfight": "medium", "scaling": "high" },
   { "hero": 19, "damageType": "mixed", "hasInitiation": true, "hasCatch": true, "hasWaveclear": true, "structuralDamage": "high", "teamfight": "high", "scaling": "high" },
   { "hero": 20, "damageType": "magical", "hasInitiation": false, "hasCatch": true, "hasWaveclear": false, "structuralDamage": "low", "teamfight": "low", "scaling": "low" },
-  { "hero": 21, "damageType": "magical", "hasInitiation": false, "hasCatch": true, "hasWaveclear": true, "structuralDamage": "low", "teamfight": "medium", "scaling": "medium" },
+  { "hero": 21, "damageType": "mixed", "hasInitiation": false, "hasCatch": true, "hasWaveclear": true, "structuralDamage": "low", "teamfight": "medium", "scaling": "medium" },
   { "hero": 22, "damageType": "magical", "hasInitiation": false, "hasCatch": false, "hasWaveclear": true, "structuralDamage": "low", "teamfight": "high", "scaling": "medium" },
   { "hero": 23, "damageType": "mixed", "hasInitiation": true, "hasCatch": true, "hasWaveclear": true, "structuralDamage": "medium", "teamfight": "high", "scaling": "medium" },
   { "hero": 25, "damageType": "magical", "hasInitiation": false, "hasCatch": true, "hasWaveclear": true, "structuralDamage": "low", "teamfight": "medium", "scaling": "high" },
