@@ -5,7 +5,7 @@ import type { OpenDotaClient } from "./opendota-client";
 import { invalidateMetaSnapshotCache } from "./provider";
 import { DEFAULT_SYNC_QUALITY_GATES, evaluateSyncQuality, type SyncQualityGates, type SyncQualityReport } from "./quality-gates";
 import { DEFAULT_RULESET_TARGET_PATCH } from "./readiness";
-import { markSyncInFlight, markSyncSettled, PROCESS_INSTANCE_ID, touchSyncHeartbeat } from "./sync-lock";
+import { markSyncInFlight, markSyncSettled, PROCESS_INSTANCE_ID, reapAbandonedSyncs, touchSyncHeartbeat } from "./sync-lock";
 import { isValidRawHero, isValidRawHeroStatsRow, isValidRawMatchup } from "./validation";
 import { mapHero, mapHeroStatsRow, mapMatchup, type HeroMatchupRow, type HeroPatchStatRow, type HeroRow } from "./mappers";
 
@@ -65,34 +65,70 @@ export interface BeginMetaSyncOptions {
 //      escrituras a las tablas de meta. Si el proceso muere o un pedido falla aquí, lo publicado no se toca.
 //   2. Quality gates (quality-gates.ts): cobertura, duplicados, conteos, errores de fuente, regresión
 //      contra lo ya publicado. Si falla uno, no se publica nada y la fila queda `failed` con el motivo.
-//   3. Publicación atómica: UNA transacción reemplaza heroes + hero_patch_stats + hero_matchups. O queda
+//   3. Publicación atómica: UNA transacción reemplaza heroes + hero_patch_stats + hero_matchups Y registra
+//      `meta_sync.ok` + quality_report + procedencia. O queda
 //      el snapshot nuevo completo o el anterior completo -- nunca una mezcla (P0-05E: sync #3 truncado).
 // Separado de syncMeta (aditivo, TSK-010) para que un llamador HTTP pueda insertar la fila y
 // obtener el syncId real de inmediato, sin esperar el resto del trabajo.
+/** Un sync ya está corriendo: no se arranca otra ingesta. */
+export class MetaSyncAlreadyRunningError extends Error {
+  constructor() {
+    super("sync_in_progress: ya hay una sincronización de meta en curso");
+    this.name = "MetaSyncAlreadyRunningError";
+  }
+}
+
+// Adquisición ATÓMICA del lock: la fila `running` es el lock. Primero se cierran los huérfanos (proceso
+// muerto); después se inserta en una transacción IMMEDIATE, y el índice único parcial `meta_sync_one_running`
+// (migración 0012) hace que la base rechace una segunda fila `running` aunque dos procesos compitan.
+// Devuelve el syncId, o `null` si ya hay un sync vivo -- el llamador NO debe arrancar otra ingesta.
+export function tryBeginMetaSync<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  now: Clock = () => new Date().toISOString(),
+  options: BeginMetaSyncOptions = {},
+): number | null {
+  reapAbandonedSyncs(db, { now, ownerId: options.ownerId });
+  try {
+    const syncId = db.transaction(
+      (tx) => {
+        const startedAt = now();
+        const [syncRow] = tx
+          .insert(metaSync)
+          .values({ source: "opendota", startedAt, status: "running", rowsWritten: 0 })
+          .returning()
+          .all();
+        tx.insert(metaSyncRun)
+          .values({
+            syncId: syncRow!.id,
+            ownerId: options.ownerId ?? PROCESS_INSTANCE_ID,
+            heartbeatAt: startedAt,
+            patchLabel: options.patch ?? null,
+            patchVerified: 0,
+            patchBasis: UNVERIFIED_PATCH_BASIS,
+          })
+          .run();
+        return syncRow!.id;
+      },
+      { behavior: "immediate" },
+    );
+    // En vuelo desde la adquisición (no desde el primer await de runMetaSync): entre las dos no hay ventana en la que
+    // otra solicitud pueda tomar esta fila por huérfana. runMetaSync lo libera en su `finally`.
+    markSyncInFlight(syncId);
+    return syncId;
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE constraint failed/i.test(error.message)) return null;
+    throw error;
+  }
+}
+
 export function beginMetaSync<TSchema extends Record<string, unknown>>(
   db: Db<TSchema>,
   now: Clock = () => new Date().toISOString(),
   options: BeginMetaSyncOptions = {},
 ): number {
-  return db.transaction((tx) => {
-    const startedAt = now();
-    const [syncRow] = tx
-      .insert(metaSync)
-      .values({ source: "opendota", startedAt, status: "running", rowsWritten: 0 })
-      .returning()
-      .all();
-    tx.insert(metaSyncRun)
-      .values({
-        syncId: syncRow!.id,
-        ownerId: options.ownerId ?? PROCESS_INSTANCE_ID,
-        heartbeatAt: startedAt,
-        patchLabel: options.patch ?? null,
-        patchVerified: 0,
-        patchBasis: UNVERIFIED_PATCH_BASIS,
-      })
-      .run();
-    return syncRow!.id;
-  });
+  const syncId = tryBeginMetaSync(db, now, options);
+  if (syncId === null) throw new MetaSyncAlreadyRunningError();
+  return syncId;
 }
 
 interface StagedMeta {
@@ -127,14 +163,20 @@ export async function runMetaSync<TSchema extends Record<string, unknown>>(
     report = staged.report;
     if (!report.passed) throw new Error(`quality_gate: ${report.failures.join("; ")}`);
 
-    const rowsWritten = publishAtomically(db, options.patch, staged.data);
-
+    // UNA transacción: snapshot + `meta_sync.ok` + quality_report + procedencia. Si cualquier paso revienta
+    // (incluido el registro del `ok`), todo se revierte: nunca hay datos publicados sin su `ok`, ni un `ok` sin datos.
     const errorSummary = warnings.length > 0 ? warnings.join("; ") : null;
-    finish(db, syncId, now, { status: "ok", rowsWritten, error: errorSummary }, options.patch, provenance, report);
+    const rowsWritten = db.transaction((tx) => {
+      const written = publishAtomically(tx, options.patch, staged.data);
+      applyOutcome(tx, syncId, now, { status: "ok", rowsWritten: written, error: errorSummary }, options.patch, provenance, report);
+      return written;
+    });
     return { syncId, status: "ok", rowsWritten, error: errorSummary };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    finish(db, syncId, now, { status: "failed", rowsWritten: 0, error: message }, options.patch, provenance, report);
+    db.transaction((tx) => {
+      applyOutcome(tx, syncId, now, { status: "failed", rowsWritten: 0, error: message }, options.patch, provenance, report);
+    });
     return { syncId, status: "failed", rowsWritten: 0, error: message };
   } finally {
     markSyncSettled(syncId);
@@ -144,8 +186,10 @@ export async function runMetaSync<TSchema extends Record<string, unknown>>(
   }
 }
 
-function finish<TSchema extends Record<string, unknown>>(
-  db: Db<TSchema>,
+type Writer<TSchema extends Record<string, unknown>> = Pick<Db<TSchema>, "update">;
+
+function applyOutcome<TSchema extends Record<string, unknown>>(
+  x: Writer<TSchema>,
   syncId: number,
   now: Clock,
   outcome: { status: "ok" | "failed"; rowsWritten: number; error: string | null },
@@ -153,21 +197,19 @@ function finish<TSchema extends Record<string, unknown>>(
   provenance: PatchProvenance,
   report: SyncQualityReport | null,
 ): void {
-  db.transaction((tx) => {
-    tx.update(metaSync)
-      .set({ finishedAt: now(), status: outcome.status, rowsWritten: outcome.rowsWritten, error: outcome.error })
-      .where(eq(metaSync.id, syncId))
-      .run();
-    tx.update(metaSyncRun)
-      .set({
-        patchLabel: patch,
-        patchVerified: provenance.verified ? 1 : 0,
-        patchBasis: provenance.basis,
-        qualityReport: report ? JSON.stringify(report) : null,
-      })
-      .where(eq(metaSyncRun.syncId, syncId))
-      .run();
-  });
+  x.update(metaSync)
+    .set({ finishedAt: now(), status: outcome.status, rowsWritten: outcome.rowsWritten, error: outcome.error })
+    .where(eq(metaSync.id, syncId))
+    .run();
+  x.update(metaSyncRun)
+    .set({
+      patchLabel: patch,
+      patchVerified: provenance.verified ? 1 : 0,
+      patchBasis: provenance.basis,
+      qualityReport: report ? JSON.stringify(report) : null,
+    })
+    .where(eq(metaSyncRun.syncId, syncId))
+    .run();
 }
 
 export async function syncMeta<TSchema extends Record<string, unknown>>(
@@ -336,21 +378,23 @@ async function stageIngest<TSchema extends Record<string, unknown>>(
   };
 }
 
-// UNA transacción: si cualquier insert revienta, SQLite revierte las tres tablas y queda el snapshot anterior.
-function publishAtomically<TSchema extends Record<string, unknown>>(db: Db<TSchema>, patch: string, data: StagedMeta): number {
-  db.transaction((tx) => {
-    if (data.heroes.length > 0) {
-      tx.delete(heroes).run();
-      for (const row of data.heroes) tx.insert(heroes).values(row).run();
-    }
-    if (data.patchStats.length > 0) {
-      tx.delete(heroPatchStats).where(eq(heroPatchStats.patch, patch)).run();
-      for (const row of data.patchStats) tx.insert(heroPatchStats).values(row).run();
-    }
-    if (data.matchups.length > 0) {
-      tx.delete(heroMatchups).run();
-      for (const row of data.matchups) tx.insert(heroMatchups).values(row).run();
-    }
-  });
+// Se ejecuta DENTRO de la transacción del llamador: si un insert revienta, SQLite revierte las tres tablas.
+function publishAtomically<TSchema extends Record<string, unknown>>(
+  tx: Pick<Db<TSchema>, "insert" | "delete">,
+  patch: string,
+  data: StagedMeta,
+): number {
+  if (data.heroes.length > 0) {
+    tx.delete(heroes).run();
+    for (const row of data.heroes) tx.insert(heroes).values(row).run();
+  }
+  if (data.patchStats.length > 0) {
+    tx.delete(heroPatchStats).where(eq(heroPatchStats.patch, patch)).run();
+    for (const row of data.patchStats) tx.insert(heroPatchStats).values(row).run();
+  }
+  if (data.matchups.length > 0) {
+    tx.delete(heroMatchups).run();
+    for (const row of data.matchups) tx.insert(heroMatchups).values(row).run();
+  }
   return data.heroes.length + data.patchStats.length + data.matchups.length;
 }

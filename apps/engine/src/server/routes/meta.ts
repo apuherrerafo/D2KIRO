@@ -3,8 +3,8 @@ import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { metaSync, metaSyncRun } from "../../db/schema";
 import type { OpenDotaClient } from "../../meta/opendota-client";
 import { getCachedMetaSnapshot, getMetaFreshness, getMetaReadiness } from "../../meta/provider";
-import { beginMetaSync, runMetaSync, UNVERIFIED_PATCH_BASIS } from "../../meta/sync";
-import { reapAbandonedSyncs } from "../../meta/sync-lock";
+import { runMetaSync, tryBeginMetaSync, UNVERIFIED_PATCH_BASIS } from "../../meta/sync";
+import { resolveMetaSyncPolicy, type MetaSyncPolicy } from "../../meta/sync-policy";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
 // TSK-068: única fuente de verdad del lado del motor para "qué parche está activo" -- OpenDota no
@@ -25,6 +25,8 @@ export interface MetaRouteDeps<TSchema extends Record<string, unknown>> {
   // un fixture propio en vez del hero-positions.json real (costura S10, testing-seams.md: ese
   // archivo se regenera por parche, un test atado a su contenido se rompería en silencio).
   heroPositions?: HeroPositions;
+  // P0-05F: autorización para sincronizar con OpenDota (inyectable en pruebas). Default: lee el entorno del proceso.
+  metaSyncPolicy?: MetaSyncPolicy;
 }
 
 export interface PatchProvenanceView {
@@ -95,6 +97,10 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
   // raw: null siempre, sin importar cuántas veces se sincronizara. Un `patch` vacío explícito en
   // el body cuenta igual que ausente -- ninguno de los dos es "el usuario eligió un parche real".
   async function sync(request: Request): Promise<Response> {
+    const policy = deps.metaSyncPolicy ?? resolveMetaSyncPolicy();
+    if (!policy.enabled) {
+      return Response.json({ error: "meta_sync_disabled", reason: policy.reason }, { status: 403 });
+    }
     const body = (await request.json().catch(() => ({}))) as { patch?: string };
     const patch = typeof body.patch === "string" && body.patch.length > 0 ? body.patch : CURRENT_PATCH;
 
@@ -103,8 +109,10 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
     // primera sincronización de una base vacía, dejando `hero_matchups` permanentemente vacío
     // (confirmado: `meta_sync` con `status=ok` y `hero_matchups` en 0 filas). Se omite el campo
     // para que `runMetaSync` lo derive él mismo, después de sincronizar héroes.
-    reapAbandonedSyncs(deps.db); // un `running` huérfano de un proceso muerto no puede quedarse para siempre
-    const syncId = beginMetaSync(deps.db, undefined, { patch });
+    // Adquisición atómica (cierra huérfanos y toma el lock en una sola operación): una solicitud duplicada
+    // NO arranca otra ingesta.
+    const syncId = tryBeginMetaSync(deps.db, undefined, { patch });
+    if (syncId === null) return Response.json({ error: "sync_in_progress" }, { status: 409 });
     void runMetaSync(deps.db, deps.openDotaClient, syncId, { patch });
 
     return Response.json({ syncId }, { status: 202 });

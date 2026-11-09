@@ -67,6 +67,7 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   // TSK-063: mismo criterio que heroCapabilities -- inyectable para pruebas, nunca el
   // hero-positions.json real ahí (costura S10).
   heroPositions?: HeroPositions;
+  metaSyncPolicy?: import("../meta/sync-policy").MetaSyncPolicy;
   // TSK-073: mismo criterio -- inyectable para pruebas, nunca la tabla real de 24 turnos
   // curada en TSK-071 (costura S10, testing-seams.md: se regenera por parche).
   captainsModeTurns?: CaptainsModeTurnTable | null;
@@ -183,7 +184,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const accountRoutes = createAccountRoutes(deps.db);
   const teamGroupRoutes = createTeamGroupRoutes({ db: deps.db });
   const simulatorRoutes = createSimulatorSessionRoutes({ db: deps.db });
-  const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions });
+  const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions, metaSyncPolicy: deps.metaSyncPolicy });
   const draftPathsRoutes = createDraftPathsRoutes({
     db: deps.db,
     sessionStore,

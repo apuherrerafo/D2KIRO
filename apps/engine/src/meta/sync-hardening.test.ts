@@ -12,7 +12,7 @@ import { createMetaRoutes } from "../server/routes/meta";
 import { createGlobalMetaRefresh } from "./global-refresh";
 import { OpenDotaClient } from "./opendota-client";
 import { invalidateMetaSnapshotCache } from "./provider";
-import { beginMetaSync, runMetaSync, syncMeta } from "./sync";
+import { beginMetaSync, MetaSyncAlreadyRunningError, runMetaSync, syncMeta, tryBeginMetaSync } from "./sync";
 import { hasActiveSync, markSyncSettled, PROCESS_INSTANCE_ID, reapAbandonedSyncs, SYNC_HEARTBEAT_STALE_MS } from "./sync-lock";
 
 // P0-05F. SQLite TEMPORAL EN ARCHIVO (no :memory:) con las migraciones reales, para que también quede
@@ -315,4 +315,107 @@ test("status sin procedencia registrada (base anterior a 0012) declara no verifi
   const body = await createMetaRoutes({ db, openDotaClient: clientFor({ size: N, picksBase: 1 }) }).status().then((r) => r.json());
   expect(body.patchProvenance.verified).toBe(false);
   expect(body.patchProvenance.label).toBeNull();
+});
+
+// ---- P0-05F cierre: concurrencia ---------------------------------------------------------------------
+
+function countingClient(universe: Universe, counter: { heroesCalls: number }): OpenDotaClient {
+  const inner = clientFor(universe);
+  const original = inner.getHeroes.bind(inner);
+  inner.getHeroes = (async () => {
+    counter.heroesCalls++;
+    return original();
+  }) as typeof inner.getHeroes;
+  return inner;
+}
+
+test("lock atómico: la segunda adquisición devuelve null y la base rechaza una segunda fila running", async () => {
+  const first = tryBeginMetaSync(db, undefined, { patch: "7.41e" });
+  expect(first).not.toBeNull();
+  expect(tryBeginMetaSync(db, undefined, { patch: "7.41e" })).toBeNull();
+  expect(() => beginMetaSync(db, undefined, { patch: "7.41e" })).toThrow(MetaSyncAlreadyRunningError);
+  expect(db.select().from(metaSync).where(eq(metaSync.status, "running")).all()).toHaveLength(1);
+  // Garantía a nivel de datos, sin pasar por nuestro código:
+  expect(() =>
+    sqlite.exec("INSERT INTO meta_sync (source, started_at, status, rows_written) VALUES ('x', 'y', 'running', 0)"),
+  ).toThrow(/UNIQUE/);
+});
+
+test("refresco automático + endpoint manual a la vez: una sola ingesta, la duplicada recibe 409", async () => {
+  const counter = { heroesCalls: 0 };
+  const routes = createMetaRoutes({
+    db,
+    openDotaClient: countingClient({ size: N, picksBase: 1, hang: { heroId: 5 } }, counter),
+    metaSyncPolicy: { enabled: true, reason: "test" },
+  });
+  const jsonRequest = () => new Request("http://x/api/meta/sync", { method: "POST", body: "{}" });
+
+  const first = await routes.sync(jsonRequest());
+  expect(first.status).toBe(202);
+  await Bun.sleep(100); // la ingesta 1 queda colgada en el héroe 5, con su fila running viva
+
+  // 2º clic manual
+  const second = await routes.sync(jsonRequest());
+  expect(second.status).toBe(409);
+  expect((await second.json()).error).toBe("sync_in_progress");
+
+  // Refresco automático: getState pudo leer "no corriendo" antes de que el manual tomara el lock; runSync igual no arranca otra.
+  let autoStarted = false;
+  const refresh = createGlobalMetaRefresh({
+    getState: async () => ({ isStale: true, isRunning: false }),
+    runSync: async () => {
+      const id = tryBeginMetaSync(db, undefined, { patch: "7.41e" });
+      if (id === null) return;
+      autoStarted = true;
+      await runMetaSync(db, countingClient({ size: N, picksBase: 1 }, counter), id, OPTS);
+    },
+  });
+  await refresh.refreshIfNeeded();
+
+  expect(autoStarted).toBe(false);
+  expect(counter.heroesCalls).toBe(1); // UNA sola ingesta tocó la fuente
+  expect(db.select().from(metaSync).all()).toHaveLength(1);
+});
+
+test("endpoint manual sin autorización: 403, no crea fila y no toca la fuente", async () => {
+  const counter = { heroesCalls: 0 };
+  const routes = createMetaRoutes({
+    db,
+    openDotaClient: countingClient({ size: N, picksBase: 1 }, counter),
+    metaSyncPolicy: { enabled: false, reason: "sin autorización" },
+  });
+  const response = await routes.sync(new Request("http://x/api/meta/sync", { method: "POST", body: "{}" }));
+  expect(response.status).toBe(403);
+  expect((await response.json()).error).toBe("meta_sync_disabled");
+  await Bun.sleep(50);
+  expect(counter.heroesCalls).toBe(0);
+  expect(db.select().from(metaSync).all()).toHaveLength(0);
+});
+
+// ---- P0-05F cierre: consistencia snapshot <-> meta_sync.ok -------------------------------------------
+
+test("caída durante la publicación: si no se puede registrar el ok, el snapshot se revierte entero y no queda ok", async () => {
+  const before = await publishBaseline();
+  // Simula la caída DESPUÉS de insertar héroes/stats/matchups y justo al registrar el `ok`.
+  sqlite.exec(`CREATE TRIGGER fail_ok BEFORE UPDATE ON meta_sync WHEN NEW.status = 'ok'
+    BEGIN SELECT RAISE(ABORT, 'caída simulada al registrar ok'); END;`);
+
+  const result = await syncMeta(db, clientFor({ size: N, picksBase: 5000 }), OPTS);
+
+  expect(result.status).toBe("failed");
+  expect(result.error).toContain("caída simulada");
+  expect(snapshotOfTables()).toBe(before); // héroes, stats y matchups: el snapshot anterior, completo
+  const rows = db.select().from(metaSync).orderBy(metaSync.id).all();
+  expect(rows.map((r) => r.status)).toEqual(["ok", "failed"]); // ningún ok sin sus datos
+  expect(db.select().from(metaSync).where(eq(metaSync.status, "running")).all()).toHaveLength(0);
+});
+
+test("publicación y ok van juntos: cuando termina ok, quality_report y procedencia ya están escritos", async () => {
+  await publishBaseline();
+  const [row] = db.select().from(metaSync).all();
+  const [run] = db.select().from(metaSyncRun).all();
+  expect(row?.status).toBe("ok");
+  expect(row?.rowsWritten).toBe(N + N * 8 + N * (N - 1));
+  expect(JSON.parse(run!.qualityReport!).passed).toBe(true);
+  expect(run?.patchVerified).toBe(0);
 });

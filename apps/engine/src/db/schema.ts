@@ -1,4 +1,5 @@
-import { sqliteTable, text, integer, real, primaryKey } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer, real, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const heroes = sqliteTable("heroes", {
   id: integer("id").primaryKey(),
@@ -42,15 +43,20 @@ export const heroMatchups = sqliteTable(
   (table) => [primaryKey({ columns: [table.heroId, table.vsHeroId] })],
 );
 
-export const metaSync = sqliteTable("meta_sync", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  source: text("source").notNull(),
-  startedAt: text("started_at").notNull(),
-  finishedAt: text("finished_at"),
-  status: text("status").notNull().$type<"running" | "ok" | "failed">(),
-  rowsWritten: integer("rows_written").notNull().default(0),
-  error: text("error"),
-});
+export const metaSync = sqliteTable(
+  "meta_sync",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    source: text("source").notNull(),
+    startedAt: text("started_at").notNull(),
+    finishedAt: text("finished_at"),
+    status: text("status").notNull().$type<"running" | "ok" | "failed">(),
+    rowsWritten: integer("rows_written").notNull().default(0),
+    error: text("error"),
+  },
+  // P0-05F (migración 0012): a lo sumo UN sync `running`. Es la garantía real contra ingestas concurrentes.
+  (table) => [uniqueIndex("meta_sync_one_running").on(table.status).where(sql`${table.status} = 'running'`)],
+);
 
 // P0-05F: bookkeeping de cada corrida de sync, en tabla propia (1:1 con `meta_sync.id`) para no tocar
 // `meta_sync` -- lectores y bases viejas siguen funcionando sin la columna nueva.

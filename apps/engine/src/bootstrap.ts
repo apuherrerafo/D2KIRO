@@ -1,6 +1,7 @@
 import { db } from "./db/client";
 import { OpenDotaClient } from "./meta/opendota-client";
-import { beginMetaSync, runMetaSync } from "./meta/sync";
+import { runMetaSync, tryBeginMetaSync } from "./meta/sync";
+import { resolveMetaSyncPolicy } from "./meta/sync-policy";
 import { createGlobalMetaRefresh } from "./meta/global-refresh";
 import { getMetaFreshness } from "./meta/provider";
 import { createApp } from "./server/app";
@@ -30,9 +31,15 @@ export interface EngineTestOverrides {
   disableGlobalMetaRefresh?: boolean;
 }
 
-/** ¿Arranca la sincronización automática con OpenDota? Siempre en producción; nunca en el E2E. Pura. */
-export function shouldStartGlobalMetaRefresh(testOverrides: EngineTestOverrides): boolean {
-  return testOverrides.disableGlobalMetaRefresh !== true;
+/**
+ * ¿Arranca la sincronización automática con OpenDota? Sólo con autorización explícita (producción de Railway o
+ * META_SYNC=on, ver meta/sync-policy.ts) y nunca en el E2E. Un deploy a preview no sincroniza solo. Pura.
+ */
+export function shouldStartGlobalMetaRefresh(
+  testOverrides: EngineTestOverrides,
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return testOverrides.disableGlobalMetaRefresh !== true && resolveMetaSyncPolicy(env).enabled;
 }
 
 export function runEngine(testOverrides: EngineTestOverrides = {}): void {
@@ -62,11 +69,16 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
       // primera sincronización de una base vacía, dejando `hero_matchups` permanentemente vacío
       // (ver la nota en `runMetaSync`, sync.ts). Se omite el campo para que `runMetaSync` lo
       // derive él mismo, después de sincronizar héroes.
-      const syncId = beginMetaSync(db, undefined, { patch: CURRENT_PATCH });
+      // Adquisición atómica: si otro sync ya corre (o lo tomó el endpoint manual entre getState y aquí), no se arranca otro.
+      const syncId = tryBeginMetaSync(db, undefined, { patch: CURRENT_PATCH });
+      if (syncId === null) return;
       await runMetaSync(db, openDotaClient, syncId, { patch: CURRENT_PATCH });
     },
   });
   if (shouldStartGlobalMetaRefresh(testOverrides)) void globalMetaRefresh.start();
+  else if (testOverrides.disableGlobalMetaRefresh !== true) {
+    console.warn(`[dota2coach] sincronización de meta con OpenDota desactivada: ${resolveMetaSyncPolicy().reason}.`);
+  }
 
   const app = createApp({
     db,
