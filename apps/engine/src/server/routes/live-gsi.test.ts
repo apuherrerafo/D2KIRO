@@ -21,6 +21,9 @@ const POSITIONS: HeroPositions = Object.fromEntries(
 const POOL = Object.keys(POSITIONS).map(Number);
 const T0 = 1_790_000_000_000;
 const ACCOUNT_A = 101;
+// El sessionId es un UUID aleatorio y público por diseño (va en las URLs): "101" puede aparecer por azar entre sus dígitos hex. Se retira SOLO ese id antes de buscar
+// la cuenta y los tokens; el resto de la salida sigue comprobándose con coincidencia literal, así que una filtración real del accountId se sigue detectando.
+const withoutSessionId = (text: string, sessionId: string): string => text.split(sessionId).join("");
 const ACCOUNT_B = 202;
 
 function setup() {
@@ -546,7 +549,7 @@ describe("D2KIRO Companion heartbeat (/api/live/companion/<liveId>)", () => {
     const issued = await t.issue(ACCOUNT_A);
     const text = await (await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "MENU" }))).text();
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
-    const exposed = [text, JSON.stringify(t.status(issued.sessionId))].join("|");
+    const exposed = withoutSessionId([text, JSON.stringify(t.status(issued.sessionId))].join("|"), issued.sessionId);
     for (const secret of [issued.token, issued.liveId, String(ACCOUNT_A)]) expect(exposed).not.toContain(secret);
   });
 });
@@ -565,7 +568,7 @@ describe("privacy", () => {
     for (const payload of payloads) responses.push(await (await t.post(issued.liveId, payload)).text());
     responses.push(await (await t.post(issued.liveId, null, { raw: `{"auth":{"token":"${issued.token}"},` })).text());
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
-    const exposed = [...responses, JSON.stringify(t.status(issued.sessionId)), await t.routes.getLink(ACCOUNT_A).text()].join("\n");
+    const exposed = withoutSessionId([...responses, JSON.stringify(t.status(issued.sessionId)), await t.routes.getLink(ACCOUNT_A).text()].join("\n"), issued.sessionId);
     for (const secret of [...SENTINELS, issued.token, issued.liveId, String(ACCOUNT_A)]) expect(exposed).not.toContain(secret);
   });
 });
