@@ -31,13 +31,34 @@ function createDb(raw: Database) {
 }
 
 beforeEach(() => {
+  released = false;
   dir = mkdtempSync(join(tmpdir(), "d2k-sync-"));
   sqlite = new Database(join(dir, "meta.sqlite"), { create: true });
   db = createDb(sqlite);
   migrate(db, { migrationsFolder: join(import.meta.dir, "../db/migrations") });
 });
 
-afterEach(() => {
+// Pedidos "colgados" (simulan un proceso que muere a mitad de ingesta). Al terminar la prueba se sueltan y se
+// espera a que la corrida pendiente termine contra la base AÚN abierta; si no, el timeout del cliente la haría
+// escribir sobre una base cerrada, fuera de la prueba que la creó.
+let released = false;
+const hangReleasers: Array<() => void> = [];
+const pendingRuns: Array<Promise<unknown>> = [];
+
+async function settlePendingSyncs(): Promise<void> {
+  released = true; // los reintentos del cliente también fallan: el "proceso" ya no existe
+  for (const release of hangReleasers.splice(0)) release();
+  await Promise.allSettled(pendingRuns.splice(0));
+  for (let i = 0; i < 100; i++) {
+    const pending = sqlite.query("SELECT 1 FROM meta_sync WHERE status = 'running' LIMIT 1").get();
+    if (!pending) break;
+    await Bun.sleep(50);
+  }
+  await Bun.sleep(100);
+}
+
+afterEach(async () => {
+  await settlePendingSyncs();
   invalidateMetaSnapshotCache();
   sqlite.close();
   try {
@@ -45,7 +66,7 @@ afterEach(() => {
   } catch {
     // Windows puede retener el handle un instante; es un directorio temporal del SO, no un fallo de la prueba.
   }
-});
+}, 30_000);
 
 interface Universe {
   size: number;
@@ -91,7 +112,14 @@ function clientFor(universe: Universe): OpenDotaClient {
     const match = /^\/heroes\/(\d+)\/matchups$/.exec(path);
     if (match) {
       const heroId = Number(match[1]);
-      if (universe.hang?.heroId === heroId) return new Promise<Response>(() => {}); // el proceso "muere" aquí
+      if (universe.hang?.heroId === heroId && released) throw new Error("proceso terminado");
+      if (universe.hang?.heroId === heroId) {
+        // el proceso "muere" aquí: no responde hasta que la prueba termina
+        return new Promise<Response>((_resolve, reject) => {
+          // Al terminar la prueba el "proceso" cae: la corrida pendiente falla rápido contra la base aún abierta.
+          hangReleasers.push(() => reject(new Error("proceso terminado")));
+        });
+      }
       if (universe.matchupsFor) return universe.matchupsFor(heroId);
       return new Response(JSON.stringify(matchupList(universe.size, heroId, universe.picksBase)), { status: 200 });
     }
@@ -129,7 +157,7 @@ test("interrupción al 93%: lo publicado no cambia, la fila queda running, el re
 
   const hangAt = Math.floor(N * 0.93);
   const syncId = beginMetaSync(db, undefined, { patch: "7.41e" });
-  void runMetaSync(db, clientFor({ size: N, picksBase: 5000, hang: { heroId: hangAt } }), syncId, OPTS);
+  pendingRuns.push(runMetaSync(db, clientFor({ size: N, picksBase: 5000, hang: { heroId: hangAt } }), syncId, OPTS));
   await Bun.sleep(150); // deja correr hasta el pedido colgado
 
   // El proceso "murió" a mitad de la ingesta: NINGUNA tabla de meta se tocó (antes quedaba una mezcla 119/8).
@@ -339,20 +367,23 @@ test("lock atómico: la segunda adquisición devuelve null y la base rechaza una
   expect(() =>
     sqlite.exec("INSERT INTO meta_sync (source, started_at, status, rows_written) VALUES ('x', 'y', 'running', 0)"),
   ).toThrow(/UNIQUE/);
+  // La prueba nunca ejecuta esa ingesta: se libera el lock a mano para que nada quede "running".
+  markSyncSettled(first!);
+  db.update(metaSync).set({ status: "failed", finishedAt: "x" }).where(eq(metaSync.id, first!)).run();
 });
 
 test("refresco automático + endpoint manual a la vez: una sola ingesta, la duplicada recibe 409", async () => {
   const counter = { heroesCalls: 0 };
   const routes = createMetaRoutes({
     db,
-    openDotaClient: countingClient({ size: N, picksBase: 1, hang: { heroId: 5 } }, counter),
+    openDotaClient: countingClient({ size: N, picksBase: 1, hang: { heroId: 1 } }, counter),
     metaSyncPolicy: { enabled: true, reason: "test" },
   });
   const jsonRequest = () => new Request("http://x/api/meta/sync", { method: "POST", body: "{}" });
 
   const first = await routes.sync(jsonRequest());
   expect(first.status).toBe(202);
-  await Bun.sleep(100); // la ingesta 1 queda colgada en el héroe 5, con su fila running viva
+  await Bun.sleep(100); // la ingesta 1 queda colgada en su primer pedido de matchups (héroe 1; el pacing real de 1,6 s impide llegar más lejos), con su fila running viva
 
   // 2º clic manual
   const second = await routes.sync(jsonRequest());
