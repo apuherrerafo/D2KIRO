@@ -9,10 +9,13 @@ import { shouldStartGlobalMetaRefresh } from "./bootstrap";
 const read = (...parts: string[]) => readFileSync(join(import.meta.dir, ...parts), "utf8");
 
 describe("bootstrap -- sincronización automática del meta", () => {
-  test("producción (sin overrides) sí la arranca; solo el flag de prueba la apaga", () => {
-    expect(shouldStartGlobalMetaRefresh({})).toBe(true);
-    expect(shouldStartGlobalMetaRefresh({ disableGlobalMetaRefresh: false })).toBe(true);
-    expect(shouldStartGlobalMetaRefresh({ disableGlobalMetaRefresh: true })).toBe(false);
+  test("sin autorización explícita NO arranca (preview/local); solo META_SYNC=on arranca (ni siquiera production de Railway); el flag de prueba la apaga", () => {
+    expect(shouldStartGlobalMetaRefresh({}, {})).toBe(false);
+    expect(shouldStartGlobalMetaRefresh({}, { RAILWAY_ENVIRONMENT_NAME: "preview" })).toBe(false);
+    expect(shouldStartGlobalMetaRefresh({}, { RAILWAY_ENVIRONMENT_NAME: "production" })).toBe(false);
+    expect(shouldStartGlobalMetaRefresh({}, { META_SYNC: "on" })).toBe(true);
+    expect(shouldStartGlobalMetaRefresh({ disableGlobalMetaRefresh: false }, { META_SYNC: "on" })).toBe(true);
+    expect(shouldStartGlobalMetaRefresh({ disableGlobalMetaRefresh: true }, { META_SYNC: "on" })).toBe(false);
   });
 
   test("solo los lanzadores del E2E la apagan: producción y dev:mvp siguen sincronizando", () => {

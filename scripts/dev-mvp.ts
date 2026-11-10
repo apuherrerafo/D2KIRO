@@ -79,7 +79,7 @@ startProcess(
   "bun",
   ["run", "--watch", "src/index.e2e.ts"],
   resolve(ROOT, "apps/engine"),
-  { ENGINE_PORT, ENGINE_DB_PATH, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH },
+  { ENGINE_PORT, ENGINE_DB_PATH, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH, META_SYNC: process.env.META_SYNC ?? "on" },
 );
 
 startProcess(

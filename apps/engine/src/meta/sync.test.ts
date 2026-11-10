@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } from "../db/schema";
 import { OpenDotaClient } from "./opendota-client";
 import { getCachedMetaSnapshot, invalidateMetaSnapshotCache } from "./provider";
+import { PERMISSIVE_SYNC_GATES } from "./quality-gates";
 import { syncMeta } from "./sync";
 import heroesFixture from "./__fixtures__/heroes.json";
 import heroStatsFixture from "./__fixtures__/hero-stats.json";
@@ -48,6 +49,10 @@ function createTestDb() {
       rows_written INTEGER NOT NULL DEFAULT 0,
       error TEXT
     );
+    CREATE TABLE meta_sync_run (
+      sync_id INTEGER PRIMARY KEY NOT NULL, owner_id TEXT NOT NULL, heartbeat_at TEXT NOT NULL,
+      patch_label TEXT, patch_verified INTEGER NOT NULL DEFAULT 0, patch_basis TEXT, quality_report TEXT
+    );
     CREATE TABLE hero_pool (
       hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
       personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
@@ -73,7 +78,7 @@ test("syncMeta escribe heroes, patch stats y matchups desde fixtures, sin red re
   const db = createTestDb();
   const client = new OpenDotaClient({ fetchImpl: fixtureFetch(), sleepImpl: async () => {} });
 
-  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [1] });
+  const result = await syncMeta(db, client, { qualityGates: PERMISSIVE_SYNC_GATES, patch: "7.36", heroIdsForMatchups: [1] });
 
   expect(result.status).toBe("ok");
   expect(result.error).toBeNull();
@@ -115,7 +120,7 @@ test("syncMeta con heroIdsForMatchups omitido y base vacía SÍ escribe matchups
   // Sin heroIdsForMatchups -- exactamente como bootstrap.ts/routes/meta.ts lo llaman tras el fix.
   // matchupDelayMs: 0 sólo para no pagar el pacing real de 1600ms/héroe en la prueba -- el pacing
   // en sí ya tiene su propio test dedicado ("separa los pedidos seriales...", abajo).
-  const result = await syncMeta(db, client, { patch: "7.36", matchupDelayMs: 0 });
+  const result = await syncMeta(db, client, { qualityGates: PERMISSIVE_SYNC_GATES, patch: "7.36", matchupDelayMs: 0 });
 
   expect(result.status).toBe("ok");
   const matchups = db.select().from(heroMatchups).all();
@@ -143,6 +148,7 @@ test("syncMeta separa los pedidos seriales de matchups con un margen conservador
   });
 
   const result = await syncMeta(db, client, {
+    qualityGates: PERMISSIVE_SYNC_GATES,
     patch: "7.36",
     heroIdsForMatchups: [1, 2, 3],
     matchupSleepImpl: async (ms) => {
@@ -164,7 +170,7 @@ test("syncMeta descarta registros inválidos y los cuenta en el error de meta_sy
     sleepImpl: async () => {},
   });
 
-  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [] });
+  const result = await syncMeta(db, client, { qualityGates: PERMISSIVE_SYNC_GATES, patch: "7.36", heroIdsForMatchups: [] });
 
   expect(result.status).toBe("ok");
   expect(result.error).toContain("1 registro(s) inválido(s) descartados en /heroes");
@@ -194,7 +200,7 @@ test("syncMeta marca meta_sync como failed y no toca el cache viejo si OpenDota 
     sleepImpl: async () => {},
   });
 
-  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [] });
+  const result = await syncMeta(db, client, { qualityGates: PERMISSIVE_SYNC_GATES, patch: "7.36", heroIdsForMatchups: [] });
 
   expect(result.status).toBe("failed");
   expect(result.error).toContain("OpenDota");
@@ -219,7 +225,7 @@ test("syncMeta invalida la cache de MetaSnapshot al terminar (ok) -- la siguient
   const client = new OpenDotaClient({ fetchImpl: fixtureFetch(), sleepImpl: async () => {} });
 
   const before = await getCachedMetaSnapshot(db, null);
-  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [1] });
+  const result = await syncMeta(db, client, { qualityGates: PERMISSIVE_SYNC_GATES, patch: "7.36", heroIdsForMatchups: [1] });
   const after = await getCachedMetaSnapshot(db, null);
 
   expect(result.status).toBe("ok");
@@ -237,7 +243,7 @@ test("syncMeta invalida la cache de MetaSnapshot incluso si la sync falla (escri
   });
 
   const before = await getCachedMetaSnapshot(db, null);
-  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [] });
+  const result = await syncMeta(db, client, { qualityGates: PERMISSIVE_SYNC_GATES, patch: "7.36", heroIdsForMatchups: [] });
   const after = await getCachedMetaSnapshot(db, null);
 
   expect(result.status).toBe("failed");
@@ -270,6 +276,7 @@ test("syncMeta conserva el pacing serial después de recuperarse de un 429", asy
   });
 
   const result = await syncMeta(db, client, {
+    qualityGates: PERMISSIVE_SYNC_GATES,
     patch: "7.36",
     heroIdsForMatchups: [1, 2, 3],
     matchupSleepImpl: async (ms) => { events.push(`pacing-${ms}`); },
