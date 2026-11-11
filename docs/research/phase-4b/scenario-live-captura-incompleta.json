@@ -1,0 +1,12 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) + WEB REAL · Dota SIMULADO por observaciones directas y POSTs GSI (no es una sesión de Dota real)",
+  "scenario": "live-captura-incompleta",
+  "engineTeamRecommendations": {
+    "status": 409,
+    "body": {
+      "error": "live_draft_incomplete",
+      "reason": "CAPTURE_PARTIAL",
+      "completeness": "PARTIAL"
+    }
+  }
+}

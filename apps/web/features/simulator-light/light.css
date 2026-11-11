@@ -98,3 +98,11 @@
   .sl-detail-head { grid-template-columns: minmax(0, 1fr); }
   .sl-cand-body { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Live Canonical Light (Fase 4B): selector de posicion propia. Mismos tokens --r3-*, escala de 4 px, sin color nuevo. */
+.sl-seat { display: grid; gap: 12px; }
+.sl-seat-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sl-seat-btn { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); cursor: pointer; font: 600 14px/1.2 var(--f-plex); min-height: 44px; min-width: 64px; padding: 8px 16px; }
+.sl-seat-btn:hover:not(:disabled) { border-color: var(--r3-ink); }
+.sl-seat-btn:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+.sl-seat-btn:disabled { cursor: progress; }

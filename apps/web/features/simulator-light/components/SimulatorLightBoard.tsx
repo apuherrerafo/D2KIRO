@@ -8,7 +8,7 @@ import type { RequestStatus, TeamCoachBoardData, TeamPosition } from "@/features
 import { SimulatorLightScope } from "../SimulatorLightScope";
 import { useSelectionTransfer, type SelectionKey } from "../use-selection-transfer";
 import { COLUMNS_FR, noActionReasonOf, recommendationOf } from "../view-model";
-import { Columns } from "./Columns";
+import { Columns, NO_RECOMMENDATIONS_COPY } from "./Columns";
 import { DetailPanel, findSelected } from "./DetailPanel";
 import type { AnalyzedCandidate, PickPosition } from "@/features/random-draft-simulator/analyzed-pick";
 
@@ -24,6 +24,14 @@ export interface SimulatorLightBoardProps {
   onRetry?: () => void;
   /** Avisa qué candidato está abierto en el análisis (o `null`). Solo informa: abrir el análisis nunca elige. */
   onAnalyze?: (candidate: AnalyzedCandidate | null) => void;
+  /** Live: la posición propia puede estar solo declarada (`mine-unconfirmed`). En el Simulador la declara la configuración: siempre `mine`. */
+  mineRelation?: "mine" | "mine-unconfirmed";
+  /** Pie del panel de análisis. Ausente = el del Simulador (que remite al panel de la ronda). */
+  footNote?: string;
+  /** Texto de una columna sin candidatos. Ausente = el del Simulador (que remite a «Buscar otro héroe»). */
+  emptyCopy?: string;
+  /** Línea «Tu party…». Ausente = la derivada de las columnas; `null` = no se dibuja. */
+  partyText?: string | null;
 }
 
 function analyzedOf(key: SelectionKey | null): AnalyzedCandidate | null {
@@ -56,7 +64,7 @@ function BoardPlaceholder({ status, onRetry }: { status: RequestStatus; onRetry?
   return <p className="sl-placeholder" data-testid="team-coach-loading">Calculando recomendaciones para cada posición…</p>;
 }
 
-function BoardStage({ board, humanPosition, onAnalyze }: { board: TeamCoachBoardData; humanPosition: TeamPosition | null; onAnalyze?: (candidate: AnalyzedCandidate | null) => void }) {
+function BoardStage({ board, humanPosition, onAnalyze, mineRelation = "mine", footNote, emptyCopy = NO_RECOMMENDATIONS_COPY }: Pick<SimulatorLightBoardProps, "humanPosition" | "onAnalyze" | "mineRelation" | "footNote" | "emptyCopy"> & { board: TeamCoachBoardData }) {
   const [openKey, setSelectedKey] = useState<SelectionKey | null>(null);
   const positions = board.positions;
   // Si el candidato abierto ya no está en el tablero (se eligió, se recalculó), el análisis se cierra solo; nada queda apuntando a un héroe fantasma.
@@ -78,8 +86,8 @@ function BoardStage({ board, humanPosition, onAnalyze }: { board: TeamCoachBoard
     <SkinStage className="cm-skin-stage--flush sl-skin" ghost="">
       <div className="sl-skin-inner">
         <div className="sl-stage" data-columns={positions.length} ref={stage} style={{ "--sl-cols-fr": `${fr}fr` } as CSSProperties}>
-          <Columns humanPosition={humanPosition} onSelect={handleSelect} positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
-          <DetailPanel noActionReason={noActionReasonOf(board)} positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
+          <Columns humanPosition={humanPosition} onSelect={handleSelect} mineRelation={mineRelation} emptyCopy={emptyCopy} positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
+          <DetailPanel footNote={footNote} noActionReason={noActionReasonOf(board)} positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
           <span aria-hidden="true" className="sl-transfer" ref={overlay}>
             <span className="cm-corners sl-corners"><i /><i /><i /><i /></span>
           </span>
@@ -89,12 +97,18 @@ function BoardStage({ board, humanPosition, onAnalyze }: { board: TeamCoachBoard
   );
 }
 
-function BoardContent({ board, status, humanPosition, onRetry, onAnalyze }: SimulatorLightBoardProps) {
+function PartyLine({ text }: { text: string | null }) {
+  if (text === null) return null;
+  return <p className="sl-party" data-testid="sl-party">{text}</p>;
+}
+
+function BoardContent({ board, status, humanPosition, onRetry, onAnalyze, mineRelation, footNote, emptyCopy, partyText }: SimulatorLightBoardProps) {
   if (board === null) return <BoardPlaceholder onRetry={onRetry} status={status} />;
+  const line = partyText === undefined ? partyTextOf(board.positions.map((column) => column.position), humanPosition) : partyText;
   return (
     <>
-      <p className="sl-party" data-testid="sl-party">{partyTextOf(board.positions.map((column) => column.position), humanPosition)}</p>
-      <BoardStage board={board} humanPosition={humanPosition} onAnalyze={onAnalyze} />
+      <PartyLine text={line} />
+      <BoardStage board={board} emptyCopy={emptyCopy} footNote={footNote} humanPosition={humanPosition} onAnalyze={onAnalyze} mineRelation={mineRelation} />
     </>
   );
 }

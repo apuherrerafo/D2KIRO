@@ -249,19 +249,21 @@ describe("LiveDotaView -- connect Dota", () => {
 
 describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
   function degradedStatus(draftPhase: "hero_selection" | "ended"): LiveCaptureStatus {
-    if (draftPhase === "hero_selection") return liveStatus(LINK.sessionId, { connection: "stale", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "ok", draftPhase, localSide: "radiant", picks: 1, gsi: gsi() });
-    return liveStatus(LINK.sessionId, { connection: "connected", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL", draftPhase, localSide: "radiant", picks: 1, gsi: gsi() });
+    // Fase 4B: Live Solo muestra solo la columna de la posición DECLARADA (Pos 1 en este fixture).
+    const localPlayer = { position: 1 as const, heroId: null, bound: false };
+    if (draftPhase === "hero_selection") return liveStatus(LINK.sessionId, { connection: "stale", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "ok", draftPhase, localSide: "radiant", picks: 1, gsi: gsi(), localPlayer });
+    return liveStatus(LINK.sessionId, { connection: "connected", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL", draftPhase, localSide: "radiant", picks: 1, gsi: gsi(), localPlayer });
   }
 
-  test("control: during hero selection the board recommends a pick now, with no manual picks", async () => {
+  test("control: during hero selection the Light board recommends a pick now (ELIGE AHORA), with no manual picks", async () => {
     const site = new FakeSite();
     site.link = LINK;
     site.status = degradedStatus("hero_selection");
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
-      await waitFor(() => expect(view.getByTestId("team-coach-decision")).toBeTruthy());
-      expect(view.getByTestId("team-coach-board").textContent).toContain("Recomendado ahora");
-      expect(view.getAllByTestId("team-coach-pick-now")).toHaveLength(1);
+      await waitFor(() => expect(view.getByTestId("team-coach-board")).toBeTruthy());
+      expect(view.getByTestId("team-coach-board").textContent).toContain("ELIGE AHORA");
+      expect(view.getAllByTestId(/^team-coach-column-/)).toHaveLength(1);
       expect(view.queryByTestId("team-coach-draft-ended")).toBeNull();
       expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
       view.unmount();
@@ -277,12 +279,11 @@ describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
       await waitFor(() => expect(view.getByTestId("team-coach-draft-ended")).toBeTruthy());
       const text = view.getByTestId("live-team-coach").textContent ?? "";
       expect(text).not.toMatch(/PICK NOW|ELIGE AHORA|Recomendado ahora/i);
-      expect(view.queryByTestId("team-coach-decision")).toBeNull();
-      expect(view.queryByTestId("team-coach-pick-now")).toBeNull();
+      expect(view.queryByTestId("sl-decision")).toBeNull();
       expect(view.getByTestId("team-coach-draft-ended").textContent).toContain("DRAFT TERMINADO");
       expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
-      // The board is kept as reference (five columns), and the session is NOT torn down.
-      expect(view.getAllByTestId(/^team-coach-column-/)).toHaveLength(5);
+      // The board is kept as reference (only the declared position's column in Solo), and the session is NOT torn down.
+      expect(view.getAllByTestId(/^team-coach-column-/)).toHaveLength(1);
       expect(view.getByTestId("live-capture-status").textContent).toContain("Draft terminado");
       view.unmount();
     });
@@ -294,10 +295,10 @@ describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
     site.status = degradedStatus("hero_selection");
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
-      await waitFor(() => expect(view.getByTestId("team-coach-decision")).toBeTruthy());
+      await waitFor(() => expect(view.getByTestId("team-coach-board").textContent).toContain("ELIGE AHORA"));
       site.status = degradedStatus("ended");
       await waitFor(() => expect(view.getByTestId("team-coach-draft-ended")).toBeTruthy(), { timeout: 5_000 });
-      expect(view.queryByTestId("team-coach-decision")).toBeNull();
+      expect(view.getByTestId("team-coach-board").textContent).not.toContain("ELIGE AHORA");
       view.unmount();
     });
   });

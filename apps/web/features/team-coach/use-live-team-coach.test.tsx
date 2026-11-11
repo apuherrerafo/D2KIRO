@@ -1,6 +1,6 @@
 import "@/test-support/happy-dom";
 
-import { act, cleanup, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { LiveCaptureStatusBar } from "./components/LiveCaptureStatusBar";
@@ -276,7 +276,7 @@ describe("Companion vivo + Dota cerrado/esperando: una sola explicación", () =>
 describe("LiveTeamCoachView -- sin entrada manual para el Player", () => {
   test("captura degradada: se muestra, el board NO acepta clics y no hay entrada manual; el estado no se pierde", async () => {
     const engine = new FakeLiveEngine();
-    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1 });
+    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1, localPlayer: { position: 3, heroId: 129, bound: true } });
     engine.currentBoard = board("s1", 129);
     const original = globalThis.fetch;
     globalThis.fetch = engine.fetch as typeof fetch;
@@ -314,9 +314,10 @@ describe("useLiveTeamCoach -- a failed board is retried (Greptile TSK-219)", () 
 });
 
 describe("LiveTeamCoachView -- debugManualEntry (solo desarrollo)", () => {
-  test("con el flag de debug, el board acepta clics y la entrada manual queda abierta; sin él, nunca", async () => {
+  // Fase 4B: el clic en una tarjeta SOLO analiza, también con el flag de debug; la entrada manual (formulario aparte) es lo único que reporta datos.
+  test("con el flag de debug, la entrada manual queda abierta y el tablero Light sigue sin botones de elegir; sin él, nunca", async () => {
     const engine = new FakeLiveEngine();
-    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1 });
+    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1, localPlayer: { position: 3, heroId: 129, bound: true } });
     engine.currentBoard = board("s1", 129);
     const original = globalThis.fetch;
     globalThis.fetch = engine.fetch as typeof fetch;
@@ -325,11 +326,8 @@ describe("LiveTeamCoachView -- debugManualEntry (solo desarrollo)", () => {
       await waitFor(() => expect(view.getByTestId("live-capture-degraded")).toBeTruthy());
       await waitFor(() => expect(view.getByTestId("team-coach-column-3").getAttribute("data-state")).toBe("FILLED"));
       expect((view.getByTestId("live-manual-entry") as HTMLDetailsElement).open).toBe(true);
-      await act(async () => {
-        fireEvent.click(view.getByRole("button", { name: "Elegir Héroe 51 como Pos5 Hard Support" }));
-      });
-      await waitFor(() => expect(engine.requests.some((entry) => entry.url.endsWith("/live-observation"))).toBe(true));
-      expect(engine.requests.find((entry) => entry.url.endsWith("/live-observation"))!.body).toEqual({ type: "pick", side: "radiant", heroId: 51, position: 5 });
+      expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
+      expect(engine.requests.some((entry) => entry.url.endsWith("/live-observation"))).toBe(false);
       view.unmount();
     } finally {
       globalThis.fetch = original;

@@ -420,17 +420,22 @@ describe("parseTeamCoachBoard", () => {
 
 describe("19. un único contrato de tablero para /simulator y /live-draft", () => {
   const webRoot = resolve(import.meta.dir, "../../..");
-  // Fase 4A: el Simulador pasó a Canonical Light (`SimulatorLightBoard`); Live conserva `TeamCoachBoard` hasta su propia fase.
-  // Lo que sigue prohibido: una tercera implementación, o que alguna superficie deje de leer el MISMO `TeamCoachBoardData` del motor.
-  test("el Simulador usa SimulatorLightBoard (Light) y Live sigue en TeamCoachBoard; ninguna otra implementación", () => {
+  // Fase 4A: el Simulador pasó a Canonical Light (`SimulatorLightBoard`). Fase 4B: Live también, COMPONIENDO ese mismo tablero (`LiveLightBoard`).
+  // `TeamCoachBoard` queda como componente legado sin ruta que lo monte. Lo prohibido: una tercera implementación del tablero, o que alguna
+  // superficie deje de leer el MISMO `TeamCoachBoardData` del motor.
+  test("Simulador y Live usan el MISMO SimulatorLightBoard (Live a través de LiveLightBoard); ninguna otra implementación", () => {
     const simulator = readFileSync(resolve(webRoot, "app/simulator/page.tsx"), "utf8");
     const live = readFileSync(resolve(webRoot, "features/team-coach/components/LiveTeamCoachView.tsx"), "utf8");
     const livePage = readFileSync(resolve(webRoot, "app/live-draft/page.tsx"), "utf8");
     expect(simulator).toContain('import { SimulatorLightBoard, SimulatorLightScope } from "@/features/simulator-light";');
     expect(simulator).toContain("<SimulatorLightBoard");
     expect(simulator).not.toContain("<TeamCoachBoard");
-    expect(live).toContain('import { TeamCoachBoard } from "./TeamCoachBoard";');
-    expect(live).toContain("<TeamCoachBoard");
+    const liveLight = readFileSync(resolve(webRoot, "features/live-light/components/LiveLightBoard.tsx"), "utf8");
+    expect(live).toContain('import { LiveLightBoard } from "@/features/live-light";');
+    expect(live).toContain("<LiveLightBoard");
+    expect(live).not.toContain("<TeamCoachBoard");
+    expect(liveLight).toContain('import { SimulatorLightBoard, SimulatorLightScope } from "@/features/simulator-light";');
+    expect(liveLight).toContain("<SimulatorLightBoard");
     expect(livePage).toContain("LiveTeamCoachView");
     const boards = Array.from(new Bun.Glob("{app,features,components}/**/*.tsx").scanSync({ cwd: webRoot }))
       .filter((file) => !file.endsWith(".test.tsx") && /export function (TeamCoachBoard|SimulatorLightBoard)\b/.test(readFileSync(resolve(webRoot, file), "utf8")))

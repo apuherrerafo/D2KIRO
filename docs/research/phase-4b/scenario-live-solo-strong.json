@@ -1,0 +1,80 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) + WEB REAL · Dota SIMULADO por observaciones directas y POSTs GSI (no es una sesión de Dota real)",
+  "scenario": "live-solo-strong",
+  "engineDecision": {
+    "recommendedPosition": 2,
+    "recommendedHeroId": 52,
+    "targetBasis": "DETERMINISTIC_DEFAULT",
+    "reason": "",
+    "actionablePositions": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "roundCapacity": 2
+  },
+  "engineColumnsReturned": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "uiColumnsShown": 1,
+  "analysisPanel": {
+    "decisionAttr": "same",
+    "decisionText": "Decisión del equipo ELIGE AHORA: Leshrac · Pos2 Mid Criterio del motor: orden por defecto",
+    "heroReasonsText": "Razones de Leshrac Lo que abrieron los bans Se abre: Anti-Mage (fuerte) — Mana Break vacia tu reserva de maná y Mana Void castiga Pulse Nova Se abre: Nyx Assassin (fuerte) — Spiked Carapace se activa con tu daño en área y Mind Flare castiga la alta inteligencia Se abre: Doom (posible) — Doom apaga Pulse Nova, Diabolic Edict y Split Earth Sigue libre Pugna (posible) — Nether Ward castiga el spam constante de hechizos Lifestealer (posible) — Rage ignora Split Earth y gran parte de tu daño mágico Ancient Apparition (posible) — Ice Blast le impide curarse y regenerar, y lo destruye si queda con poca vida"
+  },
+  "axeBoard": {
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 41
+      }
+    ]
+  },
+  "keyboard": {
+    "focusAfterTab": "2:76"
+  },
+  "reflow": {
+    "200": {
+      "limit": 800,
+      "blocks": [
+        {
+          "testid": "live-light-draft-strip",
+          "scrollWidth": 752,
+          "clientWidth": 752,
+          "right": 776
+        },
+        {
+          "testid": "team-coach-board",
+          "scrollWidth": 720,
+          "clientWidth": 720,
+          "right": 760
+        }
+      ]
+    },
+    "400": {
+      "limit": 400,
+      "blocks": [
+        {
+          "testid": "live-light-draft-strip",
+          "scrollWidth": 368,
+          "clientWidth": 368,
+          "right": 384
+        },
+        {
+          "testid": "team-coach-board",
+          "scrollWidth": 336,
+          "clientWidth": 336,
+          "right": 368
+        }
+      ]
+    }
+  },
+  "reducedMotionRunningAnimationsInBoard": 0
+}

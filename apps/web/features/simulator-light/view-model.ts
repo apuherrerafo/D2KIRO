@@ -6,16 +6,18 @@ import { canHighlightAsRecommended, hasLimitedEvidence, isPlannedCandidate } fro
 import type { TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachTargetBasis, TeamPosition } from "@/features/team-coach/types";
 import type { ColumnCandidate } from "./merge-candidates";
 
-export type ColumnRelation = "mine" | "party";
+/** `mine-unconfirmed` = Live: el jugador declaró esa posición pero el motor todavía no ligó su héroe a ella. */
+export type ColumnRelation = "mine" | "mine-unconfirmed" | "party";
 
 /** En el Simulador la posición propia la declara la configuración (no existe "sin confirmar": eso es de Live). */
-export function relationOf(position: TeamPosition, humanPosition: TeamPosition | null): ColumnRelation {
+export function relationOf(position: TeamPosition, humanPosition: TeamPosition | null, mine: "mine" | "mine-unconfirmed" = "mine"): ColumnRelation {
   if (humanPosition !== position) return "party";
-  return "mine";
+  return mine;
 }
 
 export const RELATION_LABEL: Record<ColumnRelation, string> = {
   mine: "Tu posición",
+  "mine-unconfirmed": "Tu posición · declarada, sin confirmar",
   party: "Posición de tu party",
 };
 

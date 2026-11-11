@@ -3,13 +3,13 @@
 import type { ComponentProps, ReactNode } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
+import { LiveLightBoard } from "@/features/live-light";
+import { SimulatorLightScope } from "@/features/simulator-light";
 import { protocolViewToDraftState } from "@/features/random-draft-simulator/protocol-client";
 import { useLiveTeamCoachStore, type LiveEngineStatus } from "../live-store";
-import type { TeamPosition } from "../types";
 import { useLiveTeamCoach } from "../use-live-team-coach";
 import { isCaptureDegraded, isRecommendationBlocked, LiveCaptureStatusBar } from "./LiveCaptureStatusBar";
 import { LiveManualEntry } from "./LiveManualEntry";
-import { TeamCoachBoard } from "./TeamCoachBoard";
 
 // /live-draft -- el draft REAL de Dota. Dota (Game State Integration -> Railway, TSK-219) es la fuente
 // de lo que el juego informa: el Player no tiene que tocar nada en D2KIRO. Cuando la captura se degrada o
@@ -58,15 +58,9 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
   const draftState = snapshot ? protocolViewToDraftState(snapshot.view, "") : null;
   const unavailable = new Set<number>(draftState ? [...draftState.banned, ...draftState.picks.radiant, ...draftState.picks.dire] : []);
 
-  // Manual fallback through the board: a click reports an own pick for that position (same fact the capturer sends).
-  function handleManualPick(position: TeamPosition, heroId: number) {
-    void report({ type: "pick", side: captureStatus?.localSide ?? "radiant", heroId, position });
-  }
   function handleRetry() {
     void refresh();
   }
-  // A finished draft has no pick to make: not even by hand through the board.
-  const pickHandler = debugManualEntry && degraded && !draftEnded ? handleManualPick : undefined;
   // No recommendation is built from an incomplete automatic draft. The engine refuses it on its own routes too, debug
   // or not: the board would never load, so it is hidden. (Only an older engine that gives no verdict keeps the debug board.)
   const hideBoard = isRecommendationBlocked(captureStatus) && !draftEnded && (!debugManualEntry || captureStatus?.recommendation !== undefined);
@@ -79,13 +73,12 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
       <LiveCaptureStatusBar status={captureStatus} heroCatalog={heroCatalog} linkExpired={linkExpired} />
       <LiveDraftBoard draftState={draftState} heroCatalog={heroCatalog} />
       <BoardUnlessPartial hidden={hideBoard}>
-        <TeamCoachBoard
+        <LiveLightBoard
+          sessionId={sessionId}
           board={board}
           status={boardStatus}
+          captureStatus={captureStatus}
           heroCatalog={heroCatalog}
-          selectedPosition={selectedPosition}
-          onSelectPosition={selectPosition}
-          onPickHero={pickHandler}
           onRetry={handleRetry}
           draftEnded={draftEnded}
         />
@@ -133,5 +126,10 @@ function enemyPicksOf(draftState: LiveDraftState | null): number[] {
 
 function LiveDraftBoard({ draftState, heroCatalog }: { draftState: ReturnType<typeof protocolViewToDraftState> | null; heroCatalog: ReturnType<typeof useHeroCatalog>["heroes"] }) {
   if (!draftState) return null;
-  return <CompactBoard banned={draftState.banned} picks={draftState.picks} localSide={draftState.localSide} heroCatalog={heroCatalog} />;
+  // Picks y bans confirmados, en la misma franja Canonical Light del Simulador. Sin timer: Live no inventa uno (no hay `centerContent`).
+  return (
+    <SimulatorLightScope testId="live-light-draft-strip" variant="strip">
+      <CompactBoard banned={draftState.banned} picks={draftState.picks} localSide={draftState.localSide} heroCatalog={heroCatalog} />
+    </SimulatorLightScope>
+  );
 }

@@ -85,7 +85,7 @@ function CandidateList(props: Omit<CandidateCardProps, "entry"> & { entries: Col
 
 export const NO_RECOMMENDATIONS_COPY = "Sin recomendaciones disponibles con la información actual. Puedes elegir un héroe con «Buscar otro héroe».";
 
-function ColumnBody({ column, ...rest }: { column: TeamCoachColumn } & Omit<CandidateCardProps, "entry" | "column">) {
+function ColumnBody({ column, emptyCopy, ...rest }: { column: TeamCoachColumn; emptyCopy: string } & Omit<CandidateCardProps, "entry" | "column">) {
   if (column.state === "FILLED") {
     return <FilledBody column={column} />;
   }
@@ -95,7 +95,7 @@ function ColumnBody({ column, ...rest }: { column: TeamCoachColumn } & Omit<Cand
   const merged = mergeColumnCandidates(column);
   // RANKED sin candidatos = ningún héroe con fundamento. Nunca se fabrica uno: solo se dice, en llano, que no hay recomendaciones con lo que se sabe ahora.
   if (merged.general.length === 0 && merged.poolOnly.length === 0) {
-    return <p className="sl-note" data-empty="true" data-testid="sl-column-empty">{NO_RECOMMENDATIONS_COPY}</p>;
+    return <p className="sl-note" data-empty="true" data-testid="sl-column-empty">{emptyCopy}</p>;
   }
   const hasPoolOnly = merged.poolOnly.length > 0;
   return (
@@ -138,14 +138,16 @@ interface PositionColumnProps {
   recommendation: Recommendation | null;
   selectedKey: SelectionKey | null;
   compact: boolean;
+  mineRelation: "mine" | "mine-unconfirmed";
+  emptyCopy: string;
   onSelect(key: SelectionKey): void;
 }
 
 /** Movimiento 07 «el dato se reordena»: cuando el motor cambia el orden de una columna, las tarjetas se deslizan a su lugar (FLIP, resorte `settle`, sin rebote). */
-function PositionColumn({ column, humanPosition, showPlan, recommendation, selectedKey, compact, onSelect }: PositionColumnProps) {
+function PositionColumn({ column, humanPosition, showPlan, recommendation, selectedKey, compact, mineRelation, emptyCopy, onSelect }: PositionColumnProps) {
   const reduced = useReducedMotion();
   const body = useRef<HTMLDivElement>(null);
-  const relation = relationOf(column.position, humanPosition);
+  const relation = relationOf(column.position, humanPosition, mineRelation);
   const order = column.top.map((candidate) => candidate.heroId).join(",");
   useSettleFlip(body, order, reduced);
   return (
@@ -156,7 +158,7 @@ function PositionColumn({ column, humanPosition, showPlan, recommendation, selec
           <h3 className="sl-col-title">{teamPositionName(column.position)}</h3>
         </header>
         <div ref={body}>
-          <ColumnBody column={column} compact={compact} onSelect={onSelect} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
+          <ColumnBody column={column} compact={compact} emptyCopy={emptyCopy} onSelect={onSelect} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
         </div>
       </section>
     </Glass>
@@ -169,15 +171,18 @@ export interface ColumnsProps {
   recommendation: Recommendation | null;
   selectedKey: SelectionKey | null;
   showPlan: boolean;
+  mineRelation: "mine" | "mine-unconfirmed";
+  /** Texto de una columna RANKED sin candidatos. Cada superficie dice sus propias salidas (el Simulador remite a «Buscar otro héroe»). */
+  emptyCopy: string;
   onSelect(key: SelectionKey): void;
 }
 
-export function Columns({ humanPosition, positions, recommendation, selectedKey, showPlan, onSelect }: ColumnsProps) {
+export function Columns({ humanPosition, positions, recommendation, selectedKey, showPlan, mineRelation, emptyCopy, onSelect }: ColumnsProps) {
   const compact = positions.length >= 5;
   return (
     <div className="sl-columns" data-count={positions.length}>
       {positions.map((column) => (
-        <PositionColumn column={column} compact={compact} humanPosition={humanPosition} key={column.position} onSelect={onSelect} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
+        <PositionColumn column={column} compact={compact} humanPosition={humanPosition} key={column.position} onSelect={onSelect} mineRelation={mineRelation} emptyCopy={emptyCopy} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
       ))}
     </div>
   );

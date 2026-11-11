@@ -1,0 +1,55 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) + WEB REAL · Dota SIMULADO por observaciones directas y POSTs GSI (no es una sesión de Dota real)",
+  "scenario": "live-party5",
+  "engineDecision": {
+    "recommendedPosition": 2,
+    "recommendedHeroId": 52,
+    "targetBasis": "DETERMINISTIC_DEFAULT",
+    "reason": "",
+    "actionablePositions": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "roundCapacity": 2
+  },
+  "engineColumns": [
+    {
+      "position": 1,
+      "state": "RANKED",
+      "cards": 4
+    },
+    {
+      "position": 2,
+      "state": "RANKED",
+      "cards": 4
+    },
+    {
+      "position": 3,
+      "state": "RANKED",
+      "cards": 2
+    },
+    {
+      "position": 4,
+      "state": "RANKED",
+      "cards": 3
+    },
+    {
+      "position": 5,
+      "state": "RANKED",
+      "cards": 5
+    }
+  ],
+  "highlightedFor": "propia (ELIGE AHORA)",
+  "axeBoard": {
+    "violations": []
+  },
+  "reflow400": {
+    "scrollWidth": 336,
+    "clientWidth": 336,
+    "right": 368,
+    "limit": 400
+  }
+}

@@ -117,12 +117,12 @@ function DecisionSection({ view, openHeroId }: { view: DecisionView; openHeroId:
   );
 }
 
-function EmptyDetail() {
+function EmptyDetail({ footNote }: { footNote: string }) {
   return (
     <Glass className="sl-detail" level="b" surfaceLevel="3">
       <p className="sl-caption">Análisis del candidato</p>
       <p className="sl-detail-empty">{DETAIL_EMPTY_TEXT}</p>
-      <p className="sl-foot">{DETAIL_NO_ACTION_NOTE}</p>
+      <p className="sl-foot">{footNote}</p>
     </Glass>
   );
 }
@@ -143,9 +143,11 @@ export interface DetailPanelProps {
   /** Razón del motor cuando NO hay pick humano ahora (posición null). */
   noActionReason: string | null;
   showPlan: boolean;
+  /** Pie del panel; ausente = el del Simulador. */
+  footNote?: string;
 }
 
-export function DetailPanel({ positions, selectedKey, recommendation, noActionReason, showPlan }: DetailPanelProps) {
+export function DetailPanel({ positions, selectedKey, recommendation, noActionReason, showPlan, footNote = DETAIL_NO_ACTION_NOTE }: DetailPanelProps) {
   const reduced = useReducedMotion();
   const body = useRef<HTMLDivElement>(null);
   const found = selectedKey === null ? null : findSelected(positions, selectedKey);
@@ -154,7 +156,7 @@ export function DetailPanel({ positions, selectedKey, recommendation, noActionRe
   useChanged(openKey, (next) => {
     if (next !== null) settleIn(body.current, reduced);
   });
-  if (found === null) return <EmptyDetail />;
+  if (found === null) return <EmptyDetail footNote={footNote} />;
   const { column, entry } = found;
   const model = cardModelOf({ entry, column, recommendation, selected: false, showPlan });
   const { candidate } = entry;
@@ -190,7 +192,7 @@ export function DetailPanel({ positions, selectedKey, recommendation, noActionRe
           </section>
         )}
         {decision !== null && <DecisionSection openHeroId={candidate.heroId} view={decision} />}
-        <p className="sl-foot">{DETAIL_NO_ACTION_NOTE}</p>
+        <p className="sl-foot">{footNote}</p>
       </div>
     </Glass>
   );
