@@ -98,7 +98,7 @@ export function LiveBanEntryPanel({ observedBans, error, heroCatalog, onConfirm,
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Bans observados</span>
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         Escribe cada héroe baneado a medida que lo veas en tu cliente de Dota 2 -- de los dos equipos, en cualquier orden. Confirma recién cuando ya
         se cerró la fase de bans en el draft real.
       </span>
@@ -113,7 +113,7 @@ export function LiveBanEntryPanel({ observedBans, error, heroCatalog, onConfirm,
             onRemove={removeBan}
           />
         ))}
-        {staged.length === 0 && <span className="text-caption text-content-muted">Todavía no agregaste ningún ban.</span>}
+        {staged.length === 0 && <span className="text-caption text-content-secondary">Todavía no agregaste ningún ban.</span>}
       </div>
       {error && <span className="text-caption text-signal-negative">{error}</span>}
       <HeroPicker heroes={heroes} unavailableHeroIds={unavailable} onSelect={addBan} />
@@ -237,7 +237,7 @@ export function LivePendingPanel({ round, openSlots, notice, heroCatalog, banned
         </button>
       </div>
       {notice && <span className="text-caption text-signal-negative">{notice}</span>}
-      {!currentSideOpen && <span className="text-caption text-content-muted">Este lado ya completó sus asientos de esta ronda.</span>}
+      {!currentSideOpen && <span className="text-caption text-content-secondary">Este lado ya completó sus asientos de esta ronda.</span>}
       <LivePendingEntryArea
         side={side}
         localSide={localSide}

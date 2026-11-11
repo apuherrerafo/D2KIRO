@@ -18,7 +18,8 @@ import { StaleWarningBanner } from "@/features/random-draft-simulator/components
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import { useScrollToTop } from "@/features/random-draft-simulator/use-scroll-to-top";
-import { SimulatorLightBoard } from "@/features/simulator-light";
+import { SimulatorLightBoard, SimulatorLightScope } from "@/features/simulator-light";
+import type { AnalyzedCandidate } from "@/features/random-draft-simulator/analyzed-pick";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -61,7 +62,11 @@ interface RoundInstructionBarProps {
 // Sólo existe mientras hay una ronda en juego; en cualquier otra fase no renderiza nada.
 function RoundInstructionBar({ phase, capacity }: RoundInstructionBarProps) {
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
-  return <RoundInstruction round={phase.round} capacity={capacity} revealed={phase.type === "round_revealed"} />;
+  return (
+    <SimulatorLightScope variant="strip">
+      <RoundInstruction round={phase.round} capacity={capacity} revealed={phase.type === "round_revealed"} />
+    </SimulatorLightScope>
+  );
 }
 
 interface PhaseViewProps {
@@ -121,6 +126,8 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   // Antes del `return null` de abajo: un hook no puede quedar detrás de un return condicional.
   const roundNumber = phase.type === "blind_round" || phase.type === "round_revealed" ? phase.round : 0;
   useScrollToTop(roundNumber);
+  // Qué candidato tiene abierto el análisis del tablero. Solo habilita el botón «Elegir a X» de BlindRoundPanel; abrir el análisis nunca elige.
+  const [analyzed, setAnalyzed] = useState<AnalyzedCandidate | null>(null);
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
   // PSR-002 -- the selector highlights the position being VIEWED (the V4 decision's viewedPosition, or the
   // one the Player just requested while the engine recomputes). The Coach RECOMMENDATION is a separate
@@ -136,6 +143,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         status={teamBoardStatus}
         humanPosition={config?.playerPosition ?? null}
         onRetry={session.actions.retryPreview}
+        onAnalyze={setAnalyzed}
       />
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -149,6 +157,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
             humanActionability={humanActionability}
             selectedTarget={selectedTarget}
             onSelectTarget={session.actions.selectTarget}
+            analyzed={analyzed}
           />
         </div>
         <div className="flex flex-col gap-4">
@@ -346,7 +355,7 @@ function RankedAllPickSimulator({ modeSwitcher }: SimulatorModeViewProps) {
       {/* El temporizador de la ronda corre mientras eliges héroes al fondo de la página: la franja
           queda fija arriba para que el tiempo siempre se vea (antes se perdía al hacer scroll). */}
       {draftState && (
-        <div className="sticky top-0 z-20 bg-surface-base py-1" data-testid="draft-sticky-strip">
+        <SimulatorLightScope className="sl-sticky" testId="draft-sticky-strip" variant="strip">
           <CompactBoard
             banned={draftState.banned}
             picks={draftState.picks}
@@ -355,7 +364,7 @@ function RankedAllPickSimulator({ modeSwitcher }: SimulatorModeViewProps) {
             centerContent={centerContent}
           />
           <RoundBansStrip phase={phase} bans={draftState.banned} heroCatalog={heroCatalog} />
-        </div>
+        </SimulatorLightScope>
       )}
       {/* Lo primero que se lee tras el temporizador es QUÉ HACER AHORA; el roster (informativo) va después. */}
       <RoundInstructionBar phase={phase} capacity={humanActionability?.roundCapacity ?? null} />

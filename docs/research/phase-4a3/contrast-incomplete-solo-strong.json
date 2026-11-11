@@ -1,0 +1,336 @@
+{
+  "incompleteNodes": 41,
+  "summary": {
+    "OK": 40,
+    "FALLA": 0,
+    "NO_RESUELTO": 1
+  },
+  "results": [
+    {
+      "target": "h2",
+      "text": "Team Coach",
+      "ratio": 15.84,
+      "required": 4.5,
+      "verdict": "OK"
+    },
+    {
+      "target": ".sl-party",
+      "text": "Tu party: Pos 2 · Tú: Pos2 Mid",
+      "ratio": 6.47,
+      "required": 4.5,
+      "verdict": "OK"
+    },
+    {
+      "target": ".sl-relation",
+      "text": "TU POSICIÓN",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-col-title",
+      "text": "Pos2 Mid",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".cx-target-notch",
+      "text": "ELIGE AHORA",
+      "ratio": 17.41,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "button[data-state=\"recommended\"] > .cx-target-title",
+      "text": "#4 en el ranking · Pos2 Mid",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "button[data-state=\"recommended\"] > .cx-target-value",
+      "text": "Leshrac",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-tag",
+      "text": "En análisis",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:76\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-title",
+      "text": "#1 en el ranking · Pos2 Mid",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:76\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-value",
+      "text": "Outworld Destroyer",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:76\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-note",
+      "text": "Evidencia limitada",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:17\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-title",
+      "text": "#2 en el ranking · Pos2 Mid",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:17\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-value",
+      "text": "Storm Spirit",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:17\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-note",
+      "text": "Evidencia limitada",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:34\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-title",
+      "text": "#3 en el ranking · Pos2 Mid",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:34\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-value",
+      "text": "Tinker",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "li[data-card-key=\"2:34\"] > .cx-target[data-state=\"uncertain\"][data-target-state=\"uncertain\"] > .cx-target-note",
+      "text": "Evidencia limitada",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass sl-col\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-caption",
+      "text": "ANÁLISIS DEL CANDIDATO",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".chm-portrait-name",
+      "text": "Leshrac",
+      "ratio": 1.14,
+      "required": 4.5,
+      "verdict": "NO RESUELTO",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\">"
+    },
+    {
+      "target": ".sl-detail-name",
+      "text": "Leshrac",
+      "ratio": 17.33,
+      "required": 3,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-detail-meta > .sl-muted",
+      "text": "#4 en el ranking · Pos2 Mid",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-marks > li",
+      "text": "ELIGE AHORA",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "#sl-hero-reasons-title",
+      "text": "Razones de Leshrac",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > h4",
+      "text": "Lo que abrieron los bans",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > .sl-reason-list > .sl-reason:nth-child(1) > .sl-reason-text > strong",
+      "text": "Se abre: Anti-Mage (fuerte)",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > .sl-reason-list > .sl-reason:nth-child(1) > .sl-reason-text > span",
+      "text": "— Mana Break vacia tu reserva de maná y Mana Void castiga Pu",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > .sl-reason-list > .sl-reason:nth-child(2) > .sl-reason-text > strong",
+      "text": "Se abre: Nyx Assassin (fuerte)",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > .sl-reason-list > .sl-reason:nth-child(2) > .sl-reason-text > span",
+      "text": "— Spiked Carapace se activa con tu daño en área y Mind Flare",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > .sl-reason-list > .sl-reason:nth-child(3) > .sl-reason-text > strong",
+      "text": "Se abre: Doom (posible)",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(2) > .sl-reason-list > .sl-reason:nth-child(3) > .sl-reason-text > span",
+      "text": "— Doom apaga Pulse Nova, Diabolic Edict y Split Earth",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > h4",
+      "text": "Sigue libre",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > .sl-reason-list > .sl-reason:nth-child(1) > .sl-reason-text > strong",
+      "text": "Pugna (posible)",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > .sl-reason-list > .sl-reason:nth-child(1) > .sl-reason-text > span",
+      "text": "— Nether Ward castiga el spam constante de hechizos",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > .sl-reason-list > .sl-reason:nth-child(2) > .sl-reason-text > strong",
+      "text": "Lifestealer (posible)",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > .sl-reason-list > .sl-reason:nth-child(2) > .sl-reason-text > span",
+      "text": "— Rage ignora Split Earth y gran parte de tu daño mágico",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > .sl-reason-list > .sl-reason:nth-child(3) > .sl-reason-text > strong",
+      "text": "Ancient Apparition (posible)",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-reasons:nth-child(3) > .sl-reason-list > .sl-reason:nth-child(3) > .sl-reason-text > span",
+      "text": "— Ice Blast le impide curarse y regenerar, y lo destruye si ",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": "#sl-decision-title",
+      "text": "Decisión del equipo",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-decision-line > strong",
+      "text": "ELIGE AHORA: Leshrac · Pos2 Mid",
+      "ratio": 17.33,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-decision > .sl-muted",
+      "text": "Criterio del motor: orden por defecto",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    },
+    {
+      "target": ".sl-foot",
+      "text": "Abrir el análisis no elige el héroe ni envía nada a Dota. Pa",
+      "ratio": 7.07,
+      "required": 4.5,
+      "verdict": "OK",
+      "why": "fondo con imagen/gradiente en <div class=\"cx-glass cx-glass--edge sl-detail\"> (pero el ratio contra el color base supera el umbral con holgura 1.5)"
+    }
+  ]
+}

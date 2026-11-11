@@ -1,0 +1,4 @@
+{
+  "evidenceLevel": "FIXTURE de interfaz: el estado WAITING lo escribe la prueba sobre una respuesta real; el texto es el del motor",
+  "note": "Sin acción humana en este momento: se recalcula cuando se abra la próxima ronda."
+}

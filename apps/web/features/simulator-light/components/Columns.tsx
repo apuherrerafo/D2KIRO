@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Glass, StateTarget } from "@/design/canonical/primitives";
 import { HeroDraftSlot, HeroIcon } from "@/design/canonical/hero-media";
+import { isPlannedCandidate } from "@/features/team-coach/eligibility";
 import { D2Icon } from "@/design/round-3b/icons";
 import { useReducedMotion } from "@/design/round-3a/lab-context";
 import { useSettleFlip } from "@/design/canonical/motion/flip";
@@ -53,7 +54,7 @@ function CandidateCard({ entry, column, recommendation, selectedKey, showPlan, c
     onSelect(key);
   }
   return (
-    <li className="sl-cand" data-card-key={key} data-hero-id={entry.candidate.heroId} data-primary={entry.candidate.isPrimary && entry.candidate.evidenceStrength !== "WEAK"} data-testid={entry.generalRank === null ? "team-coach-pool-candidate" : "team-coach-candidate"} data-compact={compact ? "true" : "false"} data-flip-key={entry.candidate.heroId} data-recommended={model.isRecommended ? "true" : "false"} data-selected={model.selected ? "true" : "false"} ref={host}>
+    <li className="sl-cand" data-card-key={key} data-hero-id={entry.candidate.heroId} data-primary={isPlannedCandidate(entry.candidate)} data-testid={entry.generalRank === null ? "team-coach-pool-candidate" : "team-coach-candidate"} data-compact={compact ? "true" : "false"} data-flip-key={entry.candidate.heroId} data-recommended={model.isRecommended ? "true" : "false"} data-selected={model.selected ? "true" : "false"} ref={host}>
       <StateTarget notch={model.notch} note={model.note} onPress={handlePress} pressed={model.selected} state={model.state} title={`${model.rankText} · ${model.title}`} value={heroName(entry.candidate.heroId)}>
         <span className="sl-cand-body" data-compact={compact ? "true" : "false"}>
           <span className="sl-art-slot">
@@ -82,6 +83,8 @@ function CandidateList(props: Omit<CandidateCardProps, "entry"> & { entries: Col
   );
 }
 
+export const NO_RECOMMENDATIONS_COPY = "Sin recomendaciones disponibles con la información actual. Puedes elegir un héroe con «Buscar otro héroe».";
+
 function ColumnBody({ column, ...rest }: { column: TeamCoachColumn } & Omit<CandidateCardProps, "entry" | "column">) {
   if (column.state === "FILLED") {
     return <FilledBody column={column} />;
@@ -90,7 +93,10 @@ function ColumnBody({ column, ...rest }: { column: TeamCoachColumn } & Omit<Cand
     return <NoteBody column={column} />;
   }
   const merged = mergeColumnCandidates(column);
-  // RANKED sin candidatos = ningún héroe con fundamento: NO se dibuja nada (sin relleno ni texto que explique la falta).
+  // RANKED sin candidatos = ningún héroe con fundamento. Nunca se fabrica uno: solo se dice, en llano, que no hay recomendaciones con lo que se sabe ahora.
+  if (merged.general.length === 0 && merged.poolOnly.length === 0) {
+    return <p className="sl-note" data-empty="true" data-testid="sl-column-empty">{NO_RECOMMENDATIONS_COPY}</p>;
+  }
   const hasPoolOnly = merged.poolOnly.length > 0;
   return (
     <>

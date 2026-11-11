@@ -12,11 +12,20 @@ import { motionCssVars } from "@/design/round-3a/motion-tokens";
 // mismo orden de CSS) más `motion.css` (las clases `.cm-*` de forma del movimiento canónico). `mode: "system"` = el DS lee prefers-reduced-motion.
 const MOTION_VARS = motionCssVars() as CSSProperties;
 
-export function SimulatorLightScope({ children }: { children: ReactNode }) {
+export interface SimulatorLightScopeProps {
+  children: ReactNode;
+  /** `strip` = franja compacta (encabezado del draft); por defecto, el bloque completo del tablero. */
+  variant?: "block" | "strip";
+  /** Solo posicionamiento de la raíz (p. ej. `sl-sticky`). */
+  className?: string;
+  testId?: string;
+}
+
+export function SimulatorLightScope({ children, variant = "block", className, testId }: SimulatorLightScopeProps) {
   return (
     <LabProvider value={{ autoplay: false, mode: "system" }}>
-      <div className="r3-page sl-page" style={MOTION_VARS}>
-        <div className="sl-light" data-theme="light">
+      <div className={className === undefined ? "r3-page sl-page" : `r3-page sl-page ${className}`} data-testid={testId} style={MOTION_VARS}>
+        <div className="sl-light" data-theme="light" data-variant={variant}>
           {children}
         </div>
       </div>

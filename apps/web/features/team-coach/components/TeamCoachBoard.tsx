@@ -25,6 +25,7 @@ import {
   PLAN_BADGE,
   PRIMARY_BUTTON,
 } from "../styles";
+import { canHighlightAsRecommended, isPlannedCandidate } from "../eligibility";
 import { EvidenceLimitedMark } from "./EvidenceLimitedMark";
 import { GoldenCardView } from "./GoldenCardView";
 import { FreeThreatsView } from "./FreeThreatsView";
@@ -69,7 +70,7 @@ function recommendedHeroOf(board: TeamCoachBoardData): number | null {
   const { recommendedPosition: position, recommendedHeroId: heroId } = board.currentDecision;
   if (heroId === null) return null;
   const candidate = board.positions.find((entry) => entry.position === position)?.top.find((entry) => entry.heroId === heroId);
-  if (candidate?.evidenceStrength === "WEAK") return null;
+  if (candidate !== undefined && !canHighlightAsRecommended(candidate)) return null;
   return heroId;
 }
 
@@ -356,7 +357,7 @@ function CandidateHead({ candidate, heroCatalog }: { candidate: TeamCoachCandida
 
 // "Plan" (y todo lo destacado) solo con evidencia FUERTE: una tarjeta de evidencia limitada nunca lo lleva, aunque un motor anterior la marcara primaria.
 function isPlanned(candidate: TeamCoachCandidate): boolean {
-  return candidate.isPrimary && candidate.evidenceStrength !== "WEAK";
+  return isPlannedCandidate(candidate);
 }
 
 function PlanBadge({ candidate }: { candidate: TeamCoachCandidate }) {

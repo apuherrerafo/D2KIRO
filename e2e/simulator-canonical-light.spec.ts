@@ -47,10 +47,18 @@ async function noHorizontalScroll(page: Page) {
   const report = await page.evaluate(() => {
     const limit = document.documentElement.clientWidth;
     // El NavBar global (preexistente, fuera de esta fase) desborda en anchos chicos; esta prueba mide SOLO el tablero Canonical Light.
+    // Fase 4A.3: un adorno `aria-hidden` recortado por un ancestro con overflow-x oculto (p. ej. `span.cm-light`) no es contenido ni genera scroll: se excluye.
+    // El criterio real (WCAG 1.4.10) es el scroll horizontal del documento, que se exige aparte.
+    const clippedDecoration = (el: Element) => {
+      if (el.getAttribute("aria-hidden") !== "true") return false;
+      for (let node = el.parentElement; node; node = node.parentElement) if (/(hidden|clip)/.test(getComputedStyle(node).overflowX)) return true;
+      return false;
+    };
     const wide = [...document.querySelectorAll('[data-testid="team-coach-board"], [data-testid="team-coach-board"] *')]
-      .filter((el) => el.getBoundingClientRect().right > limit + 1)
+      .filter((el) => el.getBoundingClientRect().right > limit + 1 && !clippedDecoration(el))
       .slice(0, 6)
       .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)}[${el.getAttribute("data-testid") ?? ""}]`);
+    if (document.documentElement.scrollWidth > limit) wide.push(`documento: scrollWidth ${document.documentElement.scrollWidth} > ${limit}`);
     return { overflow: wide.length, wide };
   });
   expect(report.overflow, `desbordan: ${report.wide.join(" | ")}`).toBe(0);

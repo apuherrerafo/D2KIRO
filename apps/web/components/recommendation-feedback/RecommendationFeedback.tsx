@@ -120,7 +120,7 @@ export function RecommendationFeedback({
   if (selectedRating === null) {
     return (
       <div className="flex items-center gap-2 pt-1" data-testid="recommendation-feedback-controls">
-        <span className="text-caption text-content-muted">¿Te sirvió?</span>
+        <span className="text-caption text-content-secondary">¿Te sirvió?</span>
         <button
           type="button"
           onClick={() => handleSelectRating("positive")}
@@ -155,7 +155,7 @@ export function RecommendationFeedback({
           type="button"
           onClick={handleCancel}
           disabled={submitting}
-          className="text-caption text-content-muted hover:text-content-primary"
+          className="text-caption text-content-secondary hover:text-content-primary"
           data-testid="feedback-cancel-btn"
         >
           Cancelar
@@ -192,7 +192,7 @@ export function RecommendationFeedback({
           maxLength={500}
           rows={2}
           disabled={submitting}
-          className="rounded border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-primary placeholder:text-content-muted resize-none"
+          className="rounded border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-primary placeholder:text-content-secondary resize-none"
           data-testid="feedback-comment-input"
         />
       </div>

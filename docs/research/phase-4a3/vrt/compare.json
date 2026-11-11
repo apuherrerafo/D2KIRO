@@ -1,0 +1,170 @@
+[
+ {
+  "name": "card-composed",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 0.97,
+  "bigDiffPct": 0.449,
+  "maxDiff": 228,
+  "bbox": [
+   95,
+   58,
+   657,
+   382
+  ]
+ },
+ {
+  "name": "herodraftslot-legacy-all-states",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 0.45,
+  "bigDiffPct": 0.21,
+  "maxDiff": 203,
+  "bbox": [
+   88,
+   83,
+   1130,
+   171
+  ]
+ },
+ {
+  "name": "herodraftslot-legacy-interactive-forced",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 0.29,
+  "bigDiffPct": 0.105,
+  "maxDiff": 193,
+  "bbox": [
+   86,
+   86,
+   1130,
+   290
+  ]
+ },
+ {
+  "name": "herodraftslot-showplate-default-cell",
+  "win": [
+   150,
+   69
+  ],
+  "linux": [
+   150,
+   69
+  ],
+  "sameSize": true,
+  "diffPct": 1.29,
+  "bigDiffPct": 0.512,
+  "maxDiff": 142,
+  "bbox": [
+   6,
+   48,
+   31,
+   56
+  ]
+ },
+ {
+  "name": "herodraftslot-showplate",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 1.29,
+  "bigDiffPct": 0.595,
+  "maxDiff": 203,
+  "bbox": [
+   88,
+   83,
+   1130,
+   414
+  ]
+ },
+ {
+  "name": "statetarget-legacy-all-states",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 2.09,
+  "bigDiffPct": 0.888,
+  "maxDiff": 218,
+  "bbox": [
+   102,
+   94,
+   1065,
+   356
+  ]
+ },
+ {
+  "name": "statetarget-legacy-interactive",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 1.12,
+  "bigDiffPct": 0.488,
+  "maxDiff": 218,
+  "bbox": [
+   125,
+   94,
+   1038,
+   356
+  ]
+ },
+ {
+  "name": "statetarget-pressed",
+  "win": [
+   1200,
+   1000
+  ],
+  "linux": [
+   1200,
+   1000
+  ],
+  "sameSize": true,
+  "diffPct": 1.61,
+  "bigDiffPct": 0.768,
+  "maxDiff": 228,
+  "bbox": [
+   95,
+   58,
+   1070,
+   357
+  ]
+ }
+]

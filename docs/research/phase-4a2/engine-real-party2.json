@@ -1,0 +1,91 @@
+{
+  "evidenceLevel": "MOTOR REAL (sin page.route, sin fixture, V6 intacto)",
+  "responses": 2,
+  "responsesWithAnyCard": 2,
+  "responsesWithStrongCard": 0,
+  "responsesWithRecommendation": 0,
+  "eligeAhoraCapturedFromRealEngine": false,
+  "rounds": [
+    {
+      "round": "Ronda 1 · 2 espacios de pick disponibles",
+      "cards": 1,
+      "recommendedCards": 0,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "Ronda 1 · 1 espacio de pick disponible",
+      "cards": 2,
+      "recommendedCards": 0,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "?",
+      "cards": 0,
+      "recommendedCards": 0,
+      "picker": "sin-accion"
+    }
+  ],
+  "firstSamples": [
+    {
+      "atMs": 584,
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 997,
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": ""
+      }
+    }
+  ],
+  "strongSamples": [],
+  "recommendationSamples": [],
+  "allColumnStates": [
+    "RANKED",
+    "FILLED"
+  ],
+  "maxCardsInAnyColumn": 2
+}

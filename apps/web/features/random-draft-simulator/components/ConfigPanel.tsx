@@ -37,6 +37,7 @@ function SeedField({ draftSeed, isValid, onChange, onRegenerate }: SeedFieldProp
           value={draftSeed}
           onChange={handleChange}
           maxLength={8}
+          aria-label="Semilla del draft"
           className="w-32 rounded-md border border-surface-border bg-surface-overlay px-3 py-2 font-mono text-body uppercase text-content-primary tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
         />
         <button type="button" onClick={onRegenerate} className={BUTTON_SECONDARY}>
@@ -149,7 +150,7 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
       <span className="text-caption text-content-secondary">
         Tu Personal_Ban_List ({personalBanList.length}/{MAX_BAN_LIST})
       </span>
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         Nomina hasta 4 héroes. Se resuelven junto con las nominaciones de los otros 9 jugadores: si llenas los 4 lugares, al menos uno se banea.
       </span>
       <div className="flex flex-wrap gap-2">
@@ -211,7 +212,7 @@ function ModeField({ mode, onChange }: ModeFieldProps) {
           <ChoiceButton key={option.value} value={option.value} label={option.label} selected={mode === option.value} onSelectValue={onChange} />
         ))}
       </div>
-      <span className="text-caption text-content-muted">{MODE_OPTIONS.find((option) => option.value === mode)?.description}</span>
+      <span className="text-caption text-content-secondary">{MODE_OPTIONS.find((option) => option.value === mode)?.description}</span>
     </div>
   );
 }
@@ -279,7 +280,7 @@ function PartySizeField({ partySize, onChange }: PartySizeFieldProps) {
           />
         ))}
       </div>
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         {PARTY_SIZE_OPTIONS.find((option) => option.value === partySize)?.description}
       </span>
     </div>
@@ -360,7 +361,7 @@ function TeamPresetField({ groups, selectedId, activePoolCount, onChange }: Team
           </option>
         ))}
       </select>
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         Carga el pool de héroes de cada jugador según la posición que juega. Puedes cambiar quién juega dónde antes de empezar.
       </span>
     </div>
@@ -399,7 +400,7 @@ function PositionField({ position, allowedPositions, onChange }: PositionFieldPr
   return (
     <div className="flex flex-col gap-1" role="group" aria-label="Tu posición personal">
       <span className="text-caption text-content-secondary">Tu posición personal (obligatoria)</span>
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         Indica cuál de los roles de tu party es el tuyo (determina tu Personal View en el Coach).
       </span>
       {options.length === 0 ? (
@@ -640,7 +641,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
         </>
       )}
       {mode === "live_companion" && (
-        <span className="text-caption text-content-muted">
+        <span className="text-caption text-content-secondary">
           En Live Companion vas a reportar los bans y picks reales a mano, apenas empiece el draft -- no hace falta seed ni nominaciones acá.
         </span>
       )}

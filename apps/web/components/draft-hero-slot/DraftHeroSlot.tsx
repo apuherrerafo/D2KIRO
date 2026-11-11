@@ -41,11 +41,11 @@ function DraftHeroSlotUnknown({ heroId, variant }: { heroId: number; variant: "p
       <div
         role="img"
         aria-label={`Héroe ${heroId} (sin datos de catálogo)`}
-        className="flex h-14 w-14 items-center justify-center rounded-md border border-surface-border bg-surface-overlay text-content-muted text-caption"
+        className="flex h-14 w-14 items-center justify-center rounded-md border border-surface-border bg-surface-overlay text-content-secondary text-caption"
       >
         #{heroId}
       </div>
-      <span className="text-caption text-content-muted">Sin datos</span>
+      <span className="text-caption text-content-secondary">Sin datos</span>
     </div>
   );
 }

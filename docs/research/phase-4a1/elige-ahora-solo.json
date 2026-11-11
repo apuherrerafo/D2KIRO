@@ -1,0 +1,5 @@
+{
+  "fixture": true,
+  "applicable": false,
+  "note": "El motor real devolvió 0 tarjetas; no hay candidato real que promover."
+}

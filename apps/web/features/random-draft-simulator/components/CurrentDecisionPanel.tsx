@@ -57,7 +57,7 @@ function TargetHeader({ decision }: TargetHeaderProps) {
       <div className="flex flex-col gap-1 rounded-lg border border-accent-primary bg-surface-overlay p-3" {...common}>
         <span className="text-caption font-semibold text-accent-primary">Objetivo recomendado: {positionName(decision.targetPosition)}</span>
         <StrategicRationale decision={decision} />
-        <span className="text-caption text-content-muted">Es una sugerencia: puedes elegir cualquier posición pendiente y cualquier héroe legal.</span>
+        <span className="text-caption text-content-secondary">Es una sugerencia: puedes elegir cualquier posición pendiente y cualquier héroe legal.</span>
       </div>
     );
   }
@@ -85,7 +85,7 @@ function ViewedPositionNotice({ decision }: ViewedPositionNoticeProps) {
     <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="current-decision-viewed" data-viewed-position={decision.viewedPosition}>
       <span className="text-caption font-semibold text-content-primary">Estás viendo {positionName(decision.viewedPosition)}</span>
       <span className="text-caption text-content-secondary" data-testid="current-decision-coach-suggests">Coach sugiere {positionName(decision.targetPosition)}</span>
-      <span className="text-caption text-content-muted">Cambiar de vista no cambia la sugerencia del Coach.</span>
+      <span className="text-caption text-content-secondary">Cambiar de vista no cambia la sugerencia del Coach.</span>
     </div>
   );
 }
@@ -170,11 +170,11 @@ function RankedCardView({ card, poolOwner, heroCatalog, sessionId, stateIdentity
   return (
     <li className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-2" data-testid="current-decision-card" data-hero-id={card.heroId} data-rank={card.rank}>
       <div className="flex items-center gap-2">
-        <span className="text-caption font-semibold text-content-muted">{card.rank}.</span>
+        <span className="text-caption font-semibold text-content-secondary">{card.rank}.</span>
         <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(card.heroId, heroCatalog)} size={40} />
         <div className="flex flex-col">
           <span className="text-body font-semibold text-content-primary">{heroName(card.heroId, heroCatalog)}</span>
-          <span className="text-caption text-content-muted">{CONFIDENCE_LABELS[card.confidence]}</span>
+          <span className="text-caption text-content-secondary">{CONFIDENCE_LABELS[card.confidence]}</span>
         </div>
       </div>
       <div className="flex flex-wrap gap-1">

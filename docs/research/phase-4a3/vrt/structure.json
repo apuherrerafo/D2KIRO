@@ -1,0 +1,130 @@
+[
+ {
+  "name": "card-composed",
+  "blurMaxDiff": 40,
+  "blurMeanDiff": 0.114,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   95,
+   93,
+   89
+  ],
+  "meanRGBlinux": [
+   95,
+   93,
+   89
+  ]
+ },
+ {
+  "name": "herodraftslot-legacy-all-states",
+  "blurMaxDiff": 51,
+  "blurMeanDiff": 0.041,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   44,
+   43,
+   41
+  ],
+  "meanRGBlinux": [
+   44,
+   43,
+   41
+  ]
+ },
+ {
+  "name": "herodraftslot-legacy-interactive-forced",
+  "blurMaxDiff": 26,
+  "blurMeanDiff": 0.031,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   67,
+   66,
+   63
+  ],
+  "meanRGBlinux": [
+   67,
+   66,
+   63
+  ]
+ },
+ {
+  "name": "herodraftslot-showplate-default-cell",
+  "blurMaxDiff": 27,
+  "blurMeanDiff": 0.263,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   126,
+   133,
+   131
+  ],
+  "meanRGBlinux": [
+   126,
+   133,
+   131
+  ]
+ },
+ {
+  "name": "herodraftslot-showplate",
+  "blurMaxDiff": 51,
+  "blurMeanDiff": 0.111,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   89,
+   88,
+   85
+  ],
+  "meanRGBlinux": [
+   89,
+   87,
+   85
+  ]
+ },
+ {
+  "name": "statetarget-legacy-all-states",
+  "blurMaxDiff": 38,
+  "blurMeanDiff": 0.207,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   86,
+   83,
+   80
+  ],
+  "meanRGBlinux": [
+   86,
+   83,
+   80
+  ]
+ },
+ {
+  "name": "statetarget-legacy-interactive",
+  "blurMaxDiff": 34,
+  "blurMeanDiff": 0.114,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   87,
+   85,
+   82
+  ],
+  "meanRGBlinux": [
+   87,
+   85,
+   82
+  ]
+ },
+ {
+  "name": "statetarget-pressed",
+  "blurMaxDiff": 40,
+  "blurMeanDiff": 0.181,
+  "bigDiffOnEdgesPct": 100.0,
+  "meanRGBwin": [
+   86,
+   84,
+   81
+  ],
+  "meanRGBlinux": [
+   86,
+   84,
+   81
+  ]
+ }
+]

@@ -1,0 +1,27 @@
+{
+  "immediate": {
+    "total": 127,
+    "loaded": 14,
+    "pending": 113,
+    "brokenAfterComplete": 0,
+    "lazy": 0,
+    "hosts": [
+      "cdn.cloudflare.steamstatic.com"
+    ]
+  },
+  "settled": {
+    "total": 127,
+    "loaded": 127,
+    "pending": 0,
+    "brokenAfterComplete": 0,
+    "lazy": 0,
+    "hosts": [
+      "cdn.cloudflare.steamstatic.com"
+    ]
+  },
+  "networkStatuses": [
+    200
+  ],
+  "nonOkResponses": [],
+  "requestFailures": []
+}

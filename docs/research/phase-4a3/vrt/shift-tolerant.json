@@ -1,0 +1,98 @@
+[
+ {
+  "name": "card-composed",
+  "residualMax": 103,
+  "residualOver32": 624,
+  "residualOver64": 96,
+  "bbox32": [
+   95,
+   64,
+   647,
+   380
+  ]
+ },
+ {
+  "name": "herodraftslot-legacy-all-states",
+  "residualMax": 80,
+  "residualOver32": 128,
+  "residualOver64": 7,
+  "bbox32": [
+   92,
+   86,
+   1130,
+   167
+  ]
+ },
+ {
+  "name": "herodraftslot-legacy-interactive-forced",
+  "residualMax": 80,
+  "residualOver32": 187,
+  "residualOver64": 7,
+  "bbox32": [
+   88,
+   80,
+   1130,
+   289
+  ]
+ },
+ {
+  "name": "herodraftslot-showplate-default-cell",
+  "residualMax": 64,
+  "residualOver32": 9,
+  "residualOver64": 0,
+  "bbox32": [
+   8,
+   48,
+   25,
+   55
+  ]
+ },
+ {
+  "name": "herodraftslot-showplate",
+  "residualMax": 80,
+  "residualOver32": 369,
+  "residualOver64": 21,
+  "bbox32": [
+   92,
+   86,
+   1130,
+   379
+  ]
+ },
+ {
+  "name": "statetarget-legacy-all-states",
+  "residualMax": 90,
+  "residualOver32": 852,
+  "residualOver64": 103,
+  "bbox32": [
+   100,
+   97,
+   1032,
+   356
+  ]
+ },
+ {
+  "name": "statetarget-legacy-interactive",
+  "residualMax": 86,
+  "residualOver32": 715,
+  "residualOver64": 39,
+  "bbox32": [
+   126,
+   94,
+   1030,
+   356
+  ]
+ },
+ {
+  "name": "statetarget-pressed",
+  "residualMax": 103,
+  "residualOver32": 768,
+  "residualOver64": 92,
+  "bbox32": [
+   95,
+   64,
+   1073,
+   357
+  ]
+ }
+]

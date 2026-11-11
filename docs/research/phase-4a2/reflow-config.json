@@ -1,0 +1,26 @@
+{
+  "320": {
+    "clientWidth": 320,
+    "pageScrollWidth": 320,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 320,
+    "overflowCount": 0,
+    "overflowSamples": []
+  },
+  "640": {
+    "clientWidth": 640,
+    "pageScrollWidth": 640,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 640,
+    "overflowCount": 0,
+    "overflowSamples": []
+  },
+  "1280": {
+    "clientWidth": 1280,
+    "pageScrollWidth": 1280,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 1280,
+    "overflowCount": 0,
+    "overflowSamples": []
+  }
+}

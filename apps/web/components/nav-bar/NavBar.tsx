@@ -77,7 +77,7 @@ export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
   if (hiddenForVisitor) return null;
 
   return (
-    <nav className="flex items-center gap-1 border-b border-surface-border bg-surface-raised px-4">
+    <nav className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-surface-border bg-surface-raised px-4">
       <Link href="/" className="px-3 py-2 text-body font-semibold text-content-primary">
         dota2coach
       </Link>
@@ -86,16 +86,16 @@ export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
           {link.label}
         </Link>
       ))}
-      <div className="ml-auto flex items-center gap-2 px-3 py-1">
+      <div className="ml-auto flex min-w-0 items-center gap-2 px-3 py-1">
         <Link href="/settings" className="flex items-center gap-2 text-left hover:text-content-primary">
           {profile?.avatarUrl ? (
             <img src={profile.avatarUrl} alt="" className="size-8 rounded-full border border-surface-border" />
           ) : (
-            <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full border border-surface-border bg-surface-overlay text-caption text-content-muted">S</span>
+            <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full border border-surface-border bg-surface-overlay text-caption text-content-secondary">S</span>
           )}
           <span className="flex flex-col">
             <span className="text-caption text-content-primary">{label?.displayName ?? accountLabel(null)}</span>
-            {label && <span className="font-mono text-[10px] text-content-muted">{label.accountIdLabel}</span>}
+            {label && <span className="font-mono text-[10px] text-content-secondary">{label.accountIdLabel}</span>}
           </span>
         </Link>
         {profile && (

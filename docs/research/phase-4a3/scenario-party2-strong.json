@@ -1,0 +1,93 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) · ESCENARIO DE PRUEBA con entradas curadas (semilla + Personal_Ban_List); sin page.route",
+  "scenario": {
+    "id": "party2-strong",
+    "kind": "STRONG",
+    "size": 2,
+    "humanPosition": 5,
+    "seed": "CURATED3",
+    "nominatedBans": [
+      "Doom",
+      "Ancient Apparition",
+      "Shadow Demon",
+      "Troll Warlord"
+    ]
+  },
+  "resolvedBansText": "Bans resueltos (16) Legion Commander Monkey King Mars Marci Dawnbreaker Primal Beast Kez Void Spirit Doom Timbersaw Hoodwink Ancient Apparition Underlord Ringmaster Shadow Demon Medusa",
+  "engineResponses": 1,
+  "columns": [
+    {
+      "position": 2,
+      "state": "RANKED",
+      "cards": 0,
+      "primaryHeroId": null
+    },
+    {
+      "position": 5,
+      "state": "RANKED",
+      "cards": 4,
+      "primaryHeroId": 111
+    }
+  ],
+  "cards": [
+    {
+      "position": 5,
+      "heroId": 111,
+      "evidenceStrength": "STRONG",
+      "isPrimary": true,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 5,
+      "heroId": 5,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 5,
+      "heroId": 102,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 5,
+      "heroId": 58,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    }
+  ],
+  "currentDecision": {
+    "recommendedPosition": 5,
+    "recommendedHeroId": 111,
+    "targetBasis": "DETERMINISTIC_DEFAULT",
+    "reason": "",
+    "actionablePositions": [
+      2,
+      5
+    ],
+    "roundCapacity": 2
+  },
+  "uiRecommendedCards": 1,
+  "analysisPanel": {
+    "decisionAttr": "same",
+    "decisionText": "Decisión del equipo ELIGE AHORA: Oracle · Pos5 Hard Support Criterio del motor: orden por defecto",
+    "heroReasonsText": "Razones de Oracle Lo que abrieron los bans Se abre: Ancient Apparition (posible) — Ice Blast bloquea la curación de False Promise y la vuelve una ejecución Se abre: Doom (posible) — Doom bloquea False Promise y el resto del kit defensivo Se abre: Shadow Demon (posible) — Demonic Purge dispela la resistencia mágica de Fate's Edict y la curación de Purifying Flames Sigue libre Silencer (posible) — Global Silence impide False Promise y Fate's Edict en la ventana crítica Visage (posible) — Los Familiars interrumpen los canales de Oracle y le aplican presión constante, y a Oracle le cuesta limpiarlos"
+  },
+  "axe": {
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 42
+      }
+    ]
+  },
+  "pickedRecommended": "Oracle"
+}

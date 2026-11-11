@@ -2,7 +2,8 @@
 
 import type { TargetState } from "@/design/canonical/primitives";
 import { teamPositionName } from "@/features/team-coach/constants";
-import type { TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamPosition } from "@/features/team-coach/types";
+import { canHighlightAsRecommended, hasLimitedEvidence, isPlannedCandidate } from "@/features/team-coach/eligibility";
+import type { TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachTargetBasis, TeamPosition } from "@/features/team-coach/types";
 import type { ColumnCandidate } from "./merge-candidates";
 
 export type ColumnRelation = "mine" | "party";
@@ -23,7 +24,9 @@ export interface Recommendation {
   heroId: number;
   /** Comparación de presentación contra la posición propia (G14: el motor no dice para quién es). */
   forMe: boolean;
-  /** Solo `STRATEGIC` trae una razón; los otros `targetBasis` no se explican. */
+  /** Con qué criterio eligió el motor la posición (`STRATEGIC` / `DETERMINISTIC_DEFAULT` / `PHASE_FALLBACK`). Se dice tal cual; no se interpreta. */
+  basis: TeamCoachTargetBasis | null;
+  /** La razón que entrega el motor para ESTA decisión (verbatim). Es de la decisión del equipo, no del héroe que esté abierto en el panel. `null` = el motor no dijo nada. */
   reason: string | null;
 }
 
@@ -34,8 +37,39 @@ export function recommendationOf(board: TeamCoachBoardData, visible: readonly Te
   if (!visible.includes(recommendedPosition)) return null;
   const column = board.positions.find((entry) => entry.position === recommendedPosition);
   const card = column?.top.find((entry) => entry.heroId === recommendedHeroId);
-  if (card === undefined || !card.isPrimary || card.evidenceStrength === "WEAK") return null;
-  return { position: recommendedPosition, heroId: recommendedHeroId, forMe: humanPosition === recommendedPosition, reason: targetBasis === "STRATEGIC" && reason !== "" ? reason : null };
+  // Misma regla que Live (`features/team-coach/eligibility.ts`): una sola definición para las dos superficies.
+  if (card === undefined || !canHighlightAsRecommended(card)) return null;
+  return { position: recommendedPosition, heroId: recommendedHeroId, forMe: humanPosition === recommendedPosition, basis: targetBasis, reason: reason !== "" ? reason : null };
+}
+
+/** El motor puede decir «no hay pick humano ahora» (posición null + razón): se muestra como está, sin inventar una recomendación. */
+export function noActionReasonOf(board: TeamCoachBoardData): string | null {
+  const { recommendedPosition, recommendedHeroId, reason } = board.currentDecision;
+  if (recommendedPosition !== null || recommendedHeroId !== null || reason === "") return null;
+  return reason;
+}
+
+export interface OpenCandidate {
+  position: TeamPosition;
+  heroId: number;
+}
+
+/** Lo que el panel dice de la decisión del equipo, SEPARADO de las razones del héroe abierto. */
+export type DecisionView =
+  | { kind: "recommended"; heroId: number; position: TeamPosition; forMe: boolean; basis: TeamCoachTargetBasis | null; reason: string | null; /** El héroe abierto ES el recomendado. */ sameAsOpen: boolean }
+  | { kind: "none"; reason: string };
+
+/**
+ * Pura. Si la decisión apunta a OTRO héroe u otra posición, `sameAsOpen` es false y la vista nombra a quién pertenece la explicación:
+ * la razón de `currentDecision` nunca se atribuye al héroe abierto.
+ */
+export function decisionViewOf(recommendation: Recommendation | null, noActionReason: string | null, open: OpenCandidate): DecisionView | null {
+  if (recommendation !== null) {
+    const sameAsOpen = recommendation.position === open.position && recommendation.heroId === open.heroId;
+    return { kind: "recommended", heroId: recommendation.heroId, position: recommendation.position, forMe: recommendation.forMe, basis: recommendation.basis, reason: recommendation.reason, sameAsOpen };
+  }
+  if (noActionReason !== null) return { kind: "none", reason: noActionReason };
+  return null;
 }
 
 export interface CardModel {
@@ -78,7 +112,7 @@ function poolTextOf(candidate: TeamCoachCandidate, poolRank: number | null): str
 
 export function cardModelOf({ entry, column, recommendation, selected, showPlan }: CardInput): CardModel {
   const { candidate, generalRank, poolRank } = entry;
-  const weak = candidate.evidenceStrength === "WEAK";
+  const weak = hasLimitedEvidence(candidate);
   const isRecommended = recommendation !== null && recommendation.position === column.position && recommendation.heroId === candidate.heroId && generalRank !== null;
   // Un solo `state` por tarjeta: recommended > selected > uncertain > rest. «Recomendado» nunca se pierde (D3): si además está seleccionada,
   // «seleccionado» se compone en el retrato. Lo que pierde canal (evidencia limitada bajo `selected`) se dice con texto.
@@ -95,7 +129,7 @@ export function cardModelOf({ entry, column, recommendation, selected, showPlan 
     notch: forMe ? "ELIGE AHORA" : `Para tu party · Pos ${column.position}`,
     note: weak ? EVIDENCE_NOTE : undefined,
     isRecommended,
-    isPlan: showPlan && candidate.isPrimary && !isRecommended && generalRank !== null,
+    isPlan: showPlan && isPlannedCandidate(candidate) && !isRecommended && generalRank !== null,
     evidenceAsText: weak && state !== "uncertain",
     poolText: poolTextOf(candidate, poolRank),
   };

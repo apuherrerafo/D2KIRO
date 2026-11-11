@@ -1,0 +1,34 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) · ESCENARIO DE PRUEBA con entradas curadas (semilla + Personal_Ban_List); sin page.route",
+  "scenario": {
+    "id": "solo-cero",
+    "kind": "CERO",
+    "size": 1,
+    "humanPosition": 2,
+    "seed": "SCAN0000",
+    "nominatedBans": []
+  },
+  "resolvedBansText": "Bans resueltos (16) Abaddon Pangolier Snapfire Marci Primal Beast Muerta Kez Winter Wyvern Arc Warden Medusa Tusk Slark Ember Spirit Bristleback Earth Spirit Dark Willow",
+  "engineResponses": 1,
+  "columns": [
+    {
+      "position": 2,
+      "state": "RANKED",
+      "cards": 0,
+      "primaryHeroId": null
+    }
+  ],
+  "cards": [],
+  "currentDecision": {
+    "recommendedPosition": null,
+    "recommendedHeroId": null,
+    "targetBasis": null,
+    "reason": "",
+    "actionablePositions": [
+      2
+    ],
+    "roundCapacity": 1
+  },
+  "uiRecommendedCards": 0,
+  "otherHeroSearchVisible": true
+}

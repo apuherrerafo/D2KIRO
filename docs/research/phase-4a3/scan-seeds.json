@@ -1,0 +1,3606 @@
+{
+  "patch": "7.41e",
+  "metaStatus": 404,
+  "rows": [
+    {
+      "case": "solo",
+      "seed": "SCAN0000",
+      "bans": [
+        102,
+        120,
+        128,
+        136,
+        137,
+        138,
+        145,
+        112,
+        113,
+        94,
+        100,
+        93,
+        106,
+        99,
+        107,
+        119
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0001",
+      "bans": [
+        101,
+        113,
+        137,
+        94,
+        121,
+        131,
+        145,
+        103,
+        107,
+        120,
+        136,
+        87,
+        111,
+        128,
+        78,
+        67
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0002",
+      "bans": [
+        111,
+        113,
+        120,
+        123,
+        145,
+        87,
+        129,
+        105,
+        126,
+        135,
+        109,
+        114,
+        75,
+        97,
+        101,
+        100
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0003",
+      "bans": [
+        105,
+        98,
+        123,
+        138,
+        107,
+        114,
+        119,
+        135,
+        108,
+        145,
+        136,
+        129,
+        137,
+        109,
+        131,
+        102
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0004",
+      "bans": [
+        106,
+        138,
+        104,
+        128,
+        145,
+        120,
+        102,
+        136,
+        99,
+        113,
+        126,
+        96,
+        79,
+        95,
+        73,
+        111
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0005",
+      "bans": [
+        155,
+        129,
+        120,
+        145,
+        95,
+        87,
+        109,
+        113,
+        121,
+        101,
+        137,
+        105,
+        112,
+        135,
+        88,
+        136
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0006",
+      "bans": [
+        109,
+        114,
+        129,
+        135,
+        111,
+        121,
+        120,
+        123,
+        86,
+        113,
+        95,
+        90,
+        110,
+        145,
+        94,
+        88
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0007",
+      "bans": [
+        113,
+        123,
+        137,
+        155,
+        136,
+        105,
+        109,
+        95,
+        145,
+        93,
+        126,
+        128,
+        103,
+        119,
+        81,
+        92
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0008",
+      "bans": [
+        106,
+        108,
+        126,
+        135,
+        136,
+        104,
+        123,
+        128,
+        155,
+        105,
+        112,
+        138,
+        99,
+        81,
+        70,
+        145
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0009",
+      "bans": [
+        138,
+        100,
+        108,
+        114,
+        123,
+        145,
+        131,
+        137,
+        120,
+        110,
+        136,
+        126,
+        135,
+        111,
+        92,
+        68
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0010",
+      "bans": [
+        114,
+        135,
+        121,
+        101,
+        126,
+        109,
+        138,
+        100,
+        137,
+        155,
+        92,
+        120,
+        91,
+        128,
+        84,
+        82
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0011",
+      "bans": [
+        129,
+        145,
+        121,
+        108,
+        93,
+        95,
+        98,
+        131,
+        102,
+        123,
+        128,
+        94,
+        104,
+        109,
+        82,
+        85
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0012",
+      "bans": [
+        131,
+        98,
+        104,
+        112,
+        145,
+        129,
+        137,
+        106,
+        123,
+        111,
+        120,
+        136,
+        155,
+        69,
+        110,
+        91
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0013",
+      "bans": [
+        138,
+        135,
+        155,
+        137,
+        100,
+        129,
+        98,
+        111,
+        107,
+        108,
+        88,
+        97,
+        145,
+        92,
+        71,
+        78
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0014",
+      "bans": [
+        101,
+        128,
+        91,
+        103,
+        137,
+        131,
+        87,
+        114,
+        145,
+        90,
+        92,
+        120,
+        126,
+        94,
+        136,
+        99
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0015",
+      "bans": [
+        128,
+        102,
+        155,
+        112,
+        120,
+        135,
+        104,
+        108,
+        93,
+        94,
+        114,
+        121,
+        98,
+        111,
+        106,
+        129
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0016",
+      "bans": [
+        136,
+        111,
+        100,
+        113,
+        128,
+        138,
+        105,
+        109,
+        119,
+        135,
+        102,
+        93,
+        76,
+        71,
+        114,
+        101
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0017",
+      "bans": [
+        119,
+        121,
+        111,
+        126,
+        145,
+        89,
+        97,
+        98,
+        107,
+        128,
+        136,
+        129,
+        138,
+        110,
+        78,
+        131
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0018",
+      "bans": [
+        135,
+        96,
+        105,
+        110,
+        128,
+        129,
+        155,
+        114,
+        113,
+        112,
+        102,
+        108,
+        145,
+        111,
+        69,
+        75
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0019",
+      "bans": [
+        114,
+        87,
+        106,
+        112,
+        120,
+        121,
+        104,
+        145,
+        107,
+        123,
+        111,
+        113,
+        95,
+        99,
+        110,
+        138
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0020",
+      "bans": [
+        155,
+        126,
+        128,
+        114,
+        121,
+        138,
+        109,
+        106,
+        135,
+        131,
+        86,
+        98,
+        145,
+        99,
+        78,
+        93
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0021",
+      "bans": [
+        155,
+        108,
+        121,
+        129,
+        138,
+        145,
+        88,
+        123,
+        128,
+        135,
+        109,
+        95,
+        111,
+        114,
+        113,
+        137
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0022",
+      "bans": [
+        123,
+        128,
+        114,
+        136,
+        96,
+        137,
+        155,
+        94,
+        100,
+        135,
+        86,
+        93,
+        106,
+        126,
+        88,
+        97
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0023",
+      "bans": [
+        113,
+        89,
+        108,
+        119,
+        120,
+        126,
+        129,
+        137,
+        131,
+        109,
+        135,
+        85,
+        87,
+        95,
+        104,
+        84
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0024",
+      "bans": [
+        102,
+        136,
+        137,
+        138,
+        121,
+        126,
+        111,
+        123,
+        135,
+        106,
+        110,
+        128,
+        100,
+        112,
+        107,
+        120
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0025",
+      "bans": [
+        131,
+        107,
+        119,
+        126,
+        138,
+        155,
+        93,
+        102,
+        109,
+        100,
+        120,
+        90,
+        112,
+        123,
+        137,
+        81
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0026",
+      "bans": [
+        137,
+        145,
+        103,
+        135,
+        107,
+        121,
+        104,
+        109,
+        120,
+        89,
+        128,
+        136,
+        138,
+        155,
+        101,
+        112
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0027",
+      "bans": [
+        114,
+        102,
+        110,
+        106,
+        119,
+        129,
+        99,
+        104,
+        93,
+        123,
+        73,
+        137,
+        138,
+        95,
+        111,
+        77
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0028",
+      "bans": [
+        155,
+        108,
+        111,
+        128,
+        129,
+        110,
+        113,
+        131,
+        100,
+        101,
+        123,
+        99,
+        82,
+        104,
+        145,
+        85
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0029",
+      "bans": [
+        155,
+        128,
+        131,
+        107,
+        108,
+        119,
+        126,
+        136,
+        90,
+        113,
+        120,
+        135,
+        104,
+        105,
+        95,
+        138
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0030",
+      "bans": [
+        120,
+        136,
+        137,
+        155,
+        123,
+        96,
+        97,
+        100,
+        119,
+        86,
+        74,
+        90,
+        145,
+        75,
+        93,
+        88
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0031",
+      "bans": [
+        137,
+        128,
+        129,
+        145,
+        96,
+        110,
+        104,
+        131,
+        100,
+        135,
+        155,
+        90,
+        105,
+        121,
+        86,
+        123
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0032",
+      "bans": [
+        131,
+        108,
+        97,
+        129,
+        103,
+        137,
+        155,
+        105,
+        107,
+        90,
+        119,
+        120,
+        114,
+        113,
+        135,
+        72
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0033",
+      "bans": [
+        131,
+        108,
+        98,
+        110,
+        112,
+        120,
+        155,
+        113,
+        138,
+        137,
+        97,
+        95,
+        86,
+        129,
+        70,
+        102
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0034",
+      "bans": [
+        111,
+        145,
+        107,
+        113,
+        97,
+        92,
+        100,
+        155,
+        86,
+        83,
+        108,
+        91,
+        90,
+        101,
+        87,
+        74
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0035",
+      "bans": [
+        137,
+        113,
+        128,
+        145,
+        108,
+        121,
+        93,
+        114,
+        131,
+        101,
+        106,
+        135,
+        136,
+        69,
+        80,
+        95
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0036",
+      "bans": [
+        100,
+        107,
+        111,
+        126,
+        129,
+        103,
+        119,
+        138,
+        114,
+        86,
+        112,
+        108,
+        109,
+        89,
+        131,
+        79
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0037",
+      "bans": [
+        93,
+        97,
+        110,
+        137,
+        155,
+        129,
+        131,
+        92,
+        114,
+        128,
+        99,
+        101,
+        120,
+        88,
+        145,
+        103
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0038",
+      "bans": [
+        128,
+        119,
+        131,
+        100,
+        103,
+        98,
+        101,
+        112,
+        136,
+        89,
+        106,
+        145,
+        96,
+        108,
+        135,
+        81
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "solo",
+      "seed": "SCAN0039",
+      "bans": [
+        114,
+        121,
+        123,
+        137,
+        145,
+        128,
+        129,
+        155,
+        104,
+        100,
+        111,
+        135,
+        108,
+        138,
+        90,
+        77
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2
+        ],
+        "roundCapacity": 1
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0000",
+      "bans": [
+        102,
+        120,
+        128,
+        136,
+        137,
+        138,
+        145,
+        112,
+        113,
+        94,
+        100,
+        93,
+        106,
+        99,
+        107,
+        119
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0001",
+      "bans": [
+        101,
+        113,
+        137,
+        94,
+        121,
+        131,
+        145,
+        103,
+        107,
+        120,
+        136,
+        87,
+        111,
+        128,
+        78,
+        67
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0002",
+      "bans": [
+        111,
+        113,
+        120,
+        123,
+        145,
+        87,
+        129,
+        105,
+        126,
+        135,
+        109,
+        114,
+        75,
+        97,
+        101,
+        100
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0003",
+      "bans": [
+        105,
+        98,
+        123,
+        138,
+        107,
+        114,
+        119,
+        135,
+        108,
+        145,
+        136,
+        129,
+        137,
+        109,
+        131,
+        102
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0004",
+      "bans": [
+        106,
+        138,
+        104,
+        128,
+        145,
+        120,
+        102,
+        136,
+        99,
+        113,
+        126,
+        96,
+        79,
+        95,
+        73,
+        111
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 0,
+          "weak": 5
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0005",
+      "bans": [
+        155,
+        129,
+        120,
+        145,
+        95,
+        87,
+        109,
+        113,
+        121,
+        101,
+        137,
+        105,
+        112,
+        135,
+        88,
+        136
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0006",
+      "bans": [
+        109,
+        114,
+        129,
+        135,
+        111,
+        121,
+        120,
+        123,
+        86,
+        113,
+        95,
+        90,
+        110,
+        145,
+        94,
+        88
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0007",
+      "bans": [
+        113,
+        123,
+        137,
+        155,
+        136,
+        105,
+        109,
+        95,
+        145,
+        93,
+        126,
+        128,
+        103,
+        119,
+        81,
+        92
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0008",
+      "bans": [
+        106,
+        108,
+        126,
+        135,
+        136,
+        104,
+        123,
+        128,
+        155,
+        105,
+        112,
+        138,
+        99,
+        81,
+        70,
+        145
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0009",
+      "bans": [
+        138,
+        100,
+        108,
+        114,
+        123,
+        145,
+        131,
+        137,
+        120,
+        110,
+        136,
+        126,
+        135,
+        111,
+        92,
+        68
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0010",
+      "bans": [
+        114,
+        135,
+        121,
+        101,
+        126,
+        109,
+        138,
+        100,
+        137,
+        155,
+        92,
+        120,
+        91,
+        128,
+        84,
+        82
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0011",
+      "bans": [
+        129,
+        145,
+        121,
+        108,
+        93,
+        95,
+        98,
+        131,
+        102,
+        123,
+        128,
+        94,
+        104,
+        109,
+        82,
+        85
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 0,
+          "weak": 5
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0012",
+      "bans": [
+        131,
+        98,
+        104,
+        112,
+        145,
+        129,
+        137,
+        106,
+        123,
+        111,
+        120,
+        136,
+        155,
+        69,
+        110,
+        91
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0013",
+      "bans": [
+        138,
+        135,
+        155,
+        137,
+        100,
+        129,
+        98,
+        111,
+        107,
+        108,
+        88,
+        97,
+        145,
+        92,
+        71,
+        78
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0014",
+      "bans": [
+        101,
+        128,
+        91,
+        103,
+        137,
+        131,
+        87,
+        114,
+        145,
+        90,
+        92,
+        120,
+        126,
+        94,
+        136,
+        99
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 0,
+          "weak": 5
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0015",
+      "bans": [
+        128,
+        102,
+        155,
+        112,
+        120,
+        135,
+        104,
+        108,
+        93,
+        94,
+        114,
+        121,
+        98,
+        111,
+        106,
+        129
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 0,
+          "weak": 5
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0016",
+      "bans": [
+        136,
+        111,
+        100,
+        113,
+        128,
+        138,
+        105,
+        109,
+        119,
+        135,
+        102,
+        93,
+        76,
+        71,
+        114,
+        101
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0017",
+      "bans": [
+        119,
+        121,
+        111,
+        126,
+        145,
+        89,
+        97,
+        98,
+        107,
+        128,
+        136,
+        129,
+        138,
+        110,
+        78,
+        131
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0018",
+      "bans": [
+        135,
+        96,
+        105,
+        110,
+        128,
+        129,
+        155,
+        114,
+        113,
+        112,
+        102,
+        108,
+        145,
+        111,
+        69,
+        75
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0019",
+      "bans": [
+        114,
+        87,
+        106,
+        112,
+        120,
+        121,
+        104,
+        145,
+        107,
+        123,
+        111,
+        113,
+        95,
+        99,
+        110,
+        138
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0020",
+      "bans": [
+        155,
+        126,
+        128,
+        114,
+        121,
+        138,
+        109,
+        106,
+        135,
+        131,
+        86,
+        98,
+        145,
+        99,
+        78,
+        93
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0021",
+      "bans": [
+        155,
+        108,
+        121,
+        129,
+        138,
+        145,
+        88,
+        123,
+        128,
+        135,
+        109,
+        95,
+        111,
+        114,
+        113,
+        137
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0022",
+      "bans": [
+        123,
+        128,
+        114,
+        136,
+        96,
+        137,
+        155,
+        94,
+        100,
+        135,
+        86,
+        93,
+        106,
+        126,
+        88,
+        97
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0023",
+      "bans": [
+        113,
+        89,
+        108,
+        119,
+        120,
+        126,
+        129,
+        137,
+        131,
+        109,
+        135,
+        85,
+        87,
+        95,
+        104,
+        84
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0024",
+      "bans": [
+        102,
+        136,
+        137,
+        138,
+        121,
+        126,
+        111,
+        123,
+        135,
+        106,
+        110,
+        128,
+        100,
+        112,
+        107,
+        120
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0025",
+      "bans": [
+        131,
+        107,
+        119,
+        126,
+        138,
+        155,
+        93,
+        102,
+        109,
+        100,
+        120,
+        90,
+        112,
+        123,
+        137,
+        81
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0026",
+      "bans": [
+        137,
+        145,
+        103,
+        135,
+        107,
+        121,
+        104,
+        109,
+        120,
+        89,
+        128,
+        136,
+        138,
+        155,
+        101,
+        112
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 0,
+          "weak": 5
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0027",
+      "bans": [
+        114,
+        102,
+        110,
+        106,
+        119,
+        129,
+        99,
+        104,
+        93,
+        123,
+        73,
+        137,
+        138,
+        95,
+        111,
+        77
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 0,
+          "weak": 5
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0028",
+      "bans": [
+        155,
+        108,
+        111,
+        128,
+        129,
+        110,
+        113,
+        131,
+        100,
+        101,
+        123,
+        99,
+        82,
+        104,
+        145,
+        85
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0029",
+      "bans": [
+        155,
+        128,
+        131,
+        107,
+        108,
+        119,
+        126,
+        136,
+        90,
+        113,
+        120,
+        135,
+        104,
+        105,
+        95,
+        138
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0030",
+      "bans": [
+        120,
+        136,
+        137,
+        155,
+        123,
+        96,
+        97,
+        100,
+        119,
+        86,
+        74,
+        90,
+        145,
+        75,
+        93,
+        88
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0031",
+      "bans": [
+        137,
+        128,
+        129,
+        145,
+        96,
+        110,
+        104,
+        131,
+        100,
+        135,
+        155,
+        90,
+        105,
+        121,
+        86,
+        123
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0032",
+      "bans": [
+        131,
+        108,
+        97,
+        129,
+        103,
+        137,
+        155,
+        105,
+        107,
+        90,
+        119,
+        120,
+        114,
+        113,
+        135,
+        72
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0033",
+      "bans": [
+        131,
+        108,
+        98,
+        110,
+        112,
+        120,
+        155,
+        113,
+        138,
+        137,
+        97,
+        95,
+        86,
+        129,
+        70,
+        102
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0034",
+      "bans": [
+        111,
+        145,
+        107,
+        113,
+        97,
+        92,
+        100,
+        155,
+        86,
+        83,
+        108,
+        91,
+        90,
+        101,
+        87,
+        74
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0035",
+      "bans": [
+        137,
+        113,
+        128,
+        145,
+        108,
+        121,
+        93,
+        114,
+        131,
+        101,
+        106,
+        135,
+        136,
+        69,
+        80,
+        95
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0036",
+      "bans": [
+        100,
+        107,
+        111,
+        126,
+        129,
+        103,
+        119,
+        138,
+        114,
+        86,
+        112,
+        108,
+        109,
+        89,
+        131,
+        79
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0037",
+      "bans": [
+        93,
+        97,
+        110,
+        137,
+        155,
+        129,
+        131,
+        92,
+        114,
+        128,
+        99,
+        101,
+        120,
+        88,
+        145,
+        103
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0038",
+      "bans": [
+        128,
+        119,
+        131,
+        100,
+        103,
+        98,
+        101,
+        112,
+        136,
+        89,
+        106,
+        145,
+        96,
+        108,
+        135,
+        81
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    },
+    {
+      "case": "party2",
+      "seed": "SCAN0039",
+      "bans": [
+        114,
+        121,
+        123,
+        137,
+        145,
+        128,
+        129,
+        155,
+        104,
+        100,
+        111,
+        135,
+        108,
+        138,
+        90,
+        77
+      ],
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 2,
+          "strong": 0,
+          "weak": 2
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": "",
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "roundCapacity": 2
+      }
+    }
+  ]
+}

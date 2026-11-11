@@ -24,7 +24,7 @@ interface OwnRosterSeatProps {
 function controllerClassName(controller: SimulatorController): string {
   if (controller === "YOU") return "border-accent-primary text-accent-primary";
   if (controller === "PARTY") return "border-surface-border text-content-primary";
-  return "border-surface-border text-content-muted";
+  return "border-surface-border text-content-secondary";
 }
 
 /** Own Team seat: Pos1-5 identity is known session truth (PD-027 point 3), never re-derived here. */
@@ -37,7 +37,7 @@ function OwnRosterSeat({ heroId, heroCatalog, position, controller }: OwnRosterS
     >
       {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={40} />}
       {heroId === null && (
-        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-muted">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-secondary">
           ?
         </div>
       )}
@@ -46,7 +46,7 @@ function OwnRosterSeat({ heroId, heroCatalog, position, controller }: OwnRosterS
           Pos{position} {SIMULATOR_POSITION_LABELS[position]}
         </span>
         {heroId !== null && <span className="truncate text-body text-content-primary">{hero?.localizedName ?? `Héroe ${heroId}`}</span>}
-        {heroId === null && <span className="text-caption text-content-muted">Sin elegir</span>}
+        {heroId === null && <span className="text-caption text-content-secondary">Sin elegir</span>}
         <span className={`self-start rounded-md border px-2 py-1 text-caption font-semibold ${controllerClassName(controller)}`}>
           {controller}
         </span>
@@ -77,13 +77,13 @@ function EnemyRosterSeat({ heroId, heroCatalog, seat, roleLabel }: EnemyRosterSe
     >
       {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={40} />}
       {heroId === null && (
-        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-muted">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-secondary">
           ?
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {heroId !== null && <span className="truncate text-body text-content-primary">{hero?.localizedName ?? `Héroe ${heroId}`}</span>}
-        {heroId === null && <span className="text-caption text-content-muted">Oculto hasta el reveal</span>}
+        {heroId === null && <span className="text-caption text-content-secondary">Oculto hasta el reveal</span>}
         {heroId !== null && roleLabel !== null && (
           <span className="text-caption text-content-secondary" data-testid="enemy-roster-role">
             {roleLabel}

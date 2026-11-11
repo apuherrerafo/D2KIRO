@@ -1,0 +1,71 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) · ESCENARIO DE PRUEBA con entradas curadas (semilla + Personal_Ban_List); sin page.route",
+  "scenario": {
+    "id": "party2-weak",
+    "kind": "WEAK",
+    "size": 2,
+    "humanPosition": 5,
+    "seed": "SCAN0000",
+    "nominatedBans": []
+  },
+  "resolvedBansText": "Bans resueltos (16) Abaddon Pangolier Snapfire Marci Primal Beast Muerta Kez Winter Wyvern Arc Warden Medusa Tusk Slark Ember Spirit Bristleback Earth Spirit Dark Willow",
+  "engineResponses": 1,
+  "columns": [
+    {
+      "position": 2,
+      "state": "RANKED",
+      "cards": 0,
+      "primaryHeroId": null
+    },
+    {
+      "position": 5,
+      "state": "RANKED",
+      "cards": 3,
+      "primaryHeroId": null
+    }
+  ],
+  "cards": [
+    {
+      "position": 5,
+      "heroId": 85,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 5,
+      "heroId": 40,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 5,
+      "heroId": 58,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    }
+  ],
+  "currentDecision": {
+    "recommendedPosition": null,
+    "recommendedHeroId": null,
+    "targetBasis": null,
+    "reason": "",
+    "actionablePositions": [
+      2,
+      5
+    ],
+    "roundCapacity": 2
+  },
+  "uiRecommendedCards": 0,
+  "analysisPanel": {
+    "decisionSectionRendered": false,
+    "limitedEvidenceMark": true,
+    "heroReasonsShown": true,
+    "detailText": "ANÁLISIS DEL CANDIDATO Undying Undying #1 en el ranking · Pos5 Hard Support Evidencia limitada Razones de Undying Lo que abrieron los bans Se abre: Snapfire (fuerte) — Lil' Shredder aporta ataques rápidos para destruir Tombstone Se abre: Medusa (posible) — Split Shot limpia zombis y Mana Shield resiste Decay Sigue libre Luna (posible) — Moon Glaives limpian zombis alrededor de Tombstone Abrir el análisis no elige el héroe ni envía nada a Dota. Para elegir, usa el panel de la ronda."
+  }
+}

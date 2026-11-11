@@ -95,7 +95,7 @@ export function RoleCollisionBanner({ collision, heroCatalog }: { collision: Coa
           Conflicto detectado en: {conflictDetails.join("; ")}
         </span>
       )}
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         Las recomendaciones a continuación son consejos de recuperación para mitigar el desbalance.
       </span>
     </div>
@@ -158,7 +158,7 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
           rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
         />
       )}
-      <span className="text-caption text-content-muted">
+      <span className="text-caption text-content-secondary">
         {CONFIDENCE_LABELS[coach.meta.confidence]} · {isCollision ? "Consejo de recuperación: mitiga el conflicto de roles." : "Es una sugerencia: puedes elegir cualquier héroe legal."}
       </span>
     </div>
@@ -205,7 +205,7 @@ export function SafeCoreOpportunity({ opportunity, sessionId, stateIdentity, rul
           rulesetVersion={rulesetVersion}
         />
       )}
-      <span className="text-caption text-content-muted" data-testid="coach-opportunity-source">
+      <span className="text-caption text-content-secondary" data-testid="coach-opportunity-source">
         {CURATED_EVIDENCE_LABEL} · Es informativo: puedes ignorarlo.
       </span>
     </div>
@@ -265,7 +265,7 @@ function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVers
         <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(card.heroId, heroCatalog)} size={40} />
         <div className="flex flex-col">
           <span className="text-body font-semibold text-content-primary">{heroName(card.heroId, heroCatalog)}</span>
-          <span className="text-caption text-content-muted">{ROLE_NOTES[card.roleStatus](card.position)}</span>
+          <span className="text-caption text-content-secondary">{ROLE_NOTES[card.roleStatus](card.position)}</span>
         </div>
       </div>
       <BadgeList badges={card.badges} />

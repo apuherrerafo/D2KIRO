@@ -20,7 +20,7 @@ function CardRiskItem({ risk }: CardRiskItemProps) {
   return (
     <li className="flex flex-col" data-testid="current-decision-risk" data-risk-kind={risk.kind}>
       <span className="text-caption font-semibold text-signal-warning">{RISK_TITLES[risk.kind]}</span>
-      <span className="text-caption text-content-muted">{playerFacingRisk(risk)}</span>
+      <span className="text-caption text-content-secondary">{playerFacingRisk(risk)}</span>
     </li>
   );
 }

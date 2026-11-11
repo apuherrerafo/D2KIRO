@@ -58,6 +58,30 @@
 .sl-reason-text strong { font-weight: 700; }
 .sl-foot { color: var(--r3-muted); font: 500 12px/1.4 var(--f-plex); margin: 0; text-align: center; }
 
+/* `.r3-page` es una página de laboratorio (min-height: 100vh + padding fluido): aquí es solo un alcance, nunca debe medir una pantalla (4A.2: abría huecos de ~100vh entre bloques). */
+.sl-page { min-height: 0; padding: 0; }
+
+/* Puente de alcance (Fase 4A.2). El encabezado del draft (CompactBoard, DraftTimer, bans, banner de ronda) se pinta con los nombres semánticos del sitio
+   (--surface-*, --content-*, --accent-*): son oscuros por definición y NO responden a `data-theme="light"`. Dentro de este alcance esos mismos nombres apuntan a los
+   tokens Light canónicos que ya existen (--r3-*). No se declara ningún color ni nombre nuevo; fuera de `.sl-light` nada cambia. */
+.sl-light {
+  --surface-base: var(--r3-bg);
+  --surface-raised: var(--r3-panel);
+  --surface-overlay: var(--r3-raise);
+  --surface-border: var(--r3-line-strong);
+  --content-primary: var(--r3-ink);
+  --content-secondary: var(--r3-muted);
+  --content-muted: var(--r3-muted);
+  --accent-primary: var(--r3-ink);
+  --accent-primary-hover: var(--r3-ink);
+  --signal-negative: var(--r3-down);
+  --signal-positive: var(--r3-up);
+  --focus-ring: var(--r3-focus);
+}
+/* la franja del draft se queda fija arriba (el temporizador siempre se ve) */
+.sl-sticky { position: sticky; top: 0; z-index: 20; }
+.sl-light[data-variant="strip"] { gap: 8px; padding: 8px 16px; }
+
 /* contenedor del bloque: fondo y alcance Light (dos elementos: `.r3-page` + hijo `data-theme="light"`, igual que team-groups) */
 .sl-light { background: var(--r3-bg); display: grid; gap: 16px; padding: 16px; }
 .sl-title { font: 700 16px/1.2 var(--f-syne); letter-spacing: -.01em; margin: 0; }

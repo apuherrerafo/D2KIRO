@@ -1,0 +1,49 @@
+{
+  "320": {
+    "clientWidth": 320,
+    "pageScrollWidth": 320,
+    "pageScrollsHorizontally": false,
+    "navScrollWidth": 320,
+    "navOverflowCount": 0,
+    "navOverflowSamples": [],
+    "boardOverflowCount": 7,
+    "boardOverflowSamples": [
+      "span \"\" right=328",
+      "span \"\" right=882",
+      "span \"\" right=882",
+      "i \"\" right=640",
+      "i \"\" right=886"
+    ],
+    "otherOverflowCount": 0
+  },
+  "640": {
+    "clientWidth": 640,
+    "pageScrollWidth": 640,
+    "pageScrollsHorizontally": false,
+    "navScrollWidth": 640,
+    "navOverflowCount": 0,
+    "navOverflowSamples": [],
+    "boardOverflowCount": 5,
+    "boardOverflowSamples": [
+      "span \"\" right=648",
+      "span \"\" right=882",
+      "span \"\" right=882",
+      "i \"\" right=886",
+      "i \"\" right=886"
+    ],
+    "otherOverflowCount": 0
+  },
+  "1600": {
+    "clientWidth": 1600,
+    "pageScrollWidth": 1600,
+    "pageScrollsHorizontally": false,
+    "navScrollWidth": 1600,
+    "navOverflowCount": 0,
+    "navOverflowSamples": [],
+    "boardOverflowCount": 1,
+    "boardOverflowSamples": [
+      "span \"\" right=1608"
+    ],
+    "otherOverflowCount": 0
+  }
+}

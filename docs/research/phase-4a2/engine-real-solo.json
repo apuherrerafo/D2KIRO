@@ -1,0 +1,49 @@
+{
+  "evidenceLevel": "MOTOR REAL (sin page.route, sin fixture, V6 intacto)",
+  "responses": 1,
+  "responsesWithAnyCard": 0,
+  "responsesWithStrongCard": 0,
+  "responsesWithRecommendation": 0,
+  "eligeAhoraCapturedFromRealEngine": false,
+  "rounds": [
+    {
+      "round": "Ronda 1 · 1 espacio de pick disponible",
+      "cards": 0,
+      "recommendedCards": 0,
+      "picker": "buscador"
+    },
+    {
+      "round": "?",
+      "cards": 0,
+      "recommendedCards": 0,
+      "picker": "sin-accion"
+    }
+  ],
+  "firstSamples": [
+    {
+      "atMs": 490,
+      "columns": [
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": ""
+      }
+    }
+  ],
+  "strongSamples": [],
+  "recommendationSamples": [],
+  "allColumnStates": [
+    "RANKED"
+  ],
+  "maxCardsInAnyColumn": 0
+}

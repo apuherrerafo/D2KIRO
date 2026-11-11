@@ -1,0 +1,11 @@
+{
+  "label": "solo · motor real",
+  "violations": [],
+  "passes": 23,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "nodes": 8
+    }
+  ]
+}

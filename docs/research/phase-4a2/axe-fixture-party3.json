@@ -1,0 +1,11 @@
+{
+  "label": "party3 · fixture · análisis + elegir",
+  "violations": [],
+  "passes": 27,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "nodes": 42
+    }
+  ]
+}

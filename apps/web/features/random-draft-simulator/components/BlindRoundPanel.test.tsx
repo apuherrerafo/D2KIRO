@@ -123,3 +123,32 @@ test("la ronda no pinta los 127 héroes: ofrece una búsqueda plegada por nombre
   expect(view.getByTestId("other-hero-search").tagName).toBe("DETAILS");
   expect(view.getByText("Buscar otro héroe")).toBeTruthy();
 });
+
+// Fase 4A.2 · «Elegir a X» para el candidato que el tablero tiene abierto en su análisis. Misma `onLockPick` que el buscador; abrir el análisis nunca elige.
+test("sin candidato analizado no hay botón de elegir; con uno legal aparece y elige SOLO al clic, con SU posición", () => {
+  const locks: [number, number][] = [];
+  function lock(heroId: number, position: number) {
+    locks.push([heroId, position]);
+  }
+  const catalog = new Map([[1, HERO]]);
+  const view = render(<BlindRoundPanel phase={PHASE} draftState={null} heroCatalog={catalog} onLockPick={lock} onYield={noop} analyzed={null} />);
+  expect(view.queryByTestId("analyzed-pick")).toBeNull();
+  view.rerender(<BlindRoundPanel phase={PHASE} draftState={null} heroCatalog={catalog} onLockPick={lock} onYield={noop} analyzed={{ position: 5, heroId: 1 }} />);
+  expect(locks).toEqual([]);
+  fireEvent.click(view.getByRole("button", { name: "Elegir a Axe como Pos5 Hard Support" }));
+  expect(locks).toEqual([[1, 5]]);
+});
+
+test("candidato analizado baneado o ya elegido: se explica por qué no se puede elegir y no hay botón", () => {
+  const draftState = { banned: [1], picks: { radiant: [], dire: [] }, localSide: "radiant" } as never;
+  const view = render(<BlindRoundPanel phase={PHASE} draftState={draftState} heroCatalog={new Map([[1, HERO]])} onLockPick={noop} onYield={noop} analyzed={{ position: 4, heroId: 1 }} />);
+  expect(view.queryByTestId("analyzed-pick-button")).toBeNull();
+  expect(view.getByTestId("analyzed-pick-blocked").textContent).toContain("no se puede elegir");
+});
+
+test("candidato analizado en una posición ya sellada: bloqueado con motivo", () => {
+  const sealed = { ...PHASE, lockedUserPicks: { 4: 7 } };
+  const view = render(<BlindRoundPanel phase={sealed} draftState={null} heroCatalog={new Map([[1, HERO]])} onLockPick={noop} onYield={noop} analyzed={{ position: 4, heroId: 1 }} />);
+  expect(view.queryByTestId("analyzed-pick-button")).toBeNull();
+  expect(view.getByTestId("analyzed-pick-blocked").textContent).toContain("sellada");
+});

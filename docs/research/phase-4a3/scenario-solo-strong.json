@@ -1,0 +1,86 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) · ESCENARIO DE PRUEBA con entradas curadas (semilla + Personal_Ban_List); sin page.route",
+  "scenario": {
+    "id": "solo-strong",
+    "kind": "STRONG",
+    "size": 1,
+    "humanPosition": 2,
+    "seed": "CURATED1",
+    "nominatedBans": [
+      "Anti-Mage",
+      "Nyx Assassin",
+      "Riki",
+      "Disruptor"
+    ]
+  },
+  "resolvedBansText": "Bans resueltos (16) Oracle Mars Nyx Assassin Muerta Dawnbreaker Marci Phoenix Kez Hoodwink Anti-Mage Naga Siren Keeper of the Light Pangolier Arc Warden Monkey King Doom",
+  "engineResponses": 1,
+  "columns": [
+    {
+      "position": 2,
+      "state": "RANKED",
+      "cards": 4,
+      "primaryHeroId": 52
+    }
+  ],
+  "cards": [
+    {
+      "position": 2,
+      "heroId": 52,
+      "evidenceStrength": "STRONG",
+      "isPrimary": true,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 2,
+      "heroId": 76,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 2,
+      "heroId": 17,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    },
+    {
+      "position": 2,
+      "heroId": 34,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    }
+  ],
+  "currentDecision": {
+    "recommendedPosition": 2,
+    "recommendedHeroId": 52,
+    "targetBasis": "DETERMINISTIC_DEFAULT",
+    "reason": "",
+    "actionablePositions": [
+      2
+    ],
+    "roundCapacity": 1
+  },
+  "uiRecommendedCards": 1,
+  "analysisPanel": {
+    "decisionAttr": "same",
+    "decisionText": "Decisión del equipo ELIGE AHORA: Leshrac · Pos2 Mid Criterio del motor: orden por defecto",
+    "heroReasonsText": "Razones de Leshrac Lo que abrieron los bans Se abre: Anti-Mage (fuerte) — Mana Break vacia tu reserva de maná y Mana Void castiga Pulse Nova Se abre: Nyx Assassin (fuerte) — Spiked Carapace se activa con tu daño en área y Mind Flare castiga la alta inteligencia Se abre: Doom (posible) — Doom apaga Pulse Nova, Diabolic Edict y Split Earth Sigue libre Pugna (posible) — Nether Ward castiga el spam constante de hechizos Lifestealer (posible) — Rage ignora Split Earth y gran parte de tu daño mágico Ancient Apparition (posible) — Ice Blast le impide curarse y regenerar, y lo destruye si queda con poca vida"
+  },
+  "axe": {
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "nodes": 41
+      }
+    ]
+  },
+  "pickedRecommended": "Leshrac"
+}

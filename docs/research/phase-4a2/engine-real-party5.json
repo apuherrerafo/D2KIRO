@@ -1,0 +1,630 @@
+{
+  "evidenceLevel": "MOTOR REAL (sin page.route, sin fixture, V6 intacto)",
+  "responses": 5,
+  "responsesWithAnyCard": 5,
+  "responsesWithStrongCard": 4,
+  "responsesWithRecommendation": 4,
+  "eligeAhoraCapturedFromRealEngine": true,
+  "rounds": [
+    {
+      "round": "Ronda 1 · 2 espacios de pick disponibles",
+      "cards": 6,
+      "recommendedCards": 0,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "Ronda 1 · 1 espacio de pick disponible",
+      "cards": 13,
+      "recommendedCards": 1,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "?",
+      "cards": 0,
+      "recommendedCards": 0,
+      "picker": "sin-accion"
+    },
+    {
+      "round": "Ronda 2 · 2 espacios de pick disponibles",
+      "cards": 15,
+      "recommendedCards": 1,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "Ronda 2 · 1 espacio de pick disponible",
+      "cards": 10,
+      "recommendedCards": 1,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "?",
+      "cards": 0,
+      "recommendedCards": 0,
+      "picker": "sin-accion"
+    },
+    {
+      "round": "Ronda 3 · 1 espacio de pick disponible",
+      "cards": 5,
+      "recommendedCards": 1,
+      "picker": "analizar+elegir"
+    },
+    {
+      "round": "?",
+      "cards": 0,
+      "recommendedCards": 0,
+      "picker": "sin-accion"
+    }
+  ],
+  "firstSamples": [
+    {
+      "atMs": 493,
+      "columns": [
+        {
+          "position": 1,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1,
+          "primaryHeroId": null
+        },
+        {
+          "position": 4,
+          "state": "RANKED",
+          "cards": 1,
+          "strong": 0,
+          "weak": 1,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 0,
+          "weak": 3,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": null,
+        "recommendedHeroId": null,
+        "targetBasis": null,
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 958,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 2,
+          "weak": 1,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 1,
+          "weak": 2,
+          "primaryHeroId": 65
+        },
+        {
+          "position": 4,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 3,
+          "weak": 0,
+          "primaryHeroId": 71
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 4,
+        "recommendedHeroId": 71,
+        "targetBasis": "PHASE_FALLBACK",
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 4893,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 98
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 121
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 3,
+        "recommendedHeroId": 98,
+        "targetBasis": "STRATEGIC",
+        "reason": "Ventana de counter: Offlane (Pos 3) tiene en su lista un counter directo de un héroe rival ya revelado, y ninguna otra posición pendiente tiene uno igual de fuerte."
+      }
+    }
+  ],
+  "strongSamples": [
+    {
+      "atMs": 958,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 2,
+          "weak": 1,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 1,
+          "weak": 2,
+          "primaryHeroId": 65
+        },
+        {
+          "position": 4,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 3,
+          "weak": 0,
+          "primaryHeroId": 71
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 4,
+        "recommendedHeroId": 71,
+        "targetBasis": "PHASE_FALLBACK",
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 4893,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 98
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 121
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 3,
+        "recommendedHeroId": 98,
+        "targetBasis": "STRATEGIC",
+        "reason": "Ventana de counter: Offlane (Pos 3) tiene en su lista un counter directo de un héroe rival ya revelado, y ninguna otra posición pendiente tiene uno igual de fuerte."
+      }
+    },
+    {
+      "atMs": 5185,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 121
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 5,
+        "recommendedHeroId": 121,
+        "targetBasis": "PHASE_FALLBACK",
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 8431,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 13
+        },
+        {
+          "position": 3,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 2,
+        "recommendedHeroId": 13,
+        "targetBasis": "DETERMINISTIC_DEFAULT",
+        "reason": ""
+      }
+    }
+  ],
+  "recommendationSamples": [
+    {
+      "atMs": 958,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 2,
+          "weak": 1,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 1,
+          "weak": 2,
+          "primaryHeroId": 65
+        },
+        {
+          "position": 4,
+          "state": "RANKED",
+          "cards": 3,
+          "strong": 3,
+          "weak": 0,
+          "primaryHeroId": 71
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 4,
+          "strong": 0,
+          "weak": 4,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 4,
+        "recommendedHeroId": 71,
+        "targetBasis": "PHASE_FALLBACK",
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 4893,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 98
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 121
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 3,
+        "recommendedHeroId": 98,
+        "targetBasis": "STRATEGIC",
+        "reason": "Ventana de counter: Offlane (Pos 3) tiene en su lista un counter directo de un héroe rival ya revelado, y ninguna otra posición pendiente tiene uno igual de fuerte."
+      }
+    },
+    {
+      "atMs": 5185,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 107
+        },
+        {
+          "position": 3,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 1,
+          "weak": 4,
+          "primaryHeroId": 121
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 5,
+        "recommendedHeroId": 121,
+        "targetBasis": "PHASE_FALLBACK",
+        "reason": ""
+      }
+    },
+    {
+      "atMs": 8431,
+      "columns": [
+        {
+          "position": 1,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 2,
+          "state": "RANKED",
+          "cards": 5,
+          "strong": 2,
+          "weak": 3,
+          "primaryHeroId": 13
+        },
+        {
+          "position": 3,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 4,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        },
+        {
+          "position": 5,
+          "state": "FILLED",
+          "cards": 0,
+          "strong": 0,
+          "weak": 0,
+          "primaryHeroId": null
+        }
+      ],
+      "decision": {
+        "recommendedPosition": 2,
+        "recommendedHeroId": 13,
+        "targetBasis": "DETERMINISTIC_DEFAULT",
+        "reason": ""
+      }
+    }
+  ],
+  "allColumnStates": [
+    "RANKED",
+    "FILLED"
+  ],
+  "maxCardsInAnyColumn": 5
+}

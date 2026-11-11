@@ -3,11 +3,12 @@ import { Glass } from "@/design/canonical/primitives";
 import { HeroIcon, HeroPortrait } from "@/design/canonical/hero-media";
 import { useReducedMotion } from "@/design/round-3a/lab-context";
 import { teamPositionName } from "@/features/team-coach/constants";
+import { hasLimitedEvidence } from "@/features/team-coach/eligibility";
 import type { TeamCoachCandidate, TeamCoachColumn } from "@/features/team-coach/types";
 import { heroName } from "../hero-name";
 import { mergeColumnCandidates, type ColumnCandidate } from "../merge-candidates";
 import { settleIn, useChanged } from "../motion";
-import { cardModelOf, LEVEL_LABEL, type Recommendation } from "../view-model";
+import { cardModelOf, decisionViewOf, LEVEL_LABEL, type DecisionView, type Recommendation } from "../view-model";
 
 // Derecha: análisis del héroe seleccionado. Solo lo que el candidato trae; un campo vacío no se dibuja ni se explica.
 // D4 (NEEDS PO DESIGN DECISION): no existe una fila-de-razón canónica. Aquí cada fila es `HeroIcon` + texto con tipografía del DS, sin borde,
@@ -16,7 +17,7 @@ import { cardModelOf, LEVEL_LABEL, type Recommendation } from "../view-model";
 // al cambiar de candidato, el contenido entra con el resorte `soft` (movimiento de panel, sin rebote).
 
 export const DETAIL_EMPTY_TEXT = "Selecciona un héroe para ver su análisis";
-export const DETAIL_NO_ACTION_NOTE = "Abrir el análisis no elige el héroe ni envía nada a Dota.";
+export const DETAIL_NO_ACTION_NOTE = "Abrir el análisis no elige el héroe ni envía nada a Dota. Para elegir, usa el panel de la ronda.";
 
 function Row({ heroId, lead, why }: { heroId: number; lead: string; why: string | undefined }) {
   return (
@@ -82,6 +83,40 @@ function Reasons({ candidate }: { candidate: TeamCoachCandidate }) {
   );
 }
 
+const BASIS_TEXT: Record<"STRATEGIC" | "DETERMINISTIC_DEFAULT" | "PHASE_FALLBACK", string> = {
+  STRATEGIC: "Criterio del motor: estratégico",
+  DETERMINISTIC_DEFAULT: "Criterio del motor: orden por defecto",
+  PHASE_FALLBACK: "Criterio del motor: orden de la fase",
+};
+
+function hasHeroReasons(candidate: TeamCoachCandidate): boolean {
+  const lists = [candidate.strengths, candidate.risks, candidate.opening?.openedBy, candidate.opening?.stillFree, candidate.synergies, candidate.steals];
+  return candidate.reasons[0] !== undefined || lists.some((list) => list !== undefined && list.length > 0);
+}
+
+// Decisión DEL EQUIPO (la de `currentDecision`), aparte de las razones del héroe. Texto y razón verbatim del motor; si apunta a otro héroe, lo dice por su nombre.
+function DecisionSection({ view, openHeroId }: { view: DecisionView; openHeroId: number }) {
+  if (view.kind === "none") {
+    return (
+      <section aria-labelledby="sl-decision-title" className="sl-decision" data-testid="sl-decision" data-decision="none">
+        <h4 className="sl-subhead" id="sl-decision-title">Decisión del equipo</h4>
+        <p className="sl-decision-line">{view.reason}</p>
+      </section>
+    );
+  }
+  const place = teamPositionName(view.position);
+  const lead = view.sameAsOpen ? `${view.forMe ? "ELIGE AHORA" : "Recomendado para tu party"}: ${heroName(view.heroId)} · ${place}` : `El motor recomienda a ${heroName(view.heroId)} · ${place}`;
+  return (
+    <section aria-labelledby="sl-decision-title" className="sl-decision" data-decision={view.sameAsOpen ? "same" : "other"} data-testid="sl-decision">
+      <h4 className="sl-subhead" id="sl-decision-title">Decisión del equipo</h4>
+      <p className="sl-decision-line"><strong>{lead}</strong></p>
+      {!view.sameAsOpen && <p className="sl-muted">Esta decisión es sobre {heroName(view.heroId)}, no sobre {heroName(openHeroId)}.</p>}
+      {view.reason !== null && <p className="sl-decision-reason" data-testid="sl-decision-reason">{view.reason}</p>}
+      {view.basis !== null && <p className="sl-muted">{BASIS_TEXT[view.basis]}</p>}
+    </section>
+  );
+}
+
 function EmptyDetail() {
   return (
     <Glass className="sl-detail" level="b" surfaceLevel="3">
@@ -92,7 +127,7 @@ function EmptyDetail() {
   );
 }
 
-function findSelected(positions: TeamCoachColumn[], selectedKey: string): { column: TeamCoachColumn; entry: ColumnCandidate } | null {
+export function findSelected(positions: TeamCoachColumn[], selectedKey: string): { column: TeamCoachColumn; entry: ColumnCandidate } | null {
   for (const column of positions) {
     const merged = mergeColumnCandidates(column);
     const entry = [...merged.general, ...merged.poolOnly].find((item) => `${column.position}:${item.candidate.heroId}` === selectedKey);
@@ -101,7 +136,16 @@ function findSelected(positions: TeamCoachColumn[], selectedKey: string): { colu
   return null;
 }
 
-export function DetailPanel({ positions, selectedKey, recommendation, showPlan }: { positions: TeamCoachColumn[]; selectedKey: string | null; recommendation: Recommendation | null; showPlan: boolean }) {
+export interface DetailPanelProps {
+  positions: TeamCoachColumn[];
+  selectedKey: string | null;
+  recommendation: Recommendation | null;
+  /** Razón del motor cuando NO hay pick humano ahora (posición null). */
+  noActionReason: string | null;
+  showPlan: boolean;
+}
+
+export function DetailPanel({ positions, selectedKey, recommendation, noActionReason, showPlan }: DetailPanelProps) {
   const reduced = useReducedMotion();
   const body = useRef<HTMLDivElement>(null);
   const found = selectedKey === null ? null : findSelected(positions, selectedKey);
@@ -114,12 +158,13 @@ export function DetailPanel({ positions, selectedKey, recommendation, showPlan }
   const { column, entry } = found;
   const model = cardModelOf({ entry, column, recommendation, selected: false, showPlan });
   const { candidate } = entry;
+  const decision = decisionViewOf(recommendation, noActionReason, { position: column.position, heroId: candidate.heroId });
   // Los mismos hechos que la tarjeta, dichos con palabras (ninguno es un componente nuevo).
   const marks = [
     model.isRecommended ? (recommendation?.forMe ? "ELIGE AHORA" : `Recomendado para tu party · Pos ${column.position}`) : null,
     model.isPlan ? "Plan de equipo" : null,
     model.poolText,
-    candidate.evidenceStrength === "WEAK" ? "Evidencia limitada" : null,
+    hasLimitedEvidence(candidate) ? "Evidencia limitada" : null,
   ].filter((mark): mark is string => mark !== null);
   return (
     <Glass className="sl-detail" edge level="b" surfaceLevel="4">
@@ -135,10 +180,16 @@ export function DetailPanel({ positions, selectedKey, recommendation, showPlan }
             <ul className="sl-marks">
               {marks.map((mark) => <li key={mark}>{mark}</li>)}
             </ul>
-            {candidate.reasons[0] !== undefined && <p className="sl-detail-reason">{candidate.reasons[0]}</p>}
           </div>
         </div>
-        <Reasons candidate={candidate} />
+        {hasHeroReasons(candidate) && (
+          <section aria-labelledby="sl-hero-reasons-title" className="sl-hero-reasons" data-testid="sl-hero-reasons">
+            <h4 className="sl-subhead" id="sl-hero-reasons-title">Razones de {heroName(candidate.heroId)}</h4>
+            {candidate.reasons[0] !== undefined && <p className="sl-detail-reason">{candidate.reasons[0]}</p>}
+            <Reasons candidate={candidate} />
+          </section>
+        )}
+        {decision !== null && <DecisionSection openHeroId={candidate.heroId} view={decision} />}
         <p className="sl-foot">{DETAIL_NO_ACTION_NOTE}</p>
       </div>
     </Glass>

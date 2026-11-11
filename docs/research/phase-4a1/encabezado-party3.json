@@ -1,0 +1,32 @@
+{
+  "pageBody": {
+    "background": "rgb(15, 17, 21)",
+    "color": "rgb(245, 246, 248)",
+    "borderBottom": "rgb(245, 246, 248)",
+    "fontFamily": "Geist"
+  },
+  "stickyStrip": {
+    "background": "rgb(15, 14, 13)",
+    "color": "rgb(244, 240, 233)",
+    "borderBottom": "rgb(244, 240, 233)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "compactBoard": {
+    "background": "rgb(242, 237, 229)",
+    "color": "rgb(23, 19, 17)",
+    "borderBottom": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "lightBlock": {
+    "background": "rgb(242, 237, 229)",
+    "color": "rgb(23, 19, 17)",
+    "borderBottom": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "lightTitle": {
+    "background": "rgba(0, 0, 0, 0)",
+    "color": "rgb(23, 19, 17)",
+    "borderBottom": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Syne\""
+  }
+}

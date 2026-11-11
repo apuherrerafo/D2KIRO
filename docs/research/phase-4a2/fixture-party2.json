@@ -1,0 +1,34 @@
+{
+  "fixture": true,
+  "note": "Respuesta real del motor con UNA tarjeta real promovida; V6 intacto.",
+  "patches": [
+    {
+      "caseName": "party2",
+      "position": 5,
+      "heroId": 85,
+      "before": {
+        "evidenceStrength": "WEAK",
+        "isPrimary": false,
+        "decision": {
+          "recommendedPosition": null,
+          "recommendedHeroId": null,
+          "targetBasis": null,
+          "reason": "",
+          "actionablePositions": [
+            2,
+            5
+          ],
+          "roundCapacity": 2
+        }
+      },
+      "after": {
+        "evidenceStrength": "STRONG",
+        "isPrimary": true,
+        "targetBasis": "STRATEGIC"
+      }
+    }
+  ],
+  "otherCandidate": "ok",
+  "pendingBefore": "Posiciones humanas pendientes: Pos2 Pos5",
+  "pendingAfter": "Posiciones humanas pendientes: Pos2"
+}

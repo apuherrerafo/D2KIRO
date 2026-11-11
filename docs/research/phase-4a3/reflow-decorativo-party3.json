@@ -1,0 +1,104 @@
+[
+  {
+    "case": "party3",
+    "width": 1600,
+    "clientWidth": 1600,
+    "htmlScrollWidth": 1600,
+    "bodyScrollWidth": 1600,
+    "docScrolls": false,
+    "decorative": [
+      {
+        "cls": "cm-light cm-light--pink",
+        "right": 212,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      },
+      {
+        "cls": "cm-light cm-light--cyan",
+        "right": 1608,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      },
+      {
+        "cls": "cm-light cm-light--lime",
+        "right": 1230,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      }
+    ]
+  },
+  {
+    "case": "party3",
+    "width": 640,
+    "clientWidth": 640,
+    "htmlScrollWidth": 640,
+    "bodyScrollWidth": 640,
+    "docScrolls": false,
+    "decorative": [
+      {
+        "cls": "cm-light cm-light--pink",
+        "right": 212,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      },
+      {
+        "cls": "cm-light cm-light--cyan",
+        "right": 648,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      },
+      {
+        "cls": "cm-light cm-light--lime",
+        "right": 481,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      }
+    ]
+  },
+  {
+    "case": "party3",
+    "width": 320,
+    "clientWidth": 320,
+    "htmlScrollWidth": 320,
+    "bodyScrollWidth": 320,
+    "docScrolls": false,
+    "decorative": [
+      {
+        "cls": "cm-light cm-light--pink",
+        "right": 212,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      },
+      {
+        "cls": "cm-light cm-light--cyan",
+        "right": 328,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      },
+      {
+        "cls": "cm-light cm-light--lime",
+        "right": 232,
+        "position": "absolute",
+        "ariaHidden": "true",
+        "pointerEvents": "none",
+        "clippedBy": "div.r3b-field cm-skin-stage cm-ski overflow-x:hidden"
+      }
+    ]
+  }
+]

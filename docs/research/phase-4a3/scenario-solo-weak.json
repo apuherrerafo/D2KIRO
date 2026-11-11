@@ -1,0 +1,48 @@
+{
+  "evidenceLevel": "MOTOR REAL (V6 intacto) · ESCENARIO DE PRUEBA con entradas curadas (semilla + Personal_Ban_List); sin page.route",
+  "scenario": {
+    "id": "solo-weak",
+    "kind": "WEAK",
+    "size": 1,
+    "humanPosition": 2,
+    "seed": "SCAN0005",
+    "nominatedBans": []
+  },
+  "resolvedBansText": "Bans resueltos (16) Largo Mars Pangolier Kez Troll Warlord Disruptor Terrorblade Arc Warden Grimstroke Skywrath Mage Primal Beast Techies Winter Wyvern Dawnbreaker Nyx Assassin Marci",
+  "engineResponses": 1,
+  "columns": [
+    {
+      "position": 2,
+      "state": "RANKED",
+      "cards": 1,
+      "primaryHeroId": null
+    }
+  ],
+  "cards": [
+    {
+      "position": 2,
+      "heroId": 76,
+      "evidenceStrength": "WEAK",
+      "isPrimary": false,
+      "rationale": null,
+      "reasons": []
+    }
+  ],
+  "currentDecision": {
+    "recommendedPosition": null,
+    "recommendedHeroId": null,
+    "targetBasis": null,
+    "reason": "",
+    "actionablePositions": [
+      2
+    ],
+    "roundCapacity": 1
+  },
+  "uiRecommendedCards": 0,
+  "analysisPanel": {
+    "decisionSectionRendered": false,
+    "limitedEvidenceMark": true,
+    "heroReasonsShown": true,
+    "detailText": "ANÁLISIS DEL CANDIDATO Outworld Destroyer Outworld Destroyer #1 en el ranking · Pos2 Mid Evidencia limitada Razones de Outworld Destroyer Lo que abrieron los bans Se abre: Nyx Assassin (fuerte) — Spiked Carapace castiga Arcane Orb y Sanity's Eclipse; Mind Flare la alta inteligencia Se abre: Arc Warden (posible) — Tempest Double duplica la presión a distancia Sigue libre Phantom Lancer (posible) — Las ilusiones de Phantom Lancer saturan Arcane Orb Puck (posible) — Waning Rift lo silencia y Dream Coil lo atrapa: Outworld Destroyer no puede escapar de la Coil con su salto Sniper (posible) — Outworld Destroyer tiene poco alcance y no tiene cómo acercarse: Sniper lo hostiga desde lejos en la línea Abrir el análisis no elige el héroe ni envía nada a Dota. Para elegir, usa el panel de la ronda."
+  }
+}

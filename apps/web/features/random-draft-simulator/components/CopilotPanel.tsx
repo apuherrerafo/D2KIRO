@@ -44,7 +44,7 @@ function PreviewStatusNotice({ previewStatus, hasRecommendations, onRetry }: Pre
     );
   }
   if (previewStatus === "loading" || !hasRecommendations) {
-    return <span className="text-caption text-content-muted">Calculando recomendación...</span>;
+    return <span className="text-caption text-content-secondary">Calculando recomendación...</span>;
   }
   return null;
 }
@@ -101,7 +101,7 @@ function RoleImpactNotice({ recommendation }: { recommendation: RecommendationV2
   if (recommendation.actions.length !== 1) return null;
   const impact = recommendation.roleImpact[recommendation.actions[0].hero];
   if (!impact || impact.status === "UNRESOLVED" || impact.position === null) return null;
-  return <span className="text-caption text-content-muted">Posición sugerida: {POSITION_LABELS[impact.position]}</span>;
+  return <span className="text-caption text-content-secondary">Posición sugerida: {POSITION_LABELS[impact.position]}</span>;
 }
 
 /** `risks` (S5) nunca se calló hasta ahora -- venía en el wire, pero ningún componente lo leía. */
@@ -195,7 +195,7 @@ function CompoundRecommendationCard({ recommendation, heroCatalog, isPrimary }: 
     <div className={className}>
       <div className="flex items-center justify-between">
         <span className="text-caption font-semibold text-content-primary">Dupla sugerida</span>
-        <span className="text-caption text-content-muted">{CONFIDENCE_LABELS[recommendation.confidence]}</span>
+        <span className="text-caption text-content-secondary">{CONFIDENCE_LABELS[recommendation.confidence]}</span>
       </div>
       <div className="flex items-center gap-4">
         {recommendation.actions.map((action) => {
@@ -207,7 +207,7 @@ function CompoundRecommendationCard({ recommendation, heroCatalog, isPrimary }: 
               <div className="flex flex-col">
                 <span className="text-caption text-content-primary">{heroMeta?.localizedName ?? `Héroe ${action.hero}`}</span>
                 {impact && impact.position !== null && (
-                  <span className="text-caption text-content-muted">Posición {impact.position}</span>
+                  <span className="text-caption text-content-secondary">Posición {impact.position}</span>
                 )}
               </div>
             </div>
@@ -267,7 +267,7 @@ function RoundRecommendationColumn({
   return (
     <div className={`flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3 ${stateClass}`} data-testid={`recommendation-column-position-${position}`}>
       <span className="text-body font-semibold text-content-primary">Pos{position} {SIMULATOR_POSITION_LABELS[position]}</span>
-      <span className="text-caption text-content-muted">{controllerLabel}</span>
+      <span className="text-caption text-content-secondary">{controllerLabel}</span>
       {isLocked && <span className="text-caption font-semibold text-signal-positive">Héroe y posición bloqueados</span>}
       {isLocked && lockedHeroId !== undefined && (
         <div className="flex items-center gap-2 text-caption font-semibold text-content-primary">
@@ -282,7 +282,7 @@ function RoundRecommendationColumn({
           return (
             <li key={`${packageIndex}-${action.hero}`} className="flex items-center gap-2 text-caption text-content-primary">
               <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${action.hero}`} size={40} />
-              <span className="text-content-muted">Paquete {packageIndex + 1}</span>
+              <span className="text-content-secondary">Paquete {packageIndex + 1}</span>
               <span className="font-semibold">{hero?.localizedName ?? `Héroe ${action.hero}`}</span>
             </li>
           );
@@ -518,7 +518,7 @@ export function CopilotPanel({
       {allDegradations.length > 0 && <DegradationsNotice degradations={allDegradations} />}
       {(legacy || coach) && <DecisionContextNotice decisionContext={decisionContext} />}
       {legacy && !hasRecommendations && previewStatus === "ready" && (
-        <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
+        <span className="text-caption text-content-secondary">Sin candidatos para el estado actual del draft.</span>
       )}
       {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} suppressDegradations />}
       {legacy && (

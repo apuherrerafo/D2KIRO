@@ -1,0 +1,75 @@
+name: visual-regression
+
+# Regresión visual (VRT) de los primitivos canónicos, en Linux con entorno FIJADO.
+#   * Imagen: la oficial de Playwright 1.62.1 sobre Ubuntu 22.04, fijada por tag Y por digest. Es el mismo entorno
+#     con el que se generaron y revisaron los baselines `*-linux.png` (fase 4A.3); otro runner = otras fuentes = otro antialias.
+#   * @playwright/test queda fijado en apps/web/package.json (1.62.1): el tag de la imagen y la dependencia deben coincidir.
+#   * Bun: el mismo pin que usa el resto de CI (package.json#packageManager).
+#   * `--update-snapshots=none`: un baseline ausente es un FALLO, nunca se crea solo. Cambiar un baseline es siempre una decisión humana.
+#   * Solo corre `canonical-visual.pw.ts`. `visual.pw.ts` tiene baselines únicamente de win32 y queda fuera hasta que se revisen los suyos.
+
+on:
+  pull_request:
+    branches: [master, staging/private-beta-1, preview/f4-canonical-light]
+    paths:
+      - "apps/web/design/**"
+      - "apps/web/components/**"
+      - "apps/web/features/simulator-light/**"
+      - "apps/web/.storybook/**"
+      - "apps/web/package.json"
+      - "apps/web/bun.lock"
+      - ".github/workflows/visual-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vrt-linux:
+    name: vrt (linux, playwright 1.62.1)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-jammy@sha256:b3251f7ff1a9fa559a28d1c67eaa15fc1a9800f7845e82756caea7842967f615
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bun (pin de package.json#packageManager)
+        run: |
+          EXPECTED_PM="$(node -p "require('./package.json').packageManager")"
+          case "$EXPECTED_PM" in
+            bun@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "package.json#packageManager no es 'bun@<semver exacto>': '$EXPECTED_PM'"; exit 1 ;;
+          esac
+          npm install -g "$EXPECTED_PM"
+          [ "$(bun --version)" = "${EXPECTED_PM#bun@}" ] || { echo "Bun version drift"; exit 1; }
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: bun install --frozen-lockfile
+
+      - name: Verify Playwright matches the image
+        working-directory: apps/web
+        run: |
+          ACTUAL="$(node -p "require('@playwright/test/package.json').version")"
+          echo "playwright=$ACTUAL (imagen v1.62.1)"
+          [ "$ACTUAL" = "1.62.1" ] || { echo "Playwright drift: la imagen es v1.62.1 y la dependencia instaló $ACTUAL"; exit 1; }
+
+      - name: Build Storybook
+        working-directory: apps/web
+        run: bun run storybook:build
+
+      - name: Visual regression (baselines *-linux.png, sin actualizar nada)
+        working-directory: apps/web
+        env:
+          HOME: /root
+        run: npx playwright test design/tests/canonical-visual.pw.ts --config design/playwright.linux.config.ts --update-snapshots=none
+
+      - name: Upload diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrt-linux-diffs
+          path: apps/web/test-results/
+          if-no-files-found: ignore

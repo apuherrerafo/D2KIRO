@@ -1,0 +1,36 @@
+{
+  "fixture": true,
+  "note": "Respuesta real del motor con UNA tarjeta real promovida; V6 intacto.",
+  "seal": "Para tu party",
+  "patches": [
+    {
+      "caseName": "party5",
+      "position": 1,
+      "heroId": 6,
+      "before": {
+        "evidenceStrength": "WEAK",
+        "isPrimary": false,
+        "decision": {
+          "recommendedPosition": null,
+          "recommendedHeroId": null,
+          "targetBasis": null,
+          "reason": "",
+          "actionablePositions": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "roundCapacity": 2
+        }
+      },
+      "after": {
+        "evidenceStrength": "STRONG",
+        "isPrimary": true,
+        "targetBasis": "STRATEGIC"
+      }
+    }
+  ],
+  "conservation": "ok: otra tarjeta abierta; la recomendada conserva data-state=recommended y ELIGE AHORA"
+}

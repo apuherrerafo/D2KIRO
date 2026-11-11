@@ -5,8 +5,9 @@ import { HeroPicker } from "@/components/hero-picker/HeroPicker";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { useState } from "react";
-import { BUTTON_COMPACT, BUTTON_GHOST } from "@/features/draft/styles";
+import { BUTTON_COMPACT, BUTTON_GHOST, BUTTON_PRIMARY } from "@/features/draft/styles";
 import type { HumanActionability } from "../protocol-client";
+import { analyzedPickOf, type AnalyzedCandidate, type AnalyzedPick } from "../analyzed-pick";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
 import type { DraftPhase, HeroId } from "../types";
 
@@ -68,7 +69,7 @@ function PositionCard({ position, heroId, heroMeta }: PositionCardProps) {
         Pos{position} {SIMULATOR_POSITION_LABELS[position]}
       </span>
       {heroId !== null && <DraftHeroSlot heroId={heroId} heroMeta={heroMeta} variant="pick" />}
-      {heroId === null && <span className="text-caption text-content-muted">Pendiente</span>}
+      {heroId === null && <span className="text-caption text-content-secondary">Pendiente</span>}
     </div>
   );
 }
@@ -111,6 +112,8 @@ interface BlindRoundActiveProps {
   /** The position being VIEWED (V4 decision `viewedPosition` / the Player's requested view) -- never the Coach recommendation. The selector renders exactly this. */
   selectedTarget: Position | null;
   onSelectTarget?: (position: Position) => void;
+  /** Candidato abierto en el análisis del tablero (null = ninguno). Solo habilita una acción de elegir explícita. */
+  analyzed: AnalyzedCandidate | null;
 }
 
 interface RoundCapacityNoticeProps {
@@ -153,6 +156,39 @@ function PositionTargetButton({ position, selected, locked, onSelect }: Position
   );
 }
 
+interface AnalyzedPickActionProps {
+  pick: AnalyzedPick;
+  heroCatalog: Map<number, HeroMeta>;
+  onLockPick: (heroId: HeroId, position: Position) => void;
+}
+
+// Acción de elegir para el candidato que se está ANALIZANDO en el tablero. Es la misma `onLockPick` que usa el buscador: aquí solo se hace visible.
+// Abrir el análisis nunca llega aquí: elegir exige este clic explícito.
+function AnalyzedPickAction({ pick, heroCatalog, onLockPick }: AnalyzedPickActionProps) {
+  if (pick.kind === "hidden") return null;
+  const name = heroCatalog.get(pick.heroId)?.localizedName ?? `Héroe ${pick.heroId}`;
+  const place = `Pos${pick.position} ${SIMULATOR_POSITION_LABELS[pick.position]}`;
+  function handleLock() {
+    if (pick.kind !== "legal") return;
+    onLockPick(pick.heroId, pick.position);
+  }
+  if (pick.kind === "blocked") {
+    return (
+      <span className="text-caption text-content-secondary" data-testid="analyzed-pick-blocked" role="status">
+        {name} · {place}: no se puede elegir — {pick.reason}.
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1" data-testid="analyzed-pick" role="group" aria-label="Elegir el héroe que estás analizando">
+      <span className="text-caption text-content-secondary">Estás analizando a {name}. Abrir el análisis no lo elige.</span>
+      <button type="button" className={BUTTON_PRIMARY} onClick={handleLock} data-testid="analyzed-pick-button" aria-label={`Elegir a ${name} como ${place}`}>
+        Elegir a {name} · {place}
+      </button>
+    </div>
+  );
+}
+
 interface OtherHeroSearchProps {
   heroes: HeroMeta[];
   onSelect: (heroId: HeroId) => void;
@@ -163,7 +199,7 @@ interface OtherHeroSearchProps {
 function OtherHeroSearch({ heroes, onSelect }: OtherHeroSearchProps) {
   return (
     <details className="text-caption text-content-secondary" data-testid="other-hero-search">
-      <summary className="w-fit cursor-pointer text-content-muted hover:text-content-primary">Buscar otro héroe</summary>
+      <summary className="w-fit cursor-pointer text-content-secondary hover:text-content-primary">Buscar otro héroe</summary>
       <div className="pt-2">
         <HeroPicker heroes={heroes} onSelect={onSelect} />
       </div>
@@ -171,7 +207,7 @@ function OtherHeroSearch({ heroes, onSelect }: OtherHeroSearchProps) {
   );
 }
 
-function BlindRoundActive({ phase, draftState, heroCatalog, onLockPick, onYield, humanActionability, selectedTarget, onSelectTarget }: BlindRoundActiveProps) {
+function BlindRoundActive({ phase, draftState, heroCatalog, onLockPick, onYield, humanActionability, selectedTarget, onSelectTarget, analyzed }: BlindRoundActiveProps) {
   const availablePositions = phase.attemptPositions.filter((position) => phase.lockedUserPicks[position] === undefined);
   const [preferredPosition, setPreferredPosition] = useState<Position | undefined>(availablePositions[0] ?? phase.attemptPositions[0]);
   // COHERENCE-013 / PSR-002 -- the selector shows the viewed position whenever there is one; the local
@@ -185,6 +221,7 @@ function BlindRoundActive({ phase, draftState, heroCatalog, onLockPick, onYield,
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
   const noHumanAction = humanActionability !== null && !humanActionability.hasHumanAction;
   const canPick = availablePositions.length > 0 && selectedPosition !== undefined && !noHumanAction;
+  const analyzedPick = analyzedPickOf({ analyzed, availablePositions, attemptPositions: phase.attemptPositions, unavailable, noHumanAction });
   const pendingLabel = availablePositions.map((position) => `Pos${position}`).join(" ");
 
   function handleHeroSelect(heroId: HeroId) {
@@ -205,7 +242,7 @@ function BlindRoundActive({ phase, draftState, heroCatalog, onLockPick, onYield,
       <span className="text-caption text-content-secondary" data-testid="pending-human-positions">
         Posiciones humanas pendientes: {pendingLabel}
       </span>
-      <span className="text-caption text-content-muted">Los demás aliados son simulados automáticamente.</span>
+      <span className="text-caption text-content-secondary">Los demás aliados son simulados automáticamente.</span>
       <ConflictBanner conflictBans={phase.conflictBans} notice={phase.notice} heroCatalog={heroCatalog} />
       <TimerExpiredNotice phase={phase} />
       <div className="flex flex-wrap gap-4">
@@ -237,6 +274,7 @@ function BlindRoundActive({ phase, draftState, heroCatalog, onLockPick, onYield,
           )}
         </div>
       )}
+      <AnalyzedPickAction heroCatalog={heroCatalog} onLockPick={onLockPick} pick={analyzedPick} />
       {canPick && <OtherHeroSearch heroes={pickablePool} onSelect={handleHeroSelect} />}
     </div>
   );
@@ -290,6 +328,8 @@ export interface BlindRoundPanelProps {
   /** WP3 -- the Coach's current target; the position selector renders exactly this. */
   selectedTarget?: Position | null;
   onSelectTarget?: (position: Position) => void;
+  /** Candidato que el tablero tiene abierto en su análisis; habilita «Elegir a X» (misma `onLockPick`). */
+  analyzed?: AnalyzedCandidate | null;
 }
 
 // <Dominio><Cosa>: cubre las fases blind_round y round_revealed (Req. 3) -- selección a ciegas
@@ -303,6 +343,7 @@ export function BlindRoundPanel({
   humanActionability = null,
   selectedTarget = null,
   onSelectTarget,
+  analyzed = null,
 }: BlindRoundPanelProps) {
   if (phase.type === "round_revealed") {
     return <RoundRevealedView phase={phase} heroCatalog={heroCatalog} />;
@@ -317,6 +358,7 @@ export function BlindRoundPanel({
       humanActionability={humanActionability}
       selectedTarget={selectedTarget}
       onSelectTarget={onSelectTarget}
+      analyzed={analyzed}
     />
   );
 }

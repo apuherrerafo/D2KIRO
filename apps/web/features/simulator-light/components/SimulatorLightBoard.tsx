@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { ActionQuiet } from "@/design/canonical/primitives";
 import { SkinStage } from "@/design/canonical/motion/skin";
 import { teamPositionName } from "@/features/team-coach/constants";
 import type { RequestStatus, TeamCoachBoardData, TeamPosition } from "@/features/team-coach/types";
 import { SimulatorLightScope } from "../SimulatorLightScope";
 import { useSelectionTransfer, type SelectionKey } from "../use-selection-transfer";
-import { COLUMNS_FR, recommendationOf } from "../view-model";
+import { COLUMNS_FR, noActionReasonOf, recommendationOf } from "../view-model";
 import { Columns } from "./Columns";
-import { DetailPanel } from "./DetailPanel";
+import { DetailPanel, findSelected } from "./DetailPanel";
+import type { AnalyzedCandidate, PickPosition } from "@/features/random-draft-simulator/analyzed-pick";
 
 // <Dominio><Cosa>: el tablero del Simulador en Canonical Light. Lee el MISMO `TeamCoachBoardData` que el tablero anterior (contrato V6, verbatim):
 // no calcula puntajes, no inventa recomendaciones ni estados. CENTRO = una columna por posición que el humano controla (Solo 1 · Party 2/3/5);
@@ -21,6 +22,15 @@ export interface SimulatorLightBoardProps {
   /** Posición propia declarada en la configuración (null = no se resalta ninguna). */
   humanPosition: TeamPosition | null;
   onRetry?: () => void;
+  /** Avisa qué candidato está abierto en el análisis (o `null`). Solo informa: abrir el análisis nunca elige. */
+  onAnalyze?: (candidate: AnalyzedCandidate | null) => void;
+}
+
+function analyzedOf(key: SelectionKey | null): AnalyzedCandidate | null {
+  if (key === null) return null;
+  const [position, heroId] = key.split(":").map(Number);
+  if (!Number.isInteger(position) || !Number.isInteger(heroId) || position < 1 || position > 5) return null;
+  return { position: position as PickPosition, heroId };
 }
 
 export function partyTextOf(positions: readonly TeamPosition[], humanPosition: TeamPosition | null): string | null {
@@ -46,10 +56,16 @@ function BoardPlaceholder({ status, onRetry }: { status: RequestStatus; onRetry?
   return <p className="sl-placeholder" data-testid="team-coach-loading">Calculando recomendaciones para cada posición…</p>;
 }
 
-function BoardStage({ board, humanPosition }: { board: TeamCoachBoardData; humanPosition: TeamPosition | null }) {
-  const [selectedKey, setSelectedKey] = useState<SelectionKey | null>(null);
-  const { stage, overlay } = useSelectionTransfer(selectedKey);
+function BoardStage({ board, humanPosition, onAnalyze }: { board: TeamCoachBoardData; humanPosition: TeamPosition | null; onAnalyze?: (candidate: AnalyzedCandidate | null) => void }) {
+  const [openKey, setSelectedKey] = useState<SelectionKey | null>(null);
   const positions = board.positions;
+  // Si el candidato abierto ya no está en el tablero (se eligió, se recalculó), el análisis se cierra solo; nada queda apuntando a un héroe fantasma.
+  const selectedKey = openKey !== null && findSelected(positions, openKey) !== null ? openKey : null;
+  const { stage, overlay } = useSelectionTransfer(selectedKey);
+  useEffect(() => {
+    onAnalyze?.(analyzedOf(selectedKey));
+    return () => onAnalyze?.(null);
+  }, [selectedKey, onAnalyze]);
   const visible = positions.map((column) => column.position);
   const recommendation = recommendationOf(board, visible, humanPosition);
   const showPlan = positions.length > 1;
@@ -63,7 +79,7 @@ function BoardStage({ board, humanPosition }: { board: TeamCoachBoardData; human
       <div className="sl-skin-inner">
         <div className="sl-stage" data-columns={positions.length} ref={stage} style={{ "--sl-cols-fr": `${fr}fr` } as CSSProperties}>
           <Columns humanPosition={humanPosition} onSelect={handleSelect} positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
-          <DetailPanel positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
+          <DetailPanel noActionReason={noActionReasonOf(board)} positions={positions} recommendation={recommendation} selectedKey={selectedKey} showPlan={showPlan} />
           <span aria-hidden="true" className="sl-transfer" ref={overlay}>
             <span className="cm-corners sl-corners"><i /><i /><i /><i /></span>
           </span>
@@ -73,12 +89,12 @@ function BoardStage({ board, humanPosition }: { board: TeamCoachBoardData; human
   );
 }
 
-function BoardContent({ board, status, humanPosition, onRetry }: SimulatorLightBoardProps) {
+function BoardContent({ board, status, humanPosition, onRetry, onAnalyze }: SimulatorLightBoardProps) {
   if (board === null) return <BoardPlaceholder onRetry={onRetry} status={status} />;
   return (
     <>
       <p className="sl-party" data-testid="sl-party">{partyTextOf(board.positions.map((column) => column.position), humanPosition)}</p>
-      <BoardStage board={board} humanPosition={humanPosition} />
+      <BoardStage board={board} humanPosition={humanPosition} onAnalyze={onAnalyze} />
     </>
   );
 }

@@ -1,0 +1,52 @@
+{
+  "320": {
+    "clientWidth": 320,
+    "pageScrollWidth": 320,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 320,
+    "overflowCount": 7,
+    "overflowSamples": [
+      "span.cm-light \"\" right=328",
+      "span.sl-transfer \"\" right=776",
+      "span.cm-corners \"\" right=776",
+      "i \"\" right=444",
+      "i \"\" right=780",
+      "i \"\" right=780",
+      "i \"\" right=444"
+    ]
+  },
+  "640": {
+    "clientWidth": 640,
+    "pageScrollWidth": 640,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 640,
+    "overflowCount": 5,
+    "overflowSamples": [
+      "span.cm-light \"\" right=648",
+      "span.sl-transfer \"\" right=776",
+      "span.cm-corners \"\" right=776",
+      "i \"\" right=780",
+      "i \"\" right=780"
+    ]
+  },
+  "1280": {
+    "clientWidth": 1280,
+    "pageScrollWidth": 1280,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 1280,
+    "overflowCount": 1,
+    "overflowSamples": [
+      "span.cm-light \"\" right=1288"
+    ]
+  },
+  "1600": {
+    "clientWidth": 1600,
+    "pageScrollWidth": 1600,
+    "pageScrollsHorizontally": false,
+    "scrollWidthWithoutDecorativeOverlay": 1600,
+    "overflowCount": 1,
+    "overflowSamples": [
+      "span.cm-light \"\" right=1608"
+    ]
+  }
+}

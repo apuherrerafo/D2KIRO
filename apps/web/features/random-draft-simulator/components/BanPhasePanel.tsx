@@ -31,7 +31,7 @@ function CompactBan({ heroId, heroMeta }: CompactBanProps) {
 function CompactBanRow({ resolvedBans, heroCatalog }: BanPhasePanelProps) {
   return (
     <div className="flex flex-wrap items-center gap-1 bg-surface-raised px-4 py-1" data-testid="resolved-bans">
-      <span className="mr-2 text-caption text-content-muted">Bans resueltos ({resolvedBans.length})</span>
+      <span className="mr-2 text-caption text-content-secondary">Bans resueltos ({resolvedBans.length})</span>
       {resolvedBans.map((heroId) => (
         <CompactBan key={heroId} heroId={heroId} heroMeta={heroCatalog.get(heroId)} />
       ))}

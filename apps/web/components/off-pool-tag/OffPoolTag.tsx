@@ -7,7 +7,7 @@
 
 export type OffPoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
 
-const OFF_POOL_TAG = "rounded-md border border-surface-border px-2 py-1 text-caption text-content-muted";
+const OFF_POOL_TAG = "rounded-md border border-surface-border px-2 py-1 text-caption text-content-secondary";
 const DEFAULT_TITLE = "Fuera del pool configurado para esta posición. Es solo información: el motivo de la recomendación es su fundamento, no el pool.";
 
 export interface OffPoolTagProps {

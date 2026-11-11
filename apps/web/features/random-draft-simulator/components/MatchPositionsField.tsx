@@ -33,7 +33,7 @@ export function MatchPositionsField({ teamName, match, ownerSeat }: MatchPositio
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Posiciones para esta partida" data-testid="match-positions">
       <span className="text-caption text-content-secondary">Posiciones para esta partida — {teamName}</span>
-      <span className="text-caption text-content-muted">Cambiar quién juega dónde aquí solo vale para esta partida: el equipo guardado no se modifica a menos que lo guardes.</span>
+      <span className="text-caption text-content-secondary">Cambiar quién juega dónde aquí solo vale para esta partida: el equipo guardado no se modifica a menos que lo guardes.</span>
       <PositionBoard players={match.players} ownerSeat={ownerSeat} onPlace={match.place} />
       <MatchPositionsActions match={match} />
       {match.message && (

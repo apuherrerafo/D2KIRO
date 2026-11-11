@@ -37,10 +37,10 @@ const LOOKS: Record<HeroPickerVariant, PickerLook> = {
     input:
       "rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary",
     list: "flex max-h-56 flex-col gap-1 overflow-y-auto",
-    row: (unavailable) => `${DEFAULT_ROW} ${unavailable ? "text-content-muted" : "text-content-secondary hover:bg-surface-overlay"}`,
+    row: (unavailable) => `${DEFAULT_ROW} ${unavailable ? "text-content-secondary" : "text-content-secondary hover:bg-surface-overlay"}`,
     who: "flex items-center gap-2",
-    note: "text-caption text-content-muted",
-    empty: "text-caption text-content-muted",
+    note: "text-caption text-content-secondary",
+    empty: "text-caption text-content-secondary",
   },
   canonical: {
     root: "tg-picker",

@@ -24,7 +24,7 @@ function HeroIconFallback({ alt, size }: HeroIconFallbackProps) {
     <div
       role="img"
       aria-label={alt}
-      className="flex items-center justify-center rounded-md border border-surface-border bg-surface-overlay text-content-muted text-caption"
+      className="flex items-center justify-center rounded-md border border-surface-border bg-surface-overlay text-content-secondary text-caption"
       style={{ width: size, height: size }}
     >
       ?

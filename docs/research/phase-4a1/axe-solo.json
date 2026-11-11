@@ -1,0 +1,12 @@
+{
+  "candidateOpen": false,
+  "violations": [],
+  "boardOnlyViolations": [],
+  "passes": 23,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "nodes": 8
+    }
+  ]
+}

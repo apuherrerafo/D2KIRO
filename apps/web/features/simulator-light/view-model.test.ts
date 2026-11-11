@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn } from "@/features/team-coach/types";
 import type { ColumnCandidate } from "./merge-candidates";
-import { cardModelOf, recommendationOf } from "./view-model";
+import { cardModelOf, decisionViewOf, noActionReasonOf, recommendationOf } from "./view-model";
 
 // Fixtures inline (ninguna prueba lee datos reales). Ids arbitrarios.
 function candidate(heroId: number, rank: number, extra: Partial<TeamCoachCandidate> = {}): TeamCoachCandidate {
@@ -11,7 +11,7 @@ function entryOf(value: TeamCoachCandidate): ColumnCandidate {
   return { candidate: value, generalRank: value.rank, poolRank: null };
 }
 const column = { position: 3 } as TeamCoachColumn;
-const recommended = { position: 3 as const, heroId: 10, forMe: true, reason: null };
+const recommended = { position: 3 as const, heroId: 10, forMe: true, basis: "STRATEGIC" as const, reason: null };
 
 describe("cardModelOf · D3 por composición (Fase 3D.1)", () => {
   const rec = entryOf(candidate(10, 1, { isPrimary: true }));
@@ -68,5 +68,50 @@ describe("recommendationOf · el ELIGE AHORA nunca se reasigna", () => {
   });
   test("evidencia WEAK → sin recomendación", () => {
     expect(recommendationOf(board(10, "WEAK"), [3], 3)).toBeNull();
+  });
+});
+
+describe("recommendationOf · la razón es la que entrega el motor, sea cual sea el criterio", () => {
+  function boardWith(basis: "STRATEGIC" | "DETERMINISTIC_DEFAULT" | "PHASE_FALLBACK" | null, reason: string): TeamCoachBoardData {
+    return {
+      currentDecision: { recommendedPosition: 3, recommendedHeroId: 10, targetBasis: basis, reason },
+      positions: [{ position: 3, top: [candidate(10, 1, { isPrimary: true })] }],
+    } as unknown as TeamCoachBoardData;
+  }
+  test("STRATEGIC, DETERMINISTIC_DEFAULT y PHASE_FALLBACK conservan su razón verbatim (el tablero anterior también la mostraba)", () => {
+    for (const basis of ["STRATEGIC", "DETERMINISTIC_DEFAULT", "PHASE_FALLBACK"] as const) {
+      const rec = recommendationOf(boardWith(basis, "razón del motor"), [3], 3);
+      expect(rec?.reason).toBe("razón del motor");
+      expect(rec?.basis).toBe(basis);
+    }
+  });
+  test("razón vacía → null: nunca se inventa una", () => {
+    expect(recommendationOf(boardWith("STRATEGIC", ""), [3], 3)?.reason).toBeNull();
+  });
+});
+
+describe("decisionViewOf · la decisión del equipo no se le atribuye al héroe abierto", () => {
+  const rec = { position: 3 as const, heroId: 10, forMe: true, basis: "STRATEGIC" as const, reason: "porque sí" };
+  test("el héroe abierto ES el recomendado → sameAsOpen", () => {
+    expect(decisionViewOf(rec, null, { position: 3, heroId: 10 })).toMatchObject({ kind: "recommended", heroId: 10, sameAsOpen: true, reason: "porque sí" });
+  });
+  test("otro héroe de la misma posición → sameAsOpen false; la vista sigue nombrando al recomendado", () => {
+    expect(decisionViewOf(rec, null, { position: 3, heroId: 11 })).toMatchObject({ kind: "recommended", heroId: 10, sameAsOpen: false });
+  });
+  test("el mismo héroe pero en OTRA posición tampoco cuenta como el recomendado", () => {
+    expect(decisionViewOf(rec, null, { position: 1, heroId: 10 })).toMatchObject({ kind: "recommended", sameAsOpen: false });
+  });
+  test("sin recomendación pero con aviso del motor → kind none; sin nada → null", () => {
+    expect(decisionViewOf(null, "El draft terminó.", { position: 3, heroId: 10 })).toEqual({ kind: "none", reason: "El draft terminó." });
+    expect(decisionViewOf(null, null, { position: 3, heroId: 10 })).toBeNull();
+  });
+});
+
+describe("noActionReasonOf", () => {
+  const withDecision = (decision: object) => ({ currentDecision: decision, positions: [] }) as unknown as TeamCoachBoardData;
+  test("posición y héroe null + razón → se dice; con posición → no es «sin acción»", () => {
+    expect(noActionReasonOf(withDecision({ recommendedPosition: null, recommendedHeroId: null, reason: "No hay un pick humano abierto en este momento." }))).toBe("No hay un pick humano abierto en este momento.");
+    expect(noActionReasonOf(withDecision({ recommendedPosition: 3, recommendedHeroId: 10, reason: "x" }))).toBeNull();
+    expect(noActionReasonOf(withDecision({ recommendedPosition: null, recommendedHeroId: null, reason: "" }))).toBeNull();
   });
 });

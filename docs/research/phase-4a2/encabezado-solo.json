@@ -1,0 +1,32 @@
+{
+  "page": {
+    "background": "rgb(15, 17, 21)",
+    "color": "rgb(245, 246, 248)",
+    "fontFamily": "Geist"
+  },
+  "strip": {
+    "background": "rgb(242, 237, 229)",
+    "color": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "compactBoard": {
+    "background": "rgb(251, 248, 242)",
+    "color": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "timer": {
+    "background": "rgba(0, 0, 0, 0)",
+    "color": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "roundBanner": {
+    "background": "rgb(251, 248, 242)",
+    "color": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  },
+  "lightBlock": {
+    "background": "rgb(242, 237, 229)",
+    "color": "rgb(23, 19, 17)",
+    "fontFamily": "\"R3 Plex Sans\""
+  }
+}
