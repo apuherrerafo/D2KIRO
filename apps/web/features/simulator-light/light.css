@@ -73,12 +73,77 @@
 .sl-placeholder { color: var(--r3-ink); font: 500 13px/1.4 var(--f-plex); margin: 0; }
 .sl-retry { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; }
 
+/* Fase P0 «Simulador jugable»: un solo tablero. El centro lleva las columnas Y el buscador; el análisis (con su botón «Elegir») queda a la vista a la derecha. */
+.sl-page { --sl-strip-h: 192px; }
+.sl-main { display: grid; gap: 16px; min-width: 0; }
+.sl-fallback { display: grid; gap: 16px; }
+/* el entorno iluminado recorta sus luces con `overflow: hidden`, que además lo vuelve contenedor de scroll y rompe el `sticky` del análisis: `clip` recorta igual sin serlo */
+.sl-skin.cm-skin-stage { overflow: clip; }
+@media (min-width: 1024px) {
+  .sl-stage > .sl-detail { align-self: start; position: sticky; top: calc(var(--sl-strip-h) + 16px); }
+}
+/* estado de la ronda (arriba del tablero): qué hacer ahora */
+.sl-round { display: grid; gap: 8px; margin-bottom: 8px; }
+.sl-round .ap-btn { justify-self: start; }
+.sl-round-meta { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.sl-round-head { display: grid; gap: 4px; }
+.sl-round-title { font: 700 20px/1.2 var(--f-syne); letter-spacing: -.01em; }
+.sl-round-line { color: var(--r3-muted); display: flex; flex-wrap: wrap; font: 500 12px/1.4 var(--f-plex); gap: 4px 16px; margin: 0; }
+.sl-round-positions { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.sl-round-pos { align-items: center; background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 4px; display: flex; gap: 8px; padding: 4px 12px; }
+.sl-round-pos[data-sealed="true"] { border-color: var(--r3-ink); }
+.sl-round-pos-text { display: grid; font: 500 12px/1.3 var(--f-plex); }
+.sl-round-pos-text strong { font-weight: 700; }
+.sl-round-gold { color: var(--r3-down); font: 600 12px/1.3 var(--f-plex); }
+.sl-revealed { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sl-revealed-side { display: grid; gap: 8px; }
+/* la acción de elegir vive dentro del análisis, junto al héroe */
+.sl-pick { display: grid; gap: 4px; scroll-margin-bottom: 24px; scroll-margin-top: calc(var(--sl-strip-h) + 16px); }
+.sl-pick .ap-btn { justify-content: center; min-height: 48px; width: 100%; }
+.sl-pick-blocked { background: var(--r3-panel); border-left: 2px solid var(--r3-down); color: var(--r3-ink); font: 500 13px/1.4 var(--f-plex); margin: 0; padding: 8px 12px; }
+/* buscador de cualquier héroe legal: siempre visible bajo las columnas */
+.sl-search { border-top: 1px solid var(--r3-line-strong); display: grid; gap: 8px; padding-top: 12px; }
+.sl-pos-chips { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+.sl-pos-chip[aria-pressed="true"] { background: var(--r3-ink); color: var(--r3-bg); }
+.sl-picker { display: grid; gap: 8px; }
+.sl-picker-input { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); font: 500 14px/1.2 var(--f-plex); min-height: 44px; padding: 8px 12px; width: 100%; }
+.sl-picker-input:focus-visible, .sl-picker-row:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+.sl-picker-list { display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); max-height: 240px; overflow-y: auto; padding: 2px; }
+.sl-picker-row { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 4px; color: var(--r3-ink); cursor: pointer; display: flex; font: 500 13px/1.2 var(--f-plex); gap: 8px; justify-content: space-between; min-height: 40px; padding: 4px 8px; text-align: left; }
+.sl-picker-row:hover:not(:disabled) { border-color: var(--r3-ink); }
+.sl-picker-row--off { color: var(--r3-muted); cursor: not-allowed; }
+.sl-picker-who { align-items: center; display: flex; gap: 8px; min-width: 0; }
+.sl-picker-note { color: var(--r3-muted); font: 500 11px/1.2 var(--f-plex); }
+.sl-picker-empty { color: var(--r3-ink); font: 500 13px/1.4 var(--f-plex); }
+/* roster compacto: información secundaria, una fila por equipo */
+.sl-roster { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.sl-roster-side { display: grid; gap: 4px; }
+.sl-roster-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(152px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.sl-roster-seat { align-items: center; background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 4px; display: flex; gap: 8px; min-width: 0; padding: 4px 8px; }
+.sl-roster-seat[data-filled="false"] { border-style: dashed; }
+.sl-roster-seat-text { display: grid; font: 500 12px/1.3 var(--f-plex); min-width: 0; }
+.sl-roster-seat-text strong { font-weight: 700; }
+.sl-roster-seat-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-roster-tag { color: var(--r3-muted); }
+/* detalle del coach (diagnóstico): tercer nivel, plegado por defecto */
+.sl-coach-details { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 4px; }
+.sl-coach-details > summary { cursor: pointer; font: 600 14px/1.2 var(--f-plex); min-height: 44px; padding: 12px 16px; }
+.sl-coach-details > summary:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: -2px; }
+.sl-coach-details[open] > :not(summary) { margin: 0 16px 16px; }
+
 /* reflow: bajo 1024 px (o con zoom 200 % / 400 %) el análisis baja bajo las columnas y las columnas se apilan */
 @media (max-width: 1023px) {
+  /* apilado: cartas → análisis (con su botón «Elegir») → buscador. Sin esto el buscador se colaba entre las cartas y el análisis. */
+  .sl-main { display: contents; }
+  .sl-stage > .sl-main > .sl-columns, .sl-stage > .sl-columns { order: 1; }
+  .sl-stage > .sl-detail { order: 2; }
+  .sl-stage > .sl-main > .sl-search { order: 3; }
   .sl-stage { grid-template-columns: minmax(0, 1fr); }
   .sl-columns { grid-auto-flow: row; grid-auto-columns: minmax(0, 1fr); }
 }
 @media (max-width: 719px) {
+  .sl-revealed { grid-template-columns: minmax(0, 1fr); }
+  .sl-picker-list { grid-template-columns: minmax(0, 1fr); }
   .sl-detail-head { grid-template-columns: minmax(0, 1fr); }
   .sl-cand-body { grid-template-columns: minmax(0, 1fr); }
 }

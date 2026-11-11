@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
 import { ROUND_HEADING, assertNoSimulatorTruthLeak, awaitRoundHandlingCollision, configureAndStart, firstEnabled, heroButton, heroNamesIn, pickHero, record, type Recorder } from "./support/wave1";
 import { announcedTargetLabel, assertTargetContract, decisionCardIds } from "./support/decision";
@@ -276,7 +277,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   }
   expect(ignoredName, "a legal hero outside the Coach's advice").not.toBeNull();
   await pickHero(page, ignoredName!);
-  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 · /, ANY_HERO);
+  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 terminada|Ronda 2 de 3 · /, ANY_HERO);
   await expect(page.getByText(/no está disponible/)).toHaveCount(0); // deviating is legal: no rejection, no "wrong choice"
   await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
 

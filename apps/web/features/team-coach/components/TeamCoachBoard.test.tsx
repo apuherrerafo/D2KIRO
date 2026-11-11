@@ -427,9 +427,13 @@ describe("19. un único contrato de tablero para /simulator y /live-draft", () =
     const simulator = readFileSync(resolve(webRoot, "app/simulator/page.tsx"), "utf8");
     const live = readFileSync(resolve(webRoot, "features/team-coach/components/LiveTeamCoachView.tsx"), "utf8");
     const livePage = readFileSync(resolve(webRoot, "app/live-draft/page.tsx"), "utf8");
-    expect(simulator).toContain('import { SimulatorLightBoard, SimulatorLightScope } from "@/features/simulator-light";');
-    expect(simulator).toContain("<SimulatorLightBoard");
+    // P0 «Simulador jugable»: la página monta `BlindRoundPanel`, que ES el tablero de la ronda (compone `SimulatorLightBoard` con el botón de elegir dentro del análisis).
+    const simulatorRound = readFileSync(resolve(webRoot, "features/random-draft-simulator/components/BlindRoundPanel.tsx"), "utf8");
+    expect(simulator).toContain("<BlindRoundPanel");
     expect(simulator).not.toContain("<TeamCoachBoard");
+    expect(simulatorRound).toContain('import { SimulatorLightBoard } from "@/features/simulator-light";');
+    expect(simulatorRound).toContain("<SimulatorLightBoard");
+    expect(simulatorRound).not.toContain("<TeamCoachBoard");
     const liveLight = readFileSync(resolve(webRoot, "features/live-light/components/LiveLightBoard.tsx"), "utf8");
     expect(live).toContain('import { LiveLightBoard, LiveNotice, LivePage } from "@/features/live-light";');
     expect(live).toContain("<LiveLightBoard");

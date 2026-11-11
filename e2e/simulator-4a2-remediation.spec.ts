@@ -183,7 +183,8 @@ for (const item of PARTY_CASES) {
     const lightBg = header.strip?.background;
     expect(lightBg, "la franja del draft debe pintarse con el fondo Light, no con el oscuro del sitio").toBe("rgb(242, 237, 229)");
     expect(header.compactBoard?.background, "CompactBoard sobre el panel Light").toBe("rgb(251, 248, 242)");
-    expect(header.roundBanner?.background, "banner de ronda sobre el panel Light").toBe("rgb(251, 248, 242)");
+    // P0 «Simulador jugable»: la instrucción de la ronda vive dentro del tablero y no pinta caja propia (transparente sobre el fondo Light, nunca oscuro).
+    expect(header.roundBanner?.background, "la instrucción de ronda no pinta un fondo oscuro").toMatch(/^(rgba\(0, 0, 0, 0\)|rgb\(2[3-5]\d, 2[3-5]\d, 2[0-5]\d\))$/);
     await page.screenshot({ path: resolve(CAPTURES, `${item.name}-5-encabezado-light.png`), clip: { x: 0, y: 0, width: 1600, height: 640 } });
 
     // axe, página completa, candidato abierto (si hay tarjetas).
@@ -246,8 +247,8 @@ async function pickOnce(page: Page, board: Locator): Promise<string> {
   }
   const search = page.getByTestId("other-hero-search");
   if (!(await search.isVisible().catch(() => false))) return "sin-accion";
-  if (!(await search.evaluate((node) => (node as HTMLDetailsElement).open).catch(() => true))) await search.locator("summary").click({ timeout: 5_000 }).catch(() => undefined);
-  await search.locator("button:not([disabled])").first().click({ timeout: 5_000 }).catch(() => undefined);
+  await search.locator(".sl-picker-row:not([disabled])").first().click({ timeout: 5_000 }).catch(() => undefined);
+  await page.getByTestId("analyzed-pick-button").click({ timeout: 5_000 }).catch(() => undefined);
   return "buscador";
 }
 

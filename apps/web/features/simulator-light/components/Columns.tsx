@@ -83,7 +83,7 @@ function CandidateList(props: Omit<CandidateCardProps, "entry"> & { entries: Col
   );
 }
 
-export const NO_RECOMMENDATIONS_COPY = "Sin recomendaciones disponibles con la información actual. Puedes elegir un héroe con «Buscar otro héroe».";
+export const NO_RECOMMENDATIONS_COPY = "Sin recomendaciones disponibles con la información actual. Puedes elegir cualquier héroe legal con «Buscar otro héroe», aquí debajo.";
 
 function ColumnBody({ column, emptyCopy, ...rest }: { column: TeamCoachColumn; emptyCopy: string } & Omit<CandidateCardProps, "entry" | "column">) {
   if (column.state === "FILLED") {

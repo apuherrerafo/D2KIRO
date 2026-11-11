@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
 import { assertTargetContract, decisionCardIds, pickAnyAvailableHero } from "./support/decision";
 
 async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
@@ -53,7 +54,7 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   // Product Semantics Recovery -- Party5 Round 1 visual acceptance contract: 2 pick slots available,
   // 5 human positions pending, ONE current decision (one target line, one candidate section), no
   // "elegí 5 héroes" quota, no "TU <POS> AHORA" personal panel, no legacy V2 body under the Coach.
-  await expect(page.getByTestId("round-capacity")).toHaveText(/Ronda 1 · 2 espacios de pick disponibles/, { timeout: 60_000 });
+  await expect(page.getByTestId("round-capacity")).toHaveText(/Ronda 1 de 3 · Elige 2 héroes/, { timeout: 60_000 });
   await expect(page.getByTestId("pending-human-positions")).toHaveText("Posiciones humanas pendientes: Pos1 Pos2 Pos3 Pos4 Pos5");
   await expect(page.getByText(/elige 5 héroes/)).toHaveCount(0);
   await expect(page.getByTestId("resolved-bans")).toBeVisible();
@@ -84,7 +85,7 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   // The recommendation header exists only with a `primaryRecommendation` (a STRONG hero, P0-03B -- not tied to `targetBasis`): the notice is checked against it, never assumed.
   await assertTargetContract(page, Number(personal));
   const viewedButton = page.getByRole("group", { name: "Posición para el próximo pick" }).getByRole("button", { name: new RegExp(`Pos${personal} `) });
-  await expect(viewedButton).toHaveClass(/border-accent-primary/);
+  await expect(viewedButton).toHaveAttribute("aria-pressed", "true");
   if (openingCards.length > 0) await expect(page.getByTestId("current-decision-candidates")).toContainText(`Pos${personal} `);
 
   // Any hero at any time: the first selectable hero (or, when the Coach has no recommendation at all, the manual search), repeatedly, until the
@@ -152,7 +153,7 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   const navigated = page.waitForResponse((response) => new RegExp(`recommendations\\?format=v4&target=${chosen}\\b`).test(response.url()), { timeout: 30_000 });
   await selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) }).click();
   await navigated;
-  await expect(selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) })).toHaveClass(/border-accent-primary/, { timeout: 30_000 });
+  await expect(selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) })).toHaveAttribute("aria-pressed", "true", { timeout: 30_000 });
   const afterNavigation = await assertTargetContract(page, chosen);
   expect(afterNavigation.position).toBe(firstTarget); // the recommendation (or its absence) did not move with the view
   if (afterNavigation.position !== null) await expect(page.getByTestId("current-decision-viewed")).toContainText(`Estás viendo Pos${chosen}`);
@@ -163,8 +164,8 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   // first of those is the Pos1 recommendation, which would consume Pos1 instead of the viewed Pos).
   // The full 127-hero grid no longer exists: the search is the manual path.
   const manualSearch = page.getByTestId("other-hero-search");
-  await manualSearch.locator("summary").click();
-  await manualSearch.locator("button:not([disabled])").first().click();
+  await manualSearch.locator(".sl-picker-row:not([disabled])").first().click();
+  await page.getByTestId("analyzed-pick-button").click();
 
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1", { timeout: 30_000 });
   await expect(page.getByTestId("pending-human-positions")).not.toContainText(`Pos${chosen}`);

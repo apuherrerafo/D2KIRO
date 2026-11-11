@@ -83,13 +83,14 @@ export async function decisionCardIds(page: Page): Promise<number[]> {
  * manual "Buscar otro héroe" -- sigue siendo un pick legal y el draft debe poder terminar así.
  */
 export async function pickAnyAvailableHero(page: Page): Promise<void> {
+  // Abrir una tarjeta (o un resultado del buscador) solo abre el análisis: elegir es el botón «Elegir a X» de ese análisis.
   const recommended = page.locator("button[title]:not([disabled])").first();
   if (await recommended.isVisible().catch(() => false)) {
     await recommended.click().catch(() => undefined);
-    return;
+  } else {
+    const search = heroSearch(page);
+    if (!(await search.isVisible().catch(() => false))) return;
+    await search.locator(".sl-picker-row:not([disabled])").first().click({ timeout: 5_000 }).catch(() => undefined);
   }
-  const search = heroSearch(page);
-  if (!(await search.isVisible().catch(() => false))) return;
-  if (!(await search.evaluate((node) => (node as HTMLDetailsElement).open).catch(() => true))) await search.locator("summary").click().catch(() => undefined);
-  await search.locator("button:not([disabled])").first().click().catch(() => undefined);
+  await page.getByTestId("analyzed-pick-button").click({ timeout: 5_000 }).catch(() => undefined);
 }

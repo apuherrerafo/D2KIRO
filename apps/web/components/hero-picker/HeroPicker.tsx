@@ -16,7 +16,7 @@ const EMPTY_UNAVAILABLE: ReadonlySet<number> = new Set();
 // Dos presentaciones del mismo buscador. `default` es la de siempre (la usan el draft en vivo, el simulador y el hero pool);
 // `canonical` es la de la pantalla de equipos con el Design System Canonical LIGHT (clases `tg-*` en
 // features/team-groups/team-groups.css). La lógica -- filtro, selección, deshabilitado -- es una sola.
-export type HeroPickerVariant = "default" | "canonical";
+export type HeroPickerVariant = "default" | "canonical" | "board";
 
 interface PickerLook {
   root: string;
@@ -41,6 +41,16 @@ const LOOKS: Record<HeroPickerVariant, PickerLook> = {
     who: "flex items-center gap-2",
     note: "text-caption text-content-secondary",
     empty: "text-caption text-content-secondary",
+  },
+  // Buscador del tablero del Simulador (clases `sl-picker*` en features/simulator-light/light.css).
+  board: {
+    root: "sl-picker",
+    input: "sl-picker-input",
+    list: "sl-picker-list",
+    row: (unavailable) => (unavailable ? "sl-picker-row sl-picker-row--off" : "sl-picker-row"),
+    who: "sl-picker-who",
+    note: "sl-picker-note",
+    empty: "sl-picker-empty",
   },
   canonical: {
     root: "tg-picker",

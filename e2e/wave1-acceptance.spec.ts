@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
 import {
   ENGINE_DIRECT,
@@ -115,7 +116,7 @@ async function playFullDraft(
     }
     picked.push(...(await lockPicks(page, alternatives)));
     // A legal collision reopens a seat instead of closing the round: re-pick through the UI, then continue.
-    repicks += await awaitRoundHandlingCollision(page, round < 3 ? new RegExp(`Ronda ${round} -- revelada|Ronda ${round + 1} · `) : /Draft completo/, alternatives.flat(2));
+    repicks += await awaitRoundHandlingCollision(page, round < 3 ? new RegExp(`Ronda ${round} terminada|Ronda ${round + 1} de 3 · `) : /Draft completo/, alternatives.flat(2));
     if (round < 3) {
       await expect(page.getByText("Equipo rival").first()).toBeVisible();
     }
@@ -203,7 +204,7 @@ test.describe("Wave 1 acceptance -- ban flow (browser)", () => {
     });
     await configureAndStart(page, { side: "Dire", position: "Posición 1 — Carry", seed: "WAVE1FCL", banNames: ["Zeus"] });
     await expect(page.getByTestId("ban-failed")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/Ronda 1 · /)).toHaveCount(0);
+    await expect(page.getByText(/Ronda 1 de 3 · /)).toHaveCount(0);
     expect(rec.requests.some((request) => request.path.endsWith("/auto-drive"))).toBe(false);
     expect(rec.requests.some((request) => request.path.endsWith("/command"))).toBe(false);
 

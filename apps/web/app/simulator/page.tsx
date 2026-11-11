@@ -12,15 +12,13 @@ import { BlindRoundPanel } from "@/features/random-draft-simulator/components/Bl
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { LiveBanEntryPanel, LivePendingPanel } from "@/features/random-draft-simulator/components/LiveCompanionPanel";
-import { RoundInstruction } from "@/features/random-draft-simulator/components/RoundInstruction";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { SimulatorTeamRoster } from "@/features/random-draft-simulator/components/SimulatorTeamRoster";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import { useScrollToTop } from "@/features/random-draft-simulator/use-scroll-to-top";
-import { SimulatorLightBoard, SimulatorLightScope } from "@/features/simulator-light";
-import type { AnalyzedCandidate } from "@/features/random-draft-simulator/analyzed-pick";
+import { SimulatorLightScope } from "@/features/simulator-light";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -31,9 +29,8 @@ type Session = ReturnType<typeof useRandomDraftSession>;
 // nada cumple el prop sin un handler anónimo inline (web.md).
 function noopSetHighlightedHeroIds(): void {}
 
-// El roster ("Tu equipo / Equipo rival") es información, no una acción. Durante una ronda va DEBAJO
-// del consejo (ActiveRoundPhaseView) para que lo primero que se vea sea qué elegir; en cualquier otra
-// fase (bans, resumen final) se queda arriba como siempre.
+// El roster ("Tu equipo / Equipo rival") es información, no una acción: siempre en versión compacta (una fila por equipo). Durante una ronda va
+// DEBAJO del tablero; en cualquier otra fase (bans, resumen final) se queda arriba.
 function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, config, coach } = session.state;
   if (!draftState || !config) return null;
@@ -45,6 +42,7 @@ function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
       heroCatalog={heroCatalog}
       ownAssignedPositions={session.state.ownAssignedPositions}
       enemyRoleBeliefs={coach?.roleBeliefs?.enemy}
+      compact
     />
   );
 }
@@ -53,21 +51,6 @@ function RosterBeforeRound({ session, heroCatalog }: PhaseViewProps) {
   const { phase } = session.state;
   if (phase.type === "blind_round" || phase.type === "round_revealed") return null;
   return <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />;
-}
-
-interface RoundInstructionBarProps {
-  phase: Session["state"]["phase"];
-  capacity: number | null;
-}
-
-// Sólo existe mientras hay una ronda en juego; en cualquier otra fase no renderiza nada.
-function RoundInstructionBar({ phase, capacity }: RoundInstructionBarProps) {
-  if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
-  return (
-    <SimulatorLightScope variant="strip">
-      <RoundInstruction round={phase.round} capacity={capacity} revealed={phase.type === "round_revealed"} />
-    </SimulatorLightScope>
-  );
 }
 
 interface PhaseViewProps {
@@ -81,10 +64,11 @@ interface RoundBansStripProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
-// Los bans viven en la franja fija de arriba durante toda la ronda: antes desaparecían del tope y
-// reaparecían 1500 px más abajo, así que había que hacer scroll para ver el draft entero.
+// Los bans viven en la franja fija de arriba mientras corre la ronda (junto al reloj): antes desaparecían del tope y
+// reaparecían 1500 px más abajo, así que había que hacer scroll para ver el draft entero. Al revelarse la ronda ya no hay reloj y el centro
+// del tablero muestra sus propios bans: repetirlos aquí los dibujaba dos veces.
 function RoundBansStrip({ phase, bans, heroCatalog }: RoundBansStripProps) {
-  if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
+  if (phase.type !== "blind_round") return null;
   return <BanPhasePanel resolvedBans={bans} heroCatalog={heroCatalog} compact />;
 }
 
@@ -128,75 +112,74 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
   return <BanPhasePanel resolvedBans={session.state.phase.resolvedBans} heroCatalog={heroCatalog} />;
 }
 
-// BanPhasePanel "y siguientes" (Req. de la tarea 16): durante blind_round/round_revealed se seguí
-// mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
-// vez del snapshot fijo de `ban_phase_complete`.
+// Una sola pantalla de juego por ronda: el tablero (recomendaciones, análisis con su botón «Elegir», buscador) y, secundario, el roster
+// compacto. El Copilot ya no es un segundo tablero: su detalle (decisión V4, creencias de rol, feedback) queda en un plegable de diagnóstico.
+// BanPhasePanel "y siguientes": durante blind_round/round_revealed lee `draftState.banned` (incluye los Conflict_Ban que se hayan agregado).
+interface CoachDetailsProps extends PhaseViewProps {
+  phase: Extract<Session["state"]["phase"], { type: "blind_round" | "round_revealed" }>;
+}
+
+function CoachDetails({ session, heroCatalog, phase }: CoachDetailsProps) {
+  const { recommendations, coach, previewStatus, config, currentDecision } = session.state;
+  return (
+    <details className="sl-coach-details" data-testid="coach-details">
+      <summary>Detalle del coach (diagnóstico)</summary>
+      {/* R1 S5 (blockers 1+8): la recomendación humana del simulador viene SIEMPRE de RecommendationSet/v2 -- ENABLE_PRO_DRAFTER
+          no tiene ningún efecto sobre este panel. AP Ranked Roles V1 / Wave 2: sobre ese V2 el motor construye la salida del Coach. */}
+      <CopilotPanel
+        contractOnly
+        recommendations={recommendations}
+        coach={coach}
+        currentDecision={currentDecision}
+        heroCatalog={heroCatalog}
+        previewStatus={previewStatus}
+        onRetryPreview={session.actions.retryPreview}
+        onAssignOwnPosition={session.actions.assignOwnPosition}
+        onSuggestedHeroIdsChange={noopSetHighlightedHeroIds}
+        playerPosition={config?.playerPosition}
+        partyPositions={config?.partyPositions}
+        roundPickState={phase.type === "blind_round" ? {
+          round: phase.round,
+          // PD-026/PD-027: keyed by POSITION directly -- Object.keys/values already gives exactly
+          // the shape RoundPickState wants, no round-slot arithmetic needed.
+          lockedPositions: Object.keys(phase.lockedUserPicks).map(Number) as (1 | 2 | 3 | 4 | 5)[],
+          lockedHeroesByPosition: phase.lockedUserPicks,
+        } : undefined}
+      />
+    </details>
+  );
+}
+
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, recommendations, coach, previewStatus, config, currentDecision, requestedTarget, humanActionability, teamBoard, teamBoardStatus } = session.state;
+  const { phase, draftState, config, currentDecision, requestedTarget, humanActionability, teamBoard, teamBoardStatus } = session.state;
   // Antes del `return null` de abajo: un hook no puede quedar detrás de un return condicional.
   const roundNumber = phase.type === "blind_round" || phase.type === "round_revealed" ? phase.round : 0;
   useScrollToTop(roundNumber);
-  // Qué candidato tiene abierto el análisis del tablero. Solo habilita el botón «Elegir a X» de BlindRoundPanel; abrir el análisis nunca elige.
-  const [analyzed, setAnalyzed] = useState<AnalyzedCandidate | null>(null);
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
   // PSR-002 -- the selector highlights the position being VIEWED (the V4 decision's viewedPosition, or the
   // one the Player just requested while the engine recomputes). The Coach RECOMMENDATION is a separate
-  // field of the same decision and is rendered only by CurrentDecisionPanel.
+  // field of the same decision.
   const decisionView = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.viewedPosition : null;
   const selectedTarget = requestedTarget ?? decisionView;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Canonical Light: el clic en una tarjeta solo ABRE el análisis (no elige). Elegir al héroe sigue siendo la acción legal de BlindRoundPanel. */}
-      <SimulatorLightBoard
+      <BlindRoundPanel
+        phase={phase}
+        draftState={draftState}
+        heroCatalog={heroCatalog}
+        onLockPick={session.actions.lockPick}
+        onYield={session.actions.yieldRound}
+        humanActionability={humanActionability}
+        selectedTarget={selectedTarget}
+        onSelectTarget={session.actions.selectTarget}
         board={teamBoard}
-        status={teamBoardStatus}
+        boardStatus={teamBoardStatus}
         humanPosition={config?.playerPosition ?? null}
-        onRetry={session.actions.retryPreview}
-        onAnalyze={setAnalyzed}
+        onRetryBoard={session.actions.retryPreview}
       />
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div className="flex flex-col gap-4">
-          <BlindRoundPanel
-            phase={phase}
-            draftState={draftState}
-            heroCatalog={heroCatalog}
-            onLockPick={session.actions.lockPick}
-            onYield={session.actions.yieldRound}
-            humanActionability={humanActionability}
-            selectedTarget={selectedTarget}
-            onSelectTarget={session.actions.selectTarget}
-            analyzed={analyzed}
-          />
-        </div>
-        <div className="flex flex-col gap-4">
-          {/* R1 S5 (blockers 1+8): la recomendación humana del simulador viene SIEMPRE de
-              RecommendationSet/v2 -- ENABLE_PRO_DRAFTER no tiene ningún efecto sobre este panel ni
-              sobre qué héroes se resaltan en la grilla. AP Ranked Roles V1 / Wave 2: sobre ese V2 el
-              motor construye la salida del Coach (acción primaria + shortlist), que este panel muestra. */}
-          <CopilotPanel
-            contractOnly
-            recommendations={recommendations}
-            coach={coach}
-            currentDecision={currentDecision}
-            heroCatalog={heroCatalog}
-            previewStatus={previewStatus}
-            onRetryPreview={session.actions.retryPreview}
-            onAssignOwnPosition={session.actions.assignOwnPosition}
-            onSuggestedHeroIdsChange={noopSetHighlightedHeroIds}
-            playerPosition={config?.playerPosition}
-            partyPositions={config?.partyPositions}
-            roundPickState={phase.type === "blind_round" ? {
-              round: phase.round,
-              // PD-026/PD-027: keyed by POSITION directly -- Object.keys/values already gives exactly
-              // the shape RoundPickState wants, no round-slot arithmetic needed.
-              lockedPositions: Object.keys(phase.lockedUserPicks).map(Number) as (1 | 2 | 3 | 4 | 5)[],
-              lockedHeroesByPosition: phase.lockedUserPicks,
-            } : undefined}
-          />
-        </div>
-      </div>
+      <CoachDetails session={session} heroCatalog={heroCatalog} phase={phase} />
     </div>
   );
 }
@@ -337,7 +320,7 @@ function RankedAllPickSimulator() {
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
 
-  const { phase, draftState, humanActionability } = session.state;
+  const { phase, draftState } = session.state;
 
   // TSK-086: mismo timer que antes vivía dentro de BlindRoundPanel, ahora armado acá para
   // pasarlo como centerContent de CompactBoard -- solo durante blind_round (única fase con un
@@ -372,8 +355,6 @@ function RankedAllPickSimulator() {
           <RoundBansStrip phase={phase} bans={draftState.banned} heroCatalog={heroCatalog} />
         </SimulatorLightScope>
       )}
-      {/* Lo primero que se lee tras el temporizador es QUÉ HACER AHORA; el roster (informativo) va después. */}
-      <RoundInstructionBar phase={phase} capacity={humanActionability?.roundCapacity ?? null} />
       <RosterBeforeRound session={session} heroCatalog={heroCatalog} />
       <ActivePanel session={session} heroCatalog={heroCatalog} />
       {/* Diagnóstico temporal: sin NEXT_PUBLIC_D2_FLIGHT_RECORDER=1 en el build y ?flightRecorder=1 en la URL no renderiza ni graba nada. */}

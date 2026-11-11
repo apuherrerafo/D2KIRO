@@ -171,6 +171,76 @@ function EnemyRosterSide({ bySeat, heroCatalog, roleBeliefs }: EnemyRosterSidePr
   );
 }
 
+interface CompactSeatProps {
+  heroId: HeroId | null;
+  heroCatalog: Map<number, HeroMeta>;
+  title: string;
+  empty: string;
+  tag: string | null;
+  testId: string;
+  detailTestId?: string;
+}
+
+// Variante compacta: una fila por equipo, para leer de un vistazo quién ocupa cada posición sin que el roster compita con el tablero.
+function CompactSeat({ heroId, heroCatalog, title, empty, tag, testId, detailTestId }: CompactSeatProps) {
+  const hero = heroId === null ? undefined : heroCatalog.get(heroId);
+  return (
+    <li className="sl-roster-seat" data-filled={heroId === null ? "false" : "true"} data-testid={testId}>
+      {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={28} />}
+      <span className="sl-roster-seat-text">
+        <strong>{title}</strong>
+        {heroId !== null && <span>{hero?.localizedName ?? `Héroe ${heroId}`}</span>}
+        {heroId === null && <span>{empty}</span>}
+        {tag !== null && <span className="sl-roster-tag" data-testid={detailTestId}>{tag}</span>}
+      </span>
+    </li>
+  );
+}
+
+interface CompactRosterProps {
+  draftState: DraftState;
+  config: DraftConfig;
+  heroCatalog: Map<number, HeroMeta>;
+  ownAssignedPositions: readonly OwnAssignedPositionBinding[];
+  enemyRoleBeliefs: readonly CoachRoleBelief[] | undefined;
+}
+
+function CompactRoster({ draftState, config, heroCatalog, ownAssignedPositions, enemyRoleBeliefs }: CompactRosterProps) {
+  const own = ownPicksByPosition(ownAssignedPositions);
+  const enemy = picksByRosterSeat(draftState.localSide === "dire" ? draftState.picks.radiant : draftState.picks.dire);
+  const beliefByHero = new Map((enemyRoleBeliefs ?? []).map((belief) => [belief.heroId, belief]));
+  return (
+    <section className="sl-roster" data-testid="team-roster" aria-label="Equipos por posición">
+      <div className="sl-roster-side">
+        <h3 className="sl-subhead">Tu equipo</h3>
+        <ul className="sl-roster-list">
+          {SIMULATOR_POSITIONS.map((position) => (
+            <CompactSeat
+              key={position}
+              heroId={own.get(position) ?? null}
+              heroCatalog={heroCatalog}
+              title={`Pos${position} ${SIMULATOR_POSITION_LABELS[position]}`}
+              empty="Sin elegir"
+              tag={controllerForPosition(config, position)}
+              testId={`own-roster-pos-${position}`}
+            />
+          ))}
+        </ul>
+      </div>
+      <div className="sl-roster-side">
+        <h3 className="sl-subhead">Equipo rival</h3>
+        <ul className="sl-roster-list">
+          {ENEMY_SEATS.map((seat) => {
+            const heroId = enemy.get(seat) ?? null;
+            const label = heroId === null ? null : enemyRoleBeliefLabel(beliefByHero.get(heroId));
+            return <CompactSeat key={seat} heroId={heroId} heroCatalog={heroCatalog} title={`Rival ${seat + 1}`} empty="Oculto hasta el reveal" tag={label} testId={`enemy-roster-pos-${seat + 1}`} detailTestId="enemy-roster-role" />;
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export interface SimulatorTeamRosterProps {
   draftState: DraftState;
   config: DraftConfig;
@@ -181,10 +251,13 @@ export interface SimulatorTeamRosterProps {
   ownAssignedPositions: readonly OwnAssignedPositionBinding[];
   /** Coach RoleBelief for revealed enemy heroes (PD-027). Absent/empty means no belief yet -- never a fabricated position. */
   enemyRoleBeliefs?: readonly CoachRoleBelief[];
+  /** Una fila por equipo (información secundaria junto al tablero) en vez de las tarjetas grandes. */
+  compact?: boolean;
 }
 
 /** Own Team: persistent Pos1-5 identity, known session truth. Enemy: reveal order + Coach inference only (PD-027). */
-export function SimulatorTeamRoster({ draftState, config, heroCatalog, ownAssignedPositions, enemyRoleBeliefs }: SimulatorTeamRosterProps) {
+export function SimulatorTeamRoster({ draftState, config, heroCatalog, ownAssignedPositions, enemyRoleBeliefs, compact = false }: SimulatorTeamRosterProps) {
+  if (compact) return <CompactRoster draftState={draftState} config={config} heroCatalog={heroCatalog} ownAssignedPositions={ownAssignedPositions} enemyRoleBeliefs={enemyRoleBeliefs} />;
   const enemy = draftState.localSide === "dire" ? draftState.picks.radiant : draftState.picks.dire;
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="team-roster">

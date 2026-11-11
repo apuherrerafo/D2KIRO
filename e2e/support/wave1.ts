@@ -133,9 +133,10 @@ export async function expectNotSelectable(page: Page, name: string): Promise<voi
 
 // OLD_ASSERTION: every hero was a `button[title="<name>"]` of the full 127-hero grid, always on screen.
 // WHY_OBSOLETE: the Simulator no longer renders that grid (TSK-237 / 17eddb7): the Team Coach cards are the main path and the
-//   manual path is the "Buscar otro héroe" search (`other-hero-search`), a closed <details> whose rows are plain buttons
-//   (`<span>name</span>`, no `title`). Heroes that are banned / already picked are NOT in that list at all.
-// NEW_PRODUCT_CONTRACT: "selectable" == a row of the search list that exists and is enabled; selecting == open the search, click the row.
+//   manual path is the "Buscar otro héroe" search (`other-hero-search`), whose rows are plain buttons (`<span>name</span>`, no `title`).
+// NEW_PRODUCT_CONTRACT (P0 «Simulador jugable»): the search is ALWAYS on screen (no <details>) and a row only OPENS the hero in the
+//   board's analysis; confirming is the `Elegir a <name>` button inside that analysis. Banned / already picked heroes stay in the list,
+//   disabled and labelled -- "selectable" == a row that exists and is enabled.
 export function heroSearch(page: Page) {
   return page.getByTestId("other-hero-search");
 }
@@ -144,17 +145,16 @@ export function heroButton(page: Page, name: string) {
   return heroSearch(page).locator(`button:has(span:text-is("${name}"))`).first();
 }
 
-/** Opens the "Buscar otro héroe" disclosure when it is closed (idempotent). */
+/** The search is part of the board now (never collapsed): this only waits for it to be on screen. Kept for the callers that used to open it. */
 export async function openHeroSearch(page: Page): Promise<void> {
-  const search = heroSearch(page);
-  await expect(search).toBeVisible({ timeout: 30_000 });
-  if (!(await search.evaluate((node) => (node as HTMLDetailsElement).open))) await search.locator("summary").click();
+  await expect(heroSearch(page)).toBeVisible({ timeout: 30_000 });
 }
 
-/** The real manual path: open the search and click the named hero's row. */
+/** The real manual path: click the named hero's row (opens its analysis), then confirm with the `Elegir a <name>` button. */
 export async function pickHero(page: Page, name: string, timeout = 10_000): Promise<void> {
   await openHeroSearch(page);
   await heroButton(page, name).click({ timeout });
+  await page.getByTestId("analyzed-pick-button").click({ timeout });
 }
 
 /** First name of `names` whose grid button exists AND is enabled (i.e. legal for the Player right now). */
@@ -229,12 +229,12 @@ export async function configureAndStart(page: Page, options: StartOptions): Prom
   await startButton.click();
 }
 
-/** Round header: "Ronda N · K espacio(s) de pick disponible(s)" -- K is round CAPACITY, never the pending-position count. */
+/** Round header: "Ronda N de 3 · Elige K héroe(s)" -- K is round CAPACITY, never the pending-position count. */
 export const ROUND_HEADING = (round: 1 | 2 | 3, count: number) =>
-  new RegExp(`Ronda ${round} · ${count} ${count === 1 ? "espacio de pick disponible" : "espacios de pick disponibles"}`);
+  new RegExp(`Ronda ${round} de 3 · Elige ${count} ${count === 1 ? "héroe" : "héroes"}`);
 
 /** Any open human round, whatever its remaining capacity. */
-export const ANY_ROUND_HEADING = (round: 1 | 2 | 3) => new RegExp(`Ronda ${round} · \\d+ espacios? de pick disponibles?`);
+export const ANY_ROUND_HEADING = (round: 1 | 2 | 3) => new RegExp(`Ronda ${round} de 3 · Elige \\d+ héroes?`);
 
 export async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
   const rows = page.locator(`[data-testid="${testId}"]`);

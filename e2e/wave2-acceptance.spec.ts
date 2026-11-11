@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS } from "./fixtures/hero-catalog";
 import { announcedTargetLabel, decisionCardIds } from "./support/decision";
 import {
@@ -209,7 +210,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     const second = await firstEnabled(page, [...CARRY, ...MID].filter((name) => name !== ignored));
     await pickHero(page, second);
     // A legal collision with a hidden enemy pick reopens the seat (ban + repick) instead of closing the round: handle it through the UI like every other journey.
-    const repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 · /, [...CARRY, ...MID, ...OFFLANE, ...SOFT_SUPPORT, ...HARD_SUPPORT]);
+    const repicks = await awaitRoundHandlingCollision(page, /Ronda 1 terminada|Ronda 2 de 3 · /, [...CARRY, ...MID, ...OFFLANE, ...SOFT_SUPPORT, ...HARD_SUPPORT]);
     expect(commandsSoFar(rec)).toBe(2 + repicks);
     expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
   });

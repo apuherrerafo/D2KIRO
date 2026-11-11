@@ -1,4 +1,5 @@
-import { expect, test, type Response } from "@playwright/test";
+import type { Response } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
 
 const FORBIDDEN_SUBSTRINGS = ["NOT_COMPUTED", "undefined", "[object Object]", "NaN"];
 
@@ -15,7 +16,7 @@ test("el Copilot muestra la CurrentHumanDecision V4 real de la ronda 1 (2 espaci
   await expect(startButton).toBeEnabled({ timeout: 60_000 });
   await startButton.click();
 
-  await expect(page.getByText(/Ronda 1 · 2 espacios de pick disponibles/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/Ronda 1 de 3 · Elige 2 héroes/)).toBeVisible({ timeout: 60_000 });
   const rawBody = (await recommendationResponse.then((response) => response.json())) as Record<string, any>;
   // Product Semantics Recovery: the Simulator reads ONLY the V4 CurrentHumanDecision -- no V2 set on the wire next to it.
   expect(Object.keys(rawBody)).toEqual(["output"]);

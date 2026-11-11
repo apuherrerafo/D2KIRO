@@ -4,7 +4,7 @@ import { HeroIcon, HeroPortrait } from "@/design/canonical/hero-media";
 import { useReducedMotion } from "@/design/round-3a/lab-context";
 import { teamPositionName } from "@/features/team-coach/constants";
 import { hasLimitedEvidence } from "@/features/team-coach/eligibility";
-import type { TeamCoachCandidate, TeamCoachColumn } from "@/features/team-coach/types";
+import type { TeamCoachCandidate, TeamCoachColumn, TeamPosition } from "@/features/team-coach/types";
 import { heroName } from "../hero-name";
 import { mergeColumnCandidates, type ColumnCandidate } from "../merge-candidates";
 import { settleIn, useChanged } from "../motion";
@@ -17,6 +17,7 @@ import { cardModelOf, decisionViewOf, LEVEL_LABEL, type DecisionView, type Recom
 // al cambiar de candidato, el contenido entra con el resorte `soft` (movimiento de panel, sin rebote).
 
 export const DETAIL_EMPTY_TEXT = "Selecciona un héroe para ver su análisis";
+export const DETAIL_EMPTY_HINT = "Aquí verás por qué se recomienda y el botón para elegirlo.";
 export const DETAIL_NO_ACTION_NOTE = "Abrir el análisis no elige el héroe ni envía nada a Dota. Para elegir, usa el panel de la ronda.";
 
 function Row({ heroId, lead, why }: { heroId: number; lead: string; why: string | undefined }) {
@@ -122,7 +123,43 @@ function EmptyDetail({ footNote }: { footNote: string }) {
     <Glass className="sl-detail" level="b" surfaceLevel="3">
       <p className="sl-caption">Análisis del candidato</p>
       <p className="sl-detail-empty">{DETAIL_EMPTY_TEXT}</p>
+      <p className="sl-muted">{DETAIL_EMPTY_HINT}</p>
       <p className="sl-foot">{footNote}</p>
+    </Glass>
+  );
+}
+
+/** Héroe que el jugador encontró con el buscador. No viene del motor: no trae razones, y no se inventan. */
+export interface ManualCandidate {
+  heroId: number;
+  position: number;
+}
+
+function ManualBody({ manual, pickAction }: { manual: ManualCandidate; pickAction: ReactNode }) {
+  return (
+    <div className="sl-detail-body" data-detail-key={`manual:${manual.heroId}`} data-testid="sl-manual-detail">
+      <p className="sl-caption">Héroe elegido por búsqueda</p>
+      <div className="sl-detail-head">
+        <div className="sl-detail-portrait">
+          <HeroPortrait hero={manual.heroId} size="fill" />
+        </div>
+        <div className="sl-detail-meta">
+          <h3 className="sl-detail-name">{heroName(manual.heroId)}</h3>
+          <p className="sl-muted">{teamPositionName(manual.position as TeamPosition)}</p>
+          {pickAction}
+        </div>
+      </div>
+      <p className="sl-muted">El coach no analizó a este héroe: lo elegiste tú. Puedes confirmarlo igual si es legal.</p>
+    </div>
+  );
+}
+
+/** Sin columnas que mostrar (motor calculando o sin candidatos) el héroe buscado igual necesita su lugar para elegirse. */
+export function ManualOnly({ manual, pickAction }: { manual: ManualCandidate | null | undefined; pickAction: ReactNode }) {
+  if (manual === null || manual === undefined) return null;
+  return (
+    <Glass className="sl-detail sl-detail--solo" edge level="b" surfaceLevel="4">
+      <ManualBody manual={manual} pickAction={pickAction} />
     </Glass>
   );
 }
@@ -145,9 +182,13 @@ export interface DetailPanelProps {
   showPlan: boolean;
   /** Pie del panel; ausente = el del Simulador. */
   footNote?: string;
+  /** Solo el Simulador: la acción de elegir al héroe que se lee (o el motivo de no poder). Ausente = el panel solo informa (Live). */
+  pickAction?: ReactNode;
+  /** Solo el Simulador: héroe buscado a mano; ocupa el panel en lugar de una tarjeta. */
+  manualCandidate?: ManualCandidate | null;
 }
 
-export function DetailPanel({ positions, selectedKey, recommendation, noActionReason, showPlan, footNote = DETAIL_NO_ACTION_NOTE }: DetailPanelProps) {
+export function DetailPanel({ positions, selectedKey, recommendation, noActionReason, showPlan, footNote = DETAIL_NO_ACTION_NOTE, pickAction, manualCandidate = null }: DetailPanelProps) {
   const reduced = useReducedMotion();
   const body = useRef<HTMLDivElement>(null);
   const found = selectedKey === null ? null : findSelected(positions, selectedKey);
@@ -156,6 +197,13 @@ export function DetailPanel({ positions, selectedKey, recommendation, noActionRe
   useChanged(openKey, (next) => {
     if (next !== null) settleIn(body.current, reduced);
   });
+  if (manualCandidate !== null) {
+    return (
+      <Glass className="sl-detail" edge level="b" surfaceLevel="4">
+        <ManualBody manual={manualCandidate} pickAction={pickAction} />
+      </Glass>
+    );
+  }
   if (found === null) return <EmptyDetail footNote={footNote} />;
   const { column, entry } = found;
   const model = cardModelOf({ entry, column, recommendation, selected: false, showPlan });
@@ -182,6 +230,7 @@ export function DetailPanel({ positions, selectedKey, recommendation, noActionRe
             <ul className="sl-marks">
               {marks.map((mark) => <li key={mark}>{mark}</li>)}
             </ul>
+            {pickAction}
           </div>
         </div>
         {hasHeroReasons(candidate) && (

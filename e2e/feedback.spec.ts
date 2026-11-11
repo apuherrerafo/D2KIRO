@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
 import Database from "better-sqlite3";
 
 test.describe("Modern Coach Recommendation Feedback", () => {
@@ -14,7 +14,7 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     await startButton.click();
 
     // Wait for Round 1 and Coach recommendations
-    await expect(page.getByText(/Ronda 1 · 2 espacios de pick disponibles/)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Ronda 1 de 3 · Elige 2 héroes/)).toBeVisible({ timeout: 60_000 });
     // Product Semantics Recovery WP3: feedback attaches to the ONE displayed ranked result (V4 cards).
     // Eligibility contract (2026-11-03/04): cards exist only with a verifiable ground, so the position in view at the opening (the Player's own Midlane) may have
     // none. Feedback is rated on a card the Coach DID show: look through the pending positions for the first one that has cards (the draft seed is random).
