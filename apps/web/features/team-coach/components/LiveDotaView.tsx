@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ActionQuiet } from "@/design/canonical/primitives";
+import { LiveNotice, LivePage } from "@/features/live-light";
 import { GSI_SETUP_ERRORS } from "../constants";
+import { liveLightViewOf } from "@/features/live-light/view-model";
 import { useLiveTeamCoachStore } from "../live-store";
 import type { GsiLinkView } from "../types";
 import { linkLifetime } from "../link-lifetime";
@@ -21,10 +24,9 @@ import { LiveTeamCoachView } from "./LiveTeamCoachView";
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-4 md:p-6" data-testid="live-dota">
-      <span className="text-heading text-content-primary">D2KIRO · Draft en vivo</span>
+    <LivePage testId="live-dota">
       {children}
-    </main>
+    </LivePage>
   );
 }
 
@@ -49,19 +51,19 @@ export function LiveDotaView({ setupError = null, fetchImpl, now = Date.now }: L
   if (gsi.state.status === "loading") {
     return (
       <Shell>
-        <span className="text-body text-content-muted" role="status">Cargando...</span>
+        <p className="ll-text ll-text--muted" role="status">Cargando...</p>
       </Shell>
     );
   }
   if (gsi.state.status === "failed") {
     return (
       <Shell>
-        <div className="flex flex-col gap-2 rounded-lg border border-signal-negative bg-surface-overlay p-3" role="alert" data-testid="live-dota-unreachable">
-          <span className="text-caption text-signal-negative">No se pudo contactar a D2KIRO.</span>
-          <button type="button" className="self-start text-caption text-accent-primary underline" onClick={handleRetry}>
-            Reintentar
-          </button>
-        </div>
+        <LiveNotice tone="bad" testId="live-dota-unreachable">
+          <span className="ll-notice-body">No se pudo contactar a D2KIRO.</span>
+          <div>
+            <ActionQuiet onPress={handleRetry}>Reintentar</ActionQuiet>
+          </div>
+        </LiveNotice>
       </Shell>
     );
   }
@@ -88,6 +90,7 @@ interface LinkedLiveViewProps {
 function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl, now }: LinkedLiveViewProps) {
   const captureStatus = useLiveTeamCoachStore((state) => state.captureStatus);
   const engineStatus = useLiveTeamCoachStore((state) => state.engineStatus);
+  const board = useLiveTeamCoachStore((state) => state.board);
   // Only the status of THIS link's session counts (the store may still hold a previous one).
   const linkStatus = captureStatus !== null && captureStatus.sessionId === link.sessionId ? captureStatus : null;
   // Dota has not reported on this link yet (status not loaded, or no GSI update ever): keep the setup open.
@@ -97,21 +100,34 @@ function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl, now }: L
   function handleDisconnect() {
     void gsi.disconnect();
   }
-  return (
-    <LiveTeamCoachView sessionId={link.sessionId} linkExpired={lifetime === "expired"}>
-      <DotaLinkControls
-        link={link}
-        lifetime={lifetime}
-        waitingForDota={waitingForDota}
-        companionActive={companionActive}
-        guidance={companionGuidance(linkStatus)}
-        setupError={setupError}
-        awaitingDownload={gsi.awaitingDownload}
-        onDownload={onDownload}
-        onDisconnect={handleDisconnect}
-      />
-      <LiveLocalPositionPanel sessionId={link.sessionId} localPlayer={linkStatus?.localPlayer} fetchImpl={fetchImpl} />
+  // The installer / expired link stay ABOVE the board only while the Player must act on them; once the Companion is up
+  // the same controls move below the Coach as quiet status.
+  const needsSetup = (waitingForDota && !companionActive) || setupError !== null || lifetime === "expired";
+  // Solo without a declared seat: the board itself offers Pos 1-5, so this panel steps aside (one selector visible).
+  const draftEnded = linkStatus?.draftPhase === "ended";
+  const boardOffersSeat = board !== null && liveLightViewOf({ board, localPlayer: linkStatus?.localPlayer, teamContext: linkStatus?.teamContext, draftEnded }).kind === "pick-seat";
+  const linkControls = (
+    <DotaLinkControls
+      link={link}
+      lifetime={lifetime}
+      waitingForDota={waitingForDota}
+      companionActive={companionActive}
+      guidance={companionGuidance(linkStatus)}
+      setupError={setupError}
+      awaitingDownload={gsi.awaitingDownload}
+      onDownload={onDownload}
+      onDisconnect={handleDisconnect}
+    />
+  );
+  const controls = (
+    <div className="ll-controls" data-testid="live-controls">
+      <LiveLocalPositionPanel sessionId={link.sessionId} localPlayer={linkStatus?.localPlayer} fetchImpl={fetchImpl} hidden={boardOffersSeat} />
       <LivePartyPresetPanel sessionId={link.sessionId} teamContext={linkStatus?.teamContext} fetchImpl={fetchImpl} />
+    </div>
+  );
+  return (
+    <LiveTeamCoachView sessionId={link.sessionId} linkExpired={lifetime === "expired"} setup={needsSetup ? linkControls : null} controls={controls}>
+      {needsSetup ? null : linkControls}
       <LiveDiagnosticsPanel engine={engineStatus} dotaLink status={linkStatus} />
     </LiveTeamCoachView>
   );

@@ -1,0 +1,133 @@
+{
+  "evidence": "PRUEBA: motor real + web real, Dota SIMULADO; respuesta de board enriquecida en el navegador solo para A/B",
+  "legacySurfaces": {
+    "goldenCard": {
+      "background": "rgb(255, 255, 255)",
+      "backgroundLuminance": 1,
+      "color": "rgb(23, 19, 17)",
+      "border": "rgb(23, 19, 17)",
+      "width": 1552,
+      "overflowsX": false
+    },
+    "freeThreats": {
+      "background": "rgb(255, 255, 255)",
+      "backgroundLuminance": 1,
+      "color": "rgb(23, 19, 17)",
+      "border": "rgb(200, 35, 122)",
+      "width": 1552,
+      "overflowsX": false
+    },
+    "freeThreatRows": 2
+  },
+  "axeGoldenAndThreats": [],
+  "axe-golden-pagina": [],
+  "goldenPickButtons": 0,
+  "reflow-golden": {
+    "200": {
+      "clientWidth": 800,
+      "scrollWidth": 800,
+      "horizontalScroll": false
+    },
+    "400": {
+      "clientWidth": 400,
+      "scrollWidth": 400,
+      "horizontalScroll": false
+    }
+  },
+  "party5Long": {
+    "analysisContainsFullReason": true,
+    "clippedElements": []
+  },
+  "party5Columns": [
+    {
+      "id": "team-coach-column-1",
+      "clipped": true,
+      "text": "POSICIÓN DE TU PARTY"
+    },
+    {
+      "id": "team-coach-column-2",
+      "clipped": true,
+      "text": "TU POSICIÓN · DECLARADA, SIN CONFIRMAR"
+    },
+    {
+      "id": "team-coach-column-3",
+      "clipped": true,
+      "text": "POSICIÓN DE TU PARTY"
+    },
+    {
+      "id": "team-coach-column-4",
+      "clipped": true,
+      "text": "POSICIÓN DE TU PARTY"
+    },
+    {
+      "id": "team-coach-column-5",
+      "clipped": true,
+      "text": "POSICIÓN DE TU PARTY"
+    }
+  ],
+  "axe-party5-largos": [],
+  "reflow-party5-largos": {
+    "200": {
+      "clientWidth": 800,
+      "scrollWidth": 800,
+      "horizontalScroll": false
+    },
+    "400": {
+      "clientWidth": 400,
+      "scrollWidth": 400,
+      "horizontalScroll": false
+    }
+  },
+  "c1_sinEventos": {
+    "COMPANION": "● Companion no detectado",
+    "CONNECTION": "● Esperando Dota...",
+    "PHASE": "—",
+    "CAPTURE": "● Esperando selección de héroes...",
+    "DRAFT_AUTOMATICO": "● Draft automático no disponible",
+    "SIDE": "—"
+  },
+  "c2_soloCompanion": {
+    "COMPANION": "● Companion conectado",
+    "CONNECTION": "● Esperando Dota...",
+    "PHASE": "Hero Selection",
+    "CAPTURE": "● Esperando selección de héroes...",
+    "DRAFT_AUTOMATICO": "● Draft automático no disponible",
+    "SIDE": "—"
+  },
+  "c3_soloObservaciones_sinGSI": {
+    "COMPANION": "● Companion conectado",
+    "CONNECTION": "● Esperando Dota...",
+    "PHASE": "Hero Selection",
+    "CAPTURE": "● Hero Selection",
+    "DRAFT_AUTOMATICO": "● Draft automático no disponible",
+    "SIDE": "Radiant"
+  },
+  "c4_gsiStatus": 200,
+  "c4_conGSI": {
+    "COMPANION": "● Companion conectado",
+    "CONNECTION": "● Dota conectado",
+    "PHASE": "Hero Selection",
+    "CAPTURE": "● Hero Selection · captura parcial",
+    "DRAFT_AUTOMATICO": "● Draft automático no disponible",
+    "SIDE": "Radiant"
+  },
+  "c4_liveStatusJson": {
+    "connection": "connected",
+    "lastEventAt": true,
+    "draftPhase": "hero_selection",
+    "bans": 16,
+    "captureHealth": "degraded",
+    "captureDetail": "GSI_DRAFT_PARTIAL"
+  },
+  "d_gsiStatus": 200,
+  "d_pills": {
+    "COMPANION": "● Companion conectado",
+    "CONNECTION": "● Dota conectado",
+    "PHASE": "Hero Selection",
+    "CAPTURE": "● Draft terminado",
+    "DRAFT_AUTOMATICO": "● Draft automático no disponible",
+    "SIDE": "Radiant"
+  },
+  "d_goldenOrThreatsAfterEnd": 0,
+  "axe-draft-terminado": []
+}

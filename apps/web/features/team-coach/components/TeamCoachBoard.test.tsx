@@ -431,7 +431,7 @@ describe("19. un único contrato de tablero para /simulator y /live-draft", () =
     expect(simulator).toContain("<SimulatorLightBoard");
     expect(simulator).not.toContain("<TeamCoachBoard");
     const liveLight = readFileSync(resolve(webRoot, "features/live-light/components/LiveLightBoard.tsx"), "utf8");
-    expect(live).toContain('import { LiveLightBoard } from "@/features/live-light";');
+    expect(live).toContain('import { LiveLightBoard, LiveNotice, LivePage } from "@/features/live-light";');
     expect(live).toContain("<LiveLightBoard");
     expect(live).not.toContain("<TeamCoachBoard");
     expect(liveLight).toContain('import { SimulatorLightBoard, SimulatorLightScope } from "@/features/simulator-light";');

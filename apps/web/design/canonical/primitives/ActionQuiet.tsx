@@ -16,6 +16,8 @@ export type ActionQuietProps = {
   onPress?: () => void;
   preview?: ActionPreview;
   selected?: boolean;
+  /** Hook de prueba/telemetría de la pantalla que lo compone (aditivo: no cambia ninguna apariencia). */
+  testId?: string;
 };
 
 function QuietGlyph({ icon, playing }: { icon?: IconName; playing: boolean }) {
@@ -23,7 +25,7 @@ function QuietGlyph({ icon, playing }: { icon?: IconName; playing: boolean }) {
   return <D2Icon name={icon} playing={playing} />;
 }
 
-export function ActionQuiet({ children, disabled = false, icon, onPress, preview, selected }: ActionQuietProps) {
+export function ActionQuiet({ children, disabled = false, icon, onPress, preview, selected, testId }: ActionQuietProps) {
   const { committing, onKeyDown, onPointerUp } = useCommit();
 
   function handleClick() {
@@ -36,6 +38,7 @@ export function ActionQuiet({ children, disabled = false, icon, onPress, preview
       className="cx-quiet cx-focusable"
       data-commit={committing ? "true" : undefined}
       data-state={preview}
+      data-testid={testId}
       disabled={disabled}
       onClick={handleClick}
       onKeyDown={onKeyDown}

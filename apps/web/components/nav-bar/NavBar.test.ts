@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { accountLabel, buildNavLinks, profileLabel } from "./NavBar";
+import { accountLabel, buildNavLinks, isLightNavRoute, profileLabel } from "./NavBar";
 
 // TSK-187 (Fase 8B, SPEC.md §14.8): el nav pasa de 7 a 4 links. TSK-219: "Draft en vivo" vuelve (5) --
 // el draft en vivo funciona en el sitio desplegado vía Dota GSI, ya no exige un motor local.
@@ -56,5 +56,19 @@ describe("profileLabel", () => {
       displayName: "Steam 35488109",
       accountIdLabel: "35488109",
     });
+  });
+});
+
+// Fase 4B.2: la barra compartida pasa a Canonical Light SOLO en /live-draft; el resto del sitio conserva la suya.
+describe("isLightNavRoute", () => {
+  test("solo /live-draft (y sus subrutas) usan la barra Canonical Light", () => {
+    expect(isLightNavRoute("/live-draft")).toBe(true);
+    expect(isLightNavRoute("/live-draft/anything")).toBe(true);
+  });
+
+  test("ninguna otra ruta cambia, ni una que solo se parezca por el prefijo", () => {
+    for (const route of ["/", "/simulator", "/hero-pool", "/meta", "/settings", "/live-drafts", "/team-groups", null]) {
+      expect(isLightNavRoute(route)).toBe(false);
+    }
   });
 });

@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
-import { LiveLightBoard } from "@/features/live-light";
+import { LiveLightBoard, LiveNotice, LivePage } from "@/features/live-light";
 import { SimulatorLightScope } from "@/features/simulator-light";
 import { protocolViewToDraftState } from "@/features/random-draft-simulator/protocol-client";
 import { useLiveTeamCoachStore, type LiveEngineStatus } from "../live-store";
@@ -20,21 +20,25 @@ function EngineNotice({ status }: { status: LiveEngineStatus }) {
   if (status === "ok" || status === "connecting") return null;
   if (status === "forbidden") {
     return (
-      <div className="rounded-lg border border-signal-negative bg-surface-overlay p-3 text-caption text-signal-negative" role="alert" data-testid="live-forbidden">
-        Esta sesión en vivo pertenece a otra cuenta. Vuelve a Draft en vivo desde el menú con tu propia cuenta.
-      </div>
+      <LiveNotice tone="bad" testId="live-forbidden">
+        <span className="ll-notice-body">Esta sesión en vivo pertenece a otra cuenta. Vuelve a Draft en vivo desde el menú con tu propia cuenta.</span>
+      </LiveNotice>
     );
   }
   return (
-    <div className="rounded-lg border border-signal-negative bg-surface-overlay p-3 text-caption text-signal-negative" role="alert" data-testid="live-engine-unreachable">
-      No se pudo contactar a D2KIRO. Reintentando...
-    </div>
+    <LiveNotice tone="bad" testId="live-engine-unreachable">
+      <span className="ll-notice-body">No se pudo contactar a D2KIRO. Reintentando...</span>
+    </LiveNotice>
   );
 }
 
 export interface LiveTeamCoachViewProps {
   sessionId: string;
-  /** Rendered under the title -- /live-draft puts the Dota connection controls here. */
+  /** Rendered under the title ONLY while the connection needs the Player's attention (installer open, expired link). */
+  setup?: ReactNode;
+  /** Compact row between the capture status and the board: the Player's position and the Party preset. */
+  controls?: ReactNode;
+  /** Rendered under the Coach -- quiet connection details and diagnostics, never ahead of the board. */
   children?: ReactNode;
   /** Developer/debug only: shows manual entry and manual picks. Never the Player's fallback. */
   debugManualEntry?: boolean;
@@ -42,7 +46,7 @@ export interface LiveTeamCoachViewProps {
   linkExpired?: boolean;
 }
 
-export function LiveTeamCoachView({ sessionId, children, debugManualEntry = false, linkExpired = false }: LiveTeamCoachViewProps) {
+export function LiveTeamCoachView({ sessionId, setup, controls, children, debugManualEntry = false, linkExpired = false }: LiveTeamCoachViewProps) {
   const { heroes: heroCatalog } = useHeroCatalog();
   const { selectPosition, report, refresh } = useLiveTeamCoach(sessionId);
   const engineStatus = useLiveTeamCoachStore((state) => state.engineStatus);
@@ -66,11 +70,11 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
   const hideBoard = isRecommendationBlocked(captureStatus) && !draftEnded && (!debugManualEntry || captureStatus?.recommendation !== undefined);
 
   return (
-    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-4 md:p-6" data-testid="live-team-coach">
-      <span className="text-heading text-content-primary">D2KIRO · Draft en vivo</span>
-      {children}
+    <LivePage testId="live-team-coach">
+      {setup}
       <EngineNotice status={engineStatus} />
       <LiveCaptureStatusBar status={captureStatus} heroCatalog={heroCatalog} linkExpired={linkExpired} />
+      {controls}
       <LiveDraftBoard draftState={draftState} heroCatalog={heroCatalog} />
       <BoardUnlessPartial hidden={hideBoard}>
         <LiveLightBoard
@@ -83,6 +87,7 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
           draftEnded={draftEnded}
         />
       </BoardUnlessPartial>
+      {children}
       <DebugManualEntry
         enabled={debugManualEntry}
         heroCatalog={heroCatalog}
@@ -98,7 +103,7 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
         error={manualError}
         onReport={report}
       />
-    </main>
+    </LivePage>
   );
 }
 

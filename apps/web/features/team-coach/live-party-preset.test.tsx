@@ -58,7 +58,7 @@ describe("LivePartyPresetPanel", () => {
     const view = renderPanel(engine, NONE);
     await waitFor(() => expect(view.getByTestId("live-preset-inactive")).toBeTruthy());
     const options = Array.from((view.getByTestId("live-preset-select") as HTMLSelectElement).options).map((option) => option.textContent);
-    expect(options).toEqual(["Sin preset (el Team Coach no usa pools de tu equipo)", "Team Julio"]);
+    expect(options).toEqual(["Sin preset (sin pools de equipo)", "Team Julio"]);
     const visible = view.getByTestId("live-party-preset").textContent ?? "";
     expect(visible).not.toMatch(/\b7\b|\b8\b|\b11\b/);
     expect(view.queryByTestId("live-preset-pools")).toBeNull();
@@ -151,14 +151,14 @@ describe("LivePartyPresetPanel", () => {
 describe("Party 5 status line -- SERVER truth, never the dropdown", () => {
   test("engine reports a full preset: 'Party 5: <name> · pools 5/5'", async () => {
     const view = renderPanel(new FakeEngine(), ALL_ON(7));
-    await waitFor(() => expect(view.getByTestId("live-party-status").textContent).toBe("Party 5: Team Julio · pools 5/5"));
+    await waitFor(() => expect(view.getByTestId("live-party-status").textContent).toBe("Preset activo: Team Julio · pools 5/5"));
     expect(view.getByTestId("live-party-status").getAttribute("data-state")).toBe("active");
     view.unmount();
   });
 
   test("engine reports nothing: 'Party 5: SIN PRESET'", async () => {
     const view = renderPanel(new FakeEngine(), NONE);
-    await waitFor(() => expect(view.getByTestId("live-party-status").textContent).toBe("Party 5: SIN PRESET"));
+    await waitFor(() => expect(view.getByTestId("live-party-status").textContent).toBe("Sin preset activo"));
     expect(view.getByTestId("live-party-status").getAttribute("data-state")).toBe("none");
     view.unmount();
   });
@@ -169,7 +169,7 @@ describe("Party 5 status line -- SERVER truth, never the dropdown", () => {
     engine.respond = () => json({ schema: "live-team-group/v1", applied: true, reason: null, teamContext: NONE }); // PUT ok, status still none
     const view = renderPanel(engine, NONE);
     await waitFor(() => expect((view.getByTestId("live-preset-select") as HTMLSelectElement).value).toBe("7"));
-    expect(view.getByTestId("live-party-status").textContent).toBe("Party 5: SIN PRESET");
+    expect(view.getByTestId("live-party-status").textContent).toBe("Sin preset activo");
     await waitFor(() => expect(view.getByTestId("live-party-unconfirmed").textContent).toContain("Team Julio"));
     view.unmount();
   });
@@ -183,7 +183,7 @@ describe("Party 5 status line -- SERVER truth, never the dropdown", () => {
   test("a partial preset shows the real count of positions with a pool", async () => {
     const partial: LiveTeamContext = { teamGroupId: 7, positions: { "1": true, "2": false, "3": true, "4": false, "5": true } };
     const view = renderPanel(new FakeEngine(), partial);
-    await waitFor(() => expect(view.getByTestId("live-party-status").textContent).toBe("Party 5: Team Julio · pools 3/5"));
+    await waitFor(() => expect(view.getByTestId("live-party-status").textContent).toBe("Preset activo: Team Julio · pools 3/5"));
     view.unmount();
   });
 });

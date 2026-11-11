@@ -1,0 +1,106 @@
+/* Live Canonical Light · página completa (Fase 4B.2). Composición, NO es del Design System.
+   Contrato (el mismo de simulator-light/light.css): cero literales de color y ninguna propiedad custom de color nueva -- solo se leen --r3-* / --cx-* / --f-* / --m-*;
+   espaciado en escala de 4 px; ningún texto baja de opacidad; este archivo NO declara transiciones ni animaciones (las ponen los primitivos canónicos).
+   Alcance: todo cuelga de `.ll-page` (la raíz Light de /live-draft) o de `.ll-nav` (la barra de navegación en esa ruta). Fuera de ellos nada cambia. */
+
+/* La ruta ocupa todo el alto bajo la navegación: el alcance Light es el fondo de la página, no una isla dentro de un fondo oscuro. */
+.ll-main { display: flex; flex: 1 1 auto; flex-direction: column; }
+.ll-page { display: flex; flex: 1 1 auto; flex-direction: column; font-family: var(--f-plex); }
+.ll-page > .sl-light { align-content: start; flex: 1 1 auto; gap: 16px; padding: 16px 24px 32px; }
+/* Los alcances anidados del tablero (SimulatorLightScope) son bloques dentro de esta página: no repiten fondo ni relleno.
+   Su `.r3-page` exterior trae el fondo OSCURO por defecto del laboratorio (el claro lo pinta el hijo `data-theme="light"`): sin esto asoma como franja negra. */
+.ll-page .sl-light .r3-page { background: transparent; }
+.ll-page .sl-light .sl-light[data-variant="block"] { background: transparent; padding: 0; }
+/* La franja de picks y bans es un panel propio, no una franja suelta sobre el fondo. */
+.ll-page .sl-light .sl-light[data-variant="strip"] { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 6px; padding: 8px 16px; }
+
+/* Alias de ALCANCE, no un token nuevo: el puente de simulator-light/light.css no cubre `--signal-warning` (el ámbar del tema oscuro no llega a 4.5:1 sobre crema).
+   Dentro de /live-draft lo leen la card dorada y ADVERTIR (tablero compartido, aún con nombres Tailwind): apunta a un token Light que ya existe. */
+.ll-page .sl-light { --signal-warning: var(--r3-spec-pink); }
+
+.ll-title { font: 700 20px/1.2 var(--f-syne); letter-spacing: -.01em; margin: 0; }
+
+/* Barra de navegación compartida, versión Light SOLO en /live-draft. Los nombres semánticos del sitio ya apuntan a los tokens Light por el puente de `.sl-light`. */
+.ll-nav { font-family: var(--f-plex); }
+.ll-nav .sl-light { background: var(--r3-panel); border-bottom: 1px solid var(--r3-line-strong); gap: 0; padding: 0; }
+.ll-nav nav { border-bottom: 0; }
+
+/* Superficies. `ll-panel` = el contenedor de una sección; con `Glass` (primitivo) cuando es protagonista, plano cuando es un detalle plegable. */
+.ll-host { display: grid; min-width: 0; }
+.ll-panel { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 6px; display: grid; gap: 12px; padding: 16px; }
+.ll-host > .cx-glass.ll-panel { border: 0; }
+.ll-panel-inner { display: grid; gap: 12px; }
+.ll-panel-inner[data-compact="true"] { gap: 8px; }
+.ll-controls { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ll-stack { display: grid; gap: 8px; }
+.ll-row { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+
+/* Barra de conexión y captura */
+.ll-status-grid { display: grid; gap: 8px 16px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ll-item { display: grid; gap: 4px; min-width: 0; }
+.ll-value { color: var(--r3-ink); font: 600 14px/1.3 var(--f-plex); overflow-wrap: anywhere; }
+
+/* Estados semánticos por texto + marcador + color de rol (nunca solo color). `ok` = --r3-up, `bad` = --r3-down; `warn` y `muted` se distinguen por peso y subrayado. */
+.ll-pill { color: var(--r3-ink); font: 600 12px/1.3 var(--f-plex); overflow-wrap: anywhere; }
+.ll-pill--ok { color: var(--r3-up); }
+.ll-pill--bad { color: var(--r3-down); }
+.ll-pill--warn { font-weight: 700; text-decoration: underline dotted; text-underline-offset: 4px; }
+.ll-pill--muted { color: var(--r3-muted); font-weight: 500; }
+
+/* Avisos (captura incompleta, error 409, conexión vencida, pick detectado). Regla lateral por rol, texto siempre en tinta. */
+.ll-notice { background: var(--r3-raise); border: 1px solid var(--r3-line-strong); border-left-width: 4px; border-radius: 4px; display: grid; gap: 4px; padding: 12px 16px; }
+.ll-notice[data-tone="warn"] { border-left-color: var(--r3-spec-pink); }
+.ll-notice[data-tone="bad"] { border-left-color: var(--r3-down); }
+.ll-notice[data-tone="info"] { border-left-color: var(--r3-ink); }
+.ll-notice-title { color: var(--r3-ink); font: 700 13px/1.3 var(--f-plex); }
+.ll-notice-body { color: var(--r3-ink); font: 500 13px/1.4 var(--f-plex); }
+.ll-notice-aside { color: var(--r3-muted); font: 500 12px/1.4 var(--f-plex); }
+.ll-guidance { color: var(--r3-ink); font: 600 14px/1.4 var(--f-plex); margin: 0; }
+
+/* Controles: selector de posición, preset, conexión */
+.ll-field-label { color: var(--r3-muted); font: 600 11px/1.2 var(--f-plex); letter-spacing: .06em; text-transform: uppercase; }
+.ll-text { color: var(--r3-ink); font: 500 13px/1.4 var(--f-plex); margin: 0; }
+.ll-text--muted { color: var(--r3-muted); font-size: 12px; }
+.ll-select { background: var(--r3-raise); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); font: 500 14px/1.3 var(--f-plex); min-height: 44px; padding: 8px 12px; width: 100%; }
+.ll-select:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+.ll-select:disabled { color: var(--r3-muted); cursor: not-allowed; }
+.sl-seat-btn[aria-pressed="true"] { background: var(--r3-ink); border-color: var(--r3-ink); color: var(--r3-raise); }
+.ll-pools { display: flex; flex-wrap: wrap; gap: 4px 12px; list-style: none; margin: 0; padding: 0; }
+.ll-code { background: var(--r3-raise); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); font: 500 12px/1.4 var(--f-pmono); margin: 0; min-width: 0; overflow-wrap: anywhere; padding: 8px 12px; user-select: all; flex: 1 1 auto; }
+.ll-copy { align-items: center; display: flex; gap: 8px; min-width: 0; }
+
+/* Secciones plegables: conexión con Dota y diagnóstico */
+.ll-fold { display: block; }
+.ll-fold > summary { color: var(--r3-ink); cursor: pointer; font: 700 14px/1.3 var(--f-plex); }
+.ll-fold > summary:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 4px; }
+.ll-fold[open] > summary { margin-bottom: 12px; }
+.ll-fold-aside { color: var(--r3-muted); font: 500 12px/1.3 var(--f-plex); margin-left: 8px; }
+.ll-fold > :not(summary) + :not(summary) { margin-top: 12px; }
+.ll-sub > summary { color: var(--r3-ink); cursor: pointer; font: 600 13px/1.3 var(--f-plex); }
+.ll-sub > summary:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 4px; }
+.ll-diag-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ll-diag-wide { grid-column: 1 / -1; }
+.ll-diag-list { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.ll-diag-row { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.ll-diag-structure { display: grid; gap: 4px 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.ll-steps { display: grid; gap: 16px; list-style: none; margin: 0; padding: 0; }
+.ll-step { display: flex; gap: 12px; }
+.ll-step-body { display: grid; flex: 1 1 auto; gap: 8px; min-width: 0; }
+.ll-step-number { align-items: center; border: 1px solid var(--r3-ink); border-radius: 50%; color: var(--r3-ink); display: inline-flex; flex: none; font: 700 12px/1 var(--f-plex); height: 24px; justify-content: center; width: 24px; }
+.ll-link { color: var(--r3-ink); text-decoration: underline; text-underline-offset: 3px; }
+.ll-link:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+
+/* Reflow: bajo 1024 px (o con zoom 200 % / 400 %) todo se apila; ningún bloque exige scroll horizontal. */
+@media (max-width: 1023px) {
+  .ll-status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ll-controls { grid-template-columns: minmax(0, 1fr); }
+  .ll-diag-grid { grid-template-columns: minmax(0, 1fr); }
+  .ll-diag-structure { grid-template-columns: minmax(0, 1fr); }
+  .ll-page > .sl-light { padding: 16px; }
+}
+@media (max-width: 719px) {
+  .ll-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 479px) {
+  .ll-status-grid { grid-template-columns: minmax(0, 1fr); }
+}

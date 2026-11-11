@@ -28,6 +28,8 @@ export type ActionPrimaryProps = {
   status?: ActionStatus;
   style?: CSSProperties;
   successLabel?: string;
+  /** Hook de prueba/telemetría de la pantalla que lo compone (aditivo: no cambia ninguna apariencia). */
+  testId?: string;
 };
 
 function BusyTrack({ show }: { show: boolean }) {
@@ -56,6 +58,7 @@ export function ActionPrimary({
   status = "idle",
   style,
   successLabel = "Listo",
+  testId,
 }: ActionPrimaryProps) {
   const { committing, onKeyDown, onPointerUp } = useCommit();
   const busy = status === "busy";
@@ -79,6 +82,7 @@ export function ActionPrimary({
         data-geometry={geometry}
         data-state={preview}
         data-status={status}
+        data-testid={testId}
         disabled={disabled}
         onClick={handleClick}
         onKeyDown={onKeyDown}

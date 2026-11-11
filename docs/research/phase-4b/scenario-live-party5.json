@@ -47,9 +47,9 @@
     "violations": []
   },
   "reflow400": {
-    "scrollWidth": 336,
-    "clientWidth": 336,
-    "right": 368,
+    "scrollWidth": 368,
+    "clientWidth": 368,
+    "right": 384,
     "limit": 400
   }
 }

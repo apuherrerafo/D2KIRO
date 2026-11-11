@@ -1,7 +1,8 @@
 "use client";
 
 import { teamPositionName } from "../constants";
-import { CHIP, CHIP_ACTIVE, PANEL } from "../styles";
+import { ActionQuiet } from "@/design/canonical/primitives";
+import { LivePanel } from "@/features/live-light";
 import type { LiveLocalPlayer, TeamPosition } from "../types";
 import { useLiveHumanPosition } from "../use-live-human-position";
 
@@ -40,9 +41,8 @@ function SeatButton({ position, selected, disabled, onSelect }: SeatButtonProps)
   function handleClick() {
     onSelect(position);
   }
-  const className = selected ? CHIP_ACTIVE : CHIP;
   return (
-    <button type="button" className={className} aria-pressed={selected} aria-label={`Soy ${teamPositionName(position)}`} disabled={disabled} onClick={handleClick} data-testid={`live-seat-${position}`}>
+    <button type="button" className="sl-seat-btn" aria-pressed={selected} aria-label={`Soy ${teamPositionName(position)}`} disabled={disabled} onClick={handleClick} data-testid={`live-seat-${position}`}>
       Pos {position}
     </button>
   );
@@ -50,7 +50,7 @@ function SeatButton({ position, selected, disabled, onSelect }: SeatButtonProps)
 
 function SeatNotice({ notice }: { notice: string | null }) {
   if (notice === null) return null;
-  return <span className="text-caption text-signal-warning" role="alert" data-testid="live-seat-notice">{notice}</span>;
+  return <p className="sl-note" data-failed="true" role="alert" data-testid="live-seat-notice">{notice}</p>;
 }
 
 export interface LiveLocalPositionPanelProps {
@@ -58,9 +58,11 @@ export interface LiveLocalPositionPanelProps {
   /** What the engine's live status says the seat is (undefined: no status for this session read yet). */
   localPlayer: LiveLocalPlayer | undefined;
   fetchImpl?: typeof fetch;
+  /** El tablero ya ofrece Pos 1–5 (Solo sin declarar): un solo selector visible a la vez. */
+  hidden?: boolean;
 }
 
-export function LiveLocalPositionPanel({ sessionId, localPlayer, fetchImpl }: LiveLocalPositionPanelProps) {
+export function LiveLocalPositionPanel({ sessionId, localPlayer, fetchImpl, hidden = false }: LiveLocalPositionPanelProps) {
   const { applying, notice, select } = useLiveHumanPosition({ sessionId, fetchImpl });
   const declared = localPlayer?.position ?? null;
   const state = seatState(localPlayer);
@@ -69,19 +71,20 @@ export function LiveLocalPositionPanel({ sessionId, localPlayer, fetchImpl }: Li
     select(null);
   }
 
+  if (hidden) return null;
   return (
-    <div className={PANEL} role="group" aria-label="Tu posición" data-testid="live-seat">
-      <span className="text-caption font-semibold text-content-muted">Tu posición en este draft</span>
-      <div className="flex flex-wrap items-center gap-2">
+    <LivePanel compact label="Tu posición" testId="live-seat">
+      <span className="ll-field-label">Tu posición en este draft</span>
+      <div className="sl-seat-row">
         {POSITIONS.map((position) => (
           <SeatButton key={position} position={position} selected={declared === position} disabled={applying} onSelect={select} />
         ))}
-        <button type="button" className={CHIP} disabled={applying || declared === null} onClick={handleClear} data-testid="live-seat-clear">
+        <ActionQuiet disabled={applying || declared === null} onPress={handleClear} testId="live-seat-clear">
           Sin declarar
-        </button>
+        </ActionQuiet>
       </div>
-      <span className="text-caption text-content-secondary" role="status" data-testid="live-seat-status" data-state={state}>{SEAT_TEXT[state]}</span>
+      <span className="ll-text" role="status" data-testid="live-seat-status" data-state={state}>{SEAT_TEXT[state]}</span>
       <SeatNotice notice={notice} />
-    </div>
+    </LivePanel>
   );
 }

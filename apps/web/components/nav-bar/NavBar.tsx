@@ -1,8 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+
+// Canonical Light solo en /live-draft: el marco se carga de forma diferida para que su CSS no viaje en las demás rutas.
+const LiveNavFrame = dynamic(() => import("@/features/live-light/components/LiveNavFrame"));
+
+export function isLightNavRoute(pathname: string | null): boolean {
+  return pathname === "/live-draft" || (pathname !== null && pathname.startsWith("/live-draft/"));
+}
 
 interface NavLinkDef {
   href: string;
@@ -76,7 +84,7 @@ export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
 
   if (hiddenForVisitor) return null;
 
-  return (
+  const bar = (
     <nav className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-surface-border bg-surface-raised px-4">
       <Link href="/" className="px-3 py-2 text-body font-semibold text-content-primary">
         dota2coach
@@ -106,4 +114,6 @@ export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
       </div>
     </nav>
   );
+  if (isLightNavRoute(pathname)) return <LiveNavFrame>{bar}</LiveNavFrame>;
+  return bar;
 }

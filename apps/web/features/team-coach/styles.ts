@@ -36,8 +36,16 @@ export const STATUS_PILL_MUTED = "inline-flex items-center gap-1 text-caption te
 export const CHIP = `rounded-md border border-surface-border px-2 py-1 text-caption text-content-secondary hover:border-accent-primary ${INTERACTIVE}`;
 export const CHIP_ACTIVE = `rounded-md border border-accent-primary bg-accent-primary px-2 py-1 text-caption text-surface-base ${INTERACTIVE}`;
 // TSK-219 -- conectar Dota.
+export const PANEL_COMPACT = "flex min-w-0 flex-col gap-2 rounded-lg border border-surface-border bg-surface-raised p-3";
 export const PANEL = "flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4";
 export const PRIMARY_BUTTON = `inline-flex items-center justify-center self-start rounded-md bg-accent-primary px-4 py-2 text-body font-semibold text-surface-base hover:opacity-90 ${INTERACTIVE}`;
 export const SECONDARY_BUTTON = `inline-flex items-center justify-center self-start rounded-md border border-surface-border px-3 py-1 text-caption text-content-secondary hover:border-accent-primary hover:text-content-primary ${INTERACTIVE}`;
 export const CODE_BOX = "min-w-0 flex-1 select-all break-all rounded-md border border-surface-border bg-surface-base px-2 py-1 font-mono text-caption text-content-primary";
 export const STEP_NUMBER = "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-accent-primary text-caption text-accent-primary";
+// Live Canonical Light (Fase 4B.2): clases de composición de `features/live-light/live-page.css`. Las constantes de arriba siguen sirviendo al tablero compartido
+// y a la entrada manual de desarrollo; las pantallas del Player en /live-draft usan estas.
+export const LL_PILL_OK = "ll-pill ll-pill--ok";
+export const LL_PILL_WARN = "ll-pill ll-pill--warn";
+export const LL_PILL_BAD = "ll-pill ll-pill--bad";
+export const LL_PILL_MUTED = "ll-pill ll-pill--muted";
+export const LL_VALUE = "ll-value";

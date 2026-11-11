@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { ActionPrimary, ActionQuiet, Glass } from "@/design/canonical/primitives";
+import { LiveNotice } from "@/features/live-light";
 import {
   COMPANION_INSTALLER_DOWNLOAD_ACTION,
   COMPANION_ONCE,
@@ -12,7 +14,7 @@ import {
   GSI_LAUNCH_OPTION,
   GSI_UNINSTALLER_URL,
 } from "../constants";
-import { CHIP, CODE_BOX, PANEL, PRIMARY_BUTTON, SECONDARY_BUTTON, STATUS_PILL_BAD, STATUS_PILL_MUTED, STATUS_PILL_WARN, STEP_NUMBER } from "../styles";
+import { LL_PILL_BAD, LL_PILL_MUTED, LL_PILL_WARN } from "../styles";
 import type { LinkLifetime } from "../link-lifetime";
 import type { GsiLinkView } from "../types";
 
@@ -32,11 +34,12 @@ function CopyableText({ value, label }: { value: string; label: string }) {
     }
   }
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <code className={CODE_BOX}>{value}</code>
-      <button type="button" className={CHIP} onClick={handleCopy} aria-label={`Copiar ${label}`}>
+    <div className="ll-copy">
+      <code className="ll-code">{value}</code>
+      <ActionQuiet onPress={handleCopy}>
         <CopyLabel copied={copied} />
-      </button>
+        <span className="cx-sr"> {label}</span>
+      </ActionQuiet>
     </div>
   );
 }
@@ -48,10 +51,10 @@ function CopyLabel({ copied }: { copied: boolean }) {
 
 function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (
-    <li className="flex gap-3">
-      <span className={STEP_NUMBER}>{number}</span>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="text-body font-semibold text-content-primary">{title}</span>
+    <li className="ll-step">
+      <span className="ll-step-number">{number}</span>
+      <div className="ll-step-body">
+        <span className="ll-value">{title}</span>
         {children}
       </div>
     </li>
@@ -62,22 +65,30 @@ interface DownloadFormProps {
   action: string;
   label: string;
   testId: string;
-  className: string;
+  /** `primary` = el único compromiso espectral de la vista; `quiet` = acción secundaria. */
+  variant: "primary" | "quiet";
   onDownload(): void;
 }
 
 /** A real form POST: the browser saves the attachment and stays on this page. */
-export function GsiDownloadForm({ action, label, testId, className, onDownload }: DownloadFormProps) {
+export function GsiDownloadForm({ action, label, testId, variant, onDownload }: DownloadFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
   function handleSubmit() {
     onDownload();
   }
+  function handlePress() {
+    formRef.current?.requestSubmit();
+  }
   return (
-    <form method="post" action={action} onSubmit={handleSubmit}>
-      <button type="submit" className={className} data-testid={testId}>
-        {label}
-      </button>
+    <form method="post" action={action} onSubmit={handleSubmit} ref={formRef}>
+      <DownloadAction variant={variant} label={label} testId={testId} onPress={handlePress} />
     </form>
   );
+}
+
+function DownloadAction({ variant, label, testId, onPress }: { variant: "primary" | "quiet"; label: string; testId: string; onPress(): void }) {
+  if (variant === "primary") return <ActionPrimary onPress={onPress} testId={testId}>{label}</ActionPrimary>;
+  return <ActionQuiet onPress={onPress} testId={testId}>{label}</ActionQuiet>;
 }
 
 export interface AdvancedConnectionOptionsProps {
@@ -92,42 +103,42 @@ export interface AdvancedConnectionOptionsProps {
  */
 export function AdvancedConnectionOptions({ manualLabel, onDownload }: AdvancedConnectionOptionsProps) {
   return (
-    <details className="flex flex-col gap-3" data-testid="advanced-connection">
-      <summary className="cursor-pointer text-caption text-content-secondary">Opciones avanzadas de conexión (problemas de conexión)</summary>
-      <div className="mt-3 flex flex-col gap-4">
-        <span className="text-caption text-content-muted" data-testid="advanced-connection-note">
+    <details className="ll-sub ll-stack" data-testid="advanced-connection">
+      <summary>Opciones avanzadas de conexión (problemas de conexión)</summary>
+      <div className="ll-stack">
+        <span className="ll-text ll-text--muted" data-testid="advanced-connection-note">
           No es otro instalador: solo si el Companion figura conectado y Dota 2 sigue sin enviar datos.
         </span>
-        <div className="flex flex-col gap-2" data-testid="gsi-launch-option-help">
-          <span className="text-caption text-content-secondary">
+        <div className="ll-stack" data-testid="gsi-launch-option-help">
+          <span className="ll-text">
             Steam → clic derecho en Dota 2 → Propiedades → General → Opciones de lanzamiento. Agrega lo siguiente y reinicia Dota 2:
           </span>
           <CopyableText value={GSI_LAUNCH_OPTION} label="la opción de lanzamiento" />
         </div>
-        <details className="flex flex-col gap-3" data-testid="gsi-manual-install">
-          <summary className="cursor-pointer text-caption text-content-secondary">Copiar el archivo de configuración a mano</summary>
-          <ol className="mt-3 flex flex-col gap-4">
+        <details className="ll-sub ll-stack" data-testid="gsi-manual-install">
+          <summary>Copiar el archivo de configuración a mano</summary>
+          <ol className="ll-steps">
             <Step number={1} title="Descarga tu archivo de configuración">
-              <span className="text-caption text-content-muted">{GSI_INSTALL_ONCE}</span>
-              <span className="text-caption text-signal-warning" data-testid="gsi-manual-rotates">
+              <span className="ll-text ll-text--muted">{GSI_INSTALL_ONCE}</span>
+              <span className="ll-pill ll-pill--warn" data-testid="gsi-manual-rotates">
                 Descargarlo genera una conexión nueva: la anterior deja de funcionar, incluida la del Companion ya instalado.
               </span>
-              <GsiDownloadForm action={GSI_CONFIG_DOWNLOAD_ACTION} label={manualLabel} testId="gsi-download" className={SECONDARY_BUTTON} onDownload={onDownload} />
+              <GsiDownloadForm action={GSI_CONFIG_DOWNLOAD_ACTION} label={manualLabel} testId="gsi-download" variant="quiet" onDownload={onDownload} />
             </Step>
             <Step number={2} title="Cópialo en la carpeta de integraciones de Dota">
-              <span className="text-caption text-content-secondary">
+              <span className="ll-text">
                 En Steam: Biblioteca → clic derecho en Dota 2 → Administrar → Explorar archivos locales. Se abre la carpeta «dota 2 beta»; entra a esta carpeta (si gamestate_integration no existe, créala):
               </span>
               <CopyableText value={GSI_CFG_FOLDER} label="la carpeta de integraciones" />
-              <span className="text-caption text-content-muted">Tu biblioteca de Steam puede estar en otro disco. Por ejemplo:</span>
+              <span className="ll-text ll-text--muted">Tu biblioteca de Steam puede estar en otro disco. Por ejemplo:</span>
               <CopyableText value={GSI_CFG_EXAMPLE_PATHS[0]} label="la ruta de ejemplo en C:" />
               <CopyableText value={GSI_CFG_EXAMPLE_PATHS[1]} label="la ruta de ejemplo en D:" />
             </Step>
           </ol>
         </details>
-        <span className="text-caption text-content-muted">
+        <span className="ll-text ll-text--muted">
           ¿Quieres quitar D2KIRO de Dota en esta PC?{" "}
-          <a href={GSI_UNINSTALLER_URL} download className="text-accent-primary underline" data-testid="gsi-uninstaller-download">
+          <a href={GSI_UNINSTALLER_URL} download className="ll-link" data-testid="gsi-uninstaller-download">
             Descargar el desinstalador
           </a>
         </span>
@@ -146,12 +157,16 @@ export interface DotaSetupStepsProps {
 /** D2KIRO Companion: the ONE install (Windows). The page never sees the link inside it. */
 function CompanionInstall({ onDownload }: { onDownload(): void }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-accent-primary bg-surface-overlay p-3" data-testid="companion-install">
-      <span className="text-body font-semibold text-content-primary">D2KIRO Companion para Windows</span>
-      <span className="text-caption text-content-secondary">{COMPANION_ONCE}</span>
-      <GsiDownloadForm action={COMPANION_INSTALLER_DOWNLOAD_ACTION} label="Instalar D2KIRO Companion" testId="companion-installer-download" className={PRIMARY_BUTTON} onDownload={onDownload} />
-      <span className="text-caption text-content-muted">{COMPANION_SCOPE}</span>
-      <span className="text-caption text-content-muted">Es personal: no lo compartas. Si descargas uno nuevo, el anterior deja de funcionar.</span>
+    <div className="ll-host" data-testid="companion-install">
+      <Glass className="ll-panel" edge surfaceLevel="4">
+        <div className="ll-panel-inner">
+          <span className="ll-value">D2KIRO Companion para Windows</span>
+          <span className="ll-text">{COMPANION_ONCE}</span>
+          <GsiDownloadForm action={COMPANION_INSTALLER_DOWNLOAD_ACTION} label="Instalar D2KIRO Companion" testId="companion-installer-download" variant="primary" onDownload={onDownload} />
+          <span className="ll-text ll-text--muted">{COMPANION_SCOPE}</span>
+          <span className="ll-text ll-text--muted">Es personal: no lo compartas. Si descargas uno nuevo, el anterior deja de funcionar.</span>
+        </div>
+      </Glass>
     </div>
   );
 }
@@ -163,7 +178,7 @@ function InstallerOrNothing({ show, onDownload }: { show: boolean; onDownload():
 
 export function DotaSetupSteps({ manualLabel, showInstaller, onDownload }: DotaSetupStepsProps) {
   return (
-    <div className="flex flex-col gap-3" data-testid="dota-setup-steps">
+    <div className="ll-stack" data-testid="dota-setup-steps">
       <InstallerOrNothing show={showInstaller} onDownload={onDownload} />
       <AdvancedConnectionOptions manualLabel={manualLabel} onDownload={onDownload} />
     </div>
@@ -173,15 +188,15 @@ export function DotaSetupSteps({ manualLabel, showInstaller, onDownload }: DotaS
 function SetupError({ message }: { message: string | null }) {
   if (message === null) return null;
   return (
-    <div className="rounded-lg border border-signal-negative bg-surface-overlay p-3 text-caption text-signal-negative" role="alert" data-testid="gsi-setup-error">
-      {message}
-    </div>
+    <LiveNotice tone="bad" testId="gsi-setup-error">
+      <span className="ll-notice-body">{message}</span>
+    </LiveNotice>
   );
 }
 
 function AwaitingDownload({ awaiting }: { awaiting: boolean }) {
   if (!awaiting) return null;
-  return <span className="text-caption text-content-muted" role="status">Preparando tu conexión...</span>;
+  return <span className="ll-text ll-text--muted" role="status">Preparando tu conexión...</span>;
 }
 
 export interface DotaConnectPanelProps {
@@ -197,13 +212,17 @@ export function DotaConnectPanel({ setupError, awaitingDownload, onDownload }: D
     setOpen(true);
   }
   return (
-    <section className={PANEL} data-testid="dota-connect">
-      <div className="flex flex-col gap-1">
-        <span className="text-caption font-semibold text-content-muted">CONNECTION</span>
-        <span className={STATUS_PILL_BAD} data-testid="dota-disconnected">● Dota desconectado</span>
-      </div>
-      <SetupError message={setupError} />
-      <ConnectBody open={open} awaitingDownload={awaitingDownload} onConnect={handleConnect} onDownload={onDownload} />
+    <section className="ll-host" data-testid="dota-connect">
+      <Glass className="ll-panel" surfaceLevel="3">
+        <div className="ll-panel-inner">
+          <div className="ll-item">
+            <span className="sl-caption">CONNECTION</span>
+            <span className={LL_PILL_BAD} data-testid="dota-disconnected">● Dota desconectado</span>
+          </div>
+          <SetupError message={setupError} />
+          <ConnectBody open={open} awaitingDownload={awaitingDownload} onConnect={handleConnect} onDownload={onDownload} />
+        </div>
+      </Glass>
     </section>
   );
 }
@@ -211,9 +230,9 @@ export function DotaConnectPanel({ setupError, awaitingDownload, onDownload }: D
 function ConnectBody({ open, awaitingDownload, onConnect, onDownload }: { open: boolean; awaitingDownload: boolean; onConnect(): void; onDownload(): void }) {
   if (!open) {
     return (
-      <button type="button" className={PRIMARY_BUTTON} onClick={onConnect} data-testid="dota-connect-button">
+      <ActionPrimary onPress={onConnect} testId="dota-connect-button">
         Conectar Dota
-      </button>
+      </ActionPrimary>
     );
   }
   return (
@@ -253,43 +272,44 @@ export function DotaLinkControls({ link, lifetime = "healthy", waitingForDota, c
   const open = (waitingForDota && !companionActive) || setupError !== null || expired;
   // Guidance lives OUTSIDE the <details>: it must be readable while the setup is collapsed.
   return (
-    <div className="flex flex-col gap-2" data-testid="dota-link-section">
+    <div className="ll-stack" data-testid="dota-link-section">
       <LifetimeNotice lifetime={lifetime} />
       <Guidance text={guidance} />
-      <details className={PANEL} open={open} data-testid="dota-link-controls">
-        <summary className="cursor-pointer text-body text-content-primary">
-          <span className="font-semibold">Conexión con Dota</span>
+      <details className="ll-panel ll-fold" open={open} data-testid="dota-link-controls">
+        <summary>
+          <span>Conexión con Dota</span>
           <LinkExpiryPill lifetime={lifetime} expiresAt={link.expiresAt} />
         </summary>
         <SetupError message={setupError} />
         <DotaSetupSteps manualLabel="Descargar configuración de nuevo" showInstaller={!companionActive || expired} onDownload={onDownload} />
         <AwaitingDownload awaiting={awaitingDownload} />
-        <button type="button" className={SECONDARY_BUTTON} onClick={handleDisconnect} data-testid="dota-disconnect">
-          Desconectar Dota
-        </button>
+        <div>
+          <ActionQuiet onPress={handleDisconnect} testId="dota-disconnect">
+            Desconectar Dota
+          </ActionQuiet>
+        </div>
       </details>
     </div>
   );
 }
 
 function LinkExpiryPill({ lifetime, expiresAt }: { lifetime: LinkLifetime; expiresAt: string }) {
-  if (lifetime === "expired") return <span className={`ml-2 ${STATUS_PILL_WARN}`}>vencida</span>;
-  return <span className={`ml-2 ${STATUS_PILL_MUTED}`}>vence el {formatDate(expiresAt)}</span>;
+  if (lifetime === "expired") return <span className={`ll-fold-aside ${LL_PILL_WARN}`}>vencida</span>;
+  return <span className={`ll-fold-aside ${LL_PILL_MUTED}`}>vence el {formatDate(expiresAt)}</span>;
 }
 
 /** Expired: explicit, with the way out (the same pairing). Expiring soon: a discreet heads-up. Healthy: nothing. */
 function LifetimeNotice({ lifetime }: { lifetime: LinkLifetime }) {
   if (lifetime === "healthy") return null;
-  if (lifetime === "expiring") return <span className="text-caption text-content-muted" role="status" data-testid="dota-link-expiring">La conexión vence pronto</span>;
+  if (lifetime === "expiring") return <span className="ll-text ll-text--muted" role="status" data-testid="dota-link-expiring">La conexión vence pronto</span>;
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="dota-link-expired">
-      <span className="text-caption font-semibold text-signal-warning">Conexión de D2KIRO vencida</span>
-      <span className="text-caption text-content-secondary">Vuelve a vincular el Companion para continuar.</span>
-    </div>
+    <LiveNotice tone="warn" testId="dota-link-expired" title="Conexión de D2KIRO vencida">
+      <span className="ll-notice-body">Vuelve a vincular el Companion para continuar.</span>
+    </LiveNotice>
   );
 }
 
 function Guidance({ text }: { text: string | null }) {
   if (text === null) return null;
-  return <span className="text-body text-content-primary" role="status" data-testid="dota-guidance">{text}</span>;
+  return <p className="ll-guidance" role="status" data-testid="dota-guidance">{text}</p>;
 }

@@ -2,7 +2,8 @@
 
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { CAPTURE_NOT_ENABLED, DOTA_NOT_RUNNING, GSI_DRAFT_PARTIAL, LIVE_PHASE_LABELS, teamPositionName } from "../constants";
-import { STATUS_PILL_BAD, STATUS_PILL_MUTED, STATUS_PILL_OK, STATUS_PILL_WARN } from "../styles";
+import { LiveNotice, LivePanel } from "@/features/live-light";
+import { LL_PILL_BAD as STATUS_PILL_BAD, LL_PILL_MUTED as STATUS_PILL_MUTED, LL_PILL_OK as STATUS_PILL_OK, LL_PILL_WARN as STATUS_PILL_WARN, LL_VALUE } from "../styles";
 import type { LiveCaptureStatus } from "../types";
 
 // CONNECTION / CAPTURE / SIDE del draft en vivo, más el aviso de pick detectado y el de captura
@@ -105,7 +106,7 @@ export function phasePill(status: LiveCaptureStatus | null): Pill {
   if (companion !== null && companion.dota === "connected") key = companion.phase;
   else if (status?.gsi?.active) key = GSI_PHASE_KEYS[status.gsi.phase] ?? null;
   if (key === null) return { className: STATUS_PILL_MUTED, text: "—" };
-  return { className: "text-body text-content-primary", text: LIVE_PHASE_LABELS[key] ?? "—" };
+  return { className: LL_VALUE, text: LIVE_PHASE_LABELS[key] ?? "—" };
 }
 
 export function isCaptureDegraded(status: LiveCaptureStatus | null): boolean {
@@ -121,8 +122,8 @@ function sideText(status: LiveCaptureStatus | null): string {
 
 function StatusItem({ label, pill }: { label: string; pill: Pill }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-caption font-semibold text-content-muted">{label}</span>
+    <div className="ll-item">
+      <span className="sl-caption">{label}</span>
       <span className={pill.className}>{pill.text}</span>
     </div>
   );
@@ -141,10 +142,9 @@ function DetectedPick({ status, heroCatalog }: DetectedPickProps) {
   const hero = heroCatalog.get(pick.heroId)?.localizedName ?? `Héroe ${pick.heroId}`;
   const where = pick.position === null ? "Posición sin informar" : teamPositionName(pick.position);
   return (
-    <div className="rounded-lg border border-accent-primary bg-surface-overlay p-3" role="status" data-testid="live-pick-detected">
-      <span className="text-caption font-semibold text-accent-primary">TEAM PICK DETECTED</span>
-      <span className="ml-2 text-body text-content-primary">{where} → {hero}</span>
-    </div>
+    <LiveNotice tone="info" role="status" testId="live-pick-detected" title="TEAM PICK DETECTED">
+      <span className="ll-notice-body">{where} → {hero}</span>
+    </LiveNotice>
   );
 }
 
@@ -168,13 +168,12 @@ export function isRecommendationBlocked(status: LiveCaptureStatus | null): boole
 function PartialCaptureNotice({ status }: { status: LiveCaptureStatus }) {
   const seen = status.gsi?.draft;
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-capture-partial">
-      <span className="text-caption font-semibold text-signal-warning">Draft automático incompleto</span>
-      <span className="text-caption text-content-secondary">D2KIRO todavía no está recibiendo todo el draft de esta partida. No hay recomendación hasta tener el draft completo.</span>
-      <span className="text-caption text-content-muted" data-testid="live-capture-capabilities">
+    <LiveNotice tone="warn" testId="live-capture-partial" title="Draft automático incompleto">
+      <span className="ll-notice-body">D2KIRO todavía no está recibiendo todo el draft de esta partida. No hay recomendación hasta tener el draft completo.</span>
+      <span className="ll-notice-aside" data-testid="live-capture-capabilities">
         Dota informa — bando: {yesNo(seen?.side === true)} · tu héroe: {yesNo(seen?.ownHero === true)} · bans: {yesNo(seen?.bans === true)} · picks aliados: {yesNo(seen?.allyPicks === true)} · picks rivales: {yesNo(seen?.enemyPicks === true)}
       </span>
-    </div>
+    </LiveNotice>
   );
 }
 
@@ -185,17 +184,15 @@ function DegradedNotice({ status }: { status: LiveCaptureStatus | null }) {
   if (status?.captureDetail === GSI_DRAFT_PARTIAL) return <PartialCaptureNotice status={status} />;
   if (status?.captureDetail === CAPTURE_NOT_ENABLED) {
     return (
-      <div className="flex flex-col gap-1 rounded-lg border border-signal-negative bg-surface-overlay p-3" role="alert" data-testid="live-capture-not-enabled">
-        <span className="text-caption font-semibold text-signal-negative">Captura degradada · {CAPTURE_NOT_ENABLED}</span>
-        <span className="text-caption text-content-secondary">Dota no está enviando datos a D2KIRO. Mira «Opciones avanzadas de conexión» en Conexión con Dota.</span>
-      </div>
+      <LiveNotice tone="bad" testId="live-capture-not-enabled" title={`Captura degradada · ${CAPTURE_NOT_ENABLED}`}>
+        <span className="ll-notice-body">Dota no está enviando datos a D2KIRO. Mira «Opciones avanzadas de conexión» en Conexión con Dota.</span>
+      </LiveNotice>
     );
   }
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-capture-degraded">
-      <span className="text-caption font-semibold text-signal-warning">Reconectando con Dota...</span>
-      <span className="text-caption text-content-secondary">El draft no se perdió. La conexión se recupera sola y el Team Coach se recalcula igual.</span>
-    </div>
+    <LiveNotice tone="warn" testId="live-capture-degraded" title="Reconectando con Dota...">
+      <span className="ll-notice-body">El draft no se perdió. La conexión se recupera sola y el Team Coach se recalcula igual.</span>
+    </LiveNotice>
   );
 }
 
@@ -203,24 +200,25 @@ function DegradedNotice({ status }: { status: LiveCaptureStatus | null }) {
 function UnresolvedNotice({ status }: { status: LiveCaptureStatus | null }) {
   if (!status || status.draftPhase !== "hero_selection" || status.recommendation?.reason !== "FACTS_UNRESOLVED") return null;
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-draft-unresolved">
-      <span className="text-caption font-semibold text-signal-warning">Draft automático incompleto</span>
-      <span className="text-caption text-content-secondary">D2KIRO todavía está leyendo algunos héroes del draft. No hay recomendación hasta que la lectura sea consistente.</span>
-    </div>
+    <LiveNotice tone="warn" testId="live-draft-unresolved" title="Draft automático incompleto">
+      <span className="ll-notice-body">D2KIRO todavía está leyendo algunos héroes del draft. No hay recomendación hasta que la lectura sea consistente.</span>
+    </LiveNotice>
   );
 }
 
 export function LiveCaptureStatusBar({ status, heroCatalog, linkExpired = false }: DetectedPickProps) {
   return (
-    <div className="flex flex-col gap-3" data-testid="live-capture-status">
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-3">
+    <div className="ll-stack" data-testid="live-capture-status">
+      <LivePanel>
+        <div className="ll-status-grid">
         <StatusItem label="COMPANION" pill={companionPill(status, linkExpired)} />
         <StatusItem label="CONNECTION" pill={connectionPill(status)} />
         <StatusItem label="PHASE" pill={phasePill(status)} />
         <StatusItem label="CAPTURE" pill={capturePill(status)} />
         <StatusItem label="DRAFT AUTOMÁTICO" pill={visualPill(status)} />
-        <StatusItem label="SIDE" pill={{ className: "text-body text-content-primary", text: sideText(status) }} />
-      </div>
+        <StatusItem label="SIDE" pill={{ className: LL_VALUE, text: sideText(status) }} />
+        </div>
+      </LivePanel>
       <DegradedNotice status={status} />
       <DetectedPick status={status} heroCatalog={heroCatalog} />
       <UnresolvedNotice status={status} />
