@@ -28,6 +28,8 @@
     "verify:r1": "bun run scripts/r1/certify.ts",
     "dev:mvp": "bun run scripts/dev-mvp.ts",
     "dev:live": "bun run scripts/dev-live.ts",
+    "preflight:live": "bun run scripts/live-preflight.ts",
+    "smoke:live": "bun run scripts/live-smoke.ts",
     "probe:gsi": "bun run scripts/live/gsi-probe/probe.ts",
     "qa:fast": "bun scripts/qa/run.ts fast",
     "qa:contract": "bun scripts/qa/run.ts contract",

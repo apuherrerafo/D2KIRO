@@ -13,7 +13,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildFixtureCmEligibilitySnapshot } from "../e2e/fixtures/cm-eligibility";
-import { defaultMvpPublicBaseUrl, resolveMvpDatabasePath } from "./dev-mvp-config";
+import { defaultMvpPublicBaseUrl, engineLaunch, resolveMvpDatabasePath } from "./dev-mvp-config";
 import { ensureManualMvpDatabase } from "./dev-mvp-db";
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -23,6 +23,9 @@ const SESSION_SECRET = process.env.SESSION_SECRET ?? randomBytes(32).toString("h
 const INTERNAL_AUTH_SECRET = process.env.INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? defaultMvpPublicBaseUrl(WEB_PORT);
 const ENGINE_DB_PATH = resolveMvpDatabasePath(ROOT, process.env.ENGINE_DB_PATH);
+// `--live`: prueba con Dota real. Arranca el motor REAL (index.ts, el de Railway), no el de pruebas. Ver engineLaunch().
+const LIVE_MODE = process.argv.includes("--live");
+const LAUNCH = engineLaunch(LIVE_MODE);
 
 // R1 S7 (Blocker 2, Captain's Mode entry point; final blocker repair, Blocker 1): sin esto, CM
 // queda fail-closed también en local -- no hay depot real de Dota 2 en este entorno para producir
@@ -33,11 +36,13 @@ const ENGINE_DB_PATH = resolveMvpDatabasePath(ROOT, process.env.ENGINE_DB_PATH);
 // amplio (1..150): cubre el catálogo real que `apps/engine` sincroniza de OpenDota al arrancar,
 // sin acoplarse a ningún id específico.
 const CM_ELIGIBILITY_PATH = resolve(ROOT, "apps/engine/data/dev-mvp-cm-eligibility.json");
-mkdirSync(resolve(ROOT, "apps/engine/data"), { recursive: true });
-writeFileSync(
-  CM_ELIGIBILITY_PATH,
-  JSON.stringify(buildFixtureCmEligibilitySnapshot(Array.from({ length: 150 }, (_, i) => i + 1))),
-);
+if (LAUNCH.writeCmFixture) {
+  mkdirSync(resolve(ROOT, "apps/engine/data"), { recursive: true });
+  writeFileSync(
+    CM_ELIGIBILITY_PATH,
+    JSON.stringify(buildFixtureCmEligibilitySnapshot(Array.from({ length: 150 }, (_, i) => i + 1))),
+  );
+}
 
 const children: ChildProcess[] = [];
 let shuttingDown = false;
@@ -65,7 +70,7 @@ function shutdown(code: number): void {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-console.log("[dev:mvp] Iniciando apps/engine y apps/web...");
+console.log(LIVE_MODE ? "[dev:mvp] Iniciando apps/engine REAL (index.ts, sin capacidades de prueba) y apps/web..." : "[dev:mvp] Iniciando apps/engine y apps/web...");
 try {
   ensureManualMvpDatabase(ENGINE_DB_PATH);
   console.log("[dev:mvp] SQLite local lista con las migraciones reales.");
@@ -77,9 +82,16 @@ try {
 startProcess(
   "apps/engine",
   "bun",
-  ["run", "--watch", "src/index.e2e.ts"],
+  LAUNCH.args,
   resolve(ROOT, "apps/engine"),
-  { ENGINE_PORT, ENGINE_DB_PATH, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH, META_SYNC: process.env.META_SYNC ?? "on" },
+  {
+    ENGINE_PORT,
+    ENGINE_DB_PATH,
+    INTERNAL_AUTH_SECRET,
+    META_SYNC: process.env.META_SYNC ?? "on",
+    // index.ts nunca lee esta variable; sólo el motor de pruebas la usa. En modo real no se define.
+    ...(LAUNCH.writeCmFixture ? { CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH } : {}),
+  },
 );
 
 startProcess(
