@@ -29,6 +29,8 @@
     "dev:mvp": "bun run scripts/dev-mvp.ts",
     "dev:live": "bun run scripts/dev-live.ts",
     "preflight:live": "bun run scripts/live-preflight.ts",
+    "beta:invite": "bun run scripts/beta/invite.ts",
+    "beta:verify": "bun run scripts/beta/verify-public.ts",
     "smoke:live": "bun run scripts/live-smoke.ts",
     "probe:gsi": "bun run scripts/live/gsi-probe/probe.ts",
     "qa:fast": "bun scripts/qa/run.ts fast",

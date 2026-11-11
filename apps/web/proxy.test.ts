@@ -108,4 +108,18 @@ describe("GET /healthz", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, next: "ok", engine: "ok" });
   });
+  test("publica el SHA del despliegue solo si es un commit hexadecimal", async () => {
+    process.env.ENGINE_INTERNAL_URL = "http://engine.local:4000";
+    globalThis.fetch = (() => Promise.resolve(new Response("ok", { status: 200 }))) as unknown as typeof fetch;
+    const previous = process.env.RAILWAY_GIT_COMMIT_SHA;
+    try {
+      process.env.RAILWAY_GIT_COMMIT_SHA = "b5be0e71124c0f941206454c581fba726fc0ee39";
+      expect(await (await healthz()).json()).toEqual({ ok: true, next: "ok", engine: "ok", sha: "b5be0e71124c0f941206454c581fba726fc0ee39" });
+      process.env.RAILWAY_GIT_COMMIT_SHA = "<script>alert(1)</script>";
+      expect(await (await healthz()).json()).toEqual({ ok: true, next: "ok", engine: "ok" });
+    } finally {
+      if (previous === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+      else process.env.RAILWAY_GIT_COMMIT_SHA = previous;
+    }
+  });
 });
