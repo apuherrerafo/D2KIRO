@@ -141,7 +141,7 @@
 .cx-target-track { background: var(--r3-ink); bottom: 0; height: 2px; left: 0; opacity: .7; position: absolute; width: 38%; }
 @media (hover: hover) { .cx-target[data-interactive="true"]:hover .cx-target-ticks i { border-color: var(--r3-ink); } }
 .cx-target[data-state="hover"] .cx-target-ticks i { border-color: var(--r3-ink); }
-.cx-target[data-state="selected"] .cx-target-seg { opacity: 1; transform: scaleX(1); }
+.cx-target:is([data-state="selected"], [data-pressed="true"]) .cx-target-seg { opacity: 1; transform: scaleX(1); }
 .cx-target[data-state="active"] .cx-target-cue { opacity: 1; }
 .cx-target[data-state="recommended"]::before {
   -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0); -webkit-mask-composite: xor;

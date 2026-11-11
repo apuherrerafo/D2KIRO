@@ -1,0 +1,76 @@
+/* Simulador Canonical Light · composición (NO es del Design System). Portada del prototipo certificado de la Fase 3D.2.
+   Contrato de la feature: cero literales de color y ninguna propiedad custom de color nueva (solo se lee --r3-* / --cx-* / --f-* / --m-*),
+   espaciado en escala de 4 px, nada baja la opacidad de un texto. No redefine clases privadas del DS (.cx-* / .chm-* / .cm-*): solo coloca la pantalla.
+   Movimiento: este archivo NO declara ninguna transición ni animación; lo ponen los componentes canónicos y `motion.ts`.
+   Layout FLUIDO (el prototipo era 1600 px fijos): columnas | panel en pantalla ancha; una sola columna apilada bajo 1024 px (reflow a 200 % y 400 %). */
+.sl-muted { color: var(--r3-muted); font: 500 12px/1.4 var(--f-plex); margin: 0; }
+.sl-caption { color: var(--r3-muted); font: 600 11px/1.2 var(--f-plex); letter-spacing: .06em; margin: 0; text-transform: uppercase; }
+.sl-subhead { color: var(--r3-muted); font: 600 12px/1.2 var(--f-plex); margin: 8px 0 0; }
+/* esquinas de adquisición: en reposo no se ven; `motion.ts` las levanta UNA vez (`play`) y se disuelven */
+.sl-corners { opacity: 0; }
+.sl-welcome { color: var(--r3-muted); font: 500 14px/1.4 var(--f-plex); margin: 0; }
+/* entorno iluminado del DS (`SkinStage`, nivel 0 del vidrio): las columnas y el panel son vidrio SOBRE algo, no rectángulos sobre el fondo */
+.sl-skin { border-radius: 6px; }
+.sl-skin-inner { display: grid; gap: 16px; }
+/* centro + derecha */
+.sl-stage { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(0, var(--sl-cols-fr)) minmax(280px, 6fr); position: relative; }
+.sl-columns { align-items: start; display: grid; gap: 8px; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
+.sl-col { padding: 16px; }
+.sl-col-head { border-top: 1px solid var(--r3-line-strong); display: grid; gap: 4px; margin: 0 0 12px; padding-top: 8px; }
+.sl-col [data-relation="mine"] .sl-col-head,
+.sl-col [data-relation="mine-unconfirmed"] .sl-col-head { border-top: 2px solid var(--r3-ink); }
+.sl-relation { color: var(--r3-muted); font: 600 11px/1.2 var(--f-plex); letter-spacing: .06em; margin: 0; text-transform: uppercase; }
+.sl-relation[data-relation="mine"], .sl-relation[data-relation="mine-unconfirmed"] { color: var(--r3-ink); }
+.sl-col-title { font: 700 16px/1.2 var(--f-syne); letter-spacing: -.01em; margin: 0; }
+.sl-cands { display: grid; gap: 8px; list-style: none; margin: 0 0 8px; padding: 0; }
+.sl-cand { position: relative; }
+.sl-cand[data-recommended="true"] { margin-top: 24px; }
+.sl-cand > .cx-target { text-align: left; width: 100%; }
+.sl-cand-body { align-items: center; display: grid; gap: 8px 12px; grid-template-columns: 128px minmax(0, 1fr); margin-top: 8px; text-align: left; }
+.sl-cand-body[data-compact="true"] { grid-template-columns: minmax(0, 1fr); }
+.sl-art-slot { display: block; padding-bottom: 8px; width: 100%; }
+.sl-cand-lines { display: grid; gap: 4px; min-width: 0; }
+.sl-tag { color: var(--r3-ink); font: 600 12px/1.2 var(--f-plex); }
+.sl-tag[data-pool="OUTSIDE_POOL"] { color: var(--r3-muted); }
+.sl-tag[data-reading="true"] { font-weight: 700; }
+.sl-fact { color: var(--r3-muted); font: 500 12px/1.3 var(--f-plex); overflow-wrap: anywhere; }
+.sl-filled { align-items: center; display: flex; gap: 12px; }
+.sl-filled-text { display: grid; gap: 4px; }
+.sl-note { align-items: start; color: var(--r3-ink); display: flex; font: 500 13px/1.4 var(--f-plex); gap: 8px; margin: 0; }
+.sl-note[data-failed="true"] { border-left: 2px solid var(--r3-down); padding-left: 8px; }
+/* marco de esquinas que viaja entre tarjetas (movimiento 09): lo coloca y lo mueve `motion.ts`; aquí solo su sitio */
+.sl-transfer { left: 0; pointer-events: none; position: absolute; top: 0; z-index: 2; }
+/* panel de análisis */
+.sl-detail { padding: 16px; }
+.sl-detail-body { display: grid; gap: 12px; }
+.sl-detail > .sl-caption, .sl-detail > .sl-foot { margin-bottom: 12px; }
+.sl-detail-empty { font: 700 16px/1.3 var(--f-syne); margin: 24px 0; }
+.sl-detail-head { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); }
+.sl-detail-portrait { max-width: 240px; width: 100%; }
+.sl-detail-meta { display: grid; gap: 8px; }
+.sl-detail-name { font: 700 20px/1.1 var(--f-syne); letter-spacing: -.01em; margin: 0; }
+.sl-marks { color: var(--r3-ink); display: grid; font: 600 12px/1.3 var(--f-plex); gap: 4px; list-style: none; margin: 0; padding: 0; }
+.sl-detail-reason { font: 500 13px/1.4 var(--f-plex); margin: 0; }
+.sl-reasons { display: grid; gap: 4px; }
+.sl-reason-list { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.sl-reason { align-items: center; display: grid; gap: 8px; grid-template-columns: auto minmax(0, 1fr); }
+.sl-reason-text { font: 500 12px/1.4 var(--f-plex); }
+.sl-reason-text strong { font-weight: 700; }
+.sl-foot { color: var(--r3-muted); font: 500 12px/1.4 var(--f-plex); margin: 0; text-align: center; }
+
+/* contenedor del bloque: fondo y alcance Light (dos elementos: `.r3-page` + hijo `data-theme="light"`, igual que team-groups) */
+.sl-light { background: var(--r3-bg); display: grid; gap: 16px; padding: 16px; }
+.sl-title { font: 700 16px/1.2 var(--f-syne); letter-spacing: -.01em; margin: 0; }
+.sl-party { color: var(--r3-muted); font: 500 12px/1.4 var(--f-plex); margin: 0; }
+.sl-placeholder { color: var(--r3-ink); font: 500 13px/1.4 var(--f-plex); margin: 0; }
+.sl-retry { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+
+/* reflow: bajo 1024 px (o con zoom 200 % / 400 %) el análisis baja bajo las columnas y las columnas se apilan */
+@media (max-width: 1023px) {
+  .sl-stage { grid-template-columns: minmax(0, 1fr); }
+  .sl-columns { grid-auto-flow: row; grid-auto-columns: minmax(0, 1fr); }
+}
+@media (max-width: 719px) {
+  .sl-detail-head { grid-template-columns: minmax(0, 1fr); }
+  .sl-cand-body { grid-template-columns: minmax(0, 1fr); }
+}

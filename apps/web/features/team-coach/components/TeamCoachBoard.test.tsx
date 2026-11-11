@@ -418,20 +418,32 @@ describe("parseTeamCoachBoard", () => {
   });
 });
 
-describe("19. un único TeamCoachBoard para /simulator y /live-draft", () => {
+describe("19. un único contrato de tablero para /simulator y /live-draft", () => {
   const webRoot = resolve(import.meta.dir, "../../..");
-  test("ambas superficies importan el mismo componente; no existe una segunda implementación", () => {
+  // Fase 4A: el Simulador pasó a Canonical Light (`SimulatorLightBoard`); Live conserva `TeamCoachBoard` hasta su propia fase.
+  // Lo que sigue prohibido: una tercera implementación, o que alguna superficie deje de leer el MISMO `TeamCoachBoardData` del motor.
+  test("el Simulador usa SimulatorLightBoard (Light) y Live sigue en TeamCoachBoard; ninguna otra implementación", () => {
     const simulator = readFileSync(resolve(webRoot, "app/simulator/page.tsx"), "utf8");
     const live = readFileSync(resolve(webRoot, "features/team-coach/components/LiveTeamCoachView.tsx"), "utf8");
     const livePage = readFileSync(resolve(webRoot, "app/live-draft/page.tsx"), "utf8");
-    expect(simulator).toContain('import { TeamCoachBoard, type TeamPosition } from "@/features/team-coach";');
-    expect(simulator).toContain("<TeamCoachBoard");
+    expect(simulator).toContain('import { SimulatorLightBoard } from "@/features/simulator-light";');
+    expect(simulator).toContain("<SimulatorLightBoard");
+    expect(simulator).not.toContain("<TeamCoachBoard");
     expect(live).toContain('import { TeamCoachBoard } from "./TeamCoachBoard";');
     expect(live).toContain("<TeamCoachBoard");
     expect(livePage).toContain("LiveTeamCoachView");
-    const definitions = Array.from(new Bun.Glob("{app,features,components}/**/*.tsx").scanSync({ cwd: webRoot }))
-      .filter((file) => !file.endsWith(".test.tsx") && /export function TeamCoachBoard\b/.test(readFileSync(resolve(webRoot, file), "utf8")));
-    expect(definitions.map((file) => file.replaceAll("\\", "/"))).toEqual(["features/team-coach/components/TeamCoachBoard.tsx"]);
+    const boards = Array.from(new Bun.Glob("{app,features,components}/**/*.tsx").scanSync({ cwd: webRoot }))
+      .filter((file) => !file.endsWith(".test.tsx") && /export function (TeamCoachBoard|SimulatorLightBoard)\b/.test(readFileSync(resolve(webRoot, file), "utf8")))
+      .map((file) => file.replaceAll("\\", "/"))
+      .sort();
+    expect(boards).toEqual(["features/simulator-light/components/SimulatorLightBoard.tsx", "features/team-coach/components/TeamCoachBoard.tsx"]);
+  });
+
+  test("las dos superficies leen el MISMO tipo del motor (TeamCoachBoardData); la nueva no inventa su propio contrato", () => {
+    const light = readFileSync(resolve(webRoot, "features/simulator-light/components/SimulatorLightBoard.tsx"), "utf8");
+    expect(light).toContain("TeamCoachBoardData");
+    expect(light).toContain('from "@/features/team-coach/types"');
+    expect(light).not.toMatch(/score\s*[:=]/);
   });
 });
 

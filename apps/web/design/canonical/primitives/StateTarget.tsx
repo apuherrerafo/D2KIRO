@@ -48,6 +48,10 @@ export type StateTargetProps = {
   note?: string;
   /** Makes the target a real button (selectable option). Selection is `state="selected"`, never a second prop. */
   onPress?: () => void;
+  /** Optional, orthogonal to `state`: "this target is the one currently open" (e.g. the candidate in analysis). Draws the same spectral
+   *  segment as `selected` and feeds `aria-pressed`, WITHOUT replacing `state` — so `recommended` keeps its notch + edge. Omitted = legacy
+   *  behaviour exactly (`aria-pressed` follows `state === "selected"`). Only meaningful with `onPress`. */
+  pressed?: boolean;
   state: TargetState;
   title: string;
   value: string;
@@ -71,13 +75,13 @@ function TargetContent({ children, notch, note, state, title, value }: Omit<Stat
   );
 }
 
-export function StateTarget({ onPress, ...content }: StateTargetProps) {
+export function StateTarget({ onPress, pressed, ...content }: StateTargetProps) {
   const { state } = content;
   const busy = state === "processing";
   const className = state === "focus" || onPress ? "cx-target cx-focusable" : "cx-target";
   if (onPress) {
     return (
-      <button aria-busy={busy ? "true" : undefined} aria-pressed={state === "selected"} className={className} data-interactive="true" data-state={state} data-target-state={state} onClick={onPress} type="button">
+      <button aria-busy={busy ? "true" : undefined} aria-pressed={pressed ?? state === "selected"} className={className} data-interactive="true" data-pressed={pressed === true ? "true" : undefined} data-state={state} data-target-state={state} onClick={onPress} type="button">
         <TargetContent {...content} />
       </button>
     );

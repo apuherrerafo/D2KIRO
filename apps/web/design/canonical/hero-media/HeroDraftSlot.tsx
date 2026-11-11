@@ -39,6 +39,8 @@ export interface HeroDraftSlotProps {
   showRole?: boolean;
   /** Whether to show the state badge (default: true) */
   showStateBadge?: boolean;
+  /** Whether to show the hero-name plate over the portrait (default: true). `false` leaves the art, rail, stroke and state grammar untouched — for a consumer that already prints the name next to the slot. */
+  showPlate?: boolean;
   /** Optional click handler (e.g., when clicking an available slot to pick) */
   onClick?: () => void;
   /** Forced hover / focus for specimens. */
@@ -100,6 +102,7 @@ export function HeroDraftSlot({
   size = "md",
   showRole = true,
   showStateBadge = true,
+  showPlate = true,
   onClick,
   preview,
   alt,
@@ -151,7 +154,7 @@ export function HeroDraftSlot({
           name={isUnknown ? "Open Slot" : displayName}
           attribute={isUnknown ? ("uni" as PrimaryAttribute) : resolved?.primaryAttr}
           size={portraitSize}
-          showPlate={!isUnknown}
+          showPlate={!isUnknown && showPlate}
           banned={state === "banned"}
           alt=""
         />

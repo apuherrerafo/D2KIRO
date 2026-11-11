@@ -18,7 +18,7 @@ import { StaleWarningBanner } from "@/features/random-draft-simulator/components
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import { useScrollToTop } from "@/features/random-draft-simulator/use-scroll-to-top";
-import { TeamCoachBoard, type TeamPosition } from "@/features/team-coach";
+import { SimulatorLightBoard } from "@/features/simulator-light";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -122,12 +122,6 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const roundNumber = phase.type === "blind_round" || phase.type === "round_revealed" ? phase.round : 0;
   useScrollToTop(roundNumber);
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
-  // Team Coach Board: picking any hero for any open position goes through the SAME protocol selection
-  // (lockPick -> SUBMIT_SEALED_SELECTION + assignedPosition). Only while the round accepts human picks.
-  function handleBoardPick(position: TeamPosition, heroId: number) {
-    void session.actions.lockPick(heroId, position);
-  }
-  const boardPick = phase.type === "blind_round" ? handleBoardPick : undefined;
   // PSR-002 -- the selector highlights the position being VIEWED (the V4 decision's viewedPosition, or the
   // one the Player just requested while the engine recomputes). The Coach RECOMMENDATION is a separate
   // field of the same decision and is rendered only by CurrentDecisionPanel.
@@ -136,13 +130,11 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <TeamCoachBoard
+      {/* Canonical Light: el clic en una tarjeta solo ABRE el análisis (no elige). Elegir al héroe sigue siendo la acción legal de BlindRoundPanel. */}
+      <SimulatorLightBoard
         board={teamBoard}
         status={teamBoardStatus}
-        heroCatalog={heroCatalog}
-        selectedPosition={selectedTarget}
-        onSelectPosition={session.actions.selectTarget}
-        onPickHero={boardPick}
+        humanPosition={config?.playerPosition ?? null}
         onRetry={session.actions.retryPreview}
       />
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
