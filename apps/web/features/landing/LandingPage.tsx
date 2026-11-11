@@ -20,7 +20,7 @@ import { LandingHero } from "./components/LandingHero";
 import { LandingNav } from "./components/LandingNav";
 import { MemorySection } from "./components/MemorySection";
 import { PropositionSection } from "./components/PropositionSection";
-import { WaitlistSection, type JoinWaitlist } from "./components/WaitlistSection";
+import { EntrySection } from "./components/EntrySection";
 import { FAKE_PRODUCT_STATE } from "./product-state/fake-scenario";
 import type { LandingProductState } from "./product-state/types";
 
@@ -31,15 +31,13 @@ export type LandingPageProps = {
   coach?: CoachCharacter;
   /** Forces motion on/off for review; `system` follows the visitor's preference. */
   motionMode?: MotionMode;
-  /** Real waitlist endpoint. Omit and the form runs in labelled preview. */
-  onJoinWaitlist?: JoinWaitlist;
   /** Draft frames. Defaults to the deterministic fake scenario. */
   productState?: LandingProductState;
   /** Draws a labelled outline where the Coach will go (review builds only). */
   showCoachPlaceholder?: boolean;
 };
 
-function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder }: Required<Pick<LandingPageProps, "productState" | "showCoachPlaceholder">> & Pick<LandingPageProps, "coach" | "onJoinWaitlist">) {
+function LandingBody({ coach, productState, showCoachPlaceholder }: Required<Pick<LandingPageProps, "productState" | "showCoachPlaceholder">> & Pick<LandingPageProps, "coach">) {
   const reduced = useReducedMotion();
   const character = coach ?? null;
   const heroFrame = productState.frames[0];
@@ -48,13 +46,13 @@ function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder
   return (
     <div className="ld-motion" data-motion={reduced ? "reduced" : "full"}>
       <CoachSlotProvider character={character} cue={coachCueFor(heroFrame, null)} reducedMotion={reduced} showPlaceholder={showCoachPlaceholder}>
-        <LandingNav reducedMotion={reduced} />
+        <LandingNav />
         <main>
           <LandingHero departing={departing} />
           <MemorySection onBridge={setDeparting} reducedMotion={reduced} />
           <CounterfactualSection reducedMotion={reduced} />
           <PropositionSection character={character} productState={productState} reducedMotion={reduced} showCoachPlaceholder={showCoachPlaceholder} />
-          <WaitlistSection onJoin={onJoinWaitlist} />
+          <EntrySection />
         </main>
         <LandingFooter />
       </CoachSlotProvider>
@@ -62,12 +60,15 @@ function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder
   );
 }
 
-export function LandingPage({ coach, motionMode = "system", onJoinWaitlist, productState = FAKE_PRODUCT_STATE, showCoachPlaceholder = false }: LandingPageProps) {
+export function LandingPage({ coach, motionMode = "system", productState = FAKE_PRODUCT_STATE, showCoachPlaceholder = false }: LandingPageProps) {
   return (
-    <div className="r3-page ld-root" data-landing="01b" data-testid="landing-01b" data-theme="dark" style={MOTION_VARS}>
-      <LabProvider value={{ autoplay: false, mode: motionMode }}>
-        <LandingBody coach={coach} onJoinWaitlist={onJoinWaitlist} productState={productState} showCoachPlaceholder={showCoachPlaceholder} />
-      </LabProvider>
+    <div className="r3-page ld-root" data-landing="01b" data-testid="landing-01b" style={MOTION_VARS}>
+      {/* Canonical Light, igual que el resto del producto: el tema lo declara el hijo `data-theme="light"` del alcance `.r3-page`. */}
+      <div className="ld-theme" data-theme="light">
+        <LabProvider value={{ autoplay: false, mode: motionMode }}>
+          <LandingBody coach={coach} productState={productState} showCoachPlaceholder={showCoachPlaceholder} />
+        </LabProvider>
+      </div>
     </div>
   );
 }

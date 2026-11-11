@@ -12,10 +12,18 @@ export interface MetaSyncAttempt {
   error: string | null;
 }
 
+// Espejo a mano de `patchProvenance` del motor (server/routes/meta.ts): el rótulo de parche que lleva el dato y si alguien lo verificó.
+export interface MetaPatchProvenance {
+  label: string | null;
+  verified: boolean;
+  basis: string;
+}
+
 export interface MetaStatus {
   syncedAt: string | null;
   isStale: boolean;
   lastSync: MetaSyncAttempt | null;
+  patchProvenance?: MetaPatchProvenance;
 }
 
 // Régimen de datos por defecto del sitio -- RTK Query contra apps/engine (web.md). La vista de

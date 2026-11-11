@@ -6,48 +6,361 @@
   },
   "evidence": "PRUEBA: motor real + web real, Dota SIMULADO (GSI/observaciones de prueba), no es sesión auténtica de Dota",
   "nav-/simulator": {
-    "liveNavFrames": 0,
-    "backgroundColor": "rgb(23, 26, 33)"
+    "backgroundColor": "color(srgb 0.94902 0.929412 0.898039 / 0.92)"
   },
   "nav-/hero-pool": {
-    "liveNavFrames": 0,
-    "backgroundColor": "rgb(23, 26, 33)"
+    "backgroundColor": "color(srgb 0.94902 0.929412 0.898039 / 0.92)"
   },
   "nav-/meta": {
-    "liveNavFrames": 0,
-    "backgroundColor": "rgb(23, 26, 33)"
+    "backgroundColor": "color(srgb 0.94902 0.929412 0.898039 / 0.92)"
   },
   "solo-1-sin-declarar": {
     "blocks": {
-      "live-nav-light": {
+      "app-nav": {
         "top": 0,
-        "bottom": 41,
+        "bottom": 51,
         "inFirstScreen": true
       },
       "live-light-draft-strip": {
-        "top": 342,
-        "bottom": 492,
+        "top": 352,
+        "bottom": 555,
         "inFirstScreen": true
       },
       "live-capture-status": {
-        "top": 97,
-        "bottom": 164,
+        "top": 107,
+        "bottom": 174,
         "inFirstScreen": true
       },
       "live-seat": null,
       "live-light-pick-seat": {
-        "top": 544,
-        "bottom": 618,
+        "top": 606,
+        "bottom": 680,
         "inFirstScreen": true
       },
       "live-party-preset": {
-        "top": 180,
-        "bottom": 326,
+        "top": 190,
+        "bottom": 336,
         "inFirstScreen": true
       },
       "live-controls": {
-        "top": 180,
-        "bottom": 326,
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "dota-link-controls": {
+        "top": 696,
+        "bottom": 749,
+        "inFirstScreen": true
+      },
+      "companion-install": null,
+      "live-diagnostics": {
+        "top": 765,
+        "bottom": 817,
+        "inFirstScreen": true
+      },
+      "team-coach-board": null,
+      "sl-decision": null
+    },
+    "pageHeight": 900,
+    "scrollsPage": false
+  },
+  "soloUndeclaredVisibleSeatSelectors": 5,
+  "solo-2-elige-ahora": {
+    "blocks": {
+      "app-nav": {
+        "top": 0,
+        "bottom": 51,
+        "inFirstScreen": true
+      },
+      "live-light-draft-strip": {
+        "top": 352,
+        "bottom": 555,
+        "inFirstScreen": true
+      },
+      "live-capture-status": {
+        "top": 107,
+        "bottom": 174,
+        "inFirstScreen": true
+      },
+      "live-seat": {
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "live-light-pick-seat": null,
+      "live-party-preset": {
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "live-controls": {
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "dota-link-controls": {
+        "top": 1502,
+        "bottom": 1554,
+        "inFirstScreen": false
+      },
+      "companion-install": null,
+      "live-diagnostics": {
+        "top": 1570,
+        "bottom": 1622,
+        "inFirstScreen": false
+      },
+      "team-coach-board": {
+        "top": 571,
+        "bottom": 1486,
+        "inFirstScreen": false
+      },
+      "sl-decision": null,
+      "recommended-card": {
+        "top": 723,
+        "bottom": 883,
+        "inFirstScreen": true
+      },
+      "first-card": {
+        "top": 723,
+        "bottom": 883,
+        "inFirstScreen": true
+      }
+    },
+    "pageHeight": 1654,
+    "scrollsPage": true
+  },
+  "openingCandidateWrites": [],
+  "solo-3-analisis-abierto": {
+    "blocks": {
+      "app-nav": {
+        "top": 0,
+        "bottom": 51,
+        "inFirstScreen": true
+      },
+      "live-light-draft-strip": {
+        "top": 352,
+        "bottom": 555,
+        "inFirstScreen": true
+      },
+      "live-capture-status": {
+        "top": 107,
+        "bottom": 174,
+        "inFirstScreen": true
+      },
+      "live-seat": {
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "live-light-pick-seat": null,
+      "live-party-preset": {
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "live-controls": {
+        "top": 190,
+        "bottom": 336,
+        "inFirstScreen": true
+      },
+      "dota-link-controls": {
+        "top": 1502,
+        "bottom": 1554,
+        "inFirstScreen": false
+      },
+      "companion-install": null,
+      "live-diagnostics": {
+        "top": 1570,
+        "bottom": 1622,
+        "inFirstScreen": false
+      },
+      "team-coach-board": {
+        "top": 571,
+        "bottom": 1486,
+        "inFirstScreen": false
+      },
+      "sl-decision": {
+        "top": 1090,
+        "bottom": 1153,
+        "inFirstScreen": false
+      },
+      "recommended-card": {
+        "top": 723,
+        "bottom": 883,
+        "inFirstScreen": true
+      },
+      "first-card": {
+        "top": 723,
+        "bottom": 883,
+        "inFirstScreen": true
+      }
+    },
+    "pageHeight": 1654,
+    "scrollsPage": true
+  },
+  "party5-1-cinco-columnas": {
+    "blocks": {
+      "app-nav": {
+        "top": 0,
+        "bottom": 51,
+        "inFirstScreen": true
+      },
+      "live-light-draft-strip": {
+        "top": 376,
+        "bottom": 579,
+        "inFirstScreen": true
+      },
+      "live-capture-status": {
+        "top": 107,
+        "bottom": 174,
+        "inFirstScreen": true
+      },
+      "live-seat": {
+        "top": 190,
+        "bottom": 360,
+        "inFirstScreen": true
+      },
+      "live-light-pick-seat": null,
+      "live-party-preset": {
+        "top": 190,
+        "bottom": 360,
+        "inFirstScreen": true
+      },
+      "live-controls": {
+        "top": 190,
+        "bottom": 360,
+        "inFirstScreen": true
+      },
+      "dota-link-controls": {
+        "top": 1907,
+        "bottom": 1959,
+        "inFirstScreen": false
+      },
+      "companion-install": null,
+      "live-diagnostics": {
+        "top": 1975,
+        "bottom": 2027,
+        "inFirstScreen": false
+      },
+      "team-coach-board": {
+        "top": 595,
+        "bottom": 1891,
+        "inFirstScreen": false
+      },
+      "sl-decision": null,
+      "recommended-card": {
+        "top": 773,
+        "bottom": 952,
+        "inFirstScreen": false
+      },
+      "first-card": {
+        "top": 722,
+        "bottom": 933,
+        "inFirstScreen": true
+      }
+    },
+    "pageHeight": 2059,
+    "scrollsPage": true
+  },
+  "party5-2-analisis-abierto": {
+    "blocks": {
+      "app-nav": {
+        "top": 0,
+        "bottom": 51,
+        "inFirstScreen": true
+      },
+      "live-light-draft-strip": {
+        "top": 376,
+        "bottom": 579,
+        "inFirstScreen": true
+      },
+      "live-capture-status": {
+        "top": 107,
+        "bottom": 174,
+        "inFirstScreen": true
+      },
+      "live-seat": {
+        "top": 190,
+        "bottom": 360,
+        "inFirstScreen": true
+      },
+      "live-light-pick-seat": null,
+      "live-party-preset": {
+        "top": 190,
+        "bottom": 360,
+        "inFirstScreen": true
+      },
+      "live-controls": {
+        "top": 190,
+        "bottom": 360,
+        "inFirstScreen": true
+      },
+      "dota-link-controls": {
+        "top": 1907,
+        "bottom": 1959,
+        "inFirstScreen": false
+      },
+      "companion-install": null,
+      "live-diagnostics": {
+        "top": 1975,
+        "bottom": 2027,
+        "inFirstScreen": false
+      },
+      "team-coach-board": {
+        "top": 595,
+        "bottom": 1891,
+        "inFirstScreen": false
+      },
+      "sl-decision": {
+        "top": 1100,
+        "bottom": 1180,
+        "inFirstScreen": false
+      },
+      "recommended-card": {
+        "top": 773,
+        "bottom": 952,
+        "inFirstScreen": false
+      },
+      "first-card": {
+        "top": 722,
+        "bottom": 951,
+        "inFirstScreen": true
+      }
+    },
+    "pageHeight": 2059,
+    "scrollsPage": true
+  },
+  "incompleto-409": {
+    "blocks": {
+      "app-nav": {
+        "top": 0,
+        "bottom": 51,
+        "inFirstScreen": true
+      },
+      "live-light-draft-strip": {
+        "top": 519,
+        "bottom": 618,
+        "inFirstScreen": true
+      },
+      "live-capture-status": {
+        "top": 107,
+        "bottom": 341,
+        "inFirstScreen": true
+      },
+      "live-seat": {
+        "top": 357,
+        "bottom": 503,
+        "inFirstScreen": true
+      },
+      "live-light-pick-seat": null,
+      "live-party-preset": {
+        "top": 357,
+        "bottom": 503,
+        "inFirstScreen": true
+      },
+      "live-controls": {
+        "top": 357,
+        "bottom": 503,
         "inFirstScreen": true
       },
       "dota-link-controls": {
@@ -67,322 +380,6 @@
     "pageHeight": 900,
     "scrollsPage": false
   },
-  "soloUndeclaredVisibleSeatSelectors": 5,
-  "solo-2-elige-ahora": {
-    "blocks": {
-      "live-nav-light": {
-        "top": 0,
-        "bottom": 41,
-        "inFirstScreen": true
-      },
-      "live-light-draft-strip": {
-        "top": 342,
-        "bottom": 492,
-        "inFirstScreen": true
-      },
-      "live-capture-status": {
-        "top": 97,
-        "bottom": 164,
-        "inFirstScreen": true
-      },
-      "live-seat": {
-        "top": 180,
-        "bottom": 326,
-        "inFirstScreen": true
-      },
-      "live-light-pick-seat": null,
-      "live-party-preset": {
-        "top": 180,
-        "bottom": 326,
-        "inFirstScreen": true
-      },
-      "live-controls": {
-        "top": 180,
-        "bottom": 326,
-        "inFirstScreen": true
-      },
-      "dota-link-controls": {
-        "top": 1439,
-        "bottom": 1492,
-        "inFirstScreen": false
-      },
-      "companion-install": null,
-      "live-diagnostics": {
-        "top": 1508,
-        "bottom": 1560,
-        "inFirstScreen": false
-      },
-      "team-coach-board": {
-        "top": 508,
-        "bottom": 1423,
-        "inFirstScreen": false
-      },
-      "sl-decision": null,
-      "recommended-card": {
-        "top": 661,
-        "bottom": 820,
-        "inFirstScreen": true
-      },
-      "first-card": {
-        "top": 661,
-        "bottom": 820,
-        "inFirstScreen": true
-      }
-    },
-    "pageHeight": 1592,
-    "scrollsPage": true
-  },
-  "openingCandidateWrites": [],
-  "solo-3-analisis-abierto": {
-    "blocks": {
-      "live-nav-light": {
-        "top": 0,
-        "bottom": 41,
-        "inFirstScreen": true
-      },
-      "live-light-draft-strip": {
-        "top": 342,
-        "bottom": 492,
-        "inFirstScreen": true
-      },
-      "live-capture-status": {
-        "top": 97,
-        "bottom": 164,
-        "inFirstScreen": true
-      },
-      "live-seat": {
-        "top": 180,
-        "bottom": 326,
-        "inFirstScreen": true
-      },
-      "live-light-pick-seat": null,
-      "live-party-preset": {
-        "top": 180,
-        "bottom": 326,
-        "inFirstScreen": true
-      },
-      "live-controls": {
-        "top": 180,
-        "bottom": 326,
-        "inFirstScreen": true
-      },
-      "dota-link-controls": {
-        "top": 1439,
-        "bottom": 1492,
-        "inFirstScreen": false
-      },
-      "companion-install": null,
-      "live-diagnostics": {
-        "top": 1508,
-        "bottom": 1560,
-        "inFirstScreen": false
-      },
-      "team-coach-board": {
-        "top": 508,
-        "bottom": 1423,
-        "inFirstScreen": false
-      },
-      "sl-decision": {
-        "top": 1028,
-        "bottom": 1091,
-        "inFirstScreen": false
-      },
-      "recommended-card": {
-        "top": 661,
-        "bottom": 820,
-        "inFirstScreen": true
-      },
-      "first-card": {
-        "top": 661,
-        "bottom": 820,
-        "inFirstScreen": true
-      }
-    },
-    "pageHeight": 1592,
-    "scrollsPage": true
-  },
-  "party5-1-cinco-columnas": {
-    "blocks": {
-      "live-nav-light": {
-        "top": 0,
-        "bottom": 41,
-        "inFirstScreen": true
-      },
-      "live-light-draft-strip": {
-        "top": 366,
-        "bottom": 516,
-        "inFirstScreen": true
-      },
-      "live-capture-status": {
-        "top": 97,
-        "bottom": 164,
-        "inFirstScreen": true
-      },
-      "live-seat": {
-        "top": 180,
-        "bottom": 350,
-        "inFirstScreen": true
-      },
-      "live-light-pick-seat": null,
-      "live-party-preset": {
-        "top": 180,
-        "bottom": 350,
-        "inFirstScreen": true
-      },
-      "live-controls": {
-        "top": 180,
-        "bottom": 350,
-        "inFirstScreen": true
-      },
-      "dota-link-controls": {
-        "top": 1844,
-        "bottom": 1896,
-        "inFirstScreen": false
-      },
-      "companion-install": null,
-      "live-diagnostics": {
-        "top": 1912,
-        "bottom": 1965,
-        "inFirstScreen": false
-      },
-      "team-coach-board": {
-        "top": 532,
-        "bottom": 1828,
-        "inFirstScreen": false
-      },
-      "sl-decision": null,
-      "recommended-card": {
-        "top": 711,
-        "bottom": 889,
-        "inFirstScreen": true
-      },
-      "first-card": {
-        "top": 659,
-        "bottom": 871,
-        "inFirstScreen": true
-      }
-    },
-    "pageHeight": 1997,
-    "scrollsPage": true
-  },
-  "party5-2-analisis-abierto": {
-    "blocks": {
-      "live-nav-light": {
-        "top": 0,
-        "bottom": 41,
-        "inFirstScreen": true
-      },
-      "live-light-draft-strip": {
-        "top": 366,
-        "bottom": 516,
-        "inFirstScreen": true
-      },
-      "live-capture-status": {
-        "top": 97,
-        "bottom": 164,
-        "inFirstScreen": true
-      },
-      "live-seat": {
-        "top": 180,
-        "bottom": 350,
-        "inFirstScreen": true
-      },
-      "live-light-pick-seat": null,
-      "live-party-preset": {
-        "top": 180,
-        "bottom": 350,
-        "inFirstScreen": true
-      },
-      "live-controls": {
-        "top": 180,
-        "bottom": 350,
-        "inFirstScreen": true
-      },
-      "dota-link-controls": {
-        "top": 1844,
-        "bottom": 1896,
-        "inFirstScreen": false
-      },
-      "companion-install": null,
-      "live-diagnostics": {
-        "top": 1912,
-        "bottom": 1965,
-        "inFirstScreen": false
-      },
-      "team-coach-board": {
-        "top": 532,
-        "bottom": 1828,
-        "inFirstScreen": false
-      },
-      "sl-decision": {
-        "top": 1038,
-        "bottom": 1118,
-        "inFirstScreen": false
-      },
-      "recommended-card": {
-        "top": 711,
-        "bottom": 889,
-        "inFirstScreen": true
-      },
-      "first-card": {
-        "top": 659,
-        "bottom": 889,
-        "inFirstScreen": true
-      }
-    },
-    "pageHeight": 1997,
-    "scrollsPage": true
-  },
-  "incompleto-409": {
-    "blocks": {
-      "live-nav-light": {
-        "top": 0,
-        "bottom": 41,
-        "inFirstScreen": true
-      },
-      "live-light-draft-strip": {
-        "top": 509,
-        "bottom": 608,
-        "inFirstScreen": true
-      },
-      "live-capture-status": {
-        "top": 97,
-        "bottom": 331,
-        "inFirstScreen": true
-      },
-      "live-seat": {
-        "top": 347,
-        "bottom": 493,
-        "inFirstScreen": true
-      },
-      "live-light-pick-seat": null,
-      "live-party-preset": {
-        "top": 347,
-        "bottom": 493,
-        "inFirstScreen": true
-      },
-      "live-controls": {
-        "top": 347,
-        "bottom": 493,
-        "inFirstScreen": true
-      },
-      "dota-link-controls": {
-        "top": 624,
-        "bottom": 676,
-        "inFirstScreen": true
-      },
-      "companion-install": null,
-      "live-diagnostics": {
-        "top": 692,
-        "bottom": 744,
-        "inFirstScreen": true
-      },
-      "team-coach-board": null,
-      "sl-decision": null
-    },
-    "pageHeight": 900,
-    "scrollsPage": false
-  },
   "axeFullPage": {
     "violations": []
   },
@@ -392,13 +389,13 @@
     "button[#3 en el ranking · Pos2 ]",
     "summary[Conexión con Dotavence e]",
     "summary[Diagnóstico de conexióne]",
-    "a[dota2coach]",
-    "a[Simulador de Draft]",
+    "a[D2KIRO]",
+    "a[Simulador]",
     "a[Draft en vivo]",
     "a[Mi pool]",
+    "a[Equipos]",
     "a[Meta]",
-    "a[Configuración]",
-    "a[SSteam 99900000199900000]",
+    "a[DJugador de Steam]",
     "button[Salir]",
     "button[live-seat-1]",
     "button[live-seat-2]",
@@ -413,13 +410,13 @@
     "button[#3 en el ranking · Pos2 ]",
     "summary[Conexión con Dotavence e]",
     "summary[Diagnóstico de conexióne]",
-    "a[dota2coach]",
-    "a[Simulador de Draft]",
+    "a[D2KIRO]",
+    "a[Simulador]",
     "a[Draft en vivo]",
     "a[Mi pool]",
+    "a[Equipos]",
     "a[Meta]",
-    "a[Configuración]",
-    "a[SSteam 99900000199900000]",
+    "a[DJugador de Steam]",
     "button[Salir]",
     "button[live-seat-1]",
     "button[live-seat-2]",
@@ -444,66 +441,66 @@
   "reducedMotionRunningAnimations": 0,
   "reconexion-1-tras-recargar": {
     "blocks": {
-      "live-nav-light": {
+      "app-nav": {
         "top": 0,
-        "bottom": 41,
+        "bottom": 51,
         "inFirstScreen": true
       },
       "live-light-draft-strip": {
-        "top": 342,
-        "bottom": 492,
+        "top": 352,
+        "bottom": 555,
         "inFirstScreen": true
       },
       "live-capture-status": {
-        "top": 97,
-        "bottom": 164,
+        "top": 107,
+        "bottom": 174,
         "inFirstScreen": true
       },
       "live-seat": {
-        "top": 180,
-        "bottom": 326,
+        "top": 190,
+        "bottom": 336,
         "inFirstScreen": true
       },
       "live-light-pick-seat": null,
       "live-party-preset": {
-        "top": 180,
-        "bottom": 326,
+        "top": 190,
+        "bottom": 336,
         "inFirstScreen": true
       },
       "live-controls": {
-        "top": 180,
-        "bottom": 326,
+        "top": 190,
+        "bottom": 336,
         "inFirstScreen": true
       },
       "dota-link-controls": {
-        "top": 1439,
-        "bottom": 1492,
+        "top": 1502,
+        "bottom": 1554,
         "inFirstScreen": false
       },
       "companion-install": null,
       "live-diagnostics": {
-        "top": 1508,
-        "bottom": 1560,
+        "top": 1570,
+        "bottom": 1622,
         "inFirstScreen": false
       },
       "team-coach-board": {
-        "top": 508,
-        "bottom": 1423,
+        "top": 571,
+        "bottom": 1486,
         "inFirstScreen": false
       },
       "sl-decision": null,
       "recommended-card": {
-        "top": 661,
-        "bottom": 820,
+        "top": 723,
+        "bottom": 883,
         "inFirstScreen": true
       },
       "first-card": {
-        "top": 661,
-        "bottom": 820,
+        "top": 723,
+        "bottom": 883,
         "inFirstScreen": true
       }
     },
-    "pageHeight": 1592,
+    "pageHeight": 1654,
     "scrollsPage": true
   },
   "companionTextFresh": "COMPANION ● Companion conectado CONNECTION ● Esperando Dota... PHASE Hero Selection CAPTURE ● Esperando selección de héroes... DRAFT AUTOMÁTICO ● Draft automático no disponible SIDE —",

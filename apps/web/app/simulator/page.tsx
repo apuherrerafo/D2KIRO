@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type JSX, type ReactNode } from "react";
+import { useState, type JSX } from "react";
+import { PageHead } from "@/components/app-shell/PageHead";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
@@ -89,7 +90,16 @@ function RoundBansStrip({ phase, bans, heroCatalog }: RoundBansStripProps) {
 
 // Req. 1.1-1.4, 8.1, 8.4: configuración previa a cualquier draft.
 function IdlePhaseView({ session }: PhaseViewProps) {
-  return <ConfigPanel onStart={session.startDraft} />;
+  return (
+    <div className="ap-sim-config" data-testid="simulator-config">
+      <PageHead
+        kicker="Simulador"
+        title="Simulador de draft"
+        lede="Practica un draft completo de Ranked All Pick contra un rival simulado y mira qué te recomienda el coach en cada turno."
+      />
+      <ConfigPanel onStart={session.startDraft} />
+    </div>
+  );
 }
 
 // Fail closed: la resolución de bans falló. No se inició la Ronda 1; el mismo pedido se puede reintentar.
@@ -274,7 +284,6 @@ function CompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 interface SimulatorHeaderProps {
   canReset: boolean;
   onReset(): void;
-  modeSwitcher: ReactNode;
 }
 
 interface ResetDraftButtonProps {
@@ -291,12 +300,13 @@ function ResetDraftButton({ canReset, onReset }: ResetDraftButtonProps) {
   );
 }
 
-// Una sola fila: el modo y "Reiniciar draft" comparten línea. El título "Simulador de Draft" ya está
-// en la pestaña activa del menú; repetirlo ocupaba otra fila entera antes de ver una sola recomendación.
-function SimulatorHeader({ canReset, onReset, modeSwitcher }: SimulatorHeaderProps) {
+// Durante una partida, la franja superior lleva el título y "Reiniciar draft". Antes de empezar no hay franja:
+// la pantalla de configuración trae su propio encabezado.
+function SimulatorHeader({ canReset, onReset }: SimulatorHeaderProps) {
+  if (!canReset) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border pb-2">
-      {modeSwitcher}
+    <div className="ap-sim-header">
+      <h1 className="ap-h2">Simulador de draft</h1>
       <ResetDraftButton canReset={canReset} onReset={onReset} />
     </div>
   );
@@ -322,11 +332,7 @@ const PHASE_VIEWS: Record<RandomDraftState["phase"]["type"], PhaseView> = {
 // compone paneles alrededor de su `state`/`actions`. Extraído de lo que antes era el default
 // export de esta página (R1 S7, Blocker 2) para que SimulatorPage pueda alternar con
 // CaptainsModeSimulator sin que ninguno de los dos comparta estado con el otro.
-interface SimulatorModeViewProps {
-  modeSwitcher: ReactNode;
-}
-
-function RankedAllPickSimulator({ modeSwitcher }: SimulatorModeViewProps) {
+function RankedAllPickSimulator() {
   const session = useRandomDraftSession();
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
@@ -344,7 +350,7 @@ function RankedAllPickSimulator({ modeSwitcher }: SimulatorModeViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} modeSwitcher={modeSwitcher} />
+      <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} />
       <StaleWarningBanner />
       <EngineUnreachableBanner />
       {/* TSK-085: persistente en todas las fases con sesión ya arrancada -- antes, los picks de
@@ -376,45 +382,11 @@ function RankedAllPickSimulator({ modeSwitcher }: SimulatorModeViewProps) {
   );
 }
 
-type GameMode = "ranked_all_pick";
-
-interface SimulatorModeSwitcherProps {
-  mode: GameMode;
-  onSelectMode(mode: GameMode): void;
-}
-
-function SimulatorModeSwitcher({ mode, onSelectMode }: SimulatorModeSwitcherProps) {
-  function handleSelectAllPick() {
-    onSelectMode("ranked_all_pick");
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="mr-2 text-body font-semibold text-content-primary">Modo:</span>
-      <button
-        type="button"
-        onClick={handleSelectAllPick}
-        className={mode === "ranked_all_pick" ? BUTTON_PRIMARY : BUTTON_SECONDARY}
-        data-testid="mode-tab-ranked-all-pick"
-      >
-        Ranked All Pick
-      </button>
-    </div>
-  );
-}
-
-const MODE_VIEWS: Record<GameMode, (props: SimulatorModeViewProps) => JSX.Element> = {
-  ranked_all_pick: RankedAllPickSimulator,
-};
-
-// Private beta: /simulator exposes only the certified Ranked All Pick flow.
+// Beta privada: /simulator expone solo el flujo certificado de Ranked All Pick (un único modo: no hay selector que mostrar).
 export default function SimulatorPage() {
-  const [gameMode, setGameMode] = useState<GameMode>("ranked_all_pick");
-  const ActiveSimulator = MODE_VIEWS[gameMode];
-
   return (
-    <main className="flex min-h-screen flex-col gap-3 bg-surface-base p-4">
-      <ActiveSimulator modeSwitcher={<SimulatorModeSwitcher mode={gameMode} onSelectMode={setGameMode} />} />
+    <main className="ap-sim" data-testid="mode-tab-ranked-all-pick">
+      <RankedAllPickSimulator />
     </main>
   );
 }

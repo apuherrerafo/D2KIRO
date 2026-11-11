@@ -15,8 +15,11 @@ interface SteamProfileRequest {
   fetchImpl?: FetchPlayerProfile;
 }
 
-function fallbackProfile(accountId: number): SteamPlayerProfile {
-  return { personaName: `Steam ${accountId}`, avatarUrl: null };
+// Sin perfil público de Steam el jugador se muestra con un nombre neutro: el identificador interno nunca llega a la pantalla.
+export const ANONYMOUS_PERSONA_NAME = "Jugador de Steam";
+
+function fallbackProfile(): SteamPlayerProfile {
+  return { personaName: ANONYMOUS_PERSONA_NAME, avatarUrl: null };
 }
 
 function isAllowedAvatarUrl(value: unknown): value is string {
@@ -44,17 +47,17 @@ function parseProfile(payload: unknown): SteamPlayerProfile | null {
 // Único cliente de ISteamUser: la key entra solo desde una ruta server-side y nunca se devuelve,
 // registra ni incorpora a la sesión. Cualquier fallo es no fatal para OpenID: la identidad ya fue
 // verificada antes y el perfil es únicamente presentación.
-export async function getSteamPlayerProfile({ accountId, steamId64, apiKey, fetchImpl = fetch }: SteamProfileRequest): Promise<SteamPlayerProfile> {
-  if (!apiKey) return fallbackProfile(accountId);
+export async function getSteamPlayerProfile({ steamId64, apiKey, fetchImpl = fetch }: SteamProfileRequest): Promise<SteamPlayerProfile> {
+  if (!apiKey) return fallbackProfile();
 
   try {
     const url = new URL(PLAYER_SUMMARIES_URL);
     url.searchParams.set("key", apiKey);
     url.searchParams.set("steamids", steamId64.toString());
     const response = await fetchImpl(url, { signal: AbortSignal.timeout(5_000) });
-    if (!response.ok) return fallbackProfile(accountId);
-    return parseProfile(await response.json()) ?? fallbackProfile(accountId);
+    if (!response.ok) return fallbackProfile();
+    return parseProfile(await response.json()) ?? fallbackProfile();
   } catch {
-    return fallbackProfile(accountId);
+    return fallbackProfile();
   }
 }

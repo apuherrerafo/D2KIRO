@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LandingPage } from "@/features/landing";
-import { waitlistWords } from "@/features/landing/components/WaitlistSection";
+import { ENTRY_PATH } from "@/features/landing/components/EntrySection";
 import { FORBIDDEN_CLAIMS, NAV_LINKS } from "@/features/landing/copy";
 import { LANDING_METADATA } from "@/features/landing/metadata";
 import { isHiddenForVisitor } from "@/components/nav-bar/NavBar";
@@ -17,11 +17,11 @@ const webRoot = join(import.meta.dir, "..", "..");
 const pageSource = readFileSync(join(webRoot, "app", "page.tsx"), "utf8");
 
 describe("Landing route `/`", () => {
-  it("serves the same LandingPage Storybook renders, with no waitlist endpoint wired", () => {
+  it("serves the same LandingPage Storybook renders, with no sign-up form", () => {
     expect(pageSource).toContain('import { LandingPage } from "@/features/landing"');
     expect(pageSource).toContain("<LandingPage />");
     expect(pageSource).toContain("LANDING_METADATA");
-    expect(pageSource).not.toContain("onJoinWaitlist=");
+    expect(pageSource).not.toContain("onJoinWaitlist");
   });
 
   it("renders without a Coach, and every in-page link targets an existing section", () => {
@@ -29,7 +29,7 @@ describe("Landing route `/`", () => {
     const page = screen.getByTestId("landing-01b");
     for (const link of NAV_LINKS) expect(page.querySelector(link.href)).not.toBeNull();
     expect(page.querySelector("#proposition")).not.toBeNull();
-    expect(page.querySelector("#waitlist")).not.toBeNull();
+    expect(page.querySelector("#entry")).not.toBeNull();
     expect(page.querySelectorAll("h1")).toHaveLength(1);
   });
 
@@ -60,22 +60,15 @@ describe("Landing metadata", () => {
   });
 });
 
-describe("Landing waitlist without an endpoint", () => {
-  it("never says the visitor is on the list while it is a preview", () => {
-    const words = waitlistWords(true);
-    expect(/on the list|we will write/i.test(`${words.busy} ${words.success} ${words.successNote}`)).toBe(false);
-    expect(words.successNote).toContain("not sent or stored");
-  });
-
-  it("reports a real success only once an endpoint is wired", () => {
-    expect(waitlistWords(false).success).toBe("You are on the list");
-  });
-
-  it("derives the words from the absence of an endpoint, and keeps the preview note", () => {
-    const source = readFileSync(join(webRoot, "features", "landing", "components", "WaitlistSection.tsx"), "utf8");
-    expect(source).toContain("const preview = onJoin === undefined;");
-    expect(source).toContain("waitlistWords(preview)");
+describe("Landing entry", () => {
+  it("every call to action goes to the real Steam sign-in; no dead waitlist remains", () => {
+    expect(ENTRY_PATH).toBe("/login");
+    for (const file of ["components/LandingHero.tsx", "components/LandingNav.tsx", "components/EntrySection.tsx"]) {
+      expect(readFileSync(join(webRoot, "features", "landing", file), "utf8")).toContain("ENTRY_PATH");
+    }
     const screen = render(<LandingPage motionMode="reduced" />);
-    expect(screen.getByTestId("landing-01b").textContent).toContain("nothing you type here leaves this page");
+    const text = screen.getByTestId("landing-01b").textContent ?? "";
+    expect(/waitlist|lista de espera|nothing you type here/i.test(text)).toBe(false);
+    expect(text).toContain("Sign in with Steam");
   });
 });

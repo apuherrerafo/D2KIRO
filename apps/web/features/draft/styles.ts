@@ -1,17 +1,16 @@
-// Pulido visual requerido por /design-forge (hover/pressed/focus/disabled) — nunca solo hover.
-const INTERACTIVE_BASE =
-  "transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
+// Estilos de acción compartidos de la aplicación. Todos son la capa Canonical Light del shell (`.ap-btn`,
+// components/app-shell/app-shell.css): contorno y tinta, foco, hover, pulsado y deshabilitado ya están resueltos allí.
+// Los nombres se conservan porque son la API que importan las pantallas; ya no definen una apariencia propia.
 
-export const BUTTON_PRIMARY = `rounded-md bg-accent-primary px-4 py-2 text-caption text-surface-base hover:bg-accent-primary-hover active:bg-accent-primary-hover ${INTERACTIVE_BASE}`;
+export const BUTTON_PRIMARY = "ap-btn ap-btn--solid";
 
-export const BUTTON_SECONDARY = `rounded-md border border-surface-border px-4 py-2 text-caption text-content-secondary hover:border-accent-primary hover:text-content-primary ${INTERACTIVE_BASE}`;
+export const BUTTON_SECONDARY = "ap-btn";
 
-export const BUTTON_COMPACT = `rounded-md border border-surface-border px-2 py-1 text-caption text-content-secondary hover:border-accent-primary hover:text-content-primary ${INTERACTIVE_BASE}`;
+export const BUTTON_COMPACT = "ap-btn ap-btn--compact";
 
-export const BUTTON_GHOST = `self-start text-caption text-accent-primary hover:text-accent-primary-hover ${INTERACTIVE_BASE}`;
+export const BUTTON_GHOST = "ap-btn ap-btn--quiet self-start";
 
-// Badge, no un simple text-caption -- el usuario reportó que el "(Tú)" original pasaba
-// desapercibido (TSK-016). Fondo sólido de acento + texto de alto contraste, mismo patrón de
-// BUTTON_PRIMARY para que se lea como una etiqueta, no como una nota al pie.
+// Badge, no un simple texto -- el usuario reportó que el "(Tú)" original pasaba desapercibido (TSK-016).
+// Fondo de tinta + texto invertido para que se lea como una etiqueta, no como una nota al pie.
 export const LOCAL_SIDE_BADGE =
   "ml-2 inline-flex items-center rounded-full bg-accent-primary px-2 py-0.5 text-caption font-semibold text-surface-base";

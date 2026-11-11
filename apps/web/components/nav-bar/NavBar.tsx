@@ -1,119 +1,104 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-
-// Canonical Light solo en /live-draft: el marco se carga de forma diferida para que su CSS no viaje en las demás rutas.
-const LiveNavFrame = dynamic(() => import("@/features/live-light/components/LiveNavFrame"));
-
-export function isLightNavRoute(pathname: string | null): boolean {
-  return pathname === "/live-draft" || (pathname !== null && pathname.startsWith("/live-draft/"));
-}
+import { AccountAvatar } from "@/components/app-shell/AccountAvatar";
+import { useAccountProfile, type AccountProfile } from "@/lib/use-account-profile";
 
 interface NavLinkDef {
   href: string;
   label: string;
 }
 
-// TSK-187 (Fase 8B, SPEC.md §14.8): el nav pasa de 7 a 4 links -- el flujo real es login +
-// cuenta + pool + Simulador de Draft. `/live-draft`, `/team-groups` y `/heroes` salen del array
-// pero sus rutas, componentes y tests quedan intactos: siguen alcanzables por URL directa.
-// Reversible -- volver a agregarlos es editar este array.
-// TSK-219: "Draft en vivo" vuelve -- ya no depende de un motor local, funciona en el sitio desplegado.
+// Las rutas del MVP, todas reales y todas dentro del mismo Canonical Light. `/heroes` queda alcanzable por URL
+// directa pero no es parte del recorrido; `/draft` y `/random-draft` son redirecciones de enlaces antiguos.
 export function buildNavLinks(): NavLinkDef[] {
   return [
-    { href: "/simulator", label: "Simulador de Draft" },
+    { href: "/simulator", label: "Simulador" },
     { href: "/live-draft", label: "Draft en vivo" },
     { href: "/hero-pool", label: "Mi pool" },
+    { href: "/team-groups", label: "Equipos" },
     { href: "/meta", label: "Meta" },
-    { href: "/settings", label: "Configuración" },
   ];
 }
 
-export function accountLabel(accountId: number | null): string {
-  return accountId === null ? "Mi cuenta" : `Cuenta · ${accountId}`;
+export const ACCOUNT_HREF = "/settings";
+const ACCOUNT_FALLBACK_LABEL = "Mi cuenta";
+
+// Nombre visible de la cuenta: el de Steam, o "Mi cuenta" mientras carga o si no está disponible. Nunca el Steam32.
+export function accountLabel(profile: AccountProfile | null): string {
+  if (profile === null) return ACCOUNT_FALLBACK_LABEL;
+  const name = profile.personaName.trim();
+  if (name === "") return ACCOUNT_FALLBACK_LABEL;
+  return name;
 }
 
-export interface AccountProfile {
-  accountId: number;
-  personaName: string;
-  avatarUrl: string | null;
+export function isActiveLink(pathname: string | null, href: string): boolean {
+  if (pathname === null) return false;
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function profileLabel(profile: AccountProfile): { displayName: string; accountIdLabel: string } {
-  return { displayName: profile.personaName, accountIdLabel: String(profile.accountId) };
-}
-
-const NAV_LINK_BASE =
-  "border-b-2 px-3 py-2 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary";
-
-function navLinkClassName(isActive: boolean): string {
-  if (isActive) {
-    return `${NAV_LINK_BASE} border-accent-primary text-content-primary`;
-  }
-  return `${NAV_LINK_BASE} border-transparent text-content-secondary hover:text-content-primary`;
-}
-
-// <Dominio><Cosa>: shell de navegación compartido (TSK-029) -- se renderiza una sola vez en
-// RootLayout, nunca duplicado por página. Resuelve el reporte de producto ("cada pantalla es una
-// isla, no sé qué sigue después de guardar el pool") dejando siempre visibles las rutas reales
-// del sitio, con la actual marcada.
-// TSK-244: the public landing at `/` brings its own nav; the app shell is for signed-in visitors there.
+// El visitante sin sesión no ve el menú de la cuenta: en `/` la portada pública trae su propia barra; en las demás
+// puertas públicas (acceso, sin acceso) solo se muestra la marca.
 export function isHiddenForVisitor(signedIn: boolean, pathname: string | null): boolean {
   return !signedIn && pathname === "/";
 }
 
-export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
-  const pathname = usePathname();
-  const navLinks = buildNavLinks();
-  const [profile, setProfile] = useState<AccountProfile | null>(null);
+function BrandLink() {
+  return (
+    <Link href="/" className="ap-brand">
+      D2KIRO
+    </Link>
+  );
+}
 
-  const hiddenForVisitor = isHiddenForVisitor(signedIn, pathname);
-
-  useEffect(() => {
-    if (hiddenForVisitor) return;
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() as Promise<AccountProfile> : null)
-      .then(setProfile)
-      .catch(() => setProfile(null));
-  }, [hiddenForVisitor]);
-
-  const label = profile === null ? null : profileLabel(profile);
-
-  if (hiddenForVisitor) return null;
-
-  const bar = (
-    <nav className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-surface-border bg-surface-raised px-4">
-      <Link href="/" className="px-3 py-2 text-body font-semibold text-content-primary">
-        dota2coach
-      </Link>
-      {navLinks.map((link) => (
-        <Link key={link.href} href={link.href} className={navLinkClassName(pathname === link.href)}>
-          {link.label}
-        </Link>
-      ))}
-      <div className="ml-auto flex min-w-0 items-center gap-2 px-3 py-1">
-        <Link href="/settings" className="flex items-center gap-2 text-left hover:text-content-primary">
-          {profile?.avatarUrl ? (
-            <img src={profile.avatarUrl} alt="" className="size-8 rounded-full border border-surface-border" />
-          ) : (
-            <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full border border-surface-border bg-surface-overlay text-caption text-content-secondary">S</span>
-          )}
-          <span className="flex flex-col">
-            <span className="text-caption text-content-primary">{label?.displayName ?? accountLabel(null)}</span>
-            {label && <span className="font-mono text-[10px] text-content-secondary">{label.accountIdLabel}</span>}
-          </span>
-        </Link>
-        {profile && (
-          <form action="/api/auth/logout" method="post">
-            <button type="submit" className="text-caption text-content-secondary hover:text-content-primary">Salir</button>
-          </form>
-        )}
+function VisitorBar() {
+  return (
+    <nav aria-label="D2KIRO" className="ap-nav" data-testid="app-nav">
+      <div className="ap-nav-row">
+        <BrandLink />
       </div>
     </nav>
   );
-  if (isLightNavRoute(pathname)) return <LiveNavFrame>{bar}</LiveNavFrame>;
-  return bar;
+}
+
+function MemberBar({ pathname }: { pathname: string | null }) {
+  const state = useAccountProfile(true);
+  const profile = state.kind === "ready" ? state.profile : null;
+  return (
+    <nav aria-label="Principal" className="ap-nav" data-testid="app-nav">
+      <div className="ap-nav-row">
+        <BrandLink />
+        <ul className="ap-nav-links">
+          {buildNavLinks().map((link) => (
+            <li key={link.href}>
+              <Link href={link.href} className="ap-nav-link" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
+                {link.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="ap-nav-account">
+          <Link href={ACCOUNT_HREF} className="ap-account-chip" aria-current={isActiveLink(pathname, ACCOUNT_HREF) ? "page" : undefined}>
+            <AccountAvatar avatarUrl={profile?.avatarUrl ?? null} />
+            <span className="ap-account-name">{accountLabel(profile)}</span>
+          </Link>
+          <form action="/api/auth/logout" method="post" className="ap-logout">
+            <button type="submit" className="ap-btn ap-btn--quiet">
+              Salir
+            </button>
+          </form>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+// <Dominio><Cosa>: la barra de navegación del producto, una sola para todas las rutas y siempre Canonical Light
+// (vive dentro del alcance de <AppShell>). Muestra al jugador por su nombre de Steam, nunca por su identificador.
+export function NavBar({ signedIn = true }: { signedIn?: boolean }) {
+  const pathname = usePathname();
+  if (isHiddenForVisitor(signedIn, pathname)) return null;
+  if (!signedIn) return <VisitorBar />;
+  return <MemberBar pathname={pathname} />;
 }

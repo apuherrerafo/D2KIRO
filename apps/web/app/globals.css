@@ -1,13 +1,13 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* La tipografía del producto es la canónica (IBM Plex Sans / Syne, declarada en design/round-3a-labs.css y activa
+   dentro del alcance Light del shell). Tailwind solo necesita saber a qué familia apunta `font-sans`. */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--f-plex);
+  --font-mono: var(--f-pmono);
 }
 
 body {
-  background: var(--surface-base);
-  color: var(--content-primary);
-  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+  margin: 0;
 }

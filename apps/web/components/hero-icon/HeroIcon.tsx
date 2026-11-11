@@ -1,4 +1,4 @@
-import { ALLOWED_HERO_IMG_HOSTS } from "@/features/draft/constants";
+import { HeroIcon as CanonicalHeroIcon } from "@/design/canonical/hero-media/HeroIcon";
 
 interface HeroIconProps {
   imgUrl: string;
@@ -6,46 +6,10 @@ interface HeroIconProps {
   size?: number;
 }
 
-function isAllowedHeroImgHost(imgUrl: string): boolean {
-  try {
-    return ALLOWED_HERO_IMG_HOSTS.includes(new URL(imgUrl).host);
-  } catch {
-    return false;
-  }
-}
-
-interface HeroIconFallbackProps {
-  alt: string;
-  size: number;
-}
-
-function HeroIconFallback({ alt, size }: HeroIconFallbackProps) {
-  return (
-    <div
-      role="img"
-      aria-label={alt}
-      className="flex items-center justify-center rounded-md border border-surface-border bg-surface-overlay text-content-secondary text-caption"
-      style={{ width: size, height: size }}
-    >
-      ?
-    </div>
-  );
-}
-
-// Requisito duro (web.md/security.md): valida que el host esté en la lista permitida del CDN de
-// Valve antes de renderizar — nunca una URL arbitraria tomada directo de la respuesta de la API.
+// Requisito duro (web.md/security.md): todo héroe se muestra con su ícono oficial, y el host de la imagen se valida contra
+// la lista permitida del CDN de Valve antes de renderizar -- nunca una URL arbitraria tomada de la respuesta de la API.
+// La pieza es el HeroIcon canónico del Design System: este componente solo conserva la firma que usan las pantallas del
+// producto (`imgUrl`, `alt`, `size`), no dibuja nada propio. Sin imagen válida, el DS muestra su estado neutro (la inicial).
 export function HeroIcon({ imgUrl, alt, size = 48 }: HeroIconProps) {
-  if (!isAllowedHeroImgHost(imgUrl)) {
-    return <HeroIconFallback alt={alt} size={size} />;
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- host ya validado arriba, dominio externo (CDN de Valve)
-    <img
-      src={imgUrl}
-      alt={alt}
-      width={size}
-      height={size}
-      className="rounded-md border border-surface-border object-cover"
-    />
-  );
+  return <CanonicalHeroIcon imgUrl={imgUrl} name={alt} alt={alt} size={size} />;
 }

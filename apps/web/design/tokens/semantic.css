@@ -1,28 +1,11 @@
 @import "./primitives.css";
 
+/* Canonical Light V1.1 es la ÚNICA paleta del producto. Aquí no se declara ningún color propio: los roles semánticos
+   que usan los componentes (--surface-*, --content-*, --accent-*, --signal-*) son alias de los tokens canónicos
+   (--r3-*, declarados en round-3a-labs.css sobre `.r3-page [data-theme="light"]`). Hay un solo tema Light y se
+   monta una vez, en el shell de la aplicación (components/app-shell). Sin alcance Light no hay color: así un
+   componente fuera del shell se ve roto en vez de volver en silencio a una paleta anterior. */
 :root {
-  /* --- Superficie --- */
-  --surface-base: var(--primitive-color-neutral-950);
-  --surface-raised: var(--primitive-color-neutral-900);
-  --surface-overlay: var(--primitive-color-neutral-850);
-  --surface-border: var(--primitive-color-neutral-800);
-
-  /* --- Contenido --- */
-  --content-primary: var(--primitive-color-neutral-50);
-  --content-secondary: var(--primitive-color-neutral-300);
-  --content-muted: var(--primitive-color-neutral-500);
-
-  /* --- Acento --- */
-  --accent-primary: var(--primitive-color-gold-500);
-  --accent-primary-hover: var(--primitive-color-gold-400);
-
-  /* --- Señales --- */
-  --signal-positive: var(--primitive-color-green-500);
-  --signal-negative: var(--primitive-color-red-500);
-  --signal-warning: var(--primitive-color-amber-500);
-
-  /* --- Foco accesible --- */
-  --focus-ring: var(--primitive-color-gold-500);
   --focus-offset: var(--primitive-space-focus-offset);
 
   /* --- Radios semánticos --- */
@@ -45,6 +28,31 @@
   --space-8: var(--primitive-space-8);
   --space-10: var(--primitive-space-10);
   --space-12: var(--primitive-space-12);
+}
+
+.r3-page [data-theme="light"] {
+  /* --- Superficie --- */
+  --surface-base: var(--r3-bg);
+  --surface-raised: var(--r3-panel);
+  --surface-overlay: var(--r3-raise);
+  --surface-border: var(--r3-line-strong);
+
+  /* --- Contenido --- */
+  --content-primary: var(--r3-ink);
+  --content-secondary: var(--r3-muted);
+  --content-muted: var(--r3-muted);
+
+  /* --- Acento: la tinta canónica; el espectral vive solo en ActionPrimary --- */
+  --accent-primary: var(--r3-ink);
+  --accent-primary-hover: var(--r3-ink);
+
+  /* --- Señales (el ámbar oscuro no llega a 4.5:1 sobre crema: el aviso usa el rosa de especificación) --- */
+  --signal-positive: var(--r3-up);
+  --signal-negative: var(--r3-down);
+  --signal-warning: var(--r3-spec-pink);
+
+  /* --- Foco accesible --- */
+  --focus-ring: var(--r3-focus);
 }
 
 @theme inline {

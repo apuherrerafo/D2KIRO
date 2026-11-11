@@ -1,5 +1,6 @@
 "use client";
 
+import { D2Icon } from "@/design/round-3b/icons";
 import { useRandomDraftStore } from "../store";
 
 // <Dominio><Cosa>: aviso de que el motor dejó de recibir el draft (TSK-215).
@@ -18,17 +19,15 @@ export function EngineUnreachableBanner() {
   if (engineStatus === "ok") return null;
 
   return (
-    <div
-      role="alert"
-      className="flex flex-col gap-1 rounded-lg border border-signal-negative bg-surface-raised p-4"
-    >
-      <span className="text-body text-content-primary">
-        El motor no está recibiendo este draft.
-      </span>
-      <span className="text-caption text-content-secondary">
-        El tablero y las sugerencias que ves no corresponden a los picks reales. Reinicia el draft
-        cuando vuelva la conexión — el intento se reanuda solo en cuanto el motor responda.
-      </span>
+    <div role="alert" className="ap-notice" data-tone="error" data-testid="engine-unreachable">
+      <D2Icon name="attention" size={16} />
+      <div className="ap-notice-body">
+        <span className="ap-notice-title">El motor no está recibiendo este draft</span>
+        <p>
+          El tablero y las sugerencias que ves no corresponden a los picks reales. Reinicia el draft
+          cuando vuelva la conexión — el intento se reanuda solo en cuanto el motor responda.
+        </p>
+      </div>
     </div>
   );
 }

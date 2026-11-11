@@ -1,7 +1,7 @@
 /* Live Canonical Light · página completa (Fase 4B.2). Composición, NO es del Design System.
    Contrato (el mismo de simulator-light/light.css): cero literales de color y ninguna propiedad custom de color nueva -- solo se leen --r3-* / --cx-* / --f-* / --m-*;
    espaciado en escala de 4 px; ningún texto baja de opacidad; este archivo NO declara transiciones ni animaciones (las ponen los primitivos canónicos).
-   Alcance: todo cuelga de `.ll-page` (la raíz Light de /live-draft) o de `.ll-nav` (la barra de navegación en esa ruta). Fuera de ellos nada cambia. */
+   Alcance: todo cuelga de `.ll-page` (la raíz Light de /live-draft). Fuera de él nada cambia. */
 
 /* La ruta ocupa todo el alto bajo la navegación: el alcance Light es el fondo de la página, no una isla dentro de un fondo oscuro. */
 .ll-main { display: flex; flex: 1 1 auto; flex-direction: column; }
@@ -14,16 +14,7 @@
 /* La franja de picks y bans es un panel propio, no una franja suelta sobre el fondo. */
 .ll-page .sl-light .sl-light[data-variant="strip"] { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 6px; padding: 8px 16px; }
 
-/* Alias de ALCANCE, no un token nuevo: el puente de simulator-light/light.css no cubre `--signal-warning` (el ámbar del tema oscuro no llega a 4.5:1 sobre crema).
-   Dentro de /live-draft lo leen la card dorada y ADVERTIR (tablero compartido, aún con nombres Tailwind): apunta a un token Light que ya existe. */
-.ll-page .sl-light { --signal-warning: var(--r3-spec-pink); }
-
 .ll-title { font: 700 20px/1.2 var(--f-syne); letter-spacing: -.01em; margin: 0; }
-
-/* Barra de navegación compartida, versión Light SOLO en /live-draft. Los nombres semánticos del sitio ya apuntan a los tokens Light por el puente de `.sl-light`. */
-.ll-nav { font-family: var(--f-plex); }
-.ll-nav .sl-light { background: var(--r3-panel); border-bottom: 1px solid var(--r3-line-strong); gap: 0; padding: 0; }
-.ll-nav nav { border-bottom: 0; }
 
 /* Superficies. `ll-panel` = el contenedor de una sección; con `Glass` (primitivo) cuando es protagonista, plano cuando es un detalle plegable. */
 .ll-host { display: grid; min-width: 0; }

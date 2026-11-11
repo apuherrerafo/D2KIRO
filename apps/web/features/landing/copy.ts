@@ -2,7 +2,7 @@
    Honest by construction: no "AI-powered", no "best pick", no rank promises — FORBIDDEN_CLAIMS is
    enforced against the rendered text by Landing01B.test.tsx. */
 
-export const CTA_LABEL = "Join the waitlist";
+export const CTA_LABEL = "Sign in with Steam";
 
 export const HERO = {
   eyebrow: "Draft coach for Dota 2",
@@ -10,7 +10,7 @@ export const HERO = {
   headlineAccent: "Your next call out.",
   sub: "D2KIRO reads your draft and shows one call, with the evidence beside it.",
   secondary: "Watch a draft play out",
-  reassurance: "Early access by email. No spam, unsubscribe anytime.",
+  reassurance: "Private beta: you sign in with your Steam account.",
   illustrative: "Illustrative draft",
 } as const;
 
@@ -58,20 +58,12 @@ export const PROPOSITION = {
   ],
 } as const;
 
-export const WAITLIST = {
-  kicker: "Early access",
+/** The closing block. The door in is the real one: Steam sign-in. No email list, no sign-up form. */
+export const ENTRY = {
+  kicker: "Private beta",
   title: "Take it into your next draft.",
-  lede: "D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens.",
-  emailLabel: "Email",
-  emailPlaceholder: "you@example.com",
-  emailError: "Enter an email address like name@example.com.",
-  busy: "Sending…",
-  success: "You are on the list",
-  successNote: "We will write when the simulator beta opens.",
-  previewNote: "Preview build: nothing you type here leaves this page.",
-  previewBusy: "Checking…",
-  previewSuccess: "Preview only, not sent",
-  previewSuccessNote: "This is a preview. Your email was not sent or stored, and nobody will write to you from it.",
+  lede: "D2KIRO sees the draft, remembers how you play and shows why a call moved. You sign in with your Steam account: your pool and your teams are saved to it.",
+  note: "Access is by invitation while the beta lasts.",
 } as const;
 
 export const FOOTER = {

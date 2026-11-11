@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import Link from "next/link";
+import { AppLink } from "@/components/app-shell/AppLink";
+import { AppNotice } from "@/components/app-shell/AppNotice";
+import { PageHead } from "@/components/app-shell/PageHead";
 import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import {
@@ -10,7 +12,9 @@ import {
   useGetHeroPoolQuery,
   useUpdateHeroPoolMutation,
 } from "@/lib/engine-api";
-import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
+import { ActionPrimary, type ActionStatus } from "@/design/canonical/primitives/ActionPrimary";
+import { Glass } from "@/design/canonical/primitives/Glass";
+import { BUTTON_GHOST } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import {
   CALCULATE_WINDOW_OPTIONS,
@@ -48,19 +52,24 @@ function HeroPoolRow({ entry, hero, onRemove }: HeroPoolRowProps) {
       : `${(entry.personalWinrate * 100).toFixed(0)}% en ${entry.personalGames} partidas`;
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-surface-border bg-surface-raised p-3">
-      <div className="flex items-center gap-3">
+    <li className="ap-row" data-testid="pool-row">
+      <div className="ap-row-main">
         <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${entry.hero}`} size={40} />
-        <div className="flex flex-col">
-          <span className="text-body text-content-primary">{hero?.localizedName ?? `Héroe ${entry.hero}`}</span>
-          <span className="text-caption text-content-muted">{stats}</span>
+        <div className="ap-row-text">
+          <span className="ap-row-name">{hero?.localizedName ?? `Héroe ${entry.hero}`}</span>
+          <span className="ap-row-meta">{stats}</span>
         </div>
       </div>
       <button type="button" onClick={handleRemove} className={BUTTON_GHOST}>
         Quitar
       </button>
-    </div>
+    </li>
   );
+}
+
+function saveStatus(isSaving: boolean): ActionStatus {
+  if (isSaving) return "busy";
+  return "idle";
 }
 
 // <Dominio><Cosa>: pantalla de configuración del hero pool. RTK Query (régimen "página normal",
@@ -114,7 +123,7 @@ export function HeroPoolConfig() {
       await updateHeroPool({ entries: entries.map(toPutEntry) }).unwrap();
       setSaveMessage(POOL_SAVED_MESSAGE);
     } catch {
-      setSaveMessage("No se pudo guardar el pool -- revisa que el motor esté corriendo e intenta de nuevo.");
+      setSaveMessage("No se pudo guardar el pool. Tu pool anterior sigue intacto; intenta de nuevo en un momento.");
     }
   }
 
@@ -150,7 +159,7 @@ export function HeroPoolConfig() {
       setSaveMessage(POOL_SAVED_MESSAGE);
       setCalculateStatus({ kind: "idle" });
     } catch {
-      setSaveMessage("No se pudo guardar el pool -- revisa que el motor esté corriendo e intenta de nuevo.");
+      setSaveMessage("No se pudo guardar el pool. Tu pool anterior sigue intacto; intenta de nuevo en un momento.");
     }
   }
 
@@ -167,35 +176,52 @@ export function HeroPoolConfig() {
     setCalculateStatus({ kind: "idle" });
   }
 
-  return (
-    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
-      <span className="text-heading text-content-primary">Mi pool de héroes</span>
+  const saved = saveMessage === POOL_SAVED_MESSAGE;
+  const saveFailed = saveMessage !== null && !saved;
 
-      {poolLoading && <span className="text-body text-content-secondary">Cargando...</span>}
-      {poolError && <span className="text-body text-signal-negative">No se pudo cargar tu pool de héroes.</span>}
+  function handleSavePress() {
+    void handleSave();
+  }
+
+  function handleCalculatePress() {
+    void handleCalculate();
+  }
+
+  return (
+    <main className="ap-main" data-testid="hero-pool-page">
+      <PageHead
+        kicker="Mi pool"
+        title="Mi pool de héroes"
+        lede="Hasta 5 héroes que dominas. El coach los prioriza cuando te toca elegir y marca cuando recomienda uno fuera de tu pool."
+      />
+
+      <PoolLoadState loading={poolLoading} failed={Boolean(poolError)} />
 
       {!poolLoading && !poolError && (
         <>
-          <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-raised p-4">
-            <span className="text-body text-content-primary">Calcular desde mis partidas</span>
-            <label className="flex items-center gap-2 text-caption text-content-secondary">
-              Ventana de partidas
-              <select
-                value={windowDays}
-                onChange={handleWindowDaysChange}
-                className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
-              >
+          <Glass className="ap-section">
+            <div className="ap-section-head">
+              <h2 className="ap-h2">Calcular desde mis partidas</h2>
+              <span className="ap-hint">Usa tu historial público de OpenDota. Nada se guarda hasta que lo confirmes.</span>
+            </div>
+            <div className="ap-field">
+              <label className="ap-label" htmlFor="pool-window">
+                Ventana de partidas
+              </label>
+              <select id="pool-window" value={windowDays} onChange={handleWindowDaysChange} className="ap-select">
                 {CALCULATE_WINDOW_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     Últimos {option} días
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
             <CalculateStatusMessage status={calculateStatus} />
-            <button type="button" onClick={handleCalculate} disabled={isCalculating} className={BUTTON_SECONDARY}>
-              {isCalculating ? "Calculando..." : "Calcular desde mis partidas"}
-            </button>
+            <div className="ap-actions">
+              <ActionPrimary onPress={handleCalculatePress} status={isCalculating ? "busy" : "idle"} busyLabel="Calculando…">
+                Calcular desde mis partidas
+              </ActionPrimary>
+            </div>
             {calculateStatus.kind === "proposal" && (
               <HeroPoolProposalReview
                 result={calculateStatus.result}
@@ -206,22 +232,26 @@ export function HeroPoolConfig() {
                 isConfirming={isSaving}
               />
             )}
-          </div>
+          </Glass>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-body text-content-primary">Mi selección manual</span>
-              <span className="text-caption text-content-muted">Pool activo · {entries.length}/{MAX_POOL_SIZE}</span>
+          <section className="ap-block" aria-labelledby="pool-manual-title">
+            <div className="ap-section-head">
+              <h2 className="ap-h2" id="pool-manual-title">
+                Mi selección manual
+              </h2>
+              <span className="ap-tag" data-tone={entries.length === 0 ? "empty" : "ok"} data-testid="pool-count">
+                Pool activo · {entries.length}/{MAX_POOL_SIZE}
+              </span>
             </div>
-            {entries.length === 0 && <span className="text-caption text-content-muted">{EMPTY_POOL_MESSAGE}</span>}
+            {entries.length === 0 && <p className="ap-hint">{EMPTY_POOL_MESSAGE}</p>}
             {entries.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <ul className="ap-list">
                 {entries.map((entry) => (
                   <HeroPoolRow key={entry.hero} entry={entry} hero={findHero(heroes, entry.hero)} onRemove={handleRemove} />
                 ))}
-              </div>
+              </ul>
             )}
-            {poolIsFull && <span className="text-caption text-content-muted">{POOL_FULL_MESSAGE}</span>}
+            {poolIsFull && <p className="ap-hint">{POOL_FULL_MESSAGE}</p>}
             {!heroesLoading && (
               <HeroGrid
                 heroes={heroes}
@@ -231,18 +261,43 @@ export function HeroPoolConfig() {
                 rosterFull={poolIsFull}
               />
             )}
-            {saveMessage && <span className="text-caption text-content-secondary">{saveMessage}</span>}
-            <button type="button" onClick={handleSave} disabled={isSaving} className={BUTTON_PRIMARY}>
-              Guardar
-            </button>
-            {saveMessage === POOL_SAVED_MESSAGE && (
-              <Link href="/live-draft" className={BUTTON_SECONDARY}>
-                Ver el draft en vivo
-              </Link>
+            {saveFailed && (
+              <AppNotice tone="error" title="No se guardó tu pool">
+                <p>{saveMessage}</p>
+              </AppNotice>
             )}
-          </div>
+            {saved && (
+              <AppNotice tone="success" title={POOL_SAVED_MESSAGE} testId="pool-saved">
+                <p>El coach ya usa este pool en tus próximos drafts.</p>
+              </AppNotice>
+            )}
+            <div className="ap-actions">
+              <ActionPrimary onPress={handleSavePress} status={saveStatus(isSaving)} busyLabel="Guardando…" testId="pool-save">
+                Guardar
+              </ActionPrimary>
+              {saved && <AppLink href="/live-draft">Ver el draft en vivo</AppLink>}
+            </div>
+          </section>
         </>
       )}
     </main>
   );
+}
+
+function PoolLoadState({ loading, failed }: { loading: boolean; failed: boolean }) {
+  if (loading) {
+    return (
+      <p className="ap-loading" role="status">
+        Cargando tu pool…
+      </p>
+    );
+  }
+  if (failed) {
+    return (
+      <AppNotice tone="error" title="No se pudo cargar tu pool de héroes" testId="pool-error">
+        <p>Tu pool guardado no se tocó. Vuelve a abrir esta pantalla para reintentar.</p>
+      </AppNotice>
+    );
+  }
+  return null;
 }

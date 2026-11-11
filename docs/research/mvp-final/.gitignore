@@ -1,0 +1,2 @@
+# Capturas locales de la certificacion visual (se regeneran con: npx playwright test e2e/mvp-final-integration.spec.ts)
+*.png

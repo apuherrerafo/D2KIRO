@@ -3,7 +3,8 @@
    declaration, durations only through var(--m-*), nothing loops, spacing on the 4 px scale (hairlines excepted),
    and every motion has a reduced-motion substitute at the bottom. */
 
-.ld-root { min-height: 100vh; padding: 0; }
+.ld-root { background: transparent; min-height: 100vh; padding: 0; }
+.ld-theme { background: var(--r3-bg); color: var(--r3-ink); min-height: 100vh; }
 .ld-root * { box-sizing: border-box; }
 .ld-wrap { margin-inline: auto; max-width: 1200px; padding-inline: clamp(16px, 4vw, 48px); width: 100%; }
 .ld-sr { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
@@ -13,7 +14,7 @@
 .ld-h1 { display: grid; font: 700 clamp(36px, 4.4vw, 56px)/1 var(--f-syne); letter-spacing: -.035em; margin: 0; text-wrap: balance; }
 .ld-h1-accent {
   animation: ld-wipe var(--m-expressive) var(--m-ease-out) 180ms both;
-  background: var(--r3-spec-fill) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: 4px; width: fit-content;
+  /* Texto sobre crema: el degradado usa los tonos espectrales de Light (los de oscuro, con el lima, no llegan a contraste). */ background: linear-gradient(110deg, var(--r3-spec-pink) 0%, var(--r3-spec-cyan) 52%, var(--r3-spec-lime) 100%) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: 4px; width: fit-content;
 }
 .ld-h2 { font: 700 clamp(28px, 3.6vw, 44px)/1.04 var(--f-syne); letter-spacing: -.03em; margin: 0; max-width: 20ch; }
 .ld-lede, .ld-hero-sub { color: var(--r3-muted); font: 400 16px/1.5 var(--f-plex); margin: 16px 0 0; max-width: 52ch; }

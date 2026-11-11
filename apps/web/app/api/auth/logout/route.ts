@@ -6,7 +6,8 @@ export function createLogoutHandler(destroySession: () => Promise<void>, publicO
   return async () => {
     await destroySession();
     if (publicOrigin === null) return new NextResponse("Authentication is unavailable", { status: 503 });
-    return NextResponse.redirect(new URL("/login", publicOrigin));
+    // 303 (See Other): el navegador sigue con un GET a /login. Con 307 repetiría el POST contra una página que solo se lee.
+    return NextResponse.redirect(new URL("/login", publicOrigin), 303);
   };
 }
 

@@ -17,7 +17,7 @@ mkdirSync(OUT, { recursive: true });
 const VIEW = { width: 1600, height: 900 };
 const CURATED_BANS = [111, 129, 88, 138, 135, 136, 110, 145, 123, 1, 89, 90, 120, 113, 114, 69];
 const LESHRAC = 52;
-const BLOCKS = ["live-nav-light", "live-light-draft-strip", "live-capture-status", "live-seat", "live-light-pick-seat", "live-party-preset", "live-controls", "dota-link-controls", "companion-install", "live-diagnostics", "live-light-draft-strip", "team-coach-board", "sl-decision"];
+const BLOCKS = ["app-nav", "live-light-draft-strip", "live-capture-status", "live-seat", "live-light-pick-seat", "live-party-preset", "live-controls", "dota-link-controls", "companion-install", "live-diagnostics", "live-light-draft-strip", "team-coach-board", "sl-decision"];
 
 interface IssuedLink { liveId: string; token: string; sessionId: string }
 const results: Record<string, unknown> = { label: LABEL, viewport: VIEW, evidence: "PRUEBA: motor real + web real, Dota SIMULADO (GSI/observaciones de prueba), no es sesión auténtica de Dota" };
@@ -80,27 +80,25 @@ test.describe.configure({ mode: "serial" });
 test.afterAll(() => { writeFileSync(resolve(OUT, "medidas.json"), JSON.stringify(results, null, 2)); });
 
 test.describe(`4B.2 Canonical Light completo (${LABEL})`, () => {
-  test("Sin enlace: Dota desconectado, instalación abierta, y la navegación de otras rutas NO cambia", async ({ page }) => {
+  test("Sin enlace: Dota desconectado, instalación abierta, y la navegación es la misma en todas las rutas", async ({ page }) => {
     test.setTimeout(240_000);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
     await expect(page.getByTestId("dota-connect")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId("live-nav-light")).toHaveCount(1);
+    await expect(page.getByTestId("app-nav")).toHaveCount(1);
     await page.screenshot({ path: resolve(OUT, "sin-enlace-1-desconectado.png"), fullPage: false });
     await page.getByTestId("dota-connect-button").click();
     await expect(page.getByTestId("companion-installer-download")).toBeVisible();
     await page.getByTestId("advanced-connection").locator("summary").first().click();
     await page.waitForTimeout(400);
     await page.screenshot({ path: resolve(OUT, "sin-enlace-2-instalacion-avanzada.png"), fullPage: true });
-    // El resto del sitio conserva su barra tal cual: el marco Light existe SOLO en /live-draft.
-    const others: Record<string, number> = {};
+    // MVP final: una sola barra Canonical Light para todo el sitio (ya no hay un marco exclusivo de /live-draft).
     for (const route of ["/simulator", "/hero-pool", "/meta"]) {
       await page.goto(route);
       await page.waitForLoadState("domcontentloaded");
-      others[route] = await page.getByTestId("live-nav-light").count();
-      const navBg = await page.locator("nav").first().evaluate((el) => getComputedStyle(el).backgroundColor);
-      results[`nav-${route}`] = { liveNavFrames: others[route], backgroundColor: navBg };
-      expect(others[route]).toBe(0);
+      await expect(page.getByTestId("app-nav")).toHaveCount(1);
+      const navBg = await page.getByTestId("app-nav").evaluate((el) => getComputedStyle(el).backgroundColor);
+      results[`nav-${route}`] = { backgroundColor: navBg };
     }
     await page.goto("/simulator");
     await page.screenshot({ path: resolve(OUT, "otras-rutas-simulator-nav.png"), clip: { x: 0, y: 0, width: 1600, height: 120 } });

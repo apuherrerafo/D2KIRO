@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { FORBIDDEN_CLAIMS, NAV_LINKS } from "@/features/landing/copy";
 import { coachCueFor, type CoachCharacterProps } from "@/features/landing/coach/coach-slot";
-import { isValidEmail } from "@/features/landing/components/WaitlistSection";
+import { ENTRY_PATH } from "@/features/landing/components/EntrySection";
 import { LandingPage } from "@/features/landing";
 import { FAKE_PRODUCT_STATE } from "@/features/landing/product-state/fake-scenario";
 
@@ -30,14 +30,14 @@ describe("Landing 01B structure", () => {
   it("ends the story in two blocks after the Counterfactual: the proposition, then the close; one h1", () => {
     const { page } = renderPage();
     const ids = [...page.querySelectorAll("[data-section]")].map((node) => node.getAttribute("data-section"));
-    expect(ids).toEqual(["hero", "memory", "counterfactual", "proposition", "waitlist"]);
+    expect(ids).toEqual(["hero", "memory", "counterfactual", "proposition", "entry"]);
     expect(page.querySelectorAll("h1")).toHaveLength(1);
   });
 
   it("every nav link lands on a section that exists, and so do the Hero's own targets", () => {
     const { page } = renderPage();
     for (const link of NAV_LINKS) expect(page.querySelector(link.href)).not.toBeNull();
-    expect(page.querySelector("#waitlist")).not.toBeNull();
+    expect(page.querySelector("#entry")).not.toBeNull();
     expect(page.querySelector("#proposition")).not.toBeNull();
   });
 
@@ -47,7 +47,7 @@ describe("Landing 01B structure", () => {
     levels.forEach((level, index) => {
       if (index > 0) expect(level - levels[index - 1]).toBeLessThanOrEqual(1);
     });
-    for (const id of ["counterfactual", "proposition", "waitlist"]) expect(page.querySelectorAll(`[data-section="${id}"] h2`)).toHaveLength(1);
+    for (const id of ["counterfactual", "proposition", "entry"]) expect(page.querySelectorAll(`[data-section="${id}"] h2`)).toHaveLength(1);
   });
 
   it("makes no forbidden claim in the rendered text", () => {
@@ -55,10 +55,17 @@ describe("Landing 01B structure", () => {
     for (const claim of FORBIDDEN_CLAIMS) expect(claim.test(page.textContent ?? "")).toBe(false);
   });
 
-  it("labels illustrative data and the preview waitlist honestly", () => {
+  it("labels illustrative data honestly and offers no form that collects anything", () => {
     const { page } = renderPage();
     expect(page.textContent).toContain("Illustrative draft");
-    expect(page.textContent).toContain("nothing you type here leaves this page");
+    expect(page.querySelector("form")).toBeNull();
+    expect(page.querySelector("input")).toBeNull();
+  });
+
+  it("paints in Canonical Light, like the rest of the product", () => {
+    const { page } = renderPage();
+    expect(page.querySelector('[data-theme="light"]')).not.toBeNull();
+    expect(page.querySelector('[data-theme="dark"]')).toBeNull();
   });
 });
 
@@ -176,10 +183,8 @@ describe("Landing 01B Coach integration point", () => {
   });
 });
 
-describe("Landing 01B waitlist", () => {
-  it("validates the email at the edge", () => {
-    expect(isValidEmail("a@b.co")).toBe(true);
-    expect(isValidEmail("nope")).toBe(false);
-    expect(isValidEmail("a@b")).toBe(false);
+describe("Landing 01B entry", () => {
+  it("the one door in is the product's own Steam sign-in", () => {
+    expect(ENTRY_PATH).toBe("/login");
   });
 });

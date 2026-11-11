@@ -51,15 +51,6 @@ export function cellState(
   };
 }
 
-function cellClassName(isSuggested: boolean, isUnavailable: boolean, isDimmed: boolean): string {
-  const base =
-    "flex flex-col items-center gap-1 rounded-md p-1 text-center transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary disabled:cursor-not-allowed";
-  if (isUnavailable) return `${base} opacity-40 grayscale`;
-  if (isSuggested) return `${base} ring-2 ring-accent-primary shadow-[0_0_12px_var(--accent-primary)] hover:scale-105`;
-  if (isDimmed) return `${base} opacity-40 hover:opacity-80`;
-  return `${base} hover:scale-105 hover:ring-1 hover:ring-surface-border`;
-}
-
 interface HeroGridCellProps {
   hero: HeroMeta;
   isSuggested: boolean;
@@ -81,10 +72,12 @@ function HeroGridCell({ hero, isSuggested, isUnavailable, isDimmed, onSelect }: 
       onClick={handleClick}
       disabled={isUnavailable}
       title={hero.localizedName}
-      className={cellClassName(isSuggested, isUnavailable, isDimmed)}
+      className="ap-cell"
+      aria-pressed={isSuggested ? true : undefined}
+      data-dimmed={isDimmed ? "true" : undefined}
     >
       <HeroIcon imgUrl={hero.imgUrl} alt={hero.localizedName} size={48} />
-      <span className="w-full truncate text-caption text-content-secondary">{hero.localizedName}</span>
+      <span>{hero.localizedName}</span>
     </button>
   );
 }
@@ -101,9 +94,9 @@ interface AttributeColumnProps {
 
 function AttributeColumn({ attribute, heroes, highlightedHeroIds, unavailableHeroIds, dimmedHeroIds, rosterFull, onSelect }: AttributeColumnProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-caption font-semibold uppercase tracking-wide text-content-muted">{ATTRIBUTE_LABELS[attribute]}</span>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+    <div className="ap-attr-group">
+      <span className="ap-label">{ATTRIBUTE_LABELS[attribute]}</span>
+      <div className="ap-attr-grid">
         {heroes.map((hero) => {
           const state = cellState(hero.id, highlightedHeroIds, unavailableHeroIds, rosterFull, dimmedHeroIds);
           return <HeroGridCell key={hero.id} hero={hero} isSuggested={state.isSuggested} isUnavailable={state.isUnavailable} isDimmed={state.isDimmed} onSelect={onSelect} />;

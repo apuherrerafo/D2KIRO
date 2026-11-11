@@ -33,7 +33,7 @@ describe("GetPlayerSummaries", () => {
     });
 
     expect(requested).toBe(false);
-    expect(profile).toEqual({ personaName: `Steam ${ACCOUNT_ID}`, avatarUrl: null });
+    expect(profile).toEqual({ personaName: "Jugador de Steam", avatarUrl: null });
   });
 
   test("una respuesta fallida o avatar no permitido cae al fallback sin propagar secretos", async () => {
@@ -44,6 +44,6 @@ describe("GetPlayerSummaries", () => {
       fetchImpl: async () => new Response(JSON.stringify({ response: { players: [{ personaname: "Kiro", avatarfull: "https://evil.example/avatar.jpg" }] } })),
     });
 
-    expect(profile).toEqual({ personaName: `Steam ${ACCOUNT_ID}`, avatarUrl: null });
+    expect(profile).toEqual({ personaName: "Jugador de Steam", avatarUrl: null });
   });
 });

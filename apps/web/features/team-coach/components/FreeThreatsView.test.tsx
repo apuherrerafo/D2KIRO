@@ -67,7 +67,8 @@ describe("FreeThreatsView -- qué se ve", () => {
 
   test("todo héroe lleva su ícono oficial (el counter y tu héroe amenazado)", () => {
     const view = renderBoard(board([STEALABLE]));
-    const icons = view.getByTestId("free-threat").querySelectorAll("img");
+    // El ícono es el HeroIcon canónico (`.chm-icon`): en el DOM de prueba la imagen nunca carga, así que se cuenta la pieza, no el <img>.
+    const icons = view.getByTestId("free-threat").querySelectorAll(".chm-icon");
     expect(icons.length).toBe(2);
   });
 

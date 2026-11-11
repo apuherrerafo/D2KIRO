@@ -200,7 +200,7 @@
 .hs-card[data-champion="true"] .hs-card-edge { animation: hs-spin 3200ms linear infinite; opacity: 1; }
 .hs-card[data-champion="true"]::after { animation: hs-foil 3600ms var(--m-ease-in-out) 500ms infinite; background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--r3-ink) 14%, transparent) 50%, transparent 62%); content: ""; inset: 0; pointer-events: none; position: absolute; translate: -110% 0; }
 .hs-card[data-champion="true"] .hs-card-rank { color: var(--r3-spec-cyan); }
-.hs-card[data-champion="true"] .hs-card-score { background: var(--r3-spec-fill) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; scale: 1.25; }
+.hs-card[data-champion="true"] .hs-card-score { /* Texto sobre crema: el degradado usa los tonos espectrales de Light (los de oscuro, con el lima, no llegan a contraste). */ background: linear-gradient(110deg, var(--r3-spec-pink) 0%, var(--r3-spec-cyan) 52%, var(--r3-spec-lime) 100%) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; scale: 1.25; }
 .hs[data-decided="true"] .hs-card[data-champion="false"] { opacity: .7; }
 @keyframes hs-foil { 0% { translate: -110% 0; } 45%, 100% { translate: 110% 0; } }
 

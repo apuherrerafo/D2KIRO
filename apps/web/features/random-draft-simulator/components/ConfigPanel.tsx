@@ -1,5 +1,6 @@
 "use client";
 
+import { Glass } from "@/design/canonical/primitives/Glass";
 import { useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
 import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
@@ -30,7 +31,7 @@ function SeedField({ draftSeed, isValid, onChange, onRegenerate }: SeedFieldProp
   }
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-caption text-content-secondary">Semilla del draft (draftSeed)</span>
+      <span className="text-caption text-content-secondary">Semilla del draft</span>
       <div className="flex items-center gap-2">
         <input
           type="text"
@@ -339,7 +340,7 @@ function TeamPresetField({ groups, selectedId, activePoolCount, onChange }: Team
   return (
     <div className="flex flex-col gap-1" role="group" aria-label="Preset de equipo (Party 5)">
       <div className="flex items-center justify-between">
-        <span className="text-caption text-content-secondary">Preset de equipo (/team-groups)</span>
+        <span className="text-caption text-content-secondary">Equipo guardado (se arma en Equipos)</span>
         {selectedId !== null && activePoolCount > 0 && (
           <span className="text-caption text-signal-positive">Pools de posiciones activos</span>
         )}
@@ -596,8 +597,8 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4">
-      <span className="text-heading text-content-primary">Ranked All Pick — Ranked Roles</span>
+    <Glass className="ap-section" surfaceLevel="3">
+      <h2 className="ap-h2">Ranked All Pick — Ranked Roles</h2>
       <ModeField mode={mode} onChange={setMode} />
       <SideField side={side} onChange={changeSide} />
       {mode === "simulation" && (
@@ -661,6 +662,6 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       <button type="button" onClick={handleStart} disabled={!canStart} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft
       </button>
-    </div>
+    </Glass>
   );
 }

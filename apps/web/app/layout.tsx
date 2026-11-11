@@ -1,29 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { NavBar } from "@/components/nav-bar/NavBar";
+import { AppShell } from "@/components/app-shell";
 import { getCanonicalOrigin } from "@/lib/canonical-origin";
 import { hasActiveSession } from "@/lib/session";
 import { Providers } from "./providers";
 
 export const dynamic = "force-dynamic";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 const canonicalOrigin = getCanonicalOrigin();
 
 export const metadata: Metadata = {
   metadataBase: canonicalOrigin === null ? undefined : new URL(canonicalOrigin),
-  title: "dota2coach",
-  description: "Sugerencias de draft en vivo para Dota 2, en tiempo real.",
+  title: "D2KIRO",
+  description: "Coach de draft para Dota 2: lee bans, picks y tu pool de héroes y te dice qué elegir, con el porqué.",
 };
 
 export default async function RootLayout({
@@ -33,14 +22,10 @@ export default async function RootLayout({
 }>) {
   const signedIn = await hasActiveSession();
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="es" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <Providers>
-          <NavBar signedIn={signedIn} />
-          {children}
+          <AppShell signedIn={signedIn}>{children}</AppShell>
         </Providers>
       </body>
     </html>

@@ -138,6 +138,8 @@ export default defineConfig({
         ENGINE_INTERNAL_URL: `http://127.0.0.1:${ENGINE_PORT}`,
         SESSION_SECRET,
         INTERNAL_AUTH_SECRET,
+        // Origen público confiable, como en Railway: sin él, las redirecciones a /login (puerta privada, "Salir") fallan cerradas con 503.
+        PUBLIC_BASE_URL: BASE_URL,
         // Directorio de build propio: no choca con el `next dev` del desarrollador ni le pisa
         // su `.next` (Next admite un solo servidor de desarrollo por directorio de build).
         NEXT_DIST_DIR: ".next-e2e",

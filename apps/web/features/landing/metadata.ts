@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 
 const TITLE = "D2KIRO — Draft coach for Dota 2";
-const DESCRIPTION = "D2KIRO reads your Dota 2 draft and shows one call with the evidence beside it, read against how you play. Early access by email.";
+const DESCRIPTION = "D2KIRO reads your Dota 2 draft and shows one call with the evidence beside it, read against how you play. Private beta, sign in with Steam.";
 
 export const LANDING_METADATA: Metadata = {
   title: TITLE,

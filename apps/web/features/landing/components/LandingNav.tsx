@@ -2,7 +2,7 @@
    first view is the hero's, so the nav never competes with it. */
 import { ActionQuiet } from "@/design/canonical/primitives";
 import { CTA_LABEL, NAV_LINKS } from "../copy";
-import { scrollToId } from "../scroll";
+import { ENTRY_PATH } from "./EntrySection";
 
 function NavLinks() {
   return (
@@ -12,9 +12,9 @@ function NavLinks() {
   );
 }
 
-export function LandingNav({ reducedMotion }: { reducedMotion: boolean }) {
+export function LandingNav() {
   function handleJoin() {
-    scrollToId("waitlist", reducedMotion);
+    window.location.assign(ENTRY_PATH);
   }
   return (
     <nav aria-label="D2KIRO" className="ld-nav">

@@ -14,6 +14,7 @@ import { CTA_LABEL, HERO } from "../copy";
 import { HeroStory } from "../hero-story/HeroStory";
 import type { StoryStep } from "../hero-story/use-hero-story";
 import { scrollToId } from "../scroll";
+import { ENTRY_PATH } from "./EntrySection";
 
 /** What the Coach is doing at each step of the story — bound to the product moment, never to what it says. */
 const COACH_BY_STEP: Readonly<Record<StoryStep, CoachCue>> = {
@@ -53,7 +54,7 @@ export function LandingHero({ departing = false }: { departing?: boolean }) {
   const [step, setStep] = useState<StoryStep>("picks");
 
   function handleJoin() {
-    scrollToId("waitlist", reduced);
+    window.location.assign(ENTRY_PATH);
   }
   function handleDemo() {
     scrollToId("proposition", reduced);

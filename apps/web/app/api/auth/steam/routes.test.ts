@@ -133,7 +133,7 @@ describe("rutas de autenticación Steam", () => {
     let destroyed = false;
     const response = await createLogoutHandler(async () => { destroyed = true; }, "https://coach.example")();
 
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://coach.example/login");
     expect(destroyed).toBe(true);
   });

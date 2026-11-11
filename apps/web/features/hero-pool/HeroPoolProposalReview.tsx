@@ -1,7 +1,9 @@
 "use client";
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
-import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
+import { AppNotice } from "@/components/app-shell/AppNotice";
+import { ActionPrimary } from "@/design/canonical/primitives/ActionPrimary";
+import { BUTTON_GHOST, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CalculatePoolResult, CalculateStatus, HeroPoolEntry } from "./types";
 
@@ -21,13 +23,15 @@ function ProposedHeroRow({ entry, hero }: ProposedHeroRowProps) {
       : `${(entry.personalWinrate * 100).toFixed(0)}% en ${entry.personalGames} partidas`;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-surface-border bg-surface-overlay p-3">
-      <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${entry.hero}`} size={40} />
-      <div className="flex flex-col">
-        <span className="text-body text-content-primary">{hero?.localizedName ?? `Héroe ${entry.hero}`}</span>
-        <span className="text-caption text-content-muted">{stats}</span>
+    <li className="ap-row">
+      <div className="ap-row-main">
+        <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${entry.hero}`} size={40} />
+        <div className="ap-row-text">
+          <span className="ap-row-name">{hero?.localizedName ?? `Héroe ${entry.hero}`}</span>
+          <span className="ap-row-meta">{stats}</span>
+        </div>
       </div>
-    </div>
+    </li>
   );
 }
 
@@ -35,29 +39,41 @@ function ProposedHeroRow({ entry, hero }: ProposedHeroRowProps) {
 // ternario eligiendo entre bloques de JSX distintos (regla dura de web.md).
 export function CalculateStatusMessage({ status }: { status: CalculateStatus }) {
   if (status.kind === "idle") {
-    return <span className="text-caption text-content-muted">Aún no calculaste nada.</span>;
+    return <p className="ap-hint">Aún no calculaste nada.</p>;
   }
   if (status.kind === "loading") {
-    return <span className="text-caption text-content-muted">Calculando...</span>;
+    return (
+      <p className="ap-loading" role="status">
+        Calculando…
+      </p>
+    );
   }
   if (status.kind === "empty") {
     return (
-      <span className="text-caption text-content-muted">
-        Ningún héroe de tu historial reciente pasó el mínimo de partidas -- prueba ampliar la ventana o añadir a mano.
-      </span>
+      <AppNotice tone="info" title="Sin héroes suficientes">
+        <p>Ningún héroe de tu historial reciente pasó el mínimo de partidas. Prueba ampliar la ventana o añadir a mano.</p>
+      </AppNotice>
     );
   }
   if (status.kind === "invalid_account") {
-    return <span className="text-caption text-signal-negative">Ese account_id no parece válido -- revisa que sean solo números.</span>;
+    return (
+      <AppNotice tone="error" title="No pudimos leer tu cuenta">
+        <p>Cierra sesión y vuelve a entrar con Steam para reintentar.</p>
+      </AppNotice>
+    );
   }
   if (status.kind === "in_progress") {
-    return <span className="text-caption text-signal-warning">Ya hay un cálculo en curso -- espera a que termine e intenta de nuevo.</span>;
+    return (
+      <AppNotice tone="warning" title="Ya hay un cálculo en curso">
+        <p>Espera a que termine e intenta de nuevo.</p>
+      </AppNotice>
+    );
   }
   if (status.kind === "unavailable") {
     return (
-      <span className="text-caption text-signal-negative">
-        OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- puedes intentar de nuevo más tarde.
-      </span>
+      <AppNotice tone="error" title="OpenDota no respondió">
+        <p>Tu pool guardado (si existe) sigue funcionando. Puedes intentar de nuevo más tarde.</p>
+      </AppNotice>
     );
   }
   return null; // "proposal": HeroPoolProposalReview la reemplaza por completo, ver abajo.
@@ -77,21 +93,21 @@ interface HeroPoolProposalReviewProps {
 // el pool guardado queda exactamente como estaba.
 export function HeroPoolProposalReview({ result, heroes, onConfirm, onEdit, onDiscard, isConfirming }: HeroPoolProposalReviewProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-accent-primary bg-surface-raised p-4">
-      <span className="text-body text-content-primary">
-        Propuesta de {result.proposed.length} héroe(s) -- de {result.consideredHeroes} jugados en los últimos {result.windowDays} días.
-      </span>
+    <section className="ap-block" aria-label="Propuesta de pool" data-testid="pool-proposal">
+      <h3 className="ap-h3">
+        Propuesta de {result.proposed.length} héroe(s), de {result.consideredHeroes} jugados en los últimos {result.windowDays} días
+      </h3>
 
-      <div className="flex flex-col gap-2">
+      <ul className="ap-list">
         {result.proposed.map((entry) => (
           <ProposedHeroRow key={entry.hero} entry={entry} hero={findHero(heroes, entry.hero)} />
         ))}
-      </div>
+      </ul>
 
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={onConfirm} disabled={isConfirming} className={BUTTON_PRIMARY}>
+      <div className="ap-actions">
+        <ActionPrimary onPress={onConfirm} status={isConfirming ? "busy" : "idle"} busyLabel="Guardando…">
           Confirmar tal cual
-        </button>
+        </ActionPrimary>
         <button type="button" onClick={onEdit} className={BUTTON_SECONDARY}>
           Editar antes de confirmar
         </button>
@@ -99,6 +115,6 @@ export function HeroPoolProposalReview({ result, heroes, onConfirm, onEdit, onDi
           Descartar
         </button>
       </div>
-    </div>
+    </section>
   );
 }

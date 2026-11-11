@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { getIronSession, type IronSession, type SessionOptions } from "iron-session";
+import { ANONYMOUS_PERSONA_NAME } from "./steam-profile";
 
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_RENEW_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
@@ -74,10 +75,18 @@ export async function renewSessionIfNeeded(session: IronSession<SessionData>, no
   return true;
 }
 
+// Las sesiones emitidas antes de este cambio pueden traer "Steam <id>" como nombre: eso es el identificador interno, no un nombre.
+const LEGACY_ID_PERSONA = /^Steam \d+$/;
+
+export function displayPersonaName(personaName: string | undefined): string {
+  if (personaName === undefined || LEGACY_ID_PERSONA.test(personaName)) return ANONYMOUS_PERSONA_NAME;
+  return personaName;
+}
+
 export function getSessionProfile(session: SessionData): SessionProfile {
   return {
     accountId: session.accountId,
-    personaName: session.personaName ?? `Steam ${session.accountId}`,
+    personaName: displayPersonaName(session.personaName),
     avatarUrl: session.avatarUrl ?? null,
   };
 }

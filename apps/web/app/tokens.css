@@ -1,8 +1,5 @@
-/* Tokens mínimos (regla "Día 1" de /design-forge) — taxonomía obligatoria de .claude/rules/web.md:
-   color por rol semántico, espaciado en escala de 4px, tipografía por escala nombrada.
-   Prohibido un hex suelto fuera de los archivos de tokens.
-
-   Refactorizado para UX-0: delega en la arquitectura primitive -> semantic en apps/web/design/tokens/.
-   Conserva 100% de paridad visual y de valores con el baseline. */
+/* Tokens del producto: espaciado, tipografía por escala nombrada, radios y movimiento (design/tokens/primitives.css)
+   más los alias semánticos que apuntan a Canonical Light (design/tokens/semantic.css). Ningún color propio aquí:
+   la única paleta es la canónica, declarada en design/round-3a-labs.css y design/canonical/tokens.css. */
 @import "../design/tokens/primitives.css";
 @import "../design/tokens/semantic.css";
