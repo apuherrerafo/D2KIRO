@@ -113,10 +113,14 @@ async function playToEnd(page: Page, prefer: "card" | "search" = "card"): Promis
     }
     const choose = page.getByRole("button", { name: CHOOSE_BUTTON });
     // Si el jugador ya dejó un héroe abierto con su botón a la vista, lo confirma; volver a tocar la carta cerraría el análisis.
-    if (!(await choose.isVisible())) {
+    // Abrir el análisis es un TOGGLE: un segundo clic sobre la misma carta lo cierra. En CI (más lento) el tablero se reordena justo después de un pick y el primer
+    // clic podía caer antes de que la carta estuviera lista o cerrar un análisis recién abierto. Por eso cada intento mira primero el ESTADO REAL (¿ya está el
+    // botón «Elegir»?) y solo clica si no está -- nunca clica a ciegas dos veces ni alarga el plazo (3 intentos de 5 s).
+    for (let attempt = 0; attempt < 3 && !(await choose.isVisible()); attempt += 1) {
       const available = prefer === "card" && (await cards(page).count()) > 0;
       if (available) await cards(page).first().click();
       else await page.getByRole("region", { name: "Buscar otro héroe" }).locator(".sl-picker-row:not([disabled])").first().click();
+      await choose.waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);
     }
     await expect(choose).toBeVisible({ timeout: 5_000 });
     await choose.click();
