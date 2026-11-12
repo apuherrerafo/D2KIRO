@@ -257,7 +257,7 @@ export function FeedbackInbox() {
 
   const handleChange = useCallback(async (id: string, next: FeedbackState) => {
     await changeStatus(id, next);
-    latestRequest.current += 1;
+    // No invalida las cargas de otros cambios de estado (ambas se aplican en el orden en que llegan); solo una carga por CAMBIO DE FILTRO la deja obsoleta.
     const mine = latestRequest.current;
     const reloaded = await loadInbox(filters.current.type, filters.current.status);
     if (mine === latestRequest.current) setState(reloaded);

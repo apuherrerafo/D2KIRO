@@ -22,6 +22,8 @@ export interface DecisionSnapshot {
   targetPosition: number | null;
   /** Hero ids the engine offered in this answer (ranked cards or, when unranked, positional alternatives). */
   offered: number[];
+  /** Solo las tarjetas RANQUEADAS (`cards`): son las que el tablero debe pintar; las `alternatives` sin ranking no obligan a pintar nada. */
+  ranked: number[];
 }
 
 interface V4Wire {
@@ -60,6 +62,7 @@ export function latestDecision(page: Page): DecisionSnapshot | null {
       viewedPosition: output.decision.viewedPosition ?? null,
       targetPosition: output.decision.targetPosition ?? null,
       offered: (candidates?.cards ?? candidates?.alternatives ?? []).map((candidate) => candidate.heroId),
+      ranked: (candidates?.cards ?? []).map((candidate) => candidate.heroId),
     };
   }
   return null;
@@ -109,12 +112,16 @@ export async function assertRecommendationContract(page: Page): Promise<number[]
   await assertCardsLiveInTheirOwnColumn(page);
   // El tablero no puede ignorar al motor: si la respuesta V4 ofreció candidatos, el tablero pinta al menos uno de ellos EN la columna de la posición vista
   // (mobile-semantic prueba la igualdad exacta en Solo; aquí, para Party y las olas, se exige al menos la intersección -- no "cero tarjetas" ni otras).
-  const decision = latestDecision(page);
-  if (decision !== null && decision.offered.length > 0 && decision.viewedPosition !== null) {
-    const inViewedColumn = await boardOf(page).getByTestId(`team-coach-column-${decision.viewedPosition}`).locator("[data-card-key]").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
-    const overlap = inViewedColumn.filter((heroId) => decision.offered.includes(heroId));
-    expect(overlap.length, `el tablero ignora los candidatos V4 de Pos${decision.viewedPosition}: V4=${decision.offered.join(",")} tablero=${inViewedColumn.join(",")}`).toBeGreaterThan(0);
-  }
+  // Se re-lee la última respuesta V4 en cada intento (la web descarta las supersedidas; una respuesta vieja tardía no debe dar un rojo falso) y solo
+  // cuentan las tarjetas RANQUEADAS: una columna sin héroes con fundamento ("no hay recomendaciones") es un estado válido.
+  await expect
+    .poll(async () => {
+      const decision = latestDecision(page);
+      if (decision === null || decision.ranked.length === 0 || decision.viewedPosition === null) return "ok";
+      const inViewedColumn = await boardOf(page).getByTestId(`team-coach-column-${decision.viewedPosition}`).locator("[data-card-key]").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
+      return inViewedColumn.some((heroId) => decision.ranked.includes(heroId)) ? "ok" : `el tablero ignora los candidatos V4 de Pos${decision.viewedPosition}: V4=${decision.ranked.join(",")} tablero=${inViewedColumn.join(",")}`;
+    }, { timeout: 10_000 })
+    .toBe("ok");
   return recommended;
 }
 

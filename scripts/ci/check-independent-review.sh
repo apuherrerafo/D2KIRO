@@ -38,7 +38,7 @@ if [ "${unchecked:-0}" -gt 0 ]; then
   exit 1
 fi
 
-if printf '%s\n' "$normalized" | grep -qiE 'BLOQUEANTE[^[:alnum:]]*ABIERTO'; then
+if printf '%s' "$normalized" | grep -qiE 'BLOQUEANTE.*ABIERT'; then
   echo "FAIL: el PR declara un hallazgo BLOQUEANTE ABIERTO." >&2
   exit 1
 fi
