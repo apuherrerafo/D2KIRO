@@ -516,10 +516,10 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
 
       // On disk: no SteamID / account id / player name, no coordinate -- only has* flags. What the timeline needs stays.
       for (const text of [JSON.stringify(draft), rolling]) {
-        for (const secret of [SENTINEL_STEAMID, SENTINEL_NAME, "1038734271", token, TOKEN]) expect(text).not.toContain(secret);
+        for (const secret of [SENTINEL_STEAMID, SENTINEL_NAME, "1038734271", token, TOKEN, "1234.5", "-678", "-6700"]) expect(text).not.toContain(secret);
         // Las coordenadas centinela son números cortos: como subcadena chocan por azar con los dígitos de un `receivedAt` (".7505900Z" contiene "5900" y
         // hacía fallar la prueba sin que nada se filtrara). Se buscan como TOKEN numérico completo: sin dígito ni punto pegado antes o después.
-        for (const coordinate of ["1234.5", "-678", "-6700", "5900"]) expect(text).not.toMatch(new RegExp(`(?<![0-9.])${coordinate.replace(".", "[.]")}(?![0-9.])`));
+        expect(text).not.toMatch(/(?<![0-9.])5900(?![0-9.])/);
         expect(text).not.toMatch(/"(xpos|ypos|yaw)":/);
       }
       const hs = draft[0]!.payload as { player: Record<string, unknown>; minimap: Record<string, Record<string, unknown>>; hero: Record<string, unknown>; previously: { player: Record<string, unknown>; minimap: Record<string, Record<string, unknown>> } };

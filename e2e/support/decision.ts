@@ -98,15 +98,45 @@ export async function announcedTargetLabel(page: Page): Promise<string> {
 export async function assertRecommendationContract(page: Page): Promise<number[]> {
   const recommended = await recommendedHeroIds(page);
   expect(recommended.length, "una sola tarjeta recomendada en el tablero").toBeLessThanOrEqual(1);
+  // Sin snapshot del servidor no hay contra qué comprobar la legalidad: eso es un fallo, nunca un pase en vacío (revisión independiente).
   const snapshot = recorderOf(page).snapshots().at(-1);
-  if (snapshot) {
-    const taken = new Set<number>(snapshot.view.bannedHeroes);
-    for (const slot of [...snapshot.view.ownPicks, ...snapshot.view.enemyPicks]) if (slot.heroId !== undefined) taken.add(slot.heroId);
-    const shown = await decisionCardIds(page);
-    for (const heroId of [...recommended, ...shown]) expect(taken.has(heroId), `la tarjeta ${heroId} es ilegal (baneada o ya elegida)`).toBe(false);
-    for (const heroId of latestDecision(page)?.offered ?? []) expect(taken.has(heroId), `el motor ofreció ${heroId} (baneado o ya elegido)`).toBe(false);
+  expect(snapshot, "el navegador debe haber recibido ya el estado del servidor para poder comprobar la legalidad").toBeDefined();
+  const taken = new Set<number>(snapshot!.view.bannedHeroes);
+  for (const slot of [...snapshot!.view.ownPicks, ...snapshot!.view.enemyPicks]) if (slot.heroId !== undefined) taken.add(slot.heroId);
+  const shown = await decisionCardIds(page);
+  for (const heroId of [...recommended, ...shown]) expect(taken.has(heroId), `la tarjeta ${heroId} es ilegal (baneada o ya elegida)`).toBe(false);
+  for (const heroId of latestDecision(page)?.offered ?? []) expect(taken.has(heroId), `el motor ofreció ${heroId} (baneado o ya elegido)`).toBe(false);
+  await assertCardsLiveInTheirOwnColumn(page);
+  // El tablero no puede ignorar al motor: si la respuesta V4 ofreció candidatos, el tablero pinta al menos uno de ellos EN la columna de la posición vista
+  // (mobile-semantic prueba la igualdad exacta en Solo; aquí, para Party y las olas, se exige al menos la intersección -- no "cero tarjetas" ni otras).
+  const decision = latestDecision(page);
+  if (decision !== null && decision.offered.length > 0 && decision.viewedPosition !== null) {
+    const inViewedColumn = await boardOf(page).getByTestId(`team-coach-column-${decision.viewedPosition}`).locator("[data-card-key]").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
+    const overlap = inViewedColumn.filter((heroId) => decision.offered.includes(heroId));
+    expect(overlap.length, `el tablero ignora los candidatos V4 de Pos${decision.viewedPosition}: V4=${decision.offered.join(",")} tablero=${inViewedColumn.join(",")}`).toBeGreaterThan(0);
   }
   return recommended;
+}
+
+/**
+ * Cada tarjeta pertenece a la columna de SU posición: `data-card-key` es `<posición>:<héroe>` y debe coincidir con la columna `team-coach-column-<posición>`
+ * que la contiene. Sustituye al antiguo "los candidatos pertenecen a la posición vista" (una tarjeta de Pos5 bajo la columna de Pos2 ya no pasa).
+ * La tarjeta recomendada (`data-recommended`) cumple lo mismo, y además es una tarjeta del ranking general (no solo "de tu pool").
+ */
+export async function assertCardsLiveInTheirOwnColumn(page: Page): Promise<void> {
+  const rows = await boardOf(page).locator("[data-card-key]").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      keyPosition: (node.getAttribute("data-card-key") ?? "").split(":")[0],
+      columnPosition: (node.closest("[data-testid^='team-coach-column-']")?.getAttribute("data-testid") ?? "").replace("team-coach-column-", ""),
+      recommended: node.getAttribute("data-recommended") === "true",
+      general: node.getAttribute("data-testid") === "team-coach-candidate",
+    })),
+  );
+  for (const row of rows) {
+    expect(row.columnPosition, "la tarjeta debe estar dentro de una columna de posición").not.toBe("");
+    expect(row.keyPosition).toBe(row.columnPosition);
+    if (row.recommended) expect(row.general, "la recomendada es del ranking general").toBe(true);
+  }
 }
 
 /**

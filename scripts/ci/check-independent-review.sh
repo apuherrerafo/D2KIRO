@@ -21,9 +21,9 @@ if [ -z "${body//[[:space:]]/}" ]; then
 fi
 
 # Normaliza acentos usuales y CRLF para no depender de como lo escribio quien abrio el PR.
-normalized="$(printf '%s' "$body" | tr -d '\r' | sed -e 's/ó/o/g' -e 's/Ó/O/g' -e 's/—/--/g' -e 's/–/--/g')"
+normalized="$(printf '%s' "$body" | tr -d '\r' | sed -e 's/\xc2\xa0/ /g' | sed -e 's/ó/o/g' -e 's/Ó/O/g' -e 's/—/--/g' -e 's/–/--/g')"
 
-pattern='^[[:space:]]*-[[:space:]]\[[xX]\][[:space:]]+Revision independiente[[:space:]]+[12][[:space:]]+\(([^)]+)\):[[:space:]]+(APROBADO CON OBSERVACIONES|APROBADO)[[:space:]]+--[[:space:]]+[^[:space:]].{9,}$'
+pattern='^[[:space:]]*-[[:space:]]\[[xX]\][[:space:]]+Revision independiente[[:space:]]+[12][[:space:]]+\(([^)]+)\):[[:space:]]+([Aa][Pp][Rr][Oo][Bb][Aa][Dd][Oo] [Cc][Oo][Nn] [Oo][Bb][Ss][Ee][Rr][Vv][Aa][Cc][Ii][Oo][Nn][Ee][Ss]|[Aa][Pp][Rr][Oo][Bb][Aa][Dd][Oo])[[:space:]]+--[[:space:]]+[^[:space:]].{9,}$'
 
 reviewers=()
 while IFS= read -r line; do
@@ -38,7 +38,7 @@ if [ "${unchecked:-0}" -gt 0 ]; then
   exit 1
 fi
 
-if printf '%s\n' "$normalized" | grep -qiE 'BLOQUEANTE[[:space:]]+ABIERTO'; then
+if printf '%s\n' "$normalized" | grep -qiE 'BLOQUEANTE[^[:alnum:]]*ABIERTO'; then
   echo "FAIL: el PR declara un hallazgo BLOQUEANTE ABIERTO." >&2
   exit 1
 fi

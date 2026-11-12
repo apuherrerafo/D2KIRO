@@ -11,7 +11,7 @@ commits (581 archivos) entraron en la rama sin CI, sin E2E y sin revisión indep
 | 1 | Todo cambio llega por Pull Request | Protección de rama: PR obligatorio, sin push directo, sin force-push, sin borrar la rama, **también para administradores** (`enforce_admins`) | Ver "Estado verificado" |
 | 2 | CI con verificaciones obligatorias | `ci.yml` corre en cada PR hacia la rama. Checks requeridos: `test (engine)`, `test (web)`, `test (root)`, `verify-simplicity`, `intelligence-ci (eval --enforce)`, `r1-certification (verify:r1)` | Ver "Estado verificado" |
 | 3 | E2E relevantes | `r1-certification (verify:r1)` ejecuta `bun run e2e` completo (Chromium + WebKit móvil) | Ver "Estado verificado" |
-| 4 | Revisión independiente | Check `independent-review` (`.github/workflows/release-gate.yml` + `scripts/ci/check-independent-review.sh`): el PR debe declarar dos revisiones de revisores **distintos**, con veredicto y alcance, y ningún `BLOQUEANTE ABIERTO` | Ver "Estado verificado" |
+| 4 | Revisión independiente | Check `independent-review` (`.github/workflows/release-gate.yml` + `scripts/ci/check-independent-review.sh`): el PR debe declarar dos revisiones de revisores **distintos**, con veredicto y alcance, y ningún `BLOQUEANTE ABIERTO`. Corre con `pull_request_target`: el script se lee de la rama base, un PR no puede reescribirlo. | Ver "Estado verificado" |
 | 5 | Verificaciones en verde y al día | `strict`: la rama del PR debe estar al día con la base antes de fusionar; conversaciones resueltas | Ver "Estado verificado" |
 
 Formato de la atestación en la descripción del PR (una línea por revisor):
@@ -28,7 +28,12 @@ Formato de la atestación en la descripción del PR (una línea por revisor):
   no es utilizable: el autor no puede aprobar su propio PR. El check obliga a *declarar* quién revisó y qué
   quedó abierto; no demuestra que la revisión ocurriera. **Mejora pendiente (BLOCKED, requiere al propietario):**
   añadir un segundo colaborador de GitHub y subir `required_approving_review_count` a 1.
-- El gate `independent-review` se reevalúa al **editar** la descripción del PR (`pull_request.edited`).
+- El gate `independent-review` se reevalúa al **editar** la descripción del PR (`pull_request_target.edited`).
+- **Arranque (huevo y gallina):** `pull_request_target` lee el workflow de la rama base, así que el check `independent-review` no existe hasta que este
+  cambio se fusione. Por eso se activa la protección con los seis checks de CI, se fusiona, y *después* se añade `independent-review` a los checks requeridos.
+- **`ci.yml` sigue siendo editable por el propio PR** (`pull_request`): un PR malicioso podría debilitar el CI. Cerrarlo del todo exige CODEOWNERS sobre
+  `.github/**` con una segunda persona revisora (BLOCKED, requiere al propietario).
+- **`test.fixme` en `e2e/feedback.spec.ts`**: el feedback 👍/👎 por tarjeta no tiene cobertura E2E hasta que el propietario decida restituirlo o retirarlo.
 - `enforce_admins` impide que el propietario empuje directo por accidente; el propietario *puede* quitar la
   protección desde Settings (por diseño, es su repositorio). Eso queda registrado en el log de auditoría de GitHub.
 - Los E2E corren contra el motor y la web reales pero con **Dota y Steam simulados**. No sustituyen las
