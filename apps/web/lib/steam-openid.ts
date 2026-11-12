@@ -75,3 +75,8 @@ export async function verifySteamCallback(params: URLSearchParams): Promise<Stea
 export function steamId64ToSteam32(steamId64: bigint): number {
   return Number(steamId64 - STEAM_ID64_OFFSET);
 }
+
+/** Inverso de `steamId64ToSteam32`, también con BigInt (con `Number` se perdería precisión sin ningún error). */
+export function steam32ToSteamId64(steam32: number): bigint {
+  return BigInt(steam32) + STEAM_ID64_OFFSET;
+}

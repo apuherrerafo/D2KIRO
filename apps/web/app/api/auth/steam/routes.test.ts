@@ -27,14 +27,14 @@ describe("rutas de autenticación Steam", () => {
 
   test("callback validado confirma la cuenta y abre la sesión cifrada", async () => {
     const createdAccounts: Array<{ accountId: number; token: string }> = [];
-    const sessions: Array<{ accountId: number; personaName: string; avatarUrl: string | null }> = [];
+    const sessions: Array<{ accountId: number; personaName: string; avatarUrl: string | null; available: boolean }> = [];
     const handler = createCallbackHandler({
       publicOrigin: "https://coach.example",
       readNonce: () => NONCE,
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
       createAccount: async (accountId, token) => { createdAccounts.push({ accountId, token }); return true; },
-      getProfile: async () => ({ personaName: "Kiro", avatarUrl: "https://avatars.steamstatic.com/avatar.jpg" }),
+      getProfile: async () => ({ personaName: "Kiro", avatarUrl: "https://avatars.steamstatic.com/avatar.jpg", available: true }),
       startSession: async (accountId, profile) => { sessions.push({ accountId, ...profile }); },
       createToken: (accountId) => createAccountToken(accountId, "d2k-test-vector-key-0123456789ab", NOW, NONCE),
     });
@@ -45,7 +45,7 @@ describe("rutas de autenticación Steam", () => {
     expect(createdAccounts).toHaveLength(1);
     expect(createdAccounts[0]?.accountId).toBe(ACCOUNT_ID);
     expect(createdAccounts[0]?.token).toBe("35488109.1787500000000.0123456789abcdef0123456789abcdef.00ca79bf7eba2ad5aa0230eb57d2bef050a295f7aae65d7802fce94aa7aaa98a");
-    expect(sessions).toEqual([{ accountId: ACCOUNT_ID, personaName: "Kiro", avatarUrl: "https://avatars.steamstatic.com/avatar.jpg" }]);
+    expect(sessions).toEqual([{ accountId: ACCOUNT_ID, personaName: "Kiro", avatarUrl: "https://avatars.steamstatic.com/avatar.jpg", available: true }]);
   });
 
   test("callback autenticado pero fuera de allowlist no crea cuenta ni sesión", async () => {
@@ -58,7 +58,7 @@ describe("rutas de autenticación Steam", () => {
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
       isAccountAllowed: () => false,
       createAccount: async () => { created = true; return true; },
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => { sessionStarted = true; },
       createToken: () => "unused",
     });
@@ -70,6 +70,52 @@ describe("rutas de autenticación Steam", () => {
     expect(sessionStarted).toBe(false);
   });
 
+  test("fuera de la beta: Steam verificó la identidad, se REGISTRA el pedido (sin sesión ni cuenta) y se muestra la pantalla de acceso pendiente", async () => {
+    const requested: Array<{ accountId: number; steamId64: bigint }> = [];
+    let created = false;
+    let sessionStarted = false;
+    const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
+      readNonce: () => NONCE,
+      clearNonce: () => undefined,
+      verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
+      isAccountAllowed: () => false,
+      onAccessDenied: async (accountId, steamId64) => { requested.push({ accountId, steamId64 }); },
+      createAccount: async () => { created = true; return true; },
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
+      startSession: async () => { sessionStarted = true; },
+      createToken: () => "unused",
+    });
+
+    const response = await handler(new Request(`https://coach.example/api/auth/steam/callback?state=${NONCE}`));
+
+    expect(response.headers.get("location")).toBe("https://coach.example/access-denied");
+    expect(requested).toEqual([{ accountId: ACCOUNT_ID, steamId64: BigInt("76561197995753837") }]);
+    expect(created).toBe(false);
+    expect(sessionStarted).toBe(false);
+  });
+
+  test("si registrar el pedido falla, el login igual termina en la pantalla de acceso pendiente (nunca un error ni una sesión)", async () => {
+    let sessionStarted = false;
+    const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
+      readNonce: () => NONCE,
+      clearNonce: () => undefined,
+      verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
+      isAccountAllowed: () => false,
+      onAccessDenied: async () => { throw new Error("disco lleno"); },
+      createAccount: async () => true,
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
+      startSession: async () => { sessionStarted = true; },
+      createToken: () => "unused",
+    });
+
+    const response = await handler(new Request(`https://coach.example/api/auth/steam/callback?state=${NONCE}`));
+
+    expect(response.headers.get("location")).toBe("https://coach.example/access-denied");
+    expect(sessionStarted).toBe(false);
+  });
+
   test("callback sin nonce coincidente se rechaza antes de verificar OpenID", async () => {
     let verified = false;
     const handler = createCallbackHandler({
@@ -78,7 +124,7 @@ describe("rutas de autenticación Steam", () => {
       clearNonce: () => undefined,
       verify: async () => { verified = true; return { ok: false as const, error: "invalid signature" }; },
       createAccount: async () => true,
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => undefined,
       createToken: () => "unused",
     });
@@ -98,7 +144,7 @@ describe("rutas de autenticación Steam", () => {
       clearNonce: () => undefined,
       verify: async () => ({ ok: false as const, error: "invalid signature" }),
       createAccount: async () => { created = true; return true; },
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => { sessionStarted = true; },
       createToken: () => "unused",
     });
@@ -118,7 +164,7 @@ describe("rutas de autenticación Steam", () => {
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
       createAccount: async () => { throw new Error("missing accounts table"); },
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => { sessionStarted = true; },
       createToken: () => "unused",
     });

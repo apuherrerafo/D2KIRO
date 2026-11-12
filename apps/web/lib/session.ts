@@ -12,12 +12,19 @@ export interface SessionData {
   firstLoginAt: number;
   personaName?: string;
   avatarUrl?: string | null;
+  /** `true` si nombre y avatar se leyeron del perfil público de Steam al entrar (o al reintentar). */
+  profileAvailable?: boolean;
 }
+
+// Autenticación y perfil son cosas distintas: la sesión siempre significa "Steam confirmó quién eres"; `profileStatus` solo dice si además se pudo leer el perfil público.
+export type ProfileStatus = "ok" | "unavailable";
 
 export interface SessionProfile {
   accountId: number;
   personaName: string;
   avatarUrl: string | null;
+  profileStatus: ProfileStatus;
+  isAdmin: boolean;
 }
 
 export interface SessionCookieStore {
@@ -62,7 +69,8 @@ export async function renewSessionIfNeeded(session: IronSession<SessionData>, no
     && session.firstLoginAt <= session.issuedAt
     && session.issuedAt <= now
     && (session.personaName === undefined || (typeof session.personaName === "string" && session.personaName.length > 0 && session.personaName.length <= 100))
-    && (session.avatarUrl === undefined || session.avatarUrl === null || typeof session.avatarUrl === "string");
+    && (session.avatarUrl === undefined || session.avatarUrl === null || typeof session.avatarUrl === "string")
+    && (session.profileAvailable === undefined || typeof session.profileAvailable === "boolean");
   if (!isValid || now - session.firstLoginAt > SESSION_MAX_AGE_MS) {
     session.destroy();
     return false;
@@ -83,11 +91,16 @@ export function displayPersonaName(personaName: string | undefined): string {
   return personaName;
 }
 
-export function getSessionProfile(session: SessionData): SessionProfile {
+export function getSessionProfile(session: SessionData, isAdmin = false): SessionProfile {
+  const personaName = displayPersonaName(session.personaName);
+  // Sesiones anteriores a este campo: son válidas si trajeron un nombre real.
+  const available = session.profileAvailable ?? personaName !== ANONYMOUS_PERSONA_NAME;
   return {
     accountId: session.accountId,
-    personaName: displayPersonaName(session.personaName),
+    personaName,
     avatarUrl: session.avatarUrl ?? null,
+    profileStatus: available && personaName !== ANONYMOUS_PERSONA_NAME ? "ok" : "unavailable",
+    isAdmin,
   };
 }
 

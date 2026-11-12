@@ -1,5 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import { randomBytes } from "node:crypto";
+import { join } from "node:path";
 import { devices } from "@playwright/test";
 import { runtimeForCurrentProcess, prepareLocalRuntime } from "./e2e/runtime";
 import { resolveInternalAuthSecret } from "./e2e/support/internal-auth-secret";
@@ -143,6 +144,12 @@ export default defineConfig({
         // Directorio de build propio: no choca con el `next dev` del desarrollador ni le pisa
         // su `.next` (Next admite un solo servidor de desarrollo por directorio de build).
         NEXT_DIST_DIR: ".next-e2e",
+        // Beta privada como en Railway: solo la cuenta de prueba entra y administra; el resto se invita desde la web (e2e/beta-onboarding.spec.ts).
+        BETA_ALLOWED_STEAM_IDS: E2E_ACCOUNT_ID,
+        BETA_ADMIN_STEAM_IDS: E2E_ACCOUNT_ID,
+        BETA_ACCESS_FILE: join(runtime.dir, "beta-access.json"),
+        // Cero red: el perfil público de Steam apunta a un puerto sin servicio, así el E2E nunca consulta a Steam ni a perfiles reales.
+        STEAM_COMMUNITY_ORIGIN: "http://127.0.0.1:9",
       },
     },
   ],

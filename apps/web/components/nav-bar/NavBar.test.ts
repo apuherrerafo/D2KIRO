@@ -38,12 +38,12 @@ describe("las rutas fuera del menú siguen existiendo", () => {
 
 describe("accountLabel", () => {
   test("muestra el nombre de Steam, nunca el identificador", () => {
-    expect(accountLabel({ accountId: 35488109, personaName: "Kiro", avatarUrl: null })).toBe("Kiro");
+    expect(accountLabel({ accountId: 35488109, personaName: "Kiro", avatarUrl: null, profileStatus: "ok", isAdmin: false })).toBe("Kiro");
   });
 
   test("mientras carga, o sin nombre, conserva la etiqueta neutra", () => {
     expect(accountLabel(null)).toBe("Mi cuenta");
-    expect(accountLabel({ accountId: 35488109, personaName: "   ", avatarUrl: null })).toBe("Mi cuenta");
+    expect(accountLabel({ accountId: 35488109, personaName: "   ", avatarUrl: null, profileStatus: "ok", isAdmin: false })).toBe("Mi cuenta");
   });
 });
 

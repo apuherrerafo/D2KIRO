@@ -36,7 +36,7 @@ export function LoginPanel({ failed }: { failed: boolean }) {
       <div className="ap-actions">
         <LoginAction />
       </div>
-      <p className="ap-hint">El acceso es por invitación mientras dure la beta.</p>
+      <p className="ap-hint">El acceso es por invitación mientras dure la beta. Si todavía no estás en la lista, entra igual: tu solicitud le llega al dueño sola y te avisa cuando puedas pasar.</p>
     </Glass>
   );
 }

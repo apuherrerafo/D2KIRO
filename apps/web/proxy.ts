@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { mintAccountToken } from "./lib/account-token";
 import { getCanonicalOrigin } from "./lib/canonical-origin";
+import { isAccountAllowedNow, isBetaAccessEnforced } from "./lib/beta-access";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
 
 // TSK-219: Dota's Game State Integration has no session cookie -- its ingest path is public here and
@@ -35,6 +36,14 @@ function loginRedirect(): NextResponse {
   return NextResponse.redirect(new URL("/login", origin));
 }
 
+async function revokedAccessRedirect(request: NextRequest): Promise<NextResponse> {
+  const origin = getCanonicalOrigin();
+  if (origin === null) return new NextResponse("Authentication unavailable", { status: 503 });
+  const redirect = NextResponse.redirect(new URL("/access-denied", origin));
+  (await getSession(cookieStoreFor(request, redirect))).destroy();
+  return redirect;
+}
+
 export async function proxy(request: NextRequest) {
   if (isPublicPath(request.nextUrl.pathname)) return NextResponse.next();
 
@@ -47,6 +56,9 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   const session = await getSession(cookieStoreFor(request, response));
   if (!await renewSessionIfNeeded(session)) return loginRedirect();
+
+  // Retirar a alguien de la beta (lista fija o invitación web) corta también su sesión abierta, no solo el próximo login.
+  if (isBetaAccessEnforced() && !isAccountAllowedNow(session.accountId)) return revokedAccessRedirect(request);
 
   if (!isEngineRewrite(request.nextUrl.pathname)) return response;
 

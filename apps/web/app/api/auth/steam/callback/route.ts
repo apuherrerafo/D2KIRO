@@ -5,7 +5,9 @@ import { getCanonicalOrigin } from "@/lib/canonical-origin";
 import { getSession } from "@/lib/session";
 import { steamId64ToSteam32, verifySteamCallback } from "@/lib/steam-openid";
 import { getSteamPlayerProfile, type SteamPlayerProfile } from "@/lib/steam-profile";
-import { isSteamIdAllowed } from "@/lib/beta-allowlist";
+import { betaAccessFilePath, recordAccessRequest } from "@/lib/beta-access-store";
+import { isAccountAllowedNow } from "@/lib/beta-access";
+import { saveAccessRequestNotice } from "@/lib/access-request-session";
 
 const LOGIN_NONCE_COOKIE = "d2k_login_nonce";
 type SteamVerification = Awaited<ReturnType<typeof verifySteamCallback>>;
@@ -21,6 +23,8 @@ interface CallbackDependencies {
   startSession: (accountId: number, profile: SteamPlayerProfile) => Promise<void>;
   createToken: (accountId: number) => string;
   isAccountAllowed?: (accountId: number) => boolean;
+  /** Steam ya verificó la identidad pero la cuenta no está en la beta: se registra el pedido (sin abrir sesión) para que el dueño lo apruebe. Nunca lanza hacia el login. */
+  onAccessDenied?: (accountId: number, steamId64: bigint) => Promise<void>;
 }
 
 function redirectToCanonicalPath(origin: string | null, path: string): NextResponse {
@@ -51,7 +55,14 @@ export function createCallbackHandler(dependencies: CallbackDependencies) {
 
       const accountId = steamId64ToSteam32(verification.steamId64);
       if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(dependencies.publicOrigin, "invalid_steam_identity");
-      if (!(dependencies.isAccountAllowed?.(accountId) ?? true)) return redirectToCanonicalPath(dependencies.publicOrigin, "/access-denied");
+      if (!(dependencies.isAccountAllowed?.(accountId) ?? true)) {
+        try {
+          await dependencies.onAccessDenied?.(accountId, verification.steamId64);
+        } catch {
+          // registrar el pedido es un beneficio, nunca un requisito: la pantalla de "sin acceso" se muestra igual
+        }
+        return redirectToCanonicalPath(dependencies.publicOrigin, "/access-denied");
+      }
       try {
         if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(dependencies.publicOrigin, "account_create_failed");
       } catch {
@@ -96,14 +107,25 @@ export async function GET(request: Request) {
       });
       return response.ok;
     },
-    getProfile: (accountId, steamId64) => getSteamPlayerProfile({ accountId, steamId64, apiKey: process.env.STEAM_WEB_API_KEY }),
+    getProfile: (accountId, steamId64) => getSteamPlayerProfile({ accountId, steamId64, apiKey: process.env.STEAM_WEB_API_KEY, communityOrigin: process.env.STEAM_COMMUNITY_ORIGIN }),
     startSession: async (accountId, profile) => {
       const now = Date.now();
       const session = await getSession();
-      Object.assign(session, { accountId, issuedAt: now, firstLoginAt: now, ...profile });
+      Object.assign(session, { accountId, issuedAt: now, firstLoginAt: now, personaName: profile.personaName, avatarUrl: profile.avatarUrl, profileAvailable: profile.available });
       await session.save();
     },
     createToken: (accountId) => mintAccountToken(accountId, internalSecret),
-    isAccountAllowed: (accountId) => isSteamIdAllowed(accountId, process.env.BETA_ALLOWED_STEAM_IDS),
+    isAccountAllowed: (accountId) => isAccountAllowedNow(accountId, process.env),
+    onAccessDenied: async (accountId, steamId64) => {
+      const profile = await getSteamPlayerProfile({ accountId, steamId64, apiKey: process.env.STEAM_WEB_API_KEY, communityOrigin: process.env.STEAM_COMMUNITY_ORIGIN });
+      // Sin perfil público no se inventa un nombre: el dueño ve "Jugador de Steam" y decide con eso (o le pide al amigo que haga público el perfil).
+      let recorded: boolean;
+      try {
+        recorded = recordAccessRequest(betaAccessFilePath(process.env), { steam32: accountId, personaName: profile.personaName, avatarUrl: profile.avatarUrl, at: Date.now() });
+      } catch {
+        recorded = false; // el archivo no se pudo leer o escribir: jamás se dice que el pedido llegó
+      }
+      await saveAccessRequestNotice({ personaName: profile.personaName, avatarUrl: profile.avatarUrl, profileAvailable: profile.available, recorded });
+    },
   })(request);
 }

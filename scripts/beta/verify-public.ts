@@ -42,7 +42,7 @@ for (const path of publicPaths) {
   record(`visitante: ${path} es público (200)`, response.status === 200, `status ${response.status}`);
 }
 
-const privatePaths = ["/simulator", "/live-draft", "/hero-pool", "/team-groups", "/settings", "/meta", "/heroes"];
+const privatePaths = ["/simulator", "/live-draft", "/hero-pool", "/team-groups", "/settings", "/meta", "/heroes", "/admin/invitaciones"];
 for (const path of privatePaths) {
   const response = await call(path);
   record(`visitante: ${path} redirige a /login`, redirectsToLogin(response), `status ${response.status}`);
@@ -56,6 +56,9 @@ const apiProbes: Array<{ path: string; init?: RequestInit }> = [
   { path: "/api/live/companion-installer", init: { method: "POST" } },
   { path: "/api/live/gsi-config", init: { method: "POST" } },
   { path: "/api/auth/engine-token" },
+  { path: "/api/beta-admin" },
+  { path: "/api/beta-admin", init: { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve", ref: "0000000000000000" }) } },
+  { path: "/api/auth/refresh-profile", init: { method: "POST" } },
 ];
 for (const probe of apiProbes) {
   const response = await call(probe.path, probe.init);

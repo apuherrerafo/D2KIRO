@@ -1,0 +1,1 @@
+export { BetaAdminPage } from "./BetaAdminPage";

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { mintAccountToken } from "@/lib/account-token";
+import { isSessionStillAllowed } from "@/lib/beta-access";
 import { getSession, renewSessionIfNeeded } from "@/lib/session";
 
 interface EngineTokenDependencies {
@@ -8,6 +9,8 @@ interface EngineTokenDependencies {
   mint: (accountId: number, secret: string, issuedAt: number) => string;
   now: () => number;
   secret: () => string | undefined;
+  /** Una cuenta retirada de la beta no recibe tokens aunque conserve una sesión vieja. */
+  isAllowed?: (accountId: number) => boolean;
 }
 
 export function createEngineTokenHandler(dependencies: EngineTokenDependencies) {
@@ -17,6 +20,8 @@ export function createEngineTokenHandler(dependencies: EngineTokenDependencies) 
 
     const session = await dependencies.getSession();
     if (!await dependencies.renewSession(session)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+    if (!(dependencies.isAllowed?.(session.accountId) ?? true)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const issuedAt = dependencies.now();
     return NextResponse.json({ token: dependencies.mint(session.accountId, secret, issuedAt), expiresAt: issuedAt + 60_000 }, {
@@ -32,5 +37,6 @@ export async function GET() {
     mint: mintAccountToken,
     now: Date.now,
     secret: () => process.env.INTERNAL_AUTH_SECRET,
+    isAllowed: (accountId) => isSessionStillAllowed(accountId),
   })();
 }

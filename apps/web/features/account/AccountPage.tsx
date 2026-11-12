@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountAvatar } from "@/components/app-shell/AccountAvatar";
 import { AppLink } from "@/components/app-shell/AppLink";
 import { AppNotice } from "@/components/app-shell/AppNotice";
 import { PageHead } from "@/components/app-shell/PageHead";
-import { useAccountProfile, type AccountProfile } from "@/lib/use-account-profile";
+import { refreshAccountProfile, useAccountProfile, type AccountProfile } from "@/lib/use-account-profile";
 
 interface AccountSettings {
   personalBaselineWinrate?: number | null;
@@ -45,9 +45,56 @@ function ProfileRow({ profile }: { profile: AccountProfile }) {
       <AccountAvatar avatarUrl={profile.avatarUrl} />
       <div className="ap-row-text">
         <span className="ap-row-name" data-testid="account-name">{profile.personaName}</span>
-        <span className="ap-row-meta">Conectada con Steam</span>
+        <span className="ap-row-meta" data-testid="steam-connected">Steam conectado</span>
       </div>
     </div>
+  );
+}
+
+function retryLabel(busy: boolean): string {
+  if (busy) return "Leyendo tu perfil…";
+  return "Reintentar";
+}
+
+function RetryFailedHint({ show }: { show: boolean }) {
+  if (!show) return null;
+  return <p className="ap-hint" data-testid="profile-retry-failed">Steam no respondió con tu perfil esta vez. Revisa que tu perfil de Steam sea público y vuelve a intentar.</p>;
+}
+
+// Autenticación y perfil son cosas distintas: aquí Steam YA confirmó quién eres (hay sesión); lo que falta es leer tu nombre y avatar públicos.
+// Se reintenta solo una vez al abrir la pantalla; después, con el botón. Nunca se muestra como error de acceso.
+function ProfileUnavailableNotice({ profile }: { profile: AccountProfile }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const triedAutomatically = useRef(false);
+
+  const retry = useCallback(async () => {
+    setBusy(true);
+    setFailed(!(await refreshAccountProfile()));
+    setBusy(false);
+  }, []);
+
+  useEffect(() => {
+    if (profile.profileStatus !== "unavailable" || triedAutomatically.current) return;
+    triedAutomatically.current = true;
+    void retry();
+  }, [profile.profileStatus, retry]);
+
+  function handleRetry() {
+    void retry();
+  }
+
+  if (profile.profileStatus !== "unavailable") return null;
+  return (
+    <AppNotice tone="warning" title="Steam confirmó tu cuenta, pero no pudimos leer tu perfil público" testId="profile-unavailable">
+      <p>Tu sesión está bien abierta. Mostramos «{profile.personaName}» hasta poder leer tu nombre y avatar de Steam.</p>
+      <RetryFailedHint show={failed} />
+      <div className="ap-notice-actions">
+        <button type="button" className="ap-btn" onClick={handleRetry} disabled={busy} data-testid="profile-retry">
+          {retryLabel(busy)}
+        </button>
+      </div>
+    </AppNotice>
   );
 }
 
@@ -61,10 +108,18 @@ function ProfileSection({ state }: { state: ReturnType<typeof useAccountProfile>
     );
   }
   return (
-    <div className="ap-row">
-      <ProfileRow profile={state.profile} />
-    </div>
+    <>
+      <div className="ap-row">
+        <ProfileRow profile={state.profile} />
+      </div>
+      <ProfileUnavailableNotice profile={state.profile} />
+    </>
   );
+}
+
+function AdminShortcut({ state }: { state: ReturnType<typeof useAccountProfile> }) {
+  if (state.kind !== "ready" || !state.profile.isAdmin) return null;
+  return <AppLink href="/admin/invitaciones" testId="account-invite-friends">Invitar amigos</AppLink>;
 }
 
 function BaselineSection({ state }: { state: SettingsState }) {
@@ -110,6 +165,7 @@ export function AccountPage() {
           <AppLink href="/hero-pool">Mi pool de héroes</AppLink>
           <AppLink href="/team-groups">Mis equipos</AppLink>
           <AppLink href="/live-draft">Conectar Dota 2</AppLink>
+          <AdminShortcut state={profile} />
         </div>
       </section>
       <section className="ap-block" aria-labelledby="account-session-title">

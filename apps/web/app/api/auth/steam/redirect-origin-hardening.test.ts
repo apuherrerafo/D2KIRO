@@ -40,7 +40,7 @@ describe("dureza del origen canónico ante request.url/Host envenenados", () => 
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
       createAccount: async () => true,
-      getProfile: async () => ({ personaName: "Kiro", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "Kiro", avatarUrl: null, available: false }),
       startSession: async () => undefined,
       createToken: () => "unused",
     });
@@ -64,7 +64,7 @@ describe("dureza del origen canónico ante request.url/Host envenenados", () => 
       clearNonce: () => undefined,
       verify: async () => ({ ok: false as const, error: "invalid signature" }),
       createAccount: async () => true,
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => undefined,
       createToken: () => "unused",
     });
@@ -88,7 +88,7 @@ describe("dureza del origen canónico ante request.url/Host envenenados", () => 
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
       createAccount: async () => true,
-      getProfile: async () => ({ personaName: "Kiro", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "Kiro", avatarUrl: null, available: false }),
       startSession: async () => undefined,
       createToken: () => "unused",
     });
@@ -111,7 +111,7 @@ describe("dureza del origen canónico ante request.url/Host envenenados", () => 
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
       isAccountAllowed: () => false,
       createAccount: async () => true,
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => undefined,
       createToken: () => "unused",
     });
@@ -144,7 +144,7 @@ describe("dureza del origen canónico ante request.url/Host envenenados", () => 
       clearNonce: () => undefined,
       verify: async () => ({ ok: false as const, error: "invalid signature" }),
       createAccount: async () => true,
-      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null, available: false }),
       startSession: async () => undefined,
       createToken: () => "unused",
     });
