@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./support/failure-evidence";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS } from "./fixtures/hero-catalog";
-import { announcedTargetLabel, decisionCardIds } from "./support/decision";
+import { announcedTargetLabel, assertRecommendationContract, boardOf, decisionCardIds, latestDecision, waitForBoard, waitForDecisionTrigger } from "./support/decision";
 import {
   ROUND_HEADING,
   assertNoSimulatorTruthLeak,
@@ -52,20 +52,24 @@ function coachOutputs(rec: Recorder): CoachJson[] {
 // Product Semantics Recovery: the Simulator's Coach is the ONE V4 CurrentHumanDecision panel. The
 // contract certified here is unchanged (an answer before the first pick, recomputed after an own pick
 // before any reveal, advisory only); only the surface it is read from moved from V3 to V4.
-function primary(page: Page) {
-  return page.getByTestId("current-decision-panel");
-}
-
+// MIGRADO (Canonical Light, P0 recuperación de certificación): el Copilot y su `current-decision-panel` ya no existen (commit 6b0bb3d2).
+// OLD_ASSERTION: kind/trigger/revision/identity se leían de atributos `data-*` del panel y las tarjetas de `current-decision-card`.
+// WHY_OBSOLETE: ese panel se eliminó; el tablero `team-coach-board` es el único dueño visual de la recomendación.
+// NEW_PRODUCT_CONTRACT: lo que el motor respondió se lee de la respuesta V4 REAL que recibió el navegador (support/decision.ts `latestDecision`) y
+//   lo que el jugador ve, de las tarjetas del tablero. Misma garantía de orquestación, ahora sobre la superficie real.
 async function snapshotOfCoach(page: Page) {
-  const action = primary(page);
-  await expect(action).toBeAttached({ timeout: 60_000 });
+  await waitForBoard(page);
+  await expect.poll(() => latestDecision(page) !== null, { timeout: 60_000, message: "the engine answered its V4 decision" }).toBe(true);
   await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
+  await expect(page.getByTestId("copilot-panel")).toHaveCount(0); // the duplicated Copilot never comes back
+  await assertRecommendationContract(page);
+  const decision = latestDecision(page)!;
   return {
-    kind: (await action.getAttribute("data-decision-kind"))!,
-    trigger: (await action.getAttribute("data-trigger"))!,
-    revision: Number(await action.getAttribute("data-revision")),
-    identity: (await action.getAttribute("data-state-identity"))!,
-    // "" when the Coach announces no recommended target (2026-11-03/04: no STRATEGIC basis, nothing to announce).
+    kind: decision.kind,
+    trigger: decision.trigger,
+    revision: decision.revision,
+    identity: decision.identity,
+    // "" when the board marks no recommended hero (2026-11-03/04: nothing with a verifiable ground, nothing to announce).
     label: await announcedTargetLabel(page),
     shortlist: await decisionCardIds(page),
   };
@@ -100,6 +104,7 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
     await expect(page.getByText(ROUND_HEADING(round, alternatives.length))).toBeVisible({ timeout: 60_000 });
 
     // (a) An actionable Coach answer exists at the START of every round, before the Player picks.
+    await waitForDecisionTrigger(page, round === 1 ? "DRAFT_PICKS_STARTED" : "ROUND_REVEALED", 60_000);
     const atStart = await snapshotOfCoach(page);
     expect(atStart.kind).toBe("ACTIONABLE"); // V4: a human action exists at the start of every round
     // Eligibility contract: cards exist only with a verifiable ground, and the candidate section exists iff there are cards (checked in decisionCardIds).
@@ -113,7 +118,7 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
       const requestsBefore = recommendationRequests(rec);
       await pickHero(page, firstName);
       await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
-      await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
+      await waitForDecisionTrigger(page, "OWN_PICK_CONFIRMED");
       const afterFirst = await snapshotOfCoach(page);
       expect(afterFirst.revision).toBeGreaterThan(atStart.revision);
       expect(afterFirst.identity).not.toBe(atStart.identity);
@@ -198,11 +203,16 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     // Accepted: the seat is sealed, no rejection notice, no HTTP error -- and the Coach has recomputed.
     await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
     await expect(page.getByText(/no está disponible/)).toHaveCount(0);
-    await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
+    await waitForDecisionTrigger(page, "OWN_PICK_CONFIRMED");
     const after = await snapshotOfCoach(page);
     expect(after.revision).toBeGreaterThan(advice.revision);
     expect(after.kind).toBe("ACTIONABLE");
-    await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
+    // La garantía "el Coach nunca dice que te equivocaste" se prueba sobre la pantalla REAL: el tablero visible y todo el cuerpo (antes se aplicaba
+    // a un panel que ya no existe, donde un not.toContainText pasa en vacío).
+    await expect(boardOf(page)).toBeVisible();
+    expect((await boardOf(page).innerText()).length).toBeGreaterThan(0);
+    await expect(boardOf(page)).not.toContainText(/incorrect|equivocad|no deberías/i);
+    await expect(page.locator("body")).not.toContainText(/incorrect|equivocad|no deberías/i);
     const commands = rec.requests.filter((request) => request.path.endsWith("/command")).map((request) => (request.body as { command: { heroId: number } }).command.heroId);
     expect(commands).toEqual([FIXTURE_HERO_ID_BY_NAME.get(ignored!)]);
 

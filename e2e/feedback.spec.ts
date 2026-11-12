@@ -2,7 +2,12 @@ import { expect, test } from "./support/failure-evidence";
 import Database from "better-sqlite3";
 
 test.describe("Modern Coach Recommendation Feedback", () => {
-  test("flujo completo de feedback: positivo, negativo con motivo y prevención de duplicados", async ({ page, request }) => {
+  // BLOQUEADA (no borrada) -- DECISIÓN DE PRODUCTO PENDIENTE DEL DUEÑO. Esta prueba ejercita el 👍/👎 POR TARJETA de recomendación, que vivía solo en el Copilot
+  // eliminado en 6b0bb3d2 (`recommendation-feedback-controls` dentro de CopilotPanel/CoachPanel). El tablero Canonical Light no tiene ese control: el
+  // Simulador hoy solo ofrece el feedback universal de la beta (botón flotante, e2e/community-beta.spec.ts). Hay dos salidas legítimas y es del dueño elegir:
+  //   (a) restituir el 👍/👎 en el análisis de cada tarjeta del tablero y reactivar esta prueba, o (b) retirar la función y esta prueba con su motivo.
+  // Hasta entonces se reporta como BLOCKED en la matriz de certificación; NO cuenta como PASS.
+  test.fixme("flujo completo de feedback: positivo, negativo con motivo y prevención de duplicados", async ({ page, request }) => {
     // 1. Start draft in simulator
     await page.goto("/simulator");
     const startButton = page.getByRole("button", { name: "Iniciar Draft" });

@@ -1,0 +1,30 @@
+name: release-gate
+
+# Compuerta propia de release/mvp-beta (lo que Railway Preview publica). Separada de ci.yml a proposito: se vuelve a evaluar al EDITAR la descripcion del PR
+# (donde se declaran las revisiones), sin relanzar los ~7 minutos de CI completo.
+#
+# `pull_request_target` (no `pull_request`) A PROPOSITO: el workflow y el script que decide el veredicto se leen de la rama BASE protegida, no del PR. Con
+# `pull_request` un PR podia reescribir check-independent-review.sh para terminar en `exit 0` y la compuerta salia verde sin revisar nada (hallazgo
+# BLOQUEANTE de la revision independiente). Reglas de seguridad de este trigger: NUNCA se hace checkout del codigo del PR, y la descripcion entra solo
+# como variable de entorno (dato, jamas codigo).
+on:
+  pull_request_target:
+    branches: [release/mvp-beta]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  independent-review:
+    name: independent-review
+    runs-on: ubuntu-24.04
+    steps:
+      # Sin `ref:` => se descarga la rama base (el valor por defecto de pull_request_target). No se toca github.event.pull_request.head.
+      - name: Checkout the protected base branch (never the PR head)
+        uses: actions/checkout@v4
+
+      - name: Two independent reviews are declared in the PR description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash scripts/ci/check-independent-review.sh

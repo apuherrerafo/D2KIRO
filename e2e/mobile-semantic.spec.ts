@@ -1,4 +1,5 @@
 import { expect, test } from "./support/failure-evidence";
+import { boardOf, waitForBoard } from "./support/decision";
 
 // OLD_ASSERTION: the response of `recommendations?format=v3` was waited for and its V2 `controlledSlots` + V3 `primaryAction` /
 //   `shortlist` were compared to `coach-primary-action` / `coach-hero-card` in the DOM.
@@ -42,14 +43,18 @@ test("mobile semantic: Solo Pos2 renders the single V4 decision for Pos2, source
   const expected = decision.candidates.cards ?? [];
   expect(expected.every((candidate) => candidate.position === 2)).toBe(true);
 
-  await expect(page.getByTestId("copilot-panel")).toBeVisible();
-  await expect(page.getByTestId("current-decision-panel")).toBeVisible();
-  await expect(page.getByTestId("current-decision-target")).toHaveAttribute("data-target-position", "2");
-  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0); // viewing the recommended position: no second notice
+  // MIGRADO (Canonical Light): ya no hay Copilot ni `current-decision-*`; el ÚNICO dueño visual es el tablero. Solo Pos2 => UNA columna (Pos2).
+  await waitForBoard(page);
+  await expect(page.getByTestId("copilot-panel")).toHaveCount(0);
+  await expect(page.getByTestId("current-decision-panel")).toHaveCount(0);
   await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
   await expect(page.getByTestId("coach-panel")).toHaveCount(0);
+  const board = boardOf(page);
+  await expect(board.locator("[data-testid^='team-coach-column-']")).toHaveCount(1);
+  await expect(board.getByTestId("team-coach-column-2")).toBeVisible();
 
-  const shown = page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]');
-  await expect(shown).toHaveCount(expected.length);
-  expect(await shown.evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))))).toEqual(expected.map((candidate) => candidate.heroId));
+  // Las tarjetas del ranking general que el jugador ve son exactamente las que el motor respondió (V4) para Pos2, en el orden del motor.
+  const shown = board.locator('[data-testid="team-coach-candidate"]');
+  const shownIds = await shown.evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
+  expect(shownIds).toEqual(expected.map((candidate) => candidate.heroId));
 });

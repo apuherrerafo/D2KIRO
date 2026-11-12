@@ -1,5 +1,6 @@
 import type { Response } from "@playwright/test";
 import { expect, test } from "./support/failure-evidence";
+import { boardOf, waitForBoard } from "./support/decision";
 
 const FORBIDDEN_SUBSTRINGS = ["NOT_COMPUTED", "undefined", "[object Object]", "NaN"];
 
@@ -36,9 +37,14 @@ test("el Copilot muestra la CurrentHumanDecision V4 real de la ronda 1 (2 espaci
   expect(output.decision.viewedPosition).toBe(3);
   expect(["RANKED", "UNRANKED_POSITIONAL", "UNAVAILABLE"]).toContain(output.decision.candidates.state);
 
-  const panel = page.locator('[data-testid="copilot-panel"]');
-  await expect(panel).toBeVisible();
-  const text = await panel.innerText();
+  // MIGRADO (Canonical Light): el Copilot duplicado (`copilot-panel`) ya no existe; lo que el jugador lee es el tablero. Mismo contrato: nada de sentinels.
+  await waitForBoard(page);
+  await expect(page.getByTestId("copilot-panel")).toHaveCount(0);
+  await expect(page.getByTestId("current-decision-panel")).toHaveCount(0);
+  const text = await boardOf(page).innerText();
   expect(text.length).toBeGreaterThan(0);
   for (const forbidden of FORBIDDEN_SUBSTRINGS) expect(text).not.toContain(forbidden);
+  // La pantalla entera tampoco filtra vocabulario interno (el tablero no es lo único que se lee).
+  const everything = await page.locator("body").innerText();
+  for (const forbidden of FORBIDDEN_SUBSTRINGS) expect(everything).not.toContain(forbidden);
 });

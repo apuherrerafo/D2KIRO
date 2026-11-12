@@ -80,8 +80,12 @@ test.describe.configure({ mode: "serial" });
 test.afterAll(() => { writeFileSync(resolve(OUT, "medidas.json"), JSON.stringify(results, null, 2)); });
 
 test.describe(`4B.2 Canonical Light completo (${LABEL})`, () => {
-  test("Sin enlace: Dota desconectado, instalación abierta, y la navegación es la misma en todas las rutas", async ({ page }) => {
+  test("Sin enlace: Dota desconectado, instalación abierta, y la navegación es la misma en todas las rutas", async ({ page, request }) => {
     test.setTimeout(240_000);
+    // Precondición EXPLÍCITA: "sin enlace" es un estado de la cuenta, y la cuenta del E2E es una sola. Otra spec (live-canonical-4b2-cert) deja un enlace con
+    // latido vivo y, corriendo antes, esta prueba veía "conectado" y fallaba solo en la corrida completa (pasaba aislada). Se revoca por la ruta real.
+    const revoked = await request.delete(`${ENGINE_DIRECT}/api/live/gsi-link`, { headers: engineDirectHeaders() });
+    expect(revoked.status()).toBe(200);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
     await expect(page.getByTestId("dota-connect")).toBeVisible({ timeout: 60_000 });

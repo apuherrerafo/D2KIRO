@@ -354,8 +354,13 @@ function Invoke-Uninstall {
   Stop-OtherCompanions
   # The visual helper goes with the Companion that supervised it.
   $visualRoot = [IO.Path]::Combine($AppDir, 'visual')
-  foreach ($process in (Get-Process -Name 'd2kiro-visual' -ErrorAction SilentlyContinue)) { try { if (([string]$process.Path).StartsWith($visualRoot, [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id $process.Id -Force -ErrorAction Stop } } catch { } }
-  try { if ([IO.Directory]::Exists($visualRoot)) { [IO.Directory]::Delete($visualRoot, $true) } } catch { }
+  # Stop-Process -Force returns BEFORE Windows has released the .exe: deleting its folder right away fails (file in use) and the failure was swallowed,
+  # leaving the helper's folder on the player's PC after a "successful" uninstall. Wait for each helper to exit, then retry the delete a few times.
+  foreach ($process in (Get-Process -Name 'd2kiro-visual' -ErrorAction SilentlyContinue)) { try { if (([string]$process.Path).StartsWith($visualRoot, [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id $process.Id -Force -ErrorAction Stop; [void]$process.WaitForExit(5000) } } catch { } }
+  for ($attempt = 0; $attempt -lt 10; $attempt++) {
+    try { if ([IO.Directory]::Exists($visualRoot)) { [IO.Directory]::Delete($visualRoot, $true) } } catch { Start-Sleep -Milliseconds 300 }
+    if (-not [IO.Directory]::Exists($visualRoot)) { break }
+  }
   if (-not $NoAutostart) {
     try { Remove-ItemProperty -Path $RunKey -Name $RunValue -ErrorAction Stop } catch { }
     try { Remove-Item -Path $UninstallKey -Recurse -ErrorAction Stop } catch { }

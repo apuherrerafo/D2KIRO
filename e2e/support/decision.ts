@@ -1,92 +1,160 @@
-import { expect, type Page } from "@playwright/test";
-import { heroSearch } from "./wave1";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { heroSearch, recorderOf } from "./wave1";
 
-// Contrato de elegibilidad (dueño del producto, 2026-11-03/04) en el navegador. Una recomendación solo existe con un fundamento verificable, así que:
-//   - el panel de decisión puede NO tener ninguna tarjeta (y entonces no pinta ni la sección de candidatos);
-//   - el objetivo (`current-decision-target`) ya no se anuncia como "vista por defecto": solo como "Objetivo recomendado" cuando hay `primaryRecommendation`
-//     (un héroe STRONG; P0-03B, independiente de `targetBasis`) o como "Única posición pendiente" (información, no consejo);
-//   - el aviso "Estás viendo X / Coach sugiere Y" existe SOLO cuando hay recomendación y la posición vista es otra.
-// "No hay recomendaciones" es un estado válido del simulador; "el simulador está roto" sigue siendo: el draft no avanza, o una tarjeta ilegal/sin
-// fundamento aparece. Estos helpers dejan que las pruebas acepten lo primero sin perder ninguna verificación de picks, bans, legalidad o cierre.
+// MIGRACIÓN Canonical Light (P0 recuperación de certificación).
+// OLD_ASSERTION: la decisión actual se leía de un panel propio (`current-decision-panel/-target/-viewed/-card/-candidates`) y de sus atributos
+//   `data-decision-kind|trigger|revision|state-identity`, dentro del Copilot.
+// WHY_OBSOLETE: el commit 6b0bb3d2 eliminó el Copilot duplicado: el tablero (`team-coach-board`) es el ÚNICO lugar de la recomendación humana.
+//   Esos testids ya no existen en el DOM; probarlos solo puede fallar, y un `not.toContainText` sobre ellos pasaría en vacío.
+// NEW_PRODUCT_CONTRACT: (1) lo que el jugador VE son las tarjetas del tablero: `[data-card-key]` por columna de posición, la recomendada marcada
+//   `data-recommended="true"`, y `sl-column-empty` cuando una columna no tiene ningún héroe con fundamento; (2) lo que el MOTOR respondió
+//   (`kind`, `trigger`, `revision`, `stateIdentity`) se lee de la respuesta V4 REAL que el navegador recibió (el Recorder), no de un atributo
+//   decorativo -- es la misma frontera que ya usan las demás pruebas de wave1/wave2. Ninguna garantía se elimina: cada una se re-expresa aquí.
+// Contrato de elegibilidad (dueño del producto, 2026-11-03/04): "no hay recomendaciones" es un estado válido; "el simulador está roto" sigue siendo:
+//   el draft no avanza, o una tarjeta ilegal/sin fundamento aparece.
 
-/** El texto del objetivo anunciado, o "" cuando el Coach no anuncia ninguno (sin base estratégica). */
-export async function announcedTargetLabel(page: Page): Promise<string> {
-  const target = page.getByTestId("current-decision-target");
-  if ((await target.count()) === 0) return "";
-  return (await target.innerText()).trim();
+export interface DecisionSnapshot {
+  kind: string;
+  trigger: string;
+  revision: number;
+  identity: string;
+  viewedPosition: number | null;
+  targetPosition: number | null;
+  /** Hero ids the engine offered in this answer (ranked cards or, when unranked, positional alternatives). */
+  offered: number[];
+  /** Solo las tarjetas RANQUEADAS (`cards`): son las que el tablero debe pintar; las `alternatives` sin ranking no obligan a pintar nada. */
+  ranked: number[];
 }
 
-export interface TargetContract {
-  /** Posición del objetivo anunciado, o null si el Coach no anuncia ninguno. */
-  position: number | null;
-  basis: string | null;
-  /** true SOLO cuando el motor manda `primaryRecommendation` (un héroe STRONG detrás): "Objetivo recomendado". "Única posición pendiente" NO es consejo. */
-  recommended: boolean;
+interface V4Wire {
+  schema?: string;
+  decision?: {
+    kind?: string;
+    viewedPosition?: number;
+    targetPosition?: number;
+    candidates?: { cards?: { heroId: number }[]; alternatives?: { heroId: number }[] };
+  };
+  meta?: { revision?: number; trigger?: string; basedOn?: { stateIdentity?: string } };
 }
 
-/**
- * Verifica la coherencia del encabezado de objetivo y del aviso "Estás viendo X / Coach sugiere Y" con la posición en vista (`viewedPosition`).
- * Contrato P0-03B: la RECOMENDACIÓN es `primaryRecommendation` (un héroe con evidencia STRONG), distinta de la PRIORIDAD entre posiciones (`targetBasis`,
- * que puede ser DETERMINISTIC_DEFAULT y aun así haber un héroe STRONG que recomendar). Por eso:
- *   - "Objetivo recomendado" existe SOLO con recomendación, y entonces el tablero nombra a un héroe STRONG en esa misma posición (candidato `data-primary`
- *     sin la marca "Evidencia limitada");
- *   - "Única posición pendiente" es información, nunca consejo: sin aviso ni "Coach sugiere";
- *   - el aviso aparece SI Y SOLO SI hay recomendación y la vista es otra posición. `targetBasis` no decide nada de esto.
- */
-export async function assertTargetContract(page: Page, viewedPosition: number): Promise<TargetContract> {
-  const target = page.getByTestId("current-decision-target");
-  const notice = page.getByTestId("current-decision-viewed");
-  const suggests = page.getByTestId("current-decision-coach-suggests");
-  if ((await target.count()) === 0) {
-    await expect(notice).toHaveCount(0);
-    await expect(suggests).toHaveCount(0);
-    return { position: null, basis: null, recommended: false };
-  }
-  const position = Number(await target.getAttribute("data-target-position"));
-  const basis = await target.getAttribute("data-target-basis");
-  expect([1, 2, 3, 4, 5]).toContain(position);
-  const text = (await target.innerText()).trim();
-  const recommended = text.includes("Objetivo recomendado");
-  if (!recommended) {
-    // Sin recomendación solo cabe el aviso informativo de una única posición pendiente; nunca un consejo ("Coach sugiere") ni un aviso de navegación.
-    expect(text).toContain("Única posición pendiente");
-    const pending = page.getByTestId("pending-human-positions");
-    if ((await pending.count()) > 0) expect(((await pending.innerText()).match(/Pos\d/g) ?? []).length).toBe(1);
-    await expect(notice).toHaveCount(0);
-    await expect(suggests).toHaveCount(0);
-    return { position, basis, recommended: false };
-  }
-  // Una recomendación visible está respaldada por STRONG: el tablero (misma política de objetivo) destaca como plan a un héroe de esa posición, y un
-  // candidato de evidencia limitada nunca es plan.
-  const planned = page.getByTestId(`team-coach-column-${position}`).locator('[data-testid="team-coach-candidate"][data-primary="true"]');
-  await expect(planned).toHaveCount(1);
-  await expect(planned.locator('[data-testid="evidence-limited-mark"]')).toHaveCount(0);
-  if (position !== viewedPosition) {
-    await expect(notice).toHaveCount(1);
-    await expect(notice).toHaveAttribute("data-viewed-position", String(viewedPosition));
-    await expect(suggests).toContainText(`Coach sugiere Pos${position}`);
-  } else {
-    await expect(notice).toHaveCount(0);
-  }
-  return { position, basis, recommended: true };
+export function boardOf(page: Page): Locator {
+  return page.getByTestId("team-coach-board");
 }
 
-/** Las tarjetas de la decisión actual y su sección: la sección existe SI Y SOLO SI hay tarjetas (nunca un marco vacío). */
+/** El tablero real, con al menos una columna de posición pintada. */
+export async function waitForBoard(page: Page): Promise<void> {
+  await expect(boardOf(page)).toBeVisible({ timeout: 60_000 });
+  await expect(boardOf(page).locator("[data-testid^='team-coach-column-']").first()).toBeVisible({ timeout: 60_000 });
+}
+
+/** La última respuesta V4 (200) que el navegador recibió de `GET .../recommendations`, o null si todavía no llegó ninguna. */
+export function latestDecision(page: Page): DecisionSnapshot | null {
+  const answers = recorderOf(page).responses.filter((entry) => entry.status === 200 && entry.method === "GET" && entry.path.endsWith("/recommendations"));
+  for (let index = answers.length - 1; index >= 0; index -= 1) {
+    const output = (answers[index]!.body as { output?: V4Wire | null } | null)?.output;
+    if (output?.schema !== "recommendation-output/v4" || !output.decision || !output.meta) continue;
+    const { candidates } = output.decision;
+    return {
+      kind: output.decision.kind ?? "",
+      trigger: output.meta.trigger ?? "",
+      revision: output.meta.revision ?? -1,
+      identity: output.meta.basedOn?.stateIdentity ?? "",
+      viewedPosition: output.decision.viewedPosition ?? null,
+      targetPosition: output.decision.targetPosition ?? null,
+      offered: (candidates?.cards ?? candidates?.alternatives ?? []).map((candidate) => candidate.heroId),
+      ranked: (candidates?.cards ?? []).map((candidate) => candidate.heroId),
+    };
+  }
+  return null;
+}
+
+/** Espera la respuesta V4 cuyo `trigger` es el pedido (p. ej. OWN_PICK_CONFIRMED tras un pick propio) y la devuelve. */
+export async function waitForDecisionTrigger(page: Page, trigger: string, timeout = 30_000): Promise<DecisionSnapshot> {
+  await expect.poll(() => latestDecision(page)?.trigger ?? null, { timeout, message: `V4 decision with trigger ${trigger}` }).toBe(trigger);
+  return latestDecision(page)!;
+}
+
+/** Ids de héroe de las tarjetas visibles del tablero (ranking general + "Más de tu pool"), sin repetir y en orden de pantalla. */
 export async function decisionCardIds(page: Page): Promise<number[]> {
-  const ids = await page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
-  await expect(page.getByTestId("current-decision-candidates")).toHaveCount(ids.length > 0 ? 1 : 0);
-  return ids;
+  const ids = await boardOf(page).locator("[data-card-key]").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
+  return [...new Set(ids)];
+}
+
+/** Héroes que el tablero marca como recomendados (`data-recommended="true"`): vacío cuando el Coach no tiene ninguna recomendación con fundamento. */
+export async function recommendedHeroIds(page: Page): Promise<number[]> {
+  return boardOf(page).locator('[data-card-key][data-recommended="true"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
+}
+
+/** Texto anunciado de la recomendación ("" si no hay): los ids recomendados, estable entre corridas con la misma semilla. */
+export async function announcedTargetLabel(page: Page): Promise<string> {
+  return (await recommendedHeroIds(page)).join(",");
 }
 
 /**
- * Un pick legal cualquiera: la tarjeta recomendada si la hay; si el Coach no tiene NINGUNA recomendación (ningún héroe con fundamento), el camino
+ * Contrato de la recomendación visible, el sustituto del antiguo `assertTargetContract`:
+ *   - como mucho UNA tarjeta recomendada en todo el tablero (una acción principal, nunca dos);
+ *   - la recomendada siempre es legal: ni baneada ni ya elegida (propia o rival revelada) según el último estado que el servidor mandó;
+ *   - lo mismo para todo lo que el motor ofreció en la decisión V4 y para toda tarjeta pintada;
+ *   - "Estás viendo / Coach sugiere" ya no existe como aviso: la posición vista es la columna abierta y la recomendación vive en su tarjeta.
+ * Devuelve los ids recomendados (vacío = sin recomendación, estado válido).
+ */
+export async function assertRecommendationContract(page: Page): Promise<number[]> {
+  const recommended = await recommendedHeroIds(page);
+  expect(recommended.length, "una sola tarjeta recomendada en el tablero").toBeLessThanOrEqual(1);
+  // Sin snapshot del servidor no hay contra qué comprobar la legalidad: eso es un fallo, nunca un pase en vacío (revisión independiente).
+  const snapshot = recorderOf(page).snapshots().at(-1);
+  expect(snapshot, "el navegador debe haber recibido ya el estado del servidor para poder comprobar la legalidad").toBeDefined();
+  const taken = new Set<number>(snapshot!.view.bannedHeroes);
+  for (const slot of [...snapshot!.view.ownPicks, ...snapshot!.view.enemyPicks]) if (slot.heroId !== undefined) taken.add(slot.heroId);
+  const shown = await decisionCardIds(page);
+  for (const heroId of [...recommended, ...shown]) expect(taken.has(heroId), `la tarjeta ${heroId} es ilegal (baneada o ya elegida)`).toBe(false);
+  for (const heroId of latestDecision(page)?.offered ?? []) expect(taken.has(heroId), `el motor ofreció ${heroId} (baneado o ya elegido)`).toBe(false);
+  await assertCardsLiveInTheirOwnColumn(page);
+  // El tablero no puede ignorar al motor: si la respuesta V4 ofreció candidatos, el tablero pinta al menos uno de ellos EN la columna de la posición vista
+  // (mobile-semantic prueba la igualdad exacta en Solo; aquí, para Party y las olas, se exige al menos la intersección -- no "cero tarjetas" ni otras).
+  // Se re-lee la última respuesta V4 en cada intento (la web descarta las supersedidas; una respuesta vieja tardía no debe dar un rojo falso) y solo
+  // cuentan las tarjetas RANQUEADAS: una columna sin héroes con fundamento ("no hay recomendaciones") es un estado válido.
+  await expect
+    .poll(async () => {
+      const decision = latestDecision(page);
+      if (decision === null || decision.ranked.length === 0 || decision.viewedPosition === null) return "ok";
+      const inViewedColumn = await boardOf(page).getByTestId(`team-coach-column-${decision.viewedPosition}`).locator("[data-card-key]").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
+      return inViewedColumn.some((heroId) => decision.ranked.includes(heroId)) ? "ok" : `el tablero ignora los candidatos V4 de Pos${decision.viewedPosition}: V4=${decision.ranked.join(",")} tablero=${inViewedColumn.join(",")}`;
+    }, { timeout: 10_000 })
+    .toBe("ok");
+  return recommended;
+}
+
+/**
+ * Cada tarjeta pertenece a la columna de SU posición: `data-card-key` es `<posición>:<héroe>` y debe coincidir con la columna `team-coach-column-<posición>`
+ * que la contiene. Sustituye al antiguo "los candidatos pertenecen a la posición vista" (una tarjeta de Pos5 bajo la columna de Pos2 ya no pasa).
+ * La tarjeta recomendada (`data-recommended`) cumple lo mismo, y además es una tarjeta del ranking general (no solo "de tu pool").
+ */
+export async function assertCardsLiveInTheirOwnColumn(page: Page): Promise<void> {
+  const rows = await boardOf(page).locator("[data-card-key]").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      keyPosition: (node.getAttribute("data-card-key") ?? "").split(":")[0],
+      columnPosition: (node.closest("[data-testid^='team-coach-column-']")?.getAttribute("data-testid") ?? "").replace("team-coach-column-", ""),
+      recommended: node.getAttribute("data-recommended") === "true",
+      general: node.getAttribute("data-testid") === "team-coach-candidate",
+    })),
+  );
+  for (const row of rows) {
+    expect(row.columnPosition, "la tarjeta debe estar dentro de una columna de posición").not.toBe("");
+    expect(row.keyPosition).toBe(row.columnPosition);
+    if (row.recommended) expect(row.general, "la recomendada es del ranking general").toBe(true);
+  }
+}
+
+/**
+ * Un pick legal cualquiera: la tarjeta del tablero si la hay; si el Coach no tiene NINGUNA recomendación (ningún héroe con fundamento), el camino
  * manual "Buscar otro héroe" -- sigue siendo un pick legal y el draft debe poder terminar así.
+ * Abrir una tarjeta (o un resultado del buscador) solo abre el análisis: elegir es el botón «Elegir a X» de ese análisis.
  */
 export async function pickAnyAvailableHero(page: Page): Promise<void> {
-  // Abrir una tarjeta (o un resultado del buscador) solo abre el análisis: elegir es el botón «Elegir a X» de ese análisis.
-  const recommended = page.locator("button[title]:not([disabled])").first();
-  if (await recommended.isVisible().catch(() => false)) {
-    await recommended.click().catch(() => undefined);
+  const card = boardOf(page).locator("[data-card-key] button:not([disabled])").first();
+  if (await card.isVisible().catch(() => false)) {
+    await card.click().catch(() => undefined);
   } else {
     const search = heroSearch(page);
     if (!(await search.isVisible().catch(() => false))) return;

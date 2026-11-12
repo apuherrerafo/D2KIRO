@@ -516,7 +516,10 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
 
       // On disk: no SteamID / account id / player name, no coordinate -- only has* flags. What the timeline needs stays.
       for (const text of [JSON.stringify(draft), rolling]) {
-        for (const secret of [SENTINEL_STEAMID, SENTINEL_NAME, "1038734271", token, TOKEN, "1234.5", "-678", "-6700", "5900"]) expect(text).not.toContain(secret);
+        for (const secret of [SENTINEL_STEAMID, SENTINEL_NAME, "1038734271", token, TOKEN, "1234.5", "-678", "-6700"]) expect(text).not.toContain(secret);
+        // Las coordenadas centinela son números cortos: como subcadena chocan por azar con los dígitos de un `receivedAt` (".7505900Z" contiene "5900" y
+        // hacía fallar la prueba sin que nada se filtrara). Se buscan como TOKEN numérico completo: sin dígito ni punto pegado antes o después.
+        expect(text).not.toMatch(/(?<![0-9.])5900(?![0-9.])/);
         expect(text).not.toMatch(/"(xpos|ypos|yaw)":/);
       }
       const hs = draft[0]!.payload as { player: Record<string, unknown>; minimap: Record<string, Record<string, unknown>>; hero: Record<string, unknown>; previously: { player: Record<string, unknown>; minimap: Record<string, Record<string, unknown>> } };
@@ -747,6 +750,10 @@ describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell,
       expect(alive(orphan)).toBe(true);
       startRuntime(m, server.base, visualEnv(release, log));
       await waitFor(() => (stubStarts(log).length >= 2 ? true : null), 60_000);
+      // Stop-Process -Force (TerminateProcess) devuelve ANTES de que Windows termine de liberar el proceso: el pid sigue respondiendo a signal 0 unos
+      // instantes, más cuanta más carga hay (se reprodujo 1 de 18 corridas con 6 suites en paralelo). El contrato es "el huérfano acaba muerto y el
+      // helper nuevo vive", no "muerto en el mismo milisegundo": se espera con la misma sonda acotada que ya usa el paso de desinstalar (20 s).
+      await waitFor(() => (alive(orphan) ? null : true));
       expect(alive(orphan)).toBe(false);
       const current = stubStarts(log)[1]!.pid;
       expect(alive(current)).toBe(true);

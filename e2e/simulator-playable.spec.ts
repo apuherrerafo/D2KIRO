@@ -113,12 +113,19 @@ async function playToEnd(page: Page, prefer: "card" | "search" = "card"): Promis
     }
     const choose = page.getByRole("button", { name: CHOOSE_BUTTON });
     // Si el jugador ya dejó un héroe abierto con su botón a la vista, lo confirma; volver a tocar la carta cerraría el análisis.
-    if (!(await choose.isVisible())) {
+    // Abrir el análisis es un TOGGLE: un segundo clic sobre la misma carta lo cierra. En CI (más lento) el tablero se reordena justo después de un pick y el primer
+    // clic podía caer antes de que la carta estuviera lista o cerrar un análisis recién abierto. Por eso cada intento mira primero el ESTADO REAL (¿ya está el
+    // botón «Elegir»?) y solo clica si no está -- nunca clica a ciegas dos veces ni alarga el plazo (3 intentos de 5 s).
+    for (let attempt = 0; attempt < 3 && !(await choose.isVisible()); attempt += 1) {
       const available = prefer === "card" && (await cards(page).count()) > 0;
       if (available) await cards(page).first().click();
       else await page.getByRole("region", { name: "Buscar otro héroe" }).locator(".sl-picker-row:not([disabled])").first().click();
+      await choose.waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);
     }
-    await expect(choose).toBeVisible({ timeout: 5_000 });
+    // Si el botón visible era el del análisis del pick ANTERIOR (que se está cerrando), aparece un instante y desaparece: se vuelve a evaluar el estado real
+    // desde el principio de la vuelta, en lugar de fallar o de confirmar un análisis que ya no existe.
+    const ready = await choose.waitFor({ state: "visible", timeout: 5_000 }).then(() => true, () => false);
+    if (!ready) continue;
     await choose.click();
     picks += 1;
     await expect
@@ -127,6 +134,8 @@ async function playToEnd(page: Page, prefer: "card" | "search" = "card"): Promis
         return now.done || now.pending !== before.pending || !now.searchVisible || now.round !== before.round;
       }, { timeout: 150_000 })
       .toBe(true);
+    // El análisis del pick recién sellado se cierra: no se arranca la vuelta siguiente con su botón todavía en pantalla.
+    await choose.waitFor({ state: "hidden", timeout: 10_000 }).catch(() => undefined);
   }
   expect((await screenState(page)).done, "el draft termina").toBe(true);
   return { rounds: [...rounds].sort(), picks };

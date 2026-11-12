@@ -2,7 +2,7 @@ import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, test } from "./support/failure-evidence";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
 import { ROUND_HEADING, assertNoSimulatorTruthLeak, awaitRoundHandlingCollision, configureAndStart, firstEnabled, heroButton, heroNamesIn, pickHero, record, type Recorder } from "./support/wave1";
-import { announcedTargetLabel, assertTargetContract, decisionCardIds } from "./support/decision";
+import { announcedTargetLabel, assertRecommendationContract, boardOf, decisionCardIds, latestDecision, waitForBoard, waitForDecisionTrigger } from "./support/decision";
 
 // WAVE 5 -- PRODUCT CERTIFICATION, browser layer (real Chromium, production web build, real engine, fixture DB).
 // Entry point: `bun run test:wave5:smoke`. Reuses the Wave 1/2 harness (playwright.config.ts, e2e/support/wave1.ts).
@@ -75,18 +75,24 @@ function offeredHeroIds(output: V4Json): number[] {
   return (candidates.cards ?? candidates.alternatives ?? []).map((candidate) => candidate.heroId);
 }
 
-const primary = (page: Page) => page.getByTestId("current-decision-panel");
-
+// MIGRADO (Canonical Light, P0 recuperación de certificación): el Copilot y su `current-decision-panel` ya no existen (commit 6b0bb3d2).
+// OLD_ASSERTION: kind/trigger/revision/identity se leían de atributos `data-*` del panel y las tarjetas de `current-decision-card`.
+// WHY_OBSOLETE: ese panel se eliminó; el tablero `team-coach-board` es el único dueño visual de la recomendación.
+// NEW_PRODUCT_CONTRACT: lo que el motor respondió se lee de la respuesta V4 REAL que recibió el navegador (support/decision.ts `latestDecision`) y
+//   lo que el jugador ve, de las tarjetas del tablero. Misma garantía de orquestación, ahora sobre la superficie real.
 async function coachSnapshot(page: Page) {
-  const panel = primary(page);
-  await expect(panel).toBeAttached({ timeout: 60_000 });
+  await waitForBoard(page);
+  await expect.poll(() => latestDecision(page) !== null, { timeout: 60_000, message: "the engine answered its V4 decision" }).toBe(true);
   await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
+  await expect(page.getByTestId("copilot-panel")).toHaveCount(0); // the duplicated Copilot never comes back
+  await assertRecommendationContract(page);
+  const decision = latestDecision(page)!;
   return {
-    kind: (await panel.getAttribute("data-decision-kind"))!,
-    trigger: (await panel.getAttribute("data-trigger"))!,
-    revision: Number(await panel.getAttribute("data-revision")),
-    identity: (await panel.getAttribute("data-state-identity"))!,
-    // "" when the Coach announces no recommended target (2026-11-03/04: no STRATEGIC basis, nothing to announce).
+    kind: decision.kind,
+    trigger: decision.trigger,
+    revision: decision.revision,
+    identity: decision.identity,
+    // "" when the board marks no recommended hero (2026-11-03/04: nothing with a verifiable ground, nothing to announce).
     label: await announcedTargetLabel(page),
     shortlist: await decisionCardIds(page),
   };
@@ -174,6 +180,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // ---------------------------------------------------------------- ROUND 1
   await expect(page.getByText(ROUND_HEADING(1, 2))).toBeVisible({ timeout: 60_000 });
   await assertTimerRunning(page);
+  await waitForDecisionTrigger(page, "DRAFT_PICKS_STARTED", 60_000);
   const start = await coachSnapshot(page);
   expect(start.kind).toBe("ACTIONABLE");
   expect(start.trigger).toBe("DRAFT_PICKS_STARTED");
@@ -193,7 +200,8 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // WHY_OBSOLETE: the recommendation (`targetPosition`) and the first view (`viewedPosition`) are two things since PSR-002/TSK-251.
   // NEW_PRODUCT_CONTRACT: the recommendation is one of the 5 open positions; the first view is the personal one; the notice renders IFF they differ.
   //   Since P0-03B the recommendation header (and so the notice) exists only with a `primaryRecommendation` (a STRONG hero), whatever `targetBasis` says; `assertTargetContract` checks the notice against it.
-  await assertTargetContract(page, config.personalPosition);
+  await assertRecommendationContract(page);
+  expect(latestDecision(page)?.viewedPosition).toBe(config.personalPosition); // the first view is the Player's personal position (TSK-251)
   await assertPlayerFacingCopyIsClean(page);
   await shot(page, side, "1-round1-opening");
 
@@ -230,7 +238,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   const flexId = FIXTURE_HERO_ID_BY_NAME.get(flexName)!;
   await pickHero(page, flexName);
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
-  await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
+  await waitForDecisionTrigger(page, "OWN_PICK_CONFIRMED");
   const afterFirst = await coachSnapshot(page);
   expect(afterFirst.revision).toBeGreaterThan(start.revision);
   expect(afterFirst.identity).not.toBe(start.identity);
@@ -245,11 +253,17 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
     // NEW_PRODUCT_CONTRACT: the picked hero is immediately "Asignado a Pos<the position in view>", there is nothing left to assign,
     //   and a later declaration of a different position for that hero cannot override the authoritative binding; a hero that is
     //   not ours is still refused.
-    const row = page.getByTestId("coach-own-role").filter({ hasText: flexName });
-    await expect(row).toContainText(`Asignado a Pos${config.personalPosition}`);
-    await expect(row).not.toContainText("FLEX");
-    await expect(row.getByRole("button", { name: /^Asignar Pos/ })).toHaveCount(0);
-    annotate("ux-own-role-row-after-pick", (await row.innerText()).replace(/\s+/g, " ").trim());
+    // MIGRADO (Canonical Light): la fila `coach-own-role` ("Asignado a PosN" / botones "Asignar PosN") era del CoachPanel eliminado. Hoy el roster del
+    // Simulador ES la prueba visible del enlace: el héroe aparece en el asiento de la posición en vista (`own-roster-pos-N`), en ningún otro, no hay
+    // botón de asignación pendiente, y la verdad del motor (roleBeliefs.own, verificada más abajo) sigue siendo la misma.
+    const boundSeat = page.getByTestId(`own-roster-pos-${config.personalPosition}`);
+    await expect(boundSeat).toContainText(flexName);
+    for (const other of [1, 2, 3, 4, 5].filter((position) => position !== config.personalPosition)) {
+      await expect(page.getByTestId(`own-roster-pos-${other}`)).not.toContainText(flexName);
+    }
+    await expect(boundSeat).not.toContainText("FLEX");
+    await expect(page.getByRole("button", { name: /^Asignar Pos/ })).toHaveCount(0);
+    annotate("ux-own-role-row-after-pick", (await boundSeat.innerText()).replace(/\s+/g, " ").trim());
     await shot(page, side, "2-own-hero-bound");
 
     const assignApi = `/engine/api/session/protocol/${sessionId}/position-assignment`;
@@ -279,15 +293,19 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await pickHero(page, ignoredName!);
   let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 terminada|Ronda 2 de 3 · /, ANY_HERO);
   await expect(page.getByText(/no está disponible/)).toHaveCount(0); // deviating is legal: no rejection, no "wrong choice"
-  await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
+  // Sobre la pantalla REAL (tablero + cuerpo), no sobre un panel eliminado donde un not.toContainText pasa en vacío.
+  await expect(boardOf(page)).toBeVisible();
+  await expect(boardOf(page)).not.toContainText(/incorrect|equivocad|no deberías/i);
+  await expect(page.locator("body")).not.toContainText(/incorrect|equivocad|no deberías/i);
 
   // ---------------------------------------------------------------- ROUND 2 (enemy revealed)
   await expect(page.getByText(ROUND_HEADING(2, 2))).toBeVisible({ timeout: 60_000 });
   await assertTimerRunning(page);
+  await waitForDecisionTrigger(page, "ROUND_REVEALED", 60_000);
   const round2 = await coachSnapshot(page);
   expect(round2.trigger).toBe("ROUND_REVEALED");
   expect(round2.revision).toBeGreaterThan(afterFirst.revision);
-  const enemyRows = page.getByTestId("coach-enemy-role");
+  const enemyRows = page.getByTestId("enemy-roster-role");
   await expect(enemyRows).toHaveCount(2); // the two enemy heroes revealed at the end of round 1
   for (const text of await enemyRows.allInnerTexts()) {
     expect(text, "an enemy role is never presented as a confirmed fact").not.toMatch(/—\s*Pos\d\s*$/);
@@ -301,13 +319,14 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   const followName = round2.shortlist.length > 0 ? FIXTURE_HERO_NAME_BY_ID.get(round2.shortlist[0]!)! : await firstEnabled(page, [...config.pool, ...ANY_HERO]);
   await pickHero(page, followName);
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
-  await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
+  await waitForDecisionTrigger(page, "OWN_PICK_CONFIRMED");
   // The other seat: the Player's own preference (a pool hero when one is legal right now), whatever the Coach offers.
   await pickHero(page, await firstEnabled(page, [...config.pool.filter((name) => name !== followName), ...ANY_HERO]));
 
   // ---------------------------------------------------------------- ROUND 3
   repicks += await awaitRoundHandlingCollision(page, ROUND_HEADING(3, 1), ANY_HERO);
   await assertTimerRunning(page);
+  await waitForDecisionTrigger(page, "ROUND_REVEALED", 60_000);
   const round3 = await coachSnapshot(page);
   expect(round3.trigger).toBe("ROUND_REVEALED");
   await pickHero(page, await firstEnabled(page, [...config.roundThreePlan, ...ANY_HERO]));
