@@ -37,6 +37,7 @@ describe("configuración del almacenamiento", () => {
       expect(readObjectStorageConfig(partial)).toBeNull();
     }
     expect(readObjectStorageConfig({ ...complete, FEEDBACK_S3_ENDPOINT: "http://example.com" })).toBeNull();
+    expect(readObjectStorageConfig({ ...complete, FEEDBACK_S3_ENDPOINT: "http://example.com", FEEDBACK_S3_ALLOW_HTTP: "1" })).not.toBeNull();
     expect(readObjectStorageConfig({ ...complete, FEEDBACK_S3_BUCKET: "../x" })).toBeNull();
     expect(readObjectStorageConfig({ ...complete, FEEDBACK_S3_ENDPOINT: "no es url" })).toBeNull();
   });

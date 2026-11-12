@@ -152,6 +152,7 @@ export default defineConfig({
         // No es R2: prueba la firma, la subida y la lectura privada, no el servicio real.
         FEEDBACK_FILE: join(runtime.dir, "feedback.json"),
         FEEDBACK_S3_ENDPOINT: "http://127.0.0.1:9199",
+        FEEDBACK_S3_ALLOW_HTTP: "1",
         FEEDBACK_S3_BUCKET: "d2kiro-feedback-e2e",
         FEEDBACK_S3_ACCESS_KEY_ID: "e2e-key-id",
         FEEDBACK_S3_SECRET_ACCESS_KEY: "e2e-key-secret-not-real",

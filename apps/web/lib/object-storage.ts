@@ -31,7 +31,8 @@ export function readObjectStorageConfig(env: Env): ObjectStorageConfig | null {
   if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) return null;
   try {
     const url = new URL(endpoint);
-    if (url.protocol !== "https:" && url.hostname !== "127.0.0.1" && url.hostname !== "localhost") return null;
+    // Solo https, salvo pruebas locales que lo piden de forma explícita (el E2E levanta un bucket simulado sin TLS).
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && env.FEEDBACK_S3_ALLOW_HTTP === "1")) return null;
   } catch {
     return null;
   }
