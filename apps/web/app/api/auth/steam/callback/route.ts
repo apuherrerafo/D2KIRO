@@ -5,7 +5,6 @@ import { getCanonicalOrigin } from "@/lib/canonical-origin";
 import { getSession } from "@/lib/session";
 import { steamId64ToSteam32, verifySteamCallback } from "@/lib/steam-openid";
 import { getSteamPlayerProfile, type SteamPlayerProfile } from "@/lib/steam-profile";
-import { betaAccessFilePath, recordAccessRequest } from "@/lib/beta-access-store";
 import { isAccountAllowedNow } from "@/lib/beta-access";
 import { saveAccessRequestNotice } from "@/lib/access-request-session";
 
@@ -23,7 +22,7 @@ interface CallbackDependencies {
   startSession: (accountId: number, profile: SteamPlayerProfile) => Promise<void>;
   createToken: (accountId: number) => string;
   isAccountAllowed?: (accountId: number) => boolean;
-  /** Steam ya verificó la identidad pero la cuenta no está en la beta: se registra el pedido (sin abrir sesión) para que el dueño lo apruebe. Nunca lanza hacia el login. */
+  /** Steam ya verificó la identidad pero la cuenta no está en la beta: se sella la identidad (sin abrir sesión) para que la persona envíe su solicitud con mensaje. Nunca lanza hacia el login. */
   onAccessDenied?: (accountId: number, steamId64: bigint) => Promise<void>;
 }
 
@@ -118,14 +117,9 @@ export async function GET(request: Request) {
     isAccountAllowed: (accountId) => isAccountAllowedNow(accountId, process.env),
     onAccessDenied: async (accountId, steamId64) => {
       const profile = await getSteamPlayerProfile({ accountId, steamId64, apiKey: process.env.STEAM_WEB_API_KEY, communityOrigin: process.env.STEAM_COMMUNITY_ORIGIN });
-      // Sin perfil público no se inventa un nombre: el dueño ve "Jugador de Steam" y decide con eso (o le pide al amigo que haga público el perfil).
-      let recorded: boolean;
-      try {
-        recorded = recordAccessRequest(betaAccessFilePath(process.env), { steam32: accountId, personaName: profile.personaName, avatarUrl: profile.avatarUrl, at: Date.now() });
-      } catch {
-        recorded = false; // el archivo no se pudo leer o escribir: jamás se dice que el pedido llegó
-      }
-      await saveAccessRequestNotice({ personaName: profile.personaName, avatarUrl: profile.avatarUrl, profileAvailable: profile.available, recorded });
+      // Steam ya confirmó quién es: se sella esa identidad en una cookie de una hora. NO se registra ningún pedido todavía: la persona debe
+      // escribir «¿Quién eres y de dónde nos conoces?» y enviarlo ella misma desde /access-denied.
+      await saveAccessRequestNotice({ accountId, personaName: profile.personaName, avatarUrl: profile.avatarUrl, profileAvailable: profile.available });
     },
   })(request);
 }

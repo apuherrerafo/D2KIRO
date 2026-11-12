@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountAvatar } from "@/components/app-shell/AccountAvatar";
+import { AdminBell } from "@/features/beta-admin/AdminBell";
 import { useAccountProfile, type AccountProfile } from "@/lib/use-account-profile";
 
 interface NavLinkDef {
@@ -62,6 +63,12 @@ function VisitorBar() {
   );
 }
 
+// La campanita de solicitudes existe SOLO para el administrador de la beta (el servidor además responde 403 a cualquier otra cuenta).
+function AdminBellSlot({ profile }: { profile: AccountProfile | null }) {
+  if (profile?.isAdmin !== true) return null;
+  return <AdminBell />;
+}
+
 function MemberBar({ pathname }: { pathname: string | null }) {
   const state = useAccountProfile(true);
   const profile = state.kind === "ready" ? state.profile : null;
@@ -79,6 +86,7 @@ function MemberBar({ pathname }: { pathname: string | null }) {
           ))}
         </ul>
         <div className="ap-nav-account">
+          <AdminBellSlot profile={profile} />
           <Link href={ACCOUNT_HREF} className="ap-account-chip" aria-current={isActiveLink(pathname, ACCOUNT_HREF) ? "page" : undefined}>
             <AccountAvatar avatarUrl={profile?.avatarUrl ?? null} />
             <span className="ap-account-name">{accountLabel(profile)}</span>

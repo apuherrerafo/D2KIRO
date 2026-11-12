@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 // Invitaciones de la beta privada administradas desde la web. Un archivo JSON en el disco persistente (junto a la SQLite del motor):
@@ -10,6 +10,11 @@ import { dirname, join } from "node:path";
 const STEAM32_MAX = 4_294_967_295;
 export const MAX_PENDING_REQUESTS = 100;
 export const MAX_INVITED = 500;
+export const MAX_REJECTED = 200;
+export const MAX_REQUEST_MESSAGE = 500;
+export const MIN_REQUEST_MESSAGE = 10;
+/** Tras un rechazo, la misma cuenta puede volver a pedir acceso pasado este tiempo (corta el spam sin cerrar la puerta para siempre). */
+export const REJECTED_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export interface AccessEntry {
   steam32: number;
@@ -17,16 +22,20 @@ export interface AccessEntry {
   avatarUrl: string | null;
   /** ms epoch del pedido (requests) o de la aprobación (invited). */
   at: number;
+  /** «¿Quién eres y de dónde nos conoces?», escrito por la persona. Ausente en pedidos anteriores a la solicitud con mensaje. */
+  message?: string;
 }
 
 export interface AccessStore {
   version: 1;
   invited: AccessEntry[];
   requests: AccessEntry[];
+  /** Pedidos rechazados (más recientes al final): sirven para decirle «rechazada» a la persona y para el enfriamiento anti-spam. */
+  rejected: AccessEntry[];
 }
 
 export function emptyStore(): AccessStore {
-  return { version: 1, invited: [], requests: [] };
+  return { version: 1, invited: [], requests: [], rejected: [] };
 }
 
 export function betaAccessFilePath(env: Record<string, string | undefined>): string {
@@ -41,14 +50,16 @@ function isEntry(value: unknown): value is AccessEntry {
   return typeof entry.steam32 === "number" && Number.isInteger(entry.steam32) && entry.steam32 >= 1 && entry.steam32 <= STEAM32_MAX
     && typeof entry.personaName === "string" && entry.personaName.length > 0 && entry.personaName.length <= 100
     && (entry.avatarUrl === null || typeof entry.avatarUrl === "string")
-    && typeof entry.at === "number" && Number.isFinite(entry.at);
+    && typeof entry.at === "number" && Number.isFinite(entry.at)
+    && (entry.message === undefined || (typeof entry.message === "string" && entry.message.length <= MAX_REQUEST_MESSAGE));
 }
 
 export function parseAccessStore(raw: string): AccessStore {
   try {
     const data = JSON.parse(raw) as Record<string, unknown>;
     if (data.version !== 1 || !Array.isArray(data.invited) || !Array.isArray(data.requests)) return emptyStore();
-    return { version: 1, invited: data.invited.filter(isEntry).slice(0, MAX_INVITED), requests: data.requests.filter(isEntry).slice(0, MAX_PENDING_REQUESTS) };
+    const rejected = Array.isArray(data.rejected) ? data.rejected.filter(isEntry).slice(-MAX_REJECTED) : [];
+    return { version: 1, invited: data.invited.filter(isEntry).slice(0, MAX_INVITED), requests: data.requests.filter(isEntry).slice(0, MAX_PENDING_REQUESTS), rejected };
   } catch {
     return emptyStore();
   }
@@ -93,8 +104,16 @@ function loadForWrite(path: string): AccessStore {
   return parseAccessStore(raw);
 }
 
+// Respaldo único del archivo tal como estaba antes de que el código de solicitudes con mensaje lo reescribiera por primera vez
+// (el formato es compatible hacia atrás; esto es el seguro para volver atrás). Nunca se sobrescribe.
+function backupOnce(path: string): void {
+  const backup = `${path}.bak-v1`;
+  if (existsSync(path) && !existsSync(backup)) copyFileSync(path, backup);
+}
+
 export function writeAccessStore(path: string, store: AccessStore): void {
   mkdirSync(dirname(path), { recursive: true });
+  backupOnce(path);
   const temporary = `${path}.${process.pid}.tmp`;
   writeFileSync(temporary, JSON.stringify(store), { encoding: "utf8", mode: 0o600 });
   renameSync(temporary, path);
@@ -138,11 +157,11 @@ export function applyAccessAction(path: string, action: AccessAction, ref: strin
   if (target === undefined) return false;
   const requests = store.requests.filter((entry) => entry !== target);
   if (action === "reject") {
-    writeAccessStore(path, { ...store, requests });
+    writeAccessStore(path, { ...store, requests, rejected: [...store.rejected.filter((entry) => entry.steam32 !== target.steam32), { ...target, at: now }].slice(-MAX_REJECTED) });
     return true;
   }
   if (store.invited.length >= MAX_INVITED) return false;
-  writeAccessStore(path, { ...store, requests, invited: [...store.invited.filter((entry) => entry.steam32 !== target.steam32), { ...target, at: now }] });
+  writeAccessStore(path, { ...store, requests, rejected: store.rejected.filter((entry) => entry.steam32 !== target.steam32), invited: [...store.invited.filter((entry) => entry.steam32 !== target.steam32), { ...target, at: now }] });
   return true;
 }
 
@@ -151,8 +170,40 @@ export interface PublicAccessEntry {
   personaName: string;
   avatarUrl: string | null;
   at: number;
+  message: string | null;
 }
 
 export function toPublicEntries(entries: readonly AccessEntry[], secret: string): PublicAccessEntry[] {
-  return entries.map((entry) => ({ ref: accessRef(entry.steam32, secret), personaName: entry.personaName, avatarUrl: entry.avatarUrl, at: entry.at }));
+  return entries.map((entry) => ({ ref: accessRef(entry.steam32, secret), personaName: entry.personaName, avatarUrl: entry.avatarUrl, at: entry.at, message: entry.message ?? null }));
+}
+
+export type AccessStatus = { kind: "invited" } | { kind: "pending"; at: number; message: string | null } | { kind: "rejected"; at: number } | { kind: "none" };
+
+/** Estado de una cuenta ya verificada por Steam frente a la beta (lo que ve la persona en «Pide tu acceso a la beta»). */
+export function accessStatusOf(path: string, steam32: number): AccessStatus {
+  const store = readAccessStore(path);
+  if (store.invited.some((entry) => entry.steam32 === steam32)) return { kind: "invited" };
+  const pending = store.requests.find((entry) => entry.steam32 === steam32);
+  if (pending !== undefined) return { kind: "pending", at: pending.at, message: pending.message ?? null };
+  const rejected = store.rejected.find((entry) => entry.steam32 === steam32);
+  if (rejected !== undefined) return { kind: "rejected", at: rejected.at };
+  return { kind: "none" };
+}
+
+export type SubmitResult = "recorded" | "already_invited" | "already_pending" | "cooldown";
+
+/**
+ * Registra la solicitud EXPLÍCITA de una cuenta verificada por Steam, con su mensaje. Una cuenta tiene como máximo una solicitud pendiente;
+ * tras un rechazo debe esperar REJECTED_COOLDOWN_MS. Lanza si el archivo no se puede leer (la escritura se niega).
+ */
+export function submitAccessRequest(path: string, entry: AccessEntry, now: number): SubmitResult {
+  const store = loadForWrite(path);
+  if (store.invited.some((item) => item.steam32 === entry.steam32)) return "already_invited";
+  if (store.requests.some((item) => item.steam32 === entry.steam32)) return "already_pending";
+  const previous = store.rejected.find((item) => item.steam32 === entry.steam32);
+  if (previous !== undefined && now - previous.at < REJECTED_COOLDOWN_MS) return "cooldown";
+  const others = store.requests;
+  const kept = others.length >= MAX_PENDING_REQUESTS ? [...others].sort((a, b) => a.at - b.at).slice(others.length - MAX_PENDING_REQUESTS + 1) : others;
+  writeAccessStore(path, { ...store, requests: [...kept, entry], rejected: store.rejected.filter((item) => item.steam32 !== entry.steam32) });
+  return "recorded";
 }

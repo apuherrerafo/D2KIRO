@@ -14,7 +14,7 @@ Solo tú (la cuenta administradora) ves **Invitar amigos**. Un amigo aprobado nu
 
 1. Abre el enlace.
 2. **Entrar con Steam**. Steam le pide confirmar que es él, en la página de Steam (D2KIRO nunca ve su contraseña).
-3. Si todavía no lo aprobaste, ve «Tu acceso está pendiente» y su solicitud ya te llegó sola (no tiene que buscar su SteamID). Cuando le avises, vuelve a entrar con Steam («Ya me aprobaron, entrar»).
+3. Si todavía no lo aprobaste, ve «Pide tu acceso a la beta»: escribe quién es y de dónde te conoce y pulsa «Enviar solicitud» (no tiene que buscar su SteamID). Te llega a la campanita de D2KIRO (solo con la app abierta). Cuando lo apruebes, su pantalla se lo avisa y entra con Steam («Ya me aprobaron, entrar»).
 4. Arma su **Mi pool**, usa el **Simulador**.
 5. Si quiere **Draft en vivo**: en esa pantalla, botón de descarga del Companion → abre el archivo descargado con doble clic. Es un archivo por persona: no se lo pases a otro.
 

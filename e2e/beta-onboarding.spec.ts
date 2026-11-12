@@ -56,12 +56,12 @@ test.describe("beta privada: invitación desde la web", () => {
     await expect(page.getByTestId("beta-admin-page")).not.toContainText(String(FRIEND_ACCOUNT));
     await page.screenshot({ path: resolve(OUT, "2-admin-con-solicitud.png"), fullPage: true });
 
-    // 3 · Sin aprobar, el amigo no entra a nada: cae en «Tu acceso está pendiente» y se le dice qué hacer.
+    // 3 · Sin aprobar, el amigo no entra a nada: cae en «Pide tu acceso a la beta» y se le dice qué hacer.
     const friend = await friendContext(browser);
     const friendPage = await friend.newPage();
     await friendPage.goto("/meta");
     await expect(friendPage).toHaveURL(/\/access-denied$/);
-    await expect(friendPage.getByRole("heading", { name: "Tu acceso está pendiente" })).toBeVisible();
+    await expect(friendPage.getByRole("heading", { name: "Pide tu acceso a la beta" })).toBeVisible();
     await expect(friendPage.getByRole("link", { name: "Entrar con Steam" })).toBeVisible();
     await friendPage.screenshot({ path: resolve(OUT, "3-amigo-acceso-pendiente.png"), fullPage: true });
 

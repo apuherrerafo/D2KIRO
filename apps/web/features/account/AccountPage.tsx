@@ -119,7 +119,12 @@ function ProfileSection({ state }: { state: ReturnType<typeof useAccountProfile>
 
 function AdminShortcut({ state }: { state: ReturnType<typeof useAccountProfile> }) {
   if (state.kind !== "ready" || !state.profile.isAdmin) return null;
-  return <AppLink href="/admin/invitaciones" testId="account-invite-friends">Invitar amigos</AppLink>;
+  return (
+    <>
+      <AppLink href="/admin/invitaciones" testId="account-invite-friends">Invitar amigos</AppLink>
+      <AppLink href="/admin/feedback" testId="account-feedback-inbox">Bandeja de feedback</AppLink>
+    </>
+  );
 }
 
 function BaselineSection({ state }: { state: SettingsState }) {

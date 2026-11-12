@@ -148,6 +148,13 @@ export default defineConfig({
         BETA_ALLOWED_STEAM_IDS: E2E_ACCOUNT_ID,
         BETA_ADMIN_STEAM_IDS: E2E_ACCOUNT_ID,
         BETA_ACCESS_FILE: join(runtime.dir, "beta-access.json"),
+        // Feedback de la beta (e2e/community-beta.spec.ts): su archivo propio y un bucket S3 SIMULADO en loopback que levanta la propia prueba.
+        // No es R2: prueba la firma, la subida y la lectura privada, no el servicio real.
+        FEEDBACK_FILE: join(runtime.dir, "feedback.json"),
+        FEEDBACK_S3_ENDPOINT: "http://127.0.0.1:9199",
+        FEEDBACK_S3_BUCKET: "d2kiro-feedback-e2e",
+        FEEDBACK_S3_ACCESS_KEY_ID: "e2e-key-id",
+        FEEDBACK_S3_SECRET_ACCESS_KEY: "e2e-key-secret-not-real",
         // Cero red: el perfil público de Steam apunta a un puerto sin servicio, así el E2E nunca consulta a Steam ni a perfiles reales.
         STEAM_COMMUNITY_ORIGIN: "http://127.0.0.1:9",
       },
