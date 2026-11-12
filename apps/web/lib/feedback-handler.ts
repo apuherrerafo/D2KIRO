@@ -141,7 +141,7 @@ async function parseReport(request: Request): Promise<ParseResult> {
   if (raw === null) return { ok: false, status: 400, error: "bad_request" };
   let form: FormData;
   try {
-    form = await new Response(raw, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
+    form = await new Response(new Blob([raw as BlobPart]), { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
   } catch {
     return { ok: false, status: 400, error: "bad_request" };
   }
