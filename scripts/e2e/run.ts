@@ -133,23 +133,34 @@ async function main(): Promise<number> {
   });
   await waitForHttp(`http://127.0.0.1:${enginePort}/health`, "E2E engine", 120_000);
 
-  const nextCli = resolve(root, "apps/web/node_modules/next/dist/bin/next");
-  const build = start(process.execPath, [nextCli, "build"], resolve(root, "apps/web"), {
+  // Mismo entorno de la web que usa playwright.config.ts (webServer): el lanzador del CI (`bun run e2e`) no lo tenia, y las pruebas de la beta
+  // (invitaciones, campanita, feedback, "Salir", ruta privada) fallaban SOLO en CI porque faltaban PUBLIC_BASE_URL, los admins y el bucket simulado.
+  const webEnv: NodeJS.ProcessEnv = {
     ...env,
     ENGINE_INTERNAL_URL: `http://127.0.0.1:${enginePort}`,
     SESSION_SECRET: sessionSecret,
     INTERNAL_AUTH_SECRET: internalAuthSecret,
     NEXT_DIST_DIR: ".next-e2e",
-  });
+    // Origen publico confiable, como en Railway: sin el, las redirecciones a /login fallan cerradas con 503.
+    PUBLIC_BASE_URL: `http://127.0.0.1:${webPort}`,
+    BETA_ALLOWED_STEAM_IDS: "999000001",
+    BETA_ADMIN_STEAM_IDS: "999000001",
+    BETA_ACCESS_FILE: resolve(runtime.dir, "beta-access.json"),
+    FEEDBACK_FILE: resolve(runtime.dir, "feedback.json"),
+    FEEDBACK_S3_ENDPOINT: "http://127.0.0.1:9199",
+    FEEDBACK_S3_ALLOW_HTTP: "1",
+    FEEDBACK_S3_BUCKET: "d2kiro-feedback-e2e",
+    FEEDBACK_S3_ACCESS_KEY_ID: "e2e-key-id",
+    FEEDBACK_S3_SECRET_ACCESS_KEY: "e2e-key-secret-not-real",
+    // Cero red: el perfil publico de Steam apunta a un puerto sin servicio.
+    STEAM_COMMUNITY_ORIGIN: "http://127.0.0.1:9",
+  };
+
+  const nextCli = resolve(root, "apps/web/node_modules/next/dist/bin/next");
+  const build = start(process.execPath, [nextCli, "build"], resolve(root, "apps/web"), webEnv);
   await waitForExit(build, "E2E web build");
 
-  const web = start(process.execPath, [nextCli, "start", "-p", String(webPort)], resolve(root, "apps/web"), {
-    ...env,
-    ENGINE_INTERNAL_URL: `http://127.0.0.1:${enginePort}`,
-    SESSION_SECRET: sessionSecret,
-    INTERNAL_AUTH_SECRET: internalAuthSecret,
-    NEXT_DIST_DIR: ".next-e2e",
-  });
+  const web = start(process.execPath, [nextCli, "start", "-p", String(webPort)], resolve(root, "apps/web"), webEnv);
   // `/simulator` is session-gated and correctly returns 503 before Playwright installs the
   // sealed fixture cookie.  `/healthz` establishes server readiness without bypassing that gate.
   await waitForHttp(`http://127.0.0.1:${webPort}/healthz`, "E2E web", 120_000);

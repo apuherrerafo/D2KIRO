@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppNotice } from "@/components/app-shell/AppNotice";
 import { PageHead } from "@/components/app-shell/PageHead";
 import { STATUS_LABELS, TYPE_LABELS, TYPE_ORDER, type FeedbackKind, type FeedbackState } from "./labels";
@@ -227,10 +227,28 @@ export function FeedbackInbox() {
   const [status, setStatus] = useState("");
   const [state, setState] = useState<InboxState>({ kind: "loading" });
 
+  // Filtros vigentes y número de la última petición: una respuesta vieja nunca pisa a una más nueva. Antes, cambiar un estado y enseguida el filtro dejaba
+  // la lista SIN filtrar (la del cierre viejo) mientras el selector decía "En revisión" (visto en el E2E de CI: 3 mensajes en vez de 1).
+  // Los filtros vigentes se anotan en los MANEJADORES (no durante el render: el compilador de React no garantiza escrituras a refs al renderizar).
+  const filters = useRef({ type: "", status: "" });
+  const latestRequest = useRef(0);
+
+  const handleType = useCallback((value: string) => {
+    filters.current = { ...filters.current, type: value };
+    setType(value);
+  }, []);
+
+  const handleStatus = useCallback((value: string) => {
+    filters.current = { ...filters.current, status: value };
+    setStatus(value);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
+    latestRequest.current += 1;
+    const mine = latestRequest.current;
     void loadInbox(type, status).then((next) => {
-      if (!cancelled) setState(next);
+      if (!cancelled && mine === latestRequest.current) setState(next);
     });
     return () => {
       cancelled = true;
@@ -239,8 +257,11 @@ export function FeedbackInbox() {
 
   const handleChange = useCallback(async (id: string, next: FeedbackState) => {
     await changeStatus(id, next);
-    setState(await loadInbox(type, status));
-  }, [type, status]);
+    latestRequest.current += 1;
+    const mine = latestRequest.current;
+    const reloaded = await loadInbox(filters.current.type, filters.current.status);
+    if (mine === latestRequest.current) setState(reloaded);
+  }, []);
 
   function handleChangePress(id: string, next: FeedbackState) {
     void handleChange(id, next);
@@ -249,7 +270,7 @@ export function FeedbackInbox() {
   return (
     <main className="ap-main" data-testid="feedback-inbox">
       <PageHead kicker="Beta privada" title="Bandeja de feedback" lede="Lo que cuentan tus jugadores: problemas, ideas, sugerencias y dudas, con sus capturas." />
-      <InboxContent state={state} type={type} status={status} onType={setType} onStatus={setStatus} onChange={handleChangePress} />
+      <InboxContent state={state} type={type} status={status} onType={handleType} onStatus={handleStatus} onChange={handleChangePress} />
     </main>
   );
 }
