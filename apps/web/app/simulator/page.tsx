@@ -12,6 +12,7 @@ import { BlindRoundPanel } from "@/features/random-draft-simulator/components/Bl
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { LiveBanEntryPanel, LivePendingPanel } from "@/features/random-draft-simulator/components/LiveCompanionPanel";
+import { SimulatorDegradationNotice } from "@/features/random-draft-simulator/components/SimulatorDegradationNotice";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { SimulatorTeamRoster } from "@/features/random-draft-simulator/components/SimulatorTeamRoster";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
@@ -113,45 +114,11 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 }
 
 // Una sola pantalla de juego por ronda: el tablero (recomendaciones, análisis con su botón «Elegir», buscador) y, secundario, el roster
-// compacto. El Copilot ya no es un segundo tablero: su detalle (decisión V4, creencias de rol, feedback) queda en un plegable de diagnóstico.
+// compacto. No hay un segundo Copilot debajo: la recomendación humana viene SIEMPRE de RecommendationSet/v2 y el tablero es su único lugar.
+// Los avisos de degradación (señales parciales, posiciones en conflicto) se dicen arriba del tablero, no en un panel aparte.
 // BanPhasePanel "y siguientes": durante blind_round/round_revealed lee `draftState.banned` (incluye los Conflict_Ban que se hayan agregado).
-interface CoachDetailsProps extends PhaseViewProps {
-  phase: Extract<Session["state"]["phase"], { type: "blind_round" | "round_revealed" }>;
-}
-
-function CoachDetails({ session, heroCatalog, phase }: CoachDetailsProps) {
-  const { recommendations, coach, previewStatus, config, currentDecision } = session.state;
-  return (
-    <details className="sl-coach-details" data-testid="coach-details">
-      <summary>Detalle del coach (diagnóstico)</summary>
-      {/* R1 S5 (blockers 1+8): la recomendación humana del simulador viene SIEMPRE de RecommendationSet/v2 -- ENABLE_PRO_DRAFTER
-          no tiene ningún efecto sobre este panel. AP Ranked Roles V1 / Wave 2: sobre ese V2 el motor construye la salida del Coach. */}
-      <CopilotPanel
-        contractOnly
-        recommendations={recommendations}
-        coach={coach}
-        currentDecision={currentDecision}
-        heroCatalog={heroCatalog}
-        previewStatus={previewStatus}
-        onRetryPreview={session.actions.retryPreview}
-        onAssignOwnPosition={session.actions.assignOwnPosition}
-        onSuggestedHeroIdsChange={noopSetHighlightedHeroIds}
-        playerPosition={config?.playerPosition}
-        partyPositions={config?.partyPositions}
-        roundPickState={phase.type === "blind_round" ? {
-          round: phase.round,
-          // PD-026/PD-027: keyed by POSITION directly -- Object.keys/values already gives exactly
-          // the shape RoundPickState wants, no round-slot arithmetic needed.
-          lockedPositions: Object.keys(phase.lockedUserPicks).map(Number) as (1 | 2 | 3 | 4 | 5)[],
-          lockedHeroesByPosition: phase.lockedUserPicks,
-        } : undefined}
-      />
-    </details>
-  );
-}
-
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, config, currentDecision, requestedTarget, humanActionability, teamBoard, teamBoardStatus } = session.state;
+  const { phase, draftState, config, currentDecision, requestedTarget, humanActionability, teamBoard, teamBoardStatus, recommendations, coach } = session.state;
   // Antes del `return null` de abajo: un hook no puede quedar detrás de un return condicional.
   const roundNumber = phase.type === "blind_round" || phase.type === "round_revealed" ? phase.round : 0;
   useScrollToTop(roundNumber);
@@ -164,6 +131,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      <SimulatorDegradationNotice degradations={[...(recommendations?.degradations ?? []), ...(coach?.meta.degradations ?? [])]} />
       <BlindRoundPanel
         phase={phase}
         draftState={draftState}
@@ -179,7 +147,6 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         onRetryBoard={session.actions.retryPreview}
       />
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
-      <CoachDetails session={session} heroCatalog={heroCatalog} phase={phase} />
     </div>
   );
 }

@@ -8,7 +8,6 @@ import { expect, test } from "./support/failure-evidence";
 // Los escenarios son los deterministas de la certificación 4A.3 (semilla + bans curados): mismas entradas, mismo motor, mismas recomendaciones.
 // Capturas en docs/research/simulator-playable/<carpeta>/.
 
-test.use({ coachDetailsOpen: false });
 
 const OUT = resolve(process.cwd(), process.env.SIM_PLAYABLE_OUT ?? "docs/research/simulator-playable/after");
 mkdirSync(OUT, { recursive: true });
@@ -344,7 +343,11 @@ for (const view of VIEWPORTS) {
       await expect(page.getByText("Análisis del candidato")).toHaveCount(1);
       await expect(page.getByRole("button", { name: CHOOSE_BUTTON })).toHaveCount(1);
       await expect(page.getByTestId("team-roster")).toHaveCount(1);
-      await expect(page.getByTestId("copilot-panel")).not.toBeVisible();
+      // El Copilot duplicado no existe en el DOM (ni plegado): ni panel, ni plegable de diagnóstico, ni su título.
+      await expect(page.getByTestId("copilot-panel")).toHaveCount(0);
+      await expect(page.getByTestId("coach-details")).toHaveCount(0);
+      await expect(page.getByText("Detalle del coach")).toHaveCount(0);
+      await expect(page.getByText("diagnóstico", { exact: false })).toHaveCount(0);
       const overflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
       expect(overflow, "sin scroll horizontal").toBeLessThanOrEqual(1);
 

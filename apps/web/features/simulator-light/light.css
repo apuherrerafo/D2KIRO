@@ -126,10 +126,6 @@
 .sl-roster-seat-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sl-roster-tag { color: var(--r3-muted); }
 /* detalle del coach (diagnóstico): tercer nivel, plegado por defecto */
-.sl-coach-details { background: var(--r3-panel); border: 1px solid var(--r3-line-strong); border-radius: 4px; }
-.sl-coach-details > summary { cursor: pointer; font: 600 14px/1.2 var(--f-plex); min-height: 44px; padding: 12px 16px; }
-.sl-coach-details > summary:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: -2px; }
-.sl-coach-details[open] > :not(summary) { margin: 0 16px 16px; }
 
 /* reflow: bajo 1024 px (o con zoom 200 % / 400 %) el análisis baja bajo las columnas y las columnas se apilan */
 @media (max-width: 1023px) {
