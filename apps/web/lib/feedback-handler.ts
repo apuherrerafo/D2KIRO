@@ -102,12 +102,46 @@ interface ParsedReport {
 
 type ParseResult = { ok: true; report: ParsedReport } | { ok: false; status: number; error: string };
 
+/** Lee el cuerpo acumulando hasta `limit` bytes; en cuanto se pasa, cancela la lectura y avisa. null = sin cuerpo o ilegible. */
+async function readBodyBounded(request: Request, limit: number): Promise<Uint8Array | "too_large" | null> {
+  if (request.body === null) return null;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel().catch(() => undefined);
+        return "too_large";
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
 async function parseReport(request: Request): Promise<ParseResult> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { ok: false, status: 413, error: "too_large" };
+  // El content-length lo declara el cliente: una petición chunked no lo trae y una mentirosa lo falsea. El límite REAL se aplica al leer el cuerpo,
+  // byte a byte, y se corta en cuanto se pasa (revisión independiente: antes `request.formData()` materializaba todo el cuerpo en memoria primero).
+  const raw = await readBodyBounded(request, MAX_BODY_BYTES);
+  if (raw === "too_large") return { ok: false, status: 413, error: "too_large" };
+  if (raw === null) return { ok: false, status: 400, error: "bad_request" };
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await new Response(raw, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
   } catch {
     return { ok: false, status: 400, error: "bad_request" };
   }

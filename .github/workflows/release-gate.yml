@@ -1,0 +1,25 @@
+name: release-gate
+
+# Compuerta propia de release/mvp-beta (lo que Railway Preview publica). Separada de ci.yml a proposito: se vuelve a evaluar al EDITAR la descripcion del PR
+# (donde se declaran las revisiones), sin relanzar los ~7 minutos de CI completo.
+on:
+  pull_request:
+    branches: [release/mvp-beta]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  independent-review:
+    name: independent-review
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # El cuerpo llega por variable de entorno, nunca interpolado en el script (evita inyeccion por descripcion de PR).
+      - name: Two independent reviews are declared in the PR description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash scripts/ci/check-independent-review.sh

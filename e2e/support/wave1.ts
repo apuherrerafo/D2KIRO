@@ -58,6 +58,15 @@ export interface SnapshotBody {
   stopReason?: string;
 }
 
+const RECORDERS = new WeakMap<Page, Recorder>();
+
+/** The recorder attached to this page by `record(page)`; the decision helpers read the Coach's V4 answers from it. */
+export function recorderOf(page: Page): Recorder {
+  const recorder = RECORDERS.get(page);
+  if (!recorder) throw new Error("record(page) must be called before reading the Coach decision");
+  return recorder;
+}
+
 const SESSION_API = /\/engine\/api\/session\/protocol(\/|$)/;
 
 /** Records every protocol-session response the page receives (the exact boundary the UI trusts). */
@@ -86,7 +95,7 @@ export function record(page: Page): Recorder {
     }
     responses.push({ url: response.url(), method: response.request().method(), status: response.status(), path: url.pathname, body });
   });
-  return {
+  const recorder: Recorder = {
     responses,
     requests,
     sessionId() {
@@ -100,6 +109,8 @@ export function record(page: Page): Recorder {
       });
     },
   };
+  RECORDERS.set(page, recorder);
+  return recorder;
 }
 
 const FORBIDDEN_KEYS = ["internalPositionAssignments", "positionsByRosterSlot", "pendingSelections", "externalPicks", "eventLog", "authorityResolutions", "sealed"];

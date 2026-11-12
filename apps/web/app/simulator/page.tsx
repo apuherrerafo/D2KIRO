@@ -33,8 +33,11 @@ function noopSetHighlightedHeroIds(): void {}
 // El roster ("Tu equipo / Equipo rival") es información, no una acción: siempre en versión compacta (una fila por equipo). Durante una ronda va
 // DEBAJO del tablero; en cualquier otra fase (bans, resumen final) se queda arriba.
 function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, config, coach } = session.state;
+  const { phase, draftState, config, coach, currentDecision } = session.state;
   if (!draftState || !config) return null;
+  // Los roles probables del rival salen de la decisión V4 (la única que el Simulador pide); `coach` (V3) queda solo como respaldo. Sin esto, al quitar
+  // el Copilot duplicado la lista de rivales dejó de mostrar "Likely PosN" aunque el motor sí los calcula.
+
   return (
     <SimulatorTeamRoster
       draftState={draftState}
@@ -42,7 +45,7 @@ function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
       phase={phase}
       heroCatalog={heroCatalog}
       ownAssignedPositions={session.state.ownAssignedPositions}
-      enemyRoleBeliefs={coach?.roleBeliefs?.enemy}
+      enemyRoleBeliefs={currentDecision?.roleBeliefs.enemy ?? coach?.roleBeliefs?.enemy}
       compact
     />
   );

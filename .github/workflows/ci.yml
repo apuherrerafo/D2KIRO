@@ -2,11 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [master, staging/private-beta-1]
+    branches: [master, staging/private-beta-1, release/mvp-beta]
   # preview/f4-canonical-light es la rama donde se fusiona todo el trabajo; hasta ahora los PR hacia
   # ella llegaban sin esta revisión automática.
   pull_request:
-    branches: [master, staging/private-beta-1, preview/f4-canonical-light]
+    branches: [master, staging/private-beta-1, preview/f4-canonical-light, release/mvp-beta]
 
 # Monorepo sin bun workspaces (ver docs/agents/journal.md): apps/engine, apps/web y la raíz
 # (scripts/) son 3 árboles de instalación independientes, cada uno con su propio bun.lock -- por

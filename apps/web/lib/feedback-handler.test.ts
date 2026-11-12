@@ -136,6 +136,25 @@ describe("enviar feedback", () => {
     expect(storage.objects.size).toBe(0);
   });
 
+  test("cuerpo chunked SIN content-length que supera el límite → 413 y la lectura se corta (no se materializa entero en memoria)", async () => {
+    // Hallazgo de las dos revisiones independientes del P0: el tope solo miraba content-length, que una petición chunked no trae.
+    let pulled = 0;
+    const chunk = new Uint8Array(1_000_000);
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled >= 60) return controller.close();
+        pulled += 1;
+        controller.enqueue(chunk);
+      },
+    });
+    const request = new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": "multipart/form-data; boundary=x" }, body: stream, duplex: "half" } as RequestInit);
+    expect(request.headers.get("content-length")).toBeNull();
+    const response = await user(ANA, fakeStorage()).POST(request);
+    expect(response.status).toBe(413);
+    expect(pulled).toBeLessThan(20); // se leyeron ~8 MB como mucho, no los 60 MB que el cliente quería mandar
+    expect(readFeedbackStore(file).items).toHaveLength(0);
+  });
+
   test("sin bucket configurado: el texto funciona, las imágenes dan 503 y nada se guarda a medias", async () => {
     expect((await (await user(ANA, null).GET()).json()).imagesEnabled).toBe(false);
     const response = await user(ANA, null).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
