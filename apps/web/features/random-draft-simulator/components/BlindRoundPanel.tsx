@@ -5,7 +5,7 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { HeroPicker } from "@/components/hero-picker/HeroPicker";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { SimulatorLightBoard } from "@/features/simulator-light";
+import { RecommendationFeedbackProvider, SimulatorLightBoard, type RecommendationFeedbackTarget } from "@/features/simulator-light";
 import type { RequestStatus, TeamCoachBoardData, TeamPosition } from "@/features/team-coach/types";
 import { BUTTON_COMPACT, BUTTON_GHOST, BUTTON_PRIMARY } from "@/features/draft/styles";
 import type { HumanActionability } from "../protocol-client";
@@ -405,6 +405,8 @@ export interface BlindRoundPanelProps {
   /** Posición propia declarada en la configuración. */
   humanPosition?: TeamPosition | null;
   onRetryBoard?: () => void;
+  /** Sesión + decisión V4 sobre la que se puede opinar (👍/👎 en el análisis). Sin él no hay control. */
+  feedbackTarget?: RecommendationFeedbackTarget | null;
 }
 
 // <Dominio><Cosa>: cubre las fases blind_round y round_revealed (Req. 3) -- selección a ciegas
@@ -422,6 +424,7 @@ export function BlindRoundPanel({
   boardStatus = "loading",
   humanPosition = null,
   onRetryBoard,
+  feedbackTarget = null,
 }: BlindRoundPanelProps) {
   if (phase.type === "round_revealed") {
     return (
@@ -436,19 +439,21 @@ export function BlindRoundPanel({
     );
   }
   return (
-    <BlindRoundActive
-      phase={phase}
-      draftState={draftState}
-      heroCatalog={heroCatalog}
-      onLockPick={onLockPick}
-      onYield={onYield}
-      humanActionability={humanActionability}
-      selectedTarget={selectedTarget}
-      onSelectTarget={onSelectTarget}
-      board={board}
-      boardStatus={boardStatus}
-      humanPosition={humanPosition}
-      onRetryBoard={onRetryBoard}
-    />
+    <RecommendationFeedbackProvider target={feedbackTarget}>
+      <BlindRoundActive
+        phase={phase}
+        draftState={draftState}
+        heroCatalog={heroCatalog}
+        onLockPick={onLockPick}
+        onYield={onYield}
+        humanActionability={humanActionability}
+        selectedTarget={selectedTarget}
+        onSelectTarget={onSelectTarget}
+        board={board}
+        boardStatus={boardStatus}
+        humanPosition={humanPosition}
+        onRetryBoard={onRetryBoard}
+      />
+    </RecommendationFeedbackProvider>
   );
 }

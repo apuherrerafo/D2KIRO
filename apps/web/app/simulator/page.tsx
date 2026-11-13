@@ -131,6 +131,12 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   // field of the same decision.
   const decisionView = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.viewedPosition : null;
   const selectedTarget = requestedTarget ?? decisionView;
+  // 👍/👎 sobre la decisión V4 vigente (la misma identidad de estado que ve el motor): sin decisión todavía, no hay nada sobre qué opinar.
+  const feedbackTarget = currentDecision === null ? null : {
+    sessionId: currentDecision.sessionId,
+    stateIdentity: currentDecision.meta.basedOn.stateIdentity,
+    rulesetVersion: currentDecision.meta.readiness?.empiricalPatchClaim?.patch ?? currentDecision.meta.readiness?.rulesetTarget ?? null,
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -148,6 +154,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         boardStatus={teamBoardStatus}
         humanPosition={config?.playerPosition ?? null}
         onRetryBoard={session.actions.retryPreview}
+        feedbackTarget={feedbackTarget}
       />
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
     </div>

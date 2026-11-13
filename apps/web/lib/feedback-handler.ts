@@ -25,6 +25,10 @@ export interface FeedbackDependencies {
   storage: ObjectStorage | null;
   newId?: () => string;
   limiter?: RateLimiter;
+  /** Máximo de lecturas de cuerpo simultáneas (inyectable en pruebas; por defecto, compartido por todo el proceso). */
+  readGate?: ReadGate;
+  /** Plazo total para recibir el cuerpo, en ms (inyectable en pruebas). */
+  readDeadlineMs?: number;
 }
 
 const sharedLimiter = createRateLimiter(10, 60 * 60 * 1000);
@@ -102,46 +106,128 @@ interface ParsedReport {
 
 type ParseResult = { ok: true; report: ParsedReport } | { ok: false; status: number; error: string };
 
-/** Lee el cuerpo acumulando hasta `limit` bytes; en cuanto se pasa, cancela la lectura y avisa. null = sin cuerpo o ilegible. */
-async function readBodyBounded(request: Request, limit: number): Promise<Uint8Array | "too_large" | null> {
-  if (request.body === null) return null;
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > limit) {
-        await reader.cancel().catch(() => undefined);
-        return "too_large";
-      }
-      chunks.push(value);
-    }
-  } catch {
-    return null;
-  }
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return out;
+// ---- Lectura acotada del cuerpo (defensa contra memoria, goteo y ráfagas) ---------------------------------------------------------------------
+// Cada capa responde a un ataque concreto; todas se prueban en feedback-handler.test.ts:
+//  1. content-type multipart/form-data con `boundary` válido, ANTES de leer un solo byte (si no, 415).
+//  2. Tope real de bytes mientras se lee (el content-length lo declara el cliente: una petición chunked no lo trae y una mentirosa lo falsea) -> 413.
+//  3. Plazo TOTAL de lectura: un cliente que gotea bytes no retiene conexión ni memoria indefinidamente -> 408.
+//  4. Un máximo de lecturas simultáneas en todo el proceso: N conexiones lentas o grandes no suman N x 7.7 MB -> 503 (con Retry-After).
+//  5. Tope de partes multipart contando el `boundary` mientras llega (miles de campos diminutos caben bajo el tope de bytes) -> 400, sin parsear.
+//  6. Una sola copia en memoria: los trozos se entregan tal cual a un Blob (antes: trozos + copia contigua + Blob).
+export const MAX_FORM_PARTS = 30;
+export const READ_DEADLINE_MS = 20_000;
+export const MAX_CONCURRENT_READS = 4;
+
+export interface ReadGate {
+  tryEnter(): boolean;
+  leave(): void;
 }
 
-async function parseReport(request: Request): Promise<ParseResult> {
+export function createReadGate(max: number): ReadGate {
+  let active = 0;
+  return {
+    tryEnter() {
+      if (active >= max) return false;
+      active += 1;
+      return true;
+    },
+    leave() {
+      active = Math.max(0, active - 1);
+    },
+  };
+}
+
+const sharedReadGate = createReadGate(MAX_CONCURRENT_READS);
+
+function multipartBoundary(contentType: string | null): string | null {
+  if (contentType === null || !/^multipart\/form-data\s*;/i.test(contentType)) return null;
+  const match = /boundary=(?:"([^"]{1,70})"|([^;\s]{1,70}))/i.exec(contentType);
+  const boundary = match?.[1] ?? match?.[2] ?? null;
+  return boundary !== null && boundary.length > 0 ? boundary : null;
+}
+
+/** Cuenta cuántas veces aparece `--boundary` en el flujo sin juntar los trozos (conserva solo la cola que podría cruzar de un trozo al siguiente). */
+function createBoundaryCounter(boundary: string): (chunk: Uint8Array) => number {
+  const needle = Buffer.from(`--${boundary}`);
+  let tail = Buffer.alloc(0);
+  let count = 0;
+  return (chunk) => {
+    const window = Buffer.concat([tail, chunk]);
+    let from = 0;
+    for (;;) {
+      const at = window.indexOf(needle, from);
+      if (at === -1) break;
+      count += 1;
+      from = at + needle.length;
+    }
+    tail = window.subarray(Math.max(0, window.length - needle.length + 1));
+    return count;
+  };
+}
+
+type BodyRead = { kind: "ok"; body: Blob } | { kind: "too_large" } | { kind: "too_many_parts" } | { kind: "timeout" } | { kind: "unreadable" };
+
+async function readBodyBounded(request: Request, limit: number, boundary: string, deadlineMs: number): Promise<BodyRead> {
+  if (request.body === null) return { kind: "unreadable" };
+  const reader = request.body.getReader();
+  const countParts = createBoundaryCounter(boundary);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), deadlineMs);
+  });
+  try {
+    for (;;) {
+      const step = await Promise.race([reader.read(), expired]);
+      if (step === "expired") {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "timeout" };
+      }
+      if (step.done) break;
+      total += step.value.byteLength;
+      if (total > limit) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "too_large" };
+      }
+      if (countParts(step.value) > MAX_FORM_PARTS) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "too_many_parts" };
+      }
+      chunks.push(step.value);
+    }
+  } catch {
+    return { kind: "unreadable" };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+  return { kind: "ok", body: new Blob(chunks as BlobPart[]) };
+}
+
+interface ReadPolicy {
+  gate: ReadGate;
+  deadlineMs: number;
+}
+
+async function parseReport(request: Request, policy: ReadPolicy): Promise<ParseResult> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { ok: false, status: 413, error: "too_large" };
-  // El content-length lo declara el cliente: una petición chunked no lo trae y una mentirosa lo falsea. El límite REAL se aplica al leer el cuerpo,
-  // byte a byte, y se corta en cuanto se pasa (revisión independiente: antes `request.formData()` materializaba todo el cuerpo en memoria primero).
-  const raw = await readBodyBounded(request, MAX_BODY_BYTES);
-  if (raw === "too_large") return { ok: false, status: 413, error: "too_large" };
-  if (raw === null) return { ok: false, status: 400, error: "bad_request" };
+  const boundary = multipartBoundary(request.headers.get("content-type"));
+  if (boundary === null) return { ok: false, status: 415, error: "unsupported_media_type" };
+  if (!policy.gate.tryEnter()) return { ok: false, status: 503, error: "busy" };
+  let read: BodyRead;
+  try {
+    read = await readBodyBounded(request, MAX_BODY_BYTES, boundary, policy.deadlineMs);
+  } finally {
+    policy.gate.leave();
+  }
+  if (read.kind === "too_large") return { ok: false, status: 413, error: "too_large" };
+  if (read.kind === "too_many_parts") return { ok: false, status: 400, error: "too_many_parts" };
+  if (read.kind === "timeout") return { ok: false, status: 408, error: "request_timeout" };
+  if (read.kind === "unreadable") return { ok: false, status: 400, error: "bad_request" };
   let form: FormData;
   try {
-    form = await new Response(new Blob([raw as BlobPart]), { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
+    form = await new Response(read.body, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
   } catch {
     return { ok: false, status: 400, error: "bad_request" };
   }
@@ -205,8 +291,8 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
       if (!limiter.allow(String(session.accountId), dependencies.now())) return json({ error: "rate_limited" }, 429);
       if (countRecentByAuthor(file, session.accountId, dependencies.now() - 60 * 60 * 1000) >= 30) return json({ error: "rate_limited" }, 429);
 
-      const parsed = await parseReport(request);
-      if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+      const parsed = await parseReport(request, { gate: dependencies.readGate ?? sharedReadGate, deadlineMs: dependencies.readDeadlineMs ?? READ_DEADLINE_MS });
+      if (!parsed.ok) return parsed.status === 503 ? Response.json({ error: parsed.error }, { status: 503, headers: { "cache-control": "no-store", "retry-after": "5" } }) : json({ error: parsed.error }, parsed.status);
       const { report } = parsed;
 
       const images = await prepareImages(report.files);

@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFeedbackAdminHandlers, csvCell, toCsv } from "./feedback-admin-handler";
-import { createFeedbackHandlers, detectImageMime, type FeedbackSession } from "./feedback-handler";
+import { createFeedbackHandlers, createReadGate, detectImageMime, MAX_FORM_PARTS, type FeedbackSession, type ReadGate } from "./feedback-handler";
 import { readFeedbackStore } from "./feedback-store";
 import type { ObjectStorage } from "./object-storage";
 import { createRateLimiter } from "./rate-limit";
@@ -43,9 +43,10 @@ function env(): Record<string, string> {
   return { FEEDBACK_FILE: file, BETA_ADMIN_STEAM_IDS: String(OWNER), SESSION_SECRET: SECRET, RAILWAY_GIT_COMMIT_SHA: "a".repeat(40) };
 }
 
-function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana") {
+function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana", read: { readGate?: ReadGate; readDeadlineMs?: number } = {}) {
   const session: FeedbackSession | null = accountId === null ? null : { accountId, personaName: name };
   return createFeedbackHandlers({
+    ...read,
     session: async () => session,
     env: env(),
     publicOrigin: ORIGIN,
@@ -153,6 +154,137 @@ describe("enviar feedback", () => {
     expect(response.status).toBe(413);
     expect(pulled).toBeLessThan(20); // se leyeron ~8 MB como mucho, no los 60 MB que el cliente quería mandar
     expect(readFeedbackStore(file).items).toHaveLength(0);
+  });
+
+  describe("ataques al endpoint de subida (revisión independiente: memoria, goteo, ráfagas)", () => {
+    const BOUNDARY = "multipart/form-data; boundary=x";
+    function streamRequest(stream: ReadableStream<Uint8Array>, headers: Record<string, string> = {}): Request {
+      return new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": BOUNDARY, ...headers }, body: stream, duplex: "half" } as RequestInit);
+    }
+    function chunks(count: number, size: number, onPull?: () => void): ReadableStream<Uint8Array> {
+      let sent = 0;
+      const chunk = new Uint8Array(size);
+      return new ReadableStream<Uint8Array>({
+        pull(controller) {
+          onPull?.();
+          if (sent >= count) return controller.close();
+          sent += 1;
+          controller.enqueue(chunk);
+        },
+      });
+    }
+
+    test("content-length MENTIROSO (dice 100 bytes, manda ~60 MB): 413 y se corta la lectura", async () => {
+      let pulls = 0;
+      const request = streamRequest(chunks(60, 1_000_000, () => (pulls += 1)), { "content-length": "100" });
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(413);
+      expect(pulls).toBeLessThan(20);
+    });
+
+    test("tipo de contenido que no es multipart: 415 sin leer ni un byte del cuerpo", async () => {
+      let pulls = 0;
+      const request = streamRequest(chunks(60, 1_000_000, () => (pulls += 1)), { "content-type": "application/json" });
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(415);
+      expect(pulls).toBeLessThanOrEqual(1); // un ReadableStream pide 1 trozo al crearse (highWaterMark); el handler no lee ninguno más
+    });
+
+    test("multipart sin boundary: 415", async () => {
+      const request = streamRequest(chunks(1, 10), { "content-type": "multipart/form-data" });
+      expect((await user(ANA, fakeStorage()).POST(request)).status).toBe(415);
+    });
+
+    test("goteo lento (el cliente nunca termina de mandar): 408 dentro del plazo, la lectura se cancela", async () => {
+      let cancelled = false;
+      const stalled = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(new Uint8Array(10));
+          return new Promise(() => undefined); // jamás entrega el siguiente trozo
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      const started = Date.now();
+      const response = await user(ANA, fakeStorage(), "Ana", { readDeadlineMs: 80 }).POST(streamRequest(stalled));
+      expect(response.status).toBe(408);
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(cancelled).toBe(true);
+    });
+
+    test("ráfaga de lecturas simultáneas: pasado el máximo, 503 con Retry-After; al liberarse un cupo se acepta de nuevo", async () => {
+      const gate = createReadGate(2);
+      const open: Array<() => void> = [];
+      function held(): Request {
+        const stream = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            return new Promise<void>((resolve) => {
+              open.push(() => {
+                controller.close();
+                resolve();
+              });
+            });
+          },
+        });
+        return streamRequest(stream);
+      }
+      const handlers = user(ANA, fakeStorage(), "Ana", { readGate: gate, readDeadlineMs: 5_000 });
+      const first = handlers.POST(held());
+      const second = handlers.POST(held());
+      await Bun.sleep(30);
+      const refused = await handlers.POST(held());
+      expect(refused.status).toBe(503);
+      expect(refused.headers.get("retry-after")).toBe("5");
+      for (const release of open) release();
+      expect([(await first).status, (await second).status]).toEqual([400, 400]); // cuerpo vacío: rechazado, pero el cupo se liberó
+      expect((await handlers.POST(report({}))).status).toBe(201);
+    });
+
+    test(`miles de partes diminutas bajo el tope de bytes: 400 too_many_parts (más de ${MAX_FORM_PARTS} boundaries), sin parsear`, async () => {
+      const part = '--x\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const body = new TextEncoder().encode(part.repeat(20_000) + "--x--\r\n");
+      expect(body.byteLength).toBeLessThan(2_000_000); // cabe en el tope de bytes: solo el conteo de partes lo frena
+      const request = new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": BOUNDARY }, body });
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toBe("too_many_parts");
+      expect(readFeedbackStore(file).items).toHaveLength(0);
+    });
+
+    test("un boundary partido entre dos trozos se cuenta igual (no se evade el tope de partes)", async () => {
+      const part = '--x\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const all = new TextEncoder().encode(part.repeat(MAX_FORM_PARTS + 5) + "--x--\r\n");
+      const pieces: Uint8Array[] = [];
+      for (let at = 0; at < all.length; at += 7) pieces.push(all.slice(at, at + 7)); // trozos de 7 bytes: cada `--x` cruza fronteras
+      let index = 0;
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (index >= pieces.length) return controller.close();
+          controller.enqueue(pieces[index++]!);
+        },
+      });
+      const response = await user(ANA, fakeStorage()).POST(streamRequest(stream));
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toBe("too_many_parts");
+    });
+
+    test("un reporte legítimo con 3 capturas sigue pasando con todas las defensas activas", async () => {
+      const storage = fakeStorage();
+      const three = [PNG, JPG, WEBP].map((bytes, index) => ({ bytes, name: `${index}.bin`, type: "application/octet-stream" }));
+      expect((await user(ANA, storage).POST(report({}, three))).status).toBe(201);
+      expect(storage.objects.size).toBe(3);
+    });
+
+    test("archivo enorme con firma de imagen válida: se rechaza por tamaño y nada llega al bucket", async () => {
+      const storage = fakeStorage();
+      const huge = new Uint8Array(2_600_000);
+      huge.set(PNG);
+      const response = await user(ANA, storage).POST(report({}, [{ bytes: huge, name: "huge.png", type: "image/png" }]));
+      expect(response.status).toBe(413);
+      expect(storage.objects.size).toBe(0);
+      expect(readFeedbackStore(file).items).toHaveLength(0);
+    });
   });
 
   test("sin bucket configurado: el texto funciona, las imágenes dan 503 y nada se guarda a medias", async () => {

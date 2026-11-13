@@ -769,6 +769,31 @@ describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell,
   }, 150_000);
 });
 
+describe.skipIf(!onWindows)("Companion uninstall vs a file that Windows still holds (deterministic, repeatable -- root cause of the intermittent failure)", () => {
+  // CAUSA RAÍZ de la intermitencia: Stop-Process -Force devuelve ANTES de que Windows suelte el .exe del helper. Si el desinstalador borraba la carpeta `visual`
+  // en ese instante, el borrado fallaba (archivo en uso), el error se tragaba y la carpeta quedaba en el PC del jugador tras un desinstalado "exitoso".
+  // Antes solo se veía de vez en cuando bajo carga. Aquí el bloqueo es DETERMINISTA: otro proceso mantiene abierto un archivo de la carpeta 1,5 s.
+  test("uninstall removes the helper folder even when one of its files is held open for 1.5 s", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const visual = join(m.home, "visual");
+    mkdirSync(join(visual, "0.1.2"), { recursive: true });
+    writeFileSync(join(visual, "0.1.2", "d2kiro-visual.exe"), "stub");
+    const locked = join(visual, "0.1.2", "held.bin");
+    writeFileSync(locked, "x");
+    const holder = spawn(
+      join(process.env.SystemRoot ?? "C:\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$f=[IO.File]::Open('${locked}','Open','Read','None'); [Console]::Out.WriteLine('held'); [Console]::Out.Flush(); Start-Sleep -Milliseconds 1500; $f.Dispose()`],
+      { stdio: ["ignore", "pipe", "ignore"] },
+    );
+    children.push(holder);
+    await waitFor(() => new Promise<boolean | null>((resolve) => holder.stdout!.once("data", () => resolve(true))), 30_000);
+    const uninstall = spawnSync("cmd.exe", ["/d", "/s", "/c", `""${join(m.home, "desinstalar-d2kiro-companion.cmd")}""`], { env: testEnv(m), windowsVerbatimArguments: true, encoding: "utf8" });
+    expect(uninstall.status).toBe(0);
+    expect(existsSync(visual)).toBe(false);
+  }, 90_000);
+});
+
 // Opt-in: the REAL production path (public GitHub release, real SHA-256 pin, the real packaged exe). Off by default
 // (network + 65 MB); run with D2KIRO_REAL_RELEASE=1 after changing VISUAL_RUNTIME.
 describe.skipIf(!onWindows || process.env.D2KIRO_REAL_RELEASE !== "1")("D2KIRO Visual runtime: REAL pinned release (opt-in)", () => {
