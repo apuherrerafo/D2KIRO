@@ -1,0 +1,47 @@
+REVISION INTERNA (Claude, contexto nuevo, NO independiente del autor: mismo modelo). Prompt seguido: docs/reviews/prompts/security.md (v1). Solo lectura, no se ejecuto codigo del PR.
+
+Head revisado: 78bfb1bf450a822aec5b585247e67494f876ab93. Base: 9108f7ecdf029204c8574e573c926bd56c19cabd.
+
+ARCHIVOS MIRADOS (diff completo, no solo stat):
+- apps/web/lib/feedback-handler.ts (leido entero)
+- apps/web/lib/object-storage.ts
+- apps/web/server/companion/companion-scripts.ts
+- apps/web/server/companion/companion-installer.test.ts
+- e2e/feedback.spec.ts
+- apps/web/app/simulator/page.tsx
+- apps/web/features/simulator-light/feedback-context.tsx
+- docs/release-protection.md (entero)
+- .github/workflows/release-gate.yml
+- scripts/ci/check-gate-producers.ts
+- docs/reviews/providers.json y la lista de archivos de docs/reviews
+
+Para los archivos de CI hice `git diff` contra master y contra origin/master. Para .github, scripts/ci, policy.json y prompts, el head es identico a origin/master, salvo ci.yml y visual-regression.yml, que son posteriores en master y ajenos a este PR. Eso confirma que el workflow del gate ya esta en master.
+
+VERIFICADO SIN HALLAZGO
+- Workflow: usa pull_request_target solo con checkout de la rama predeterminada (`default_branch`), nunca del head del PR. El PR solo entra por `git fetch refs/pull/N/head`. El numero de PR y los SHA pasan por `env`.
+- Permisos del workflow: contents, checks y actions, todos en read. persist-credentials es false. Las acciones estan fijadas por SHA (checkout y setup-bun). No hay inyeccion de shell.
+- Guard de productores: valida repo y SHA con regex y falla cerrado si la API da error. Acepta solo release-gate.yml con evento pull_request_target.
+- doc vs realidad: coincide en lo que pude comprobar. Esto cubre workflow en master, politica hibrida, guard de productores, `providers.json` leido de la base y la ausencia de ACCEPTED-RISKS.json (confirmada con `ls`). El doc declara el limite del guard ("detecta y bloquea cuando corre el gate; no sustituye una GitHub App"), y no afirma nada falso en eso.
+- feedback-handler.ts:
+  - Identidad solo desde la sesion.
+  - Origen y content-type se validan antes de leer el cuerpo.
+  - Tope de bytes real, plazo total e inactividad, velocidad minima, tope de trozos y de partes. El parser de `boundary` es estricto (rechaza duplicados y `x-boundary`).
+  - El cupo global y por cuenta se libera en `finally`.
+  - Las imagenes se detectan por magic bytes.
+  - Las claves del bucket las genera el servidor (UUID mas indice), sin path traversal.
+  - Los objetos subidos tarde se borran.
+  - IMAGE valida id e indice, solo autor o admin, con nosniff, CSP sandbox y no-store. GET devuelve solo los reportes propios.
+  - No vi accountId ni PII en logs o errores. authorName se limpia y se acota a 100 caracteres.
+- object-storage.ts: el `AbortSignal.timeout(30_000)` es coherente y acota tambien los GET.
+- companion-scripts.ts: el prefijo con separador cierra el falso positivo `visual-backup`. El mensaje de desinstalacion ya no afirma exito si la carpeta queda. Las rutas interpoladas en el test de PowerShell son datos de prueba (tmp), no input externo.
+- e2e y simulator-light: sin secretos ni superficie nueva. El contexto de feedback solo transporta ids y la identidad de estado.
+
+HALLAZGOS
+1. MEDIA — scripts/ci/check-gate-producers.ts: la correlacion usa `actions/runs?head_sha=<head del PR>` y `check_suite_id`. En `pull_request_target`, el run se ejecuta sobre el commit de la base, no sobre el head del PR. No pude verificar que la API devuelva ese run al filtrar por el head del PR. Si no lo devuelve, el check legitimo apareceria como "sin workflow run asociado" y el guard fallaria cerrado contra el gate verdadero. Es un riesgo de disponibilidad, no de bypass, porque falla cerrado. Esta ya fusionado en master y el doc dice que se midio. Recomiendo confirmarlo con una corrida real en un PR a release/mvp-beta.
+2. BAJA — scripts/ci/check-gate-producers.ts: solo detecta un check falsificado que exista cuando el gate corre. Uno publicado despues (carrera) o antes de un re-run no se ve hasta el siguiente disparo. El doc ya lo declara ("cuando corre el gate"), asi que es una limitacion documentada y no una falsedad. La mitigacion real sigue siendo la GitHub App pendiente del propietario.
+3. BAJA — apps/web/lib/feedback-handler.ts: `sameOriginOk` devuelve true si `publicOrigin === null`. Es comportamiento previo y no lo introduce este PR. Conviene confirmar que `PUBLIC_BASE_URL` siempre esta fijado en produccion (el guard de start-railway ya lo exige).
+4. BAJA — apps/web/lib/feedback-handler.ts: el pico de memoria por envio es de unos 25-30 MB, como documenta el propio comentario del codigo. Queda acotado por el cupo global (8) y por cuenta (1), con lo que el techo es de unos 240 MB. Es aceptable y esta documentado, pero conviene dimensionarlo contra el limite de RAM del servicio en Railway.
+
+Sin BLOQUEANTE ni ALTA. No encontre secretos en el diff ni PII, ni SSRF o inyeccion, ni `pull_request_target` con checkout del PR, ni acciones sin fijar por SHA.
+
+VEREDICTO: APROBADO CON OBSERVACIONES (revision INTERNA, no independiente; no sustituye al revisor externo que exige la politica en cambios criticos de CI/politica).

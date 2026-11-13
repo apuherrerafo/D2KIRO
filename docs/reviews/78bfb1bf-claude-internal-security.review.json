@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente general-purpose, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "78bfb1bf450a822aec5b585247e67494f876ab93",
+  "diffSha256": "f6dee207ce0f7d78e11eae5a0d2e7cdf33b274d4fa0e3b7426d8e3dd1869fda2",
+  "rawOutput": {
+    "file": "docs/reviews/78bfb1bf-claude-internal-security.raw.txt",
+    "sha256": "640d8412ba07519f6e381b88c0c1565297d3374d669c065e135ef2be57512638"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "scripts/ci/check-gate-producers.ts",
+      "summary": "la correlacion usa `actions/runs?head_sha=<head del PR>` y `check_suite_id`",
+      "disposition": "rejected",
+      "reason": "Refutado con una medicion real: en el PR de prueba #134 el paso del guard corrio en CI sobre pull_request_target y respondio OK encontrando el run legitimo por head_sha (run 43504451796, 'todos los check-runs independent-review vienen de la compuerta confiable')."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/ci/check-gate-producers.ts",
+      "summary": "solo detecta un check falsificado que exista cuando el gate corre",
+      "disposition": "accepted",
+      "reason": "Limitacion documentada en POLICY.md y release-protection.md; la mitigacion completa es la GitHub App (propuesta pendiente del propietario)."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "devuelve true si `publicOrigin === null`",
+      "disposition": "accepted",
+      "reason": "Comportamiento previo, no lo introduce este PR; scripts/start-railway.sh ya exige PUBLIC_BASE_URL en produccion."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "el pico de memoria por envio es de unos 25-30 MB",
+      "disposition": "accepted",
+      "reason": "Acotado por el cupo global (8) y por cuenta (1); pendiente dimensionar contra el limite de RAM de Railway."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

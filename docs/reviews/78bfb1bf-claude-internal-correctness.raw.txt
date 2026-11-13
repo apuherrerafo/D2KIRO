@@ -1,0 +1,38 @@
+REVISIÓN INTERNA (Claude, contexto nuevo; NO independiente: mismo modelo que el autor). Solo lectura, no ejecuté código del PR.
+
+Head revisado: 78bfb1bf450a822aec5b585247e67494f876ab93 (base 9108f7ecdf029204c8574e573c926bd56c19cabd). Prompt aplicado: docs/reviews/prompts/correctness.md.
+
+Archivos que miré:
+- apps/web/lib/feedback-handler.ts (completo) y la lista de pruebas de feedback-handler.test.ts.
+- apps/web/features/simulator-light/feedback-context.tsx, components/DetailPanel.tsx y index.ts.
+- apps/web/features/random-draft-simulator/components/BlindRoundPanel.tsx.
+- apps/web/app/simulator/page.tsx.
+- apps/web/lib/object-storage.ts.
+- apps/web/server/companion/companion-scripts.ts y companion-installer.test.ts.
+- e2e/feedback.spec.ts y los helpers de e2e/support/decision.ts.
+- docs/release-protection.md, docs/meta-sync-procedure.md.
+- Contraste de docs/release-protection.md con docs/reviews/policy.json y con scripts/ci/verify-review-evidence.ts (solo grep de constantes y reglas).
+- No repasé a fondo los scripts/ci/*, release-gate.yml, POLICY.md ni los prompts, como pediste.
+
+Análisis:
+- Feedback por tarjeta (page.tsx → BlindRoundPanel → feedback-context → DetailPanel): el contrato queda coherente. `feedbackTargetOf` solo devuelve destino si la decisión es ACTIONABLE. `CandidateFeedback` exige que `position` sea la posición vista y que el héroe esté en `rankedHeroIds`, así que un candidato de otra columna no ofrece voto con un `stateIdentity` ajeno. La `key` por héroe y estado evita heredar el estado "ya enviado". Sin proveedor (Live) no pinta nada. El espejo de tipos no se ve afectado.
+- e2e/feedback.spec.ts: el `test.fixme` pasa a prueba activa y usa helpers que existen (`boardOf`, `waitForBoard`, `latestDecision`, `record`). Los caminos no ejercitados se anotan con `not-exercised` y no pasan en silencio.
+- feedback-handler.ts: orden correcto de defensas. Primero `precheck` sin leer cuerpo, luego el cupo, luego el límite por hora. Los 429/503 de cupo no gastan envíos de la hora. Revisé la lectura acotada (tope de bytes, plazo total, inactividad, velocidad mínima, tope de trozos), el contador de boundary con cola entre trozos, el tokenizador de boundary y la subida con plazo y borrado de huérfanos. No encontré error de lógica. Los timers se limpian en `finally`. Las pruebas listadas cubren cada defensa.
+- object-storage.ts: `AbortSignal.timeout(30_000)` es coherente con `STORAGE_TIMEOUT_MS`, también para GET.
+- Companion: `$visualPrefix` con separador cierra el falso positivo de una carpeta hermana `visual-backup`, y la prueba lo cubre. El desinstalador ya no anuncia éxito limpio si queda la carpeta. Las pruebas de bloqueo son deterministas, sin relojes.
+- docs/release-protection.md describe bien el gate actual:
+  - Los seis checks coinciden con el nombre de los jobs.
+  - Los puntos del gate contrastados contra el verificador coinciden: `ACCEPTED-RISKS.json` leído de la rama base, razón mínima de 40 caracteres, salida cruda mínima (300 caracteres en el código; el doc solo dice "mínimo de sustancia"), exclusión solo de `*.review.json` y `*.raw.txt` del diff, y `providers.json` incluido en el diff.
+  - Que `ACCEPTED-RISKS.json` no exista es honesto y es coherente con el estado del repo.
+  - `docs/release-protection.md` figura en `criticalPaths`, así que este PR exige revisor externo a Claude. El doc ya lo declara.
+- docs/meta-sync-procedure.md: consistente con lo que declara (nada se ejecutó) y los límites están explícitos. No verifiqué en código las constantes que cita (`CURRENT_PATCH`, `RATE_LIMIT_FALLBACK_WAIT_MS`, `INFORMATIONAL_SIGNALS`).
+
+Hallazgos:
+1. BAJA — apps/web/lib/feedback-handler.ts: el tope `countRecentByAuthor(...) >= 30` por hora es inalcanzable en la práctica porque el limitador en memoria ya corta en 10/hora por cuenta. Solo actúa tras un reinicio del proceso (el limitador se vacía y el archivo persiste), así que es una defensa redundante. No es un bug.
+2. BAJA — apps/web/features/simulator-light/components/DetailPanel.tsx: la clase `sl-feedback` solo se usa como atributo, sin estilo propio. No encontré ninguna regla CSS con ese nombre. Si el control se ve bien, no es problema. No comprobé el render.
+3. BAJA — apps/web/lib/feedback-handler.ts: el contador de partes cuenta también el delimitador de cierre (`--boundary--`), así que el tope real es 29 partes de contenido. No afecta a un envío legítimo (unas 8 partes).
+4. BAJA — apps/web/server/companion/companion-scripts.ts: con la carpeta del lector visual retenida, el desinstalador termina con exit 0 y avisa solo por el mensaje. Es una decisión explícita, cubierta por prueba y visible al jugador, pero un script automatizado no detecta la carpeta restante por código de salida.
+
+Sin hallazgos BLOQUEANTE ni ALTA. No pude verificar en ejecución nada de lo anterior (revisión estática).
+
+Veredicto: APROBADO CON OBSERVACIONES (solo observaciones BAJA; revisión INTERNA, no independiente).
