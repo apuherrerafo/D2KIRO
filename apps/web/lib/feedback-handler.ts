@@ -209,7 +209,9 @@ function createBoundaryCounter(boundary: string): (chunk: Uint8Array) => number 
     // Costura: solo los `keep` bytes que acaban el trozo anterior + los `keep` que empiezan este (un separador que cruza la frontera), nunca el trozo entero.
     if (tail.length > 0) countIn(Buffer.concat([tail, view.subarray(0, keep)]), tail.length);
     countIn(view, view.length);
-    tail = keep === 0 ? Buffer.alloc(0) : Buffer.from(tail.length + view.length <= keep ? Buffer.concat([tail, view]) : view.subarray(Math.max(0, view.length - keep)));
+    // La cola son los ÚLTIMOS `keep` bytes de (cola + trozo): con trozos más chicos que el separador, descartar la cola vieja perdía separadores repartidos en 3+ trozos.
+    const combined = view.length >= keep ? view : Buffer.concat([tail, view]);
+    tail = keep === 0 ? Buffer.alloc(0) : Buffer.from(combined.subarray(Math.max(0, combined.length - keep)));
     return count;
   };
 }

@@ -410,6 +410,17 @@ describe("compuerta de revisión independiente v2", () => {
     expect(verifyReviewEvidence(ok.repo.git, ok.base, ok.repo.commit(twoProviders(ok.repo, ok.base, ok.code, { findings: [limit] }), "e")).problems).toEqual([]);
   });
 
+  test("un riesgo aceptado con `paths` solo cubre hallazgos sobre esos archivos: uno sobre el motor o la web no se cuela", () => {
+    const risks = JSON.stringify({ risks: [{ id: "R-001", match: ["autentic", "revis"], paths: ["scripts/ci/", "docs/reviews/"], expires: "2999-01-01", summary: "x" }] });
+    const limitation = { ...blocker, summary: "la autenticidad de los revisores no se verifica (la revisión puede fabricarse)" };
+    let s2 = scenario({ [ACCEPTED_RISKS_FILE]: risks });
+    // mismo texto, pero el hallazgo es sobre src/app.ts (fuera de las rutas de la compuerta)
+    expect(verifyReviewEvidence(s2.repo.git, s2.base, s2.repo.commit(twoProviders(s2.repo, s2.base, s2.code, { findings: [{ ...limitation, file: "src/app.ts" }] }), "e")).problems.join(" ")).toContain("no es un comodín");
+    // sobre la compuerta: pasa
+    s2 = scenario({ [ACCEPTED_RISKS_FILE]: risks });
+    expect(verifyReviewEvidence(s2.repo.git, s2.base, s2.repo.commit(twoProviders(s2.repo, s2.base, s2.code, { findings: [{ ...limitation, file: "scripts/ci/verify-review-evidence.ts" }] }), "e")).problems).toEqual([]);
+  });
+
   test("flujo legítimo: un ALTA de una ronda anterior aceptado por un riesgo vigente de la base no bloquea la ronda siguiente", () => {
     const risks = JSON.stringify({ risks: [{ id: "R-002", match: ["constante"], expires: "2999-01-01", summary: "x" }] });
     const { repo, base, code } = scenario({ [ACCEPTED_RISKS_FILE]: risks });

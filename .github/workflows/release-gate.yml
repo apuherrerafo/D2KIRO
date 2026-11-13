@@ -10,7 +10,7 @@ name: release-gate
 on:
   pull_request_target:
     branches: [release/mvp-beta]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read

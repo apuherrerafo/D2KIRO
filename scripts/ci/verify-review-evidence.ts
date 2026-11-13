@@ -210,6 +210,8 @@ function allowedProviders(git: Git, baseSha: string): { providers: Set<string>; 
 interface AcceptedRisk {
   /** Cadenas que el resumen del hallazgo debe contener TODAS (sin distinguir mayúsculas): un riesgo aceptado no es un comodín para cualquier hallazgo. */
   match: string[];
+  /** Prefijos de ruta: el hallazgo debe ser sobre un archivo bajo alguno de ellos (si se declara). Un riesgo sobre la compuerta no cubre un hallazgo en el motor o la web. */
+  paths?: string[];
   /** Fecha límite `YYYY-MM-DD` frente a la fecha del commit head (no al reloj): pasada, el riesgo deja de valer y hay que volver a aceptarlo. */
   expires?: string;
 }
@@ -226,7 +228,8 @@ function acceptedRisks(git: Git, baseSha: string): Map<string, AcceptedRisk> {
       const needles = (Array.isArray(entry.match) ? entry.match : [entry.match]).filter((item): item is string => isString(item) && item.trim().length >= 4).map((item) => item.trim().toLowerCase());
       if (needles.length === 0) continue; // sin `match` no vale
       if (entry.expires !== undefined && (!isString(entry.expires) || !/^\d{4}-\d{2}-\d{2}$/.test(entry.expires))) continue;
-      risks.set(entry.id, { match: needles, expires: entry.expires as string | undefined });
+      const paths = Array.isArray(entry.paths) ? entry.paths.filter((item): item is string => isString(item) && SAFE_PATH.test(item)) : undefined;
+      risks.set(entry.id, { match: needles, paths: paths !== undefined && paths.length > 0 ? paths : undefined, expires: entry.expires as string | undefined });
     }
   } catch {
     // lista ilegible = ningún riesgo aceptado
@@ -363,7 +366,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
       if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition === "accepted") {
         const risk = finding.acceptedRisk === undefined ? undefined : risks.get(finding.acceptedRisk);
         if (risk === undefined) problems.push(`${where} sin resolver: solo pasa como riesgo aceptado por el propietario (acceptedRisk en ${ACCEPTED_RISKS_FILE} de la rama base): un ALTA o BLOQUEANTE no lo acepta quien escribe el PR.`);
-        else if (!risk.match.every((needle) => finding.summary.toLowerCase().includes(needle))) problems.push(`${where}: el riesgo ${finding.acceptedRisk} solo cubre hallazgos que mencionan ${risk.match.map((needle) => `"${needle}"`).join(" y ")}; no es un comodín.`);
+        else if (!risk.match.every((needle) => finding.summary.toLowerCase().includes(needle)) || (risk.paths !== undefined && !risk.paths.some((prefix) => finding.file.startsWith(prefix)))) problems.push(`${where}: el riesgo ${finding.acceptedRisk} solo cubre hallazgos que mencionan ${risk.match.map((needle) => `"${needle}"`).join(" y ")}${risk.paths === undefined ? "" : ` sobre ${risk.paths.join(", ")}`}; no es un comodín.`);
         else if (risk.expires !== undefined && headDate !== "" && headDate > risk.expires) problems.push(`${where}: el riesgo ${finding.acceptedRisk} caducó el ${risk.expires}; el propietario debe volver a aceptarlo.`);
         else if (!reasoned) problems.push(`${where}: el riesgo aceptado exige además una razón (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
       }
@@ -385,7 +388,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
       for (const finding of earlier.findings) {
         if (finding.severity !== "ALTA" && finding.severity !== "BLOQUEANTE") continue;
         const risk = finding.disposition === "accepted" && finding.acceptedRisk !== undefined ? risks.get(finding.acceptedRisk) : undefined;
-        const coveredByRisk = risk !== undefined && risk.match.every((needle) => finding.summary.toLowerCase().includes(needle)) && (risk.expires === undefined || headDate === "" || headDate <= risk.expires);
+        const coveredByRisk = risk !== undefined && risk.match.every((needle) => finding.summary.toLowerCase().includes(needle)) && (risk.paths === undefined || risk.paths.some((prefix) => finding.file.startsWith(prefix))) && (risk.expires === undefined || headDate === "" || headDate <= risk.expires);
         if (finding.disposition !== "fixed" && !coveredByRisk) {
           problems.push(`${tag}: ${finding.severity} en ${finding.file} de una ronda anterior sin arreglar (debe figurar fixed con su commit o estar cubierto por un riesgo aceptado vigente de la rama base).`);
         }

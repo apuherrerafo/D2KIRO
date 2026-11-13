@@ -437,6 +437,25 @@ describe("enviar feedback", () => {
       expect(((await response.json()) as { error: string }).error).toBe("too_many_parts");
     });
 
+    test("un separador repartido en trozos de 1, 2 y 3 bytes (más chicos que el separador) se cuenta igual: no se evade el tope de partes", async () => {
+      const part = '--x\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const all = new TextEncoder().encode(part.repeat(MAX_FORM_PARTS + 5) + "--x--\r\n");
+      for (const size of [1, 2, 3]) {
+        const pieces: Uint8Array[] = [];
+        for (let at = 0; at < all.length; at += size) pieces.push(all.slice(at, at + size));
+        let index = 0;
+        const stream = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            if (index >= pieces.length) return controller.close();
+            controller.enqueue(pieces[index++]!);
+          },
+        });
+        const response = await user(ANA, fakeStorage(), "Ana", { readGate: createReadGate(8) }).POST(streamRequest(stream));
+        expect(response.status, `trozos de ${size} byte(s)`).toBe(400);
+        expect(((await response.json()) as { error: string }).error, `trozos de ${size} byte(s)`).toBe("too_many_parts");
+      }
+    });
+
     test("un reporte legítimo con 3 capturas sigue pasando con todas las defensas activas", async () => {
       const storage = fakeStorage();
       const three = [PNG, JPG, WEBP].map((bytes, index) => ({ bytes, name: `${index}.bin`, type: "application/octet-stream" }));

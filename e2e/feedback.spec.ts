@@ -59,6 +59,8 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     if ((await otherColumnCard.count()) > 0) {
       await otherColumnCard.locator("button").click();
       await expect(board.getByTestId("sl-feedback")).toHaveCount(0);
+    } else {
+      test.info().annotations.push({ type: "not-exercised", description: "ninguna otra columna tenía tarjetas: no se probó que un candidato de otra posición no ofrece voto" });
     }
 
     // 2. Feedback POSITIVO (👍) sobre la primera recomendación
@@ -76,6 +78,7 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     await expect(firstSubmitted).toContainText("Feedback guardado");
 
     // 4. Feedback NEGATIVO (👎) sobre otra recomendación de la misma decisión (otro héroe) si existe
+    if (rankedCardIds.length <= 1) test.info().annotations.push({ type: "not-exercised", description: "la decisión trajo una sola recomendación: no se probó el 👎 con motivo" });
     if (rankedCardIds.length > 1) {
       const second = await openCard(rankedCardIds[1]!);
       expect(second.heroId).not.toBe(firstHeroId);
