@@ -24,6 +24,8 @@
 // Pura salvo por `git`, que se inyecta. Solo LEE blobs con `git show`/`git diff`: nunca hace checkout ni ejecuta nada del PR (pull_request_target).
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { checkCoverage, criticalMatches, INTERNAL_PROVIDER, parsePolicy, POLICY_FILE, type ReviewPolicy } from "./review-policy";
 
 export type Git = (args: string[]) => string;
 
@@ -56,7 +58,7 @@ interface Finding {
 
 interface ReviewRecord {
   schema: "review-evidence/v1";
-  reviewer: { provider: string; tool: string; model: string };
+  reviewer: { provider: string; tool: string; model: string; promptId?: string; promptSha256?: string; isolation?: string };
   reviewedBase: string;
   reviewedHead: string;
   diffSha256: string;
@@ -65,7 +67,13 @@ interface ReviewRecord {
   verdict: (typeof VERDICTS)[number];
 }
 
+/** Lector del checkout CONFIABLE (rama predeterminada), nunca del PR: de ahí salen la política y los prompts versionados. */
+export type Trusted = (path: string) => string | null;
+export const fsTrusted: Trusted = (path) => (existsSync(path) ? readFileSync(path, "utf8") : null);
+
 export interface Verdict {
+  /** true si pasa SOLO por pasadas internas Claude: no es una revisión independiente. */
+  internalOnly?: boolean;
   ok: boolean;
   problems: string[];
   notes: string[];
@@ -116,9 +124,14 @@ export function parseRecord(text: string): ReviewRecord | string {
     if (typeof result === "string") return `hallazgo ${index + 1}: ${result}`;
     parsed.push(result);
   }
+  const internal = {
+    ...(isString(reviewer.promptId) ? { promptId: reviewer.promptId } : {}),
+    ...(isString(reviewer.promptSha256) ? { promptSha256: reviewer.promptSha256 } : {}),
+    ...(isString(reviewer.isolation) ? { isolation: reviewer.isolation } : {}),
+  };
   return {
     schema: "review-evidence/v1",
-    reviewer: { provider: reviewer.provider.toLowerCase(), tool: reviewer.tool, model: reviewer.model },
+    reviewer: { provider: reviewer.provider.toLowerCase(), tool: reviewer.tool, model: reviewer.model, ...internal },
     reviewedBase,
     reviewedHead,
     diffSha256,
@@ -237,7 +250,8 @@ function acceptedRisks(git: Git, baseSha: string): Map<string, AcceptedRisk> {
   return risks;
 }
 
-function providerKnown(provider: string, providers: Set<string>): boolean {
+function providerKnown(provider: string, providers: Set<string>, policy: ReviewPolicy | null = null): boolean {
+  if (provider === INTERNAL_PROVIDER) return policy !== null; // sin política confiable, una pasada "interna" no existe
   if (provider.startsWith("human:")) return /^human:[a-z0-9-]{1,39}$/.test(provider);
   return providers.has(provider);
 }
@@ -254,7 +268,7 @@ function checkRecord(git: Git, mergeBase: string, head: string, candidate: Candi
   if (actualHash !== record.diffSha256) problems.push(`${tag}: diffSha256 no coincide con el diff real (esperado ${actualHash.slice(0, 12)}…): la revisión no describe este cambio.`);
 }
 
-export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string, now: Date = new Date()): Verdict {
+export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string, now: Date = new Date(), trusted: Trusted = () => null): Verdict {
   const problems: string[] = [];
   const notes: string[] = [];
   const mergeBase = tryGit(git, ["merge-base", baseSha, headSha])?.trim();
@@ -264,6 +278,8 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
   const added = lines(tryGit(git, ["diff", "--name-only", "--no-renames", "--diff-filter=A", mergeBase, headSha, "--", EVIDENCE_DIR]) ?? "").filter((path) => path.endsWith(".review.json"));
   if (added.length === 0) return { ok: false, problems: ["el PR no añade ningún registro docs/reviews/*.review.json: sin evidencia no hay revisión"], notes };
 
+  // Política híbrida: del checkout confiable. Ausente o inválida => regla anterior (2 proveedores distintos), jamás una más laxa.
+  const policy = parsePolicy(trusted(POLICY_FILE));
   const { providers: allowed, problem: providersProblem } = allowedProviders(git, baseSha);
   if (providersProblem !== undefined) notes.push(providersProblem);
   const risks = acceptedRisks(git, baseSha);
@@ -281,7 +297,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
     }
     const parsed = parseRecord(text);
     if (typeof parsed === "string") problems.push(`${file}: ${parsed}`);
-    else if (!providerKnown(parsed.reviewer.provider, allowed)) problems.push(`${file}: proveedor desconocido (${parsed.reviewer.provider}); admitidos: ${[...allowed].join(", ")} o human:<login>.`);
+    else if (!providerKnown(parsed.reviewer.provider, allowed, policy)) problems.push(`${file}: proveedor desconocido (${parsed.reviewer.provider}); admitidos: ${[...allowed].join(", ")} o human:<login>.`);
     else candidates.push({ file, record: parsed });
   }
   if (problems.length > 0) return { ok: false, problems, notes };
@@ -289,7 +305,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
   // Ronda vigente de cada proveedor = los registros de su(s) `reviewedHead` más reciente(s) (los que no son ancestro de otro). Más de una rama sin relación bloquea.
   const byProvider = new Map<string, Candidate[]>();
   for (const candidate of candidates) byProvider.set(candidate.record.reviewer.provider, [...(byProvider.get(candidate.record.reviewer.provider) ?? []), candidate]);
-  if (byProvider.size < 2) problems.push(`se exigen revisiones de al menos 2 proveedores distintos; hay ${byProvider.size} (${[...byProvider.keys()].join(", ")}).`);
+  if (policy === null && byProvider.size < 2) problems.push(`se exigen revisiones de al menos 2 proveedores distintos; hay ${byProvider.size} (${[...byProvider.keys()].join(", ")}).`);
 
   const addedSet = new Set(lines(tryGit(git, ["diff", "--name-only", "--no-renames", "--diff-filter=A", mergeBase, headSha, "--", EVIDENCE_DIR]) ?? ""));
   const current: Candidate[] = [];
@@ -301,6 +317,30 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
   }
 
   const changedFiles = new Set(lines(tryGit(git, ["diff", "--name-only", mergeBase, headSha, "--", ".", ...EVIDENCE_OUTPUT_EXCLUDES]) ?? ""));
+  let internalOnly = false;
+  if (policy !== null) {
+    // Pasadas internas: prompt versionado EN EL CHECKOUT CONFIABLE, con su hash, y contexto aislado declarado. Un PR no puede aportar su propio prompt.
+    const validPromptIds: string[] = [];
+    for (const { file, record } of current.filter((entry) => entry.record.reviewer.provider === INTERNAL_PROVIDER)) {
+      const { promptId, promptSha256, isolation } = record.reviewer;
+      const tag = `${file} (${INTERNAL_PROVIDER})`;
+      const prompt = promptId === undefined ? undefined : policy.prompts[promptId];
+      if (prompt === undefined) problems.push(`${tag}: promptId desconocido o ausente; admitidos: ${Object.keys(policy.prompts).join(", ")}.`);
+      else if (isolation !== "fresh-context") problems.push(`${tag}: una pasada interna debe declarar isolation="fresh-context" (contexto nuevo, sin historial del autor).`);
+      else {
+        const text = trusted(prompt.file);
+        if (text === null) problems.push(`${tag}: el prompt versionado ${prompt.file} no existe en el checkout confiable.`);
+        else if (promptSha256 !== sha256(normalizeRaw(text))) problems.push(`${tag}: promptSha256 no coincide con ${prompt.file} de la rama predeterminada (prompt cambiado o inventado).`);
+        else validPromptIds.push(promptId as string);
+      }
+    }
+    const critical = criticalMatches(changedFiles, policy);
+    const coverage = checkCoverage({ providers: [...new Set(current.map((entry) => entry.record.reviewer.provider))], internalPromptIds: validPromptIds }, critical.length > 0, policy);
+    problems.push(...coverage.problems);
+    internalOnly = coverage.internalOnly;
+    if (critical.length > 0) notes.push(`cambio CRÍTICO por: ${critical.slice(0, 6).join(", ")}${critical.length > 6 ? ` (+${critical.length - 6})` : ""}`);
+    else notes.push("cambio estándar (sin rutas críticas)");
+  }
   const rangeCommits = new Set(lines(tryGit(git, ["rev-list", `${mergeBase}..${headSha}`]) ?? ""));
   const rawHashes = new Set<string>();
 
@@ -417,7 +457,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
   }
 
   notes.push(`registros: ${candidates.length}; ronda vigente: ${current.length} registro(s) de ${[...byProvider.keys()].join(", ")}`);
-  return { ok: problems.length === 0, problems, notes };
+  return { ok: problems.length === 0, problems, notes, internalOnly: internalOnly && problems.length === 0 };
 }
 
 /**
@@ -440,10 +480,10 @@ if (import.meta.main) {
     console.error("Uso: bun run scripts/ci/verify-review-evidence.ts <base-sha-40hex> <head-sha-40hex>");
     process.exit(2);
   }
-  const verdict = verifyReviewEvidence(realGit(), base, head, new Date());
+  const verdict = verifyReviewEvidence(realGit(), base, head, new Date(), fsTrusted);
   for (const note of verdict.notes) console.log(`nota: ${note}`);
   if (verdict.ok) {
-    console.log("OK: revisiones independientes comprobadas contra git.");
+    console.log(verdict.internalOnly === true ? "OK (INTERNA): pasadas Claude aisladas comprobadas contra git. NO es una revisión independiente." : "OK: revisiones comprobadas contra git.");
     process.exit(0);
   }
   for (const problem of verdict.problems) console.error(`FAIL: ${problem}`);
