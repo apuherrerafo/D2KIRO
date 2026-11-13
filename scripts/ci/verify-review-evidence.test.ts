@@ -616,3 +616,15 @@ describe("review-policy (puro)", () => {
     expect(checkCoverage({ providers: ["claude-internal"], internalPromptIds: ["security", "correctness"] }, false, policy).internalOnly).toBe(true);
   });
 });
+
+describe("hash del diff reproducible entre máquinas", () => {
+  test("no depende de core.abbrev: el CI usa 7 y un equipo de desarrollo suele usar 8-12 (defecto medido el 2026-11-13)", () => {
+    const { repo, base, code } = scenario();
+    const hashes = new Set<string>();
+    for (const abbrev of ["7", "8", "12", "40"]) {
+      repo.git(["config", "core.abbrev", abbrev]);
+      hashes.add(repo.diffHash(base, code));
+    }
+    expect([...hashes]).toHaveLength(1);
+  });
+});

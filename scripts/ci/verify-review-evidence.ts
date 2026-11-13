@@ -180,7 +180,7 @@ export function countSeverityMentions(raw: string): Record<Severity, number> {
 export function codeDiffArgs(from: string, to: string): string[] {
   return [
     "-c", "diff.noprefix=false", "-c", "diff.mnemonicPrefix=false", "-c", "diff.algorithm=myers", "-c", "diff.renames=false", "-c", "core.quotepath=true",
-    "diff", "--no-color", "--binary", "--no-ext-diff", "--no-textconv", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/",
+    "diff", "--no-color", "--full-index", "--binary", "--no-ext-diff", "--no-textconv", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/",
     from, to, "--", ".", ...EVIDENCE_OUTPUT_EXCLUDES,
   ];
 }
