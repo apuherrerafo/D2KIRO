@@ -15,6 +15,8 @@ on:
 
 permissions:
   contents: read
+  checks: read   # solo LEER los check-runs (guard de productores); nunca escribir
+  actions: read  # solo LEER los workflow runs que produjeron cada check
 
 jobs:
   independent-review:
@@ -43,3 +45,11 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bun run scripts/ci/verify-review-evidence.ts "$BASE_SHA" "$HEAD_SHA"
+
+      # Defensa en profundidad: un workflow del PR puede publicar su propio check `independent-review` en verde (mismo app). Se rechaza cualquier productor que no sea
+      # este workflow con evento pull_request_target. Ver scripts/ci/check-gate-producers.ts y docs/reviews/POLICY.md (limite: no sustituye una GitHub App con app_id fijado).
+      - name: No foreign producer of the independent-review check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bun run scripts/ci/check-gate-producers.ts "$HEAD_SHA"
