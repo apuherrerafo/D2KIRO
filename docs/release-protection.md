@@ -10,7 +10,7 @@ garantizarse. Se escribió después de que 12 commits (581 archivos) entraron en
 | 1 | Todo cambio llega por Pull Request | Protección de rama: PR obligatorio, sin push directo, sin force-push, sin borrar la rama, **también para administradores** (`enforce_admins`) |
 | 2 | CI con verificaciones obligatorias | `ci.yml` en cada PR. Checks requeridos: `test (engine)`, `test (web)`, `test (root)`, `verify-simplicity`, `intelligence-ci (eval --enforce)`, `r1-certification (verify:r1)` |
 | 3 | E2E relevantes | `r1-certification (verify:r1)` ejecuta `bun run e2e` completo (Chromium + WebKit móvil) |
-| 4 | Revisión independiente **comprobable** | Check `independent-review` (`release-gate.yml` + `scripts/ci/verify-review-evidence.ts`), descrito abajo |
+| 4 | Revisión **comprobable** (política híbrida) | Check `independent-review`: el workflow y el verificador viven en **`master`** (GitHub solo dispara `pull_request_target` desde la rama predeterminada). Ver `docs/reviews/POLICY.md` |
 | 5 | Verificaciones en verde y al día | `strict`: la rama del PR debe estar al día con la base; conversaciones resueltas |
 
 ## `independent-review`: de «dos nombres» a evidencia comprobada contra git
@@ -20,7 +20,7 @@ Antes bastaba escribir dos líneas en la descripción del PR. Ahora el PR **debe
 1. **Proveedores distintos y conocidos**: al menos 2, de la lista `docs/reviews/providers.json` **de la rama base** (un PR no puede ampliarla) o `human:<login>`. «openai2»
    o «gpt» no cuentan.
 2. **Atados al diff exacto**: `diffSha256` se **recalcula** con git (`merge-base..reviewedHead`), con las opciones de git fijadas (prefijos, algoritmo, renames, drivers
-   externos) para que no dependa de la configuración de cada máquina. Solo quedan fuera del diff los registros `*.review.json` y las salidas `*.raw.txt`: **`providers.json` y
+   externos y `--full-index`) para que no dependa de la configuración de cada máquina: antes dependía de `core.abbrev` (CI usa 7) y ningún registro hecho fuera del CI coincidía. Solo quedan fuera del diff los registros `*.review.json` y las salidas `*.raw.txt`: **`providers.json` y
    `ACCEPTED-RISKS.json` sí entran**, así los revisores ven cualquier cambio a las listas de las que depende la compuerta. Un registro inventado sin conocer el diff no coincide.
 3. **Vigentes**: si cambió una sola línea de código después de `reviewedHead`, esa revisión caduca y el proveedor debe revisar el head actual. De cada proveedor cuenta su
    ronda más reciente y **se evalúan todos sus registros** (un RECHAZADO no se tapa con un APROBADO del mismo head).
@@ -35,8 +35,13 @@ Antes bastaba escribir dos líneas en la descripción del PR. Ahora el PR **debe
    `acceptedRisk` debe ser un id de `docs/reviews/ACCEPTED-RISKS.json` **de la rama base**, el resumen del hallazgo debe contener el `match` de ese riesgo (no es un comodín) y
    no puede estar caducado (`expires`, comparado con la fecha del commit head). El propietario acepta un riesgo al fusionar el PR que lo añade; ese PR no se aprueba con su propia
    lista. Los arreglos de rondas anteriores exigen un commit del PR que toque el archivo citado.
-7. **Seguridad del propio check**: corre con `pull_request_target`, así el verificador se lee de la rama base y un PR no puede reescribirlo; nunca hace checkout del código del PR
+7. **Seguridad del propio check**: corre con `pull_request_target` y hace checkout de la rama **predeterminada** (`master`), así el verificador, la política y los prompts los lee de una referencia que un PR no puede reescribir; nunca hace checkout del código del PR
    (solo `git fetch` de sus objetos y lectura de blobs); el número de PR y los SHA entran por `env`; las acciones están fijadas por SHA y sin credenciales persistidas.
+
+8. **Política híbrida** (`docs/reviews/POLICY.md`): dos pasadas INTERNAS Claude (contexto nuevo, prompt versionado con hash) bastan en cambios estándar y se etiquetan «INTERNA, no independiente»; los cambios **críticos** (auth, scoring, CI, política) exigen además un revisor externo a Claude. Un registro `anthropic` cuenta como la misma familia que Claude.
+9. **Guard contra checks falsificados** (`scripts/ci/check-gate-producers.ts`): un workflow del propio PR puede publicar un `independent-review` verde (medido el 2026-11-13, mismo app `github-actions`; fijar `app_id` no lo evita). El gate rechaza cualquier productor que no sea `release-gate.yml` con evento `pull_request_target`. Detecta y bloquea cuando corre el gate; no sustituye una identidad separada (GitHub App, propuesta pendiente del propietario).
+
+Los registros históricos (`docs/reviews/historical/`) se conservan sin modificar y no cuentan como evidencia vigente.
 
 Las pruebas (`scripts/ci/verify-review-evidence.test.ts`) usan repos git reales y efímeros, y se comprobaron con *mutantes*: desactivar la regla del hash, la de vigencia, la
 allowlist, el cruce con la salida cruda o la evaluación de toda la ronda hace fallar al menos una prueba.
@@ -62,5 +67,5 @@ allowlist, el cruce con la salida cruda o la evaluación de toda la ronda hace f
 ## Cómo fusionar a la rama
 1. Rama de trabajo → PR hacia `release/mvp-beta`.
 2. CI en verde (los seis checks).
-3. Dos proveedores revisan el head final; sus registros se añaden al PR (último commit solo de `docs/reviews/`).
+3. Las revisiones que exige la política (estándar: 2 pasadas internas o 2 familias; crítico: además un revisor externo a Claude) se registran sobre el head final; sus registros se añaden al PR (último commit solo de `docs/reviews/`).
 4. `independent-review` en verde. Fusionar. **Fusionar publica en Railway Preview** (auto-deploy): es el último paso.
