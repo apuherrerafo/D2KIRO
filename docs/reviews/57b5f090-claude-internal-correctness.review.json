@@ -1,0 +1,20 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente general-purpose, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "57b5f090b5cdf617f0b233e1fca91684929480d2",
+  "diffSha256": "0d52eccf18bf2f53908f3c6cb865b0d0ffa4af0356f2e6c594d418b57490e0d4",
+  "rawOutput": {
+    "file": "docs/reviews/57b5f090-claude-internal-correctness.raw.txt",
+    "sha256": "a67fd57dcb612d63500de26bd5f659270a8e0189a6ae276b91b537d84070f0c1"
+  },
+  "findings": [],
+  "verdict": "APROBADO"
+}

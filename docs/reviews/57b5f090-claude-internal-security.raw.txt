@@ -1,0 +1,18 @@
+REVISIÓN INTERNA DE SEGURIDAD (Claude, contexto nuevo; NO independiente del autor, mismo modelo).
+
+Head revisado: 57b5f090b5cdf617f0b233e1fca91684929480d2. Base: 9108f7ecdf029204c8574e573c926bd56c19cabd. Seguí el prompt docs/reviews/prompts/security.md (v1). Pude leer el repo sin problemas.
+
+Qué verifiqué: el diff 9108f7ec..57b5f090 con `git diff`. Contiene un solo archivo nuevo, docs/tmp/policy-probe.md, de una línea de texto plano ("Sonda de la politica hibrida. Cambio estandar, solo documentacion. NO FUSIONAR."). Comprobé cada categoría del prompt contra ese contenido:
+- Inyección (shell, SQL, plantillas): no hay código ni plantillas.
+- SSRF y path traversal: no hay URLs, rutas ni lecturas de archivos.
+- Secretos: no hay literales sospechosos ni claves.
+- PII (Steam32/accountId): no aparece ninguno.
+- Validación de input externo: no se agrega ningún input externo.
+- Workflows: el diff no toca ningún archivo de .github. Por eso no hay permisos de más, ni `pull_request_target` con checkout del PR, ni acciones sin fijar por SHA, ni falsificación de checks.
+- Alcance: no se tocan apps/engine, apps/web, scripts ni dependencias. Ignoré los archivos sin seguimiento de docs/reviews/, como se pidió.
+
+Hallazgos: ninguno.
+
+Nota no bloqueante: el texto del archivo dice "NO FUSIONAR". Es una sonda de política, así que eso es coherente, y el veredicto de seguridad no implica que deba fusionarse.
+
+Veredicto: APROBADO

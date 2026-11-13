@@ -1,0 +1,18 @@
+REVISION INTERNA, NO INDEPENDIENTE: soy un revisor de Claude con contexto nuevo y comparto modelo con el autor.
+
+Head revisado: 57b5f090b5cdf617f0b233e1fca91684929480d2. Base: 9108f7ecdf029204c8574e573c926bd56c19cabd.
+
+Seguí el prompt D:/JULIO/apuherrerafoprojects/_wt-policy-probe/docs/reviews/prompts/correctness.md (correctitud y contratos).
+
+Qué verifiqué:
+- Leí el prompt y confirmé con `git rev-parse HEAD` que el head del worktree es el SHA indicado.
+- Corrí `git diff 9108f7ec..57b5f090`. El diff toca un solo archivo, nuevo: docs/tmp/policy-probe.md. Tiene una línea: "Sonda de la politica hibrida. Cambio estandar, solo documentacion. NO FUSIONAR."
+- No hay cambios en apps/engine ni en apps/web. Por eso no puede haber contratos rotos entre ambos, espejos de tipos desalineados, regresiones de comportamiento, lógica ni casos borde, ni estados silenciosos.
+- Tampoco hay pruebas modificadas ni añadidas, así que no hay pruebas que no prueben lo que dicen.
+- No ejecuté código del PR. Pude leer el repo sin problema.
+
+Hallazgos: ninguno. No inventé ninguno.
+
+Observación no bloqueante: el propio contenido del archivo dice "NO FUSIONAR". Es una sonda de política y, por lo que declara, no debe llegar a la rama de destino.
+
+Veredicto: APROBADO (revisión interna, no independiente).
