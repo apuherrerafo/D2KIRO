@@ -49,7 +49,7 @@ allowlist, el cruce con la salida cruda o la evaluación de toda la ronda hace f
     utilizable: el autor no puede aprobar su propio PR. *BLOCKED.*
   - **(b) Un revisor que corra dentro del CI** con una credencial propia del repositorio. Cuesta dinero y agrega un secreto: no se crea sin aprobación. *BLOCKED.*
   - **(c) Registros firmados** con una clave de revisor registrada en el repositorio. *No implementado.*
-  Mientras tanto la limitación queda declarada como riesgo `R-001` en `docs/reviews/ACCEPTED-RISKS.json` (propuesto; vale solo si el propietario lo fusiona).
+  Mientras tanto la limitación queda declarada como riesgo `R-001`, **NO aceptado** por el propietario: seguimiento en el issue #130. No existe `ACCEPTED-RISKS.json`; sin el, la compuerta bloquea cualquier BLOQUEANTE que dependa de R-001.
 - **El agente que escribe el código y uno de los revisores pueden ser del mismo proveedor** (hoy: Claude escribe y un subagente Claude revisa). Por eso se exige un segundo
   proveedor distinto, pero el solapamiento con el autor sigue siendo una debilidad.
 - **Cada avance de la base, merge o rebase obliga a revisar de nuevo** (el diff y `reviewedBase` cambian). Es el precio de atar la revisión al diff exacto; con la rama
