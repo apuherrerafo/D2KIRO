@@ -7,7 +7,7 @@ con respaldo y reversa, y qué esperar en la calidad de las recomendaciones. Enc
 - El log de arranque del motor en Preview dice: `sincronización de meta con OpenDota desactivada: sin autorización explícita (META_SYNC=on)`.
 - La web muestra «Los datos de héroes/parche están desactualizados — Última actualización: *Sin sincronización previa*». O sea: en Preview **nunca hubo una
   sincronización exitosa**; el motor trabaja con el *seed* incluido en el repo (`apps/engine/src/meta/seed-*.json`) más lo que ya hubiera en el volumen.
-- No es una falla de ingesta: no hay intento de ingesta. Es la regla `META_SYNC=on` (cualquier otro valor o ausencia = apagado, en todos los entornos).
+- No es una falla de ingesta: no hay intento de ingesta. Es la regla `META_SYNC=on` (el valor se compara sin espacios y sin distinguir mayúsculas: `ON` también enciende; cualquier otro valor o su ausencia = apagado, en todos los entornos).
 - No pude leer la fecha de la última sincronización desde fuera: `/engine/api/meta/status` exige sesión (307 a login) y `railway ssh` pide una llave SSH que no
   voy a generar sin tu permiso. Con tu sesión, `GET /engine/api/meta/status` lo responde.
 
@@ -52,7 +52,7 @@ Por eso el paso 2 del procedimiento (comparar antes/después) es obligatorio y n
 **3. Encender.** En Railway → servicio `d2kiro-f4-preview` → Variables → `META_SYNC=on`. Eso reinicia el servicio (el volumen persiste). El motor sincroniza al arrancar si
 el meta está viejo y luego revisa cada hora (`GLOBAL_META_REFRESH_CHECK_MS`).
 
-**4. Verificar.** Con sesión: `GET /engine/api/meta/status` → `status: ok`, `syncedAt` reciente, procedencia del parche; la web ya no muestra el aviso; `meta_sync` tiene la fila `ok`.
+**4. Verificar.** Con sesión: `GET /engine/api/meta/status` → `lastSync.status: "ok"` (el estado del último intento vive en `lastSync`, no en la raíz), `syncedAt` reciente, `isStale: false` y `patchProvenance` (rótulo y si está verificado); la web ya no muestra el aviso; `meta_sync` tiene la fila `ok`.
 Correr de nuevo los 30 escenarios contra Preview y comparar con el ensayo.
 
 **5. Reversa.**

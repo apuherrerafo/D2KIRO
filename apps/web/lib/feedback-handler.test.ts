@@ -43,7 +43,7 @@ function env(): Record<string, string> {
   return { FEEDBACK_FILE: file, BETA_ADMIN_STEAM_IDS: String(OWNER), SESSION_SECRET: SECRET, RAILWAY_GIT_COMMIT_SHA: "a".repeat(40) };
 }
 
-function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana", read: { readGate?: ReadGate; readDeadlineMs?: number; readIdleMs?: number; storageTimeoutMs?: number } = {}) {
+function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana", read: { readGate?: ReadGate; readDeadlineMs?: number; readIdleMs?: number; storageTimeoutMs?: number; minBytesPerSecond?: number; rateGraceMs?: number } = {}) {
   const session: FeedbackSession | null = accountId === null ? null : { accountId, personaName: name };
   return createFeedbackHandlers({
     ...read,
@@ -351,6 +351,49 @@ describe("enviar feedback", () => {
       release();
       await first;
       expect((await handlersFor(ANA).POST(report({}))).status).toBe(201); // si el rechazado hubiera gastado el token, aquí sería 429
+    });
+
+    test("GOTEO a velocidad constante pero ínfima (evita el plazo de inactividad): se corta por velocidad mínima", async () => {
+      // 10 bytes cada 20 ms = 500 B/s; con mínimo de 5 000 B/s y 60 ms de gracia, se corta con 408 aunque nunca esté callado más de 20 ms.
+      let cancelled = false;
+      const dripping = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          await Bun.sleep(20);
+          controller.enqueue(new Uint8Array(10));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      const started = Date.now();
+      const response = await user(ANA, fakeStorage(), "Ana", { readDeadlineMs: 30_000, readIdleMs: 5_000, minBytesPerSecond: 5_000, rateGraceMs: 60 }).POST(streamRequest(dripping));
+      expect(response.status).toBe(408);
+      expect(Date.now() - started).toBeLessThan(3_000);
+      expect(cancelled).toBe(true);
+    });
+
+    test("una subida colgada que termina DESPUÉS del plazo no deja un objeto huérfano: se borra cuando acaba", async () => {
+      const objects = new Map<string, Uint8Array>();
+      let finishPut: () => void = () => undefined;
+      const late: ObjectStorage = {
+        async put(key, body) {
+          await new Promise<void>((resolve) => {
+            finishPut = resolve;
+          });
+          objects.set(key, body);
+        },
+        async get() {
+          return null;
+        },
+        async remove(key) {
+          objects.delete(key);
+        },
+      };
+      const response = await user(ANA, late, "Ana", { storageTimeoutMs: 40 }).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
+      expect(response.status).toBe(502); // venció el plazo
+      finishPut(); // el bucket por fin termina de escribir...
+      await Bun.sleep(50);
+      expect(objects.size).toBe(0); // ...y el objeto, que ningún registro referencia, se borra
     });
 
     test("multipartBoundary tolera el `;` final que emiten clientes no navegador", () => {

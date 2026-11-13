@@ -33,6 +33,9 @@ export interface FeedbackDependencies {
   readIdleMs?: number;
   /** Plazo de cada subida al bucket, en ms (inyectable en pruebas). */
   storageTimeoutMs?: number;
+  /** Velocidad mínima de recepción y su periodo de gracia (inyectables en pruebas). */
+  minBytesPerSecond?: number;
+  rateGraceMs?: number;
 }
 
 const sharedLimiter = createRateLimiter(10, 60 * 60 * 1000);
@@ -121,6 +124,8 @@ type ParseResult = { ok: true; report: ParsedReport } | { ok: false; status: num
 //     de unas 3-4 veces el cuerpo (~25-30 MB), por eso el cupo cubre TODO el procesamiento del envío y no solo la lectura, y hay un máximo global y uno por cuenta.
 export const MAX_FORM_PARTS = 30;
 export const READ_IDLE_MS = 10_000; // sin recibir un solo byte en 10 s: se corta (el goteo no retiene el cupo los 45 s)
+export const MIN_BYTES_PER_SECOND = 6_000; // ~48 kbps: un móvil muy malo lo supera de sobra; el goteo "1 byte cada 9 s" no
+export const RATE_GRACE_MS = 5_000; // los primeros segundos no se miden (handshake, arranque lento)
 export const MAX_CHUNKS = 20_000; // millones de trozos de 1 byte son CPU, no bytes: se corta por cantidad de trozos
 export const READ_DEADLINE_MS = 45_000;
 export const STORAGE_TIMEOUT_MS = 30_000; // 7,7 MB a ~1,4 Mbps de subida: un móvil lento con 3 capturas legítimas termina; el goteo no se queda para siempre
@@ -222,7 +227,8 @@ function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
 
 type BodyRead = { kind: "ok"; body: Blob } | { kind: "too_large" } | { kind: "too_many_parts" } | { kind: "timeout" } | { kind: "unreadable" };
 
-async function readBodyBounded(request: Request, limit: number, boundary: string, deadlineMs: number, idleMs: number): Promise<BodyRead> {
+async function readBodyBounded(request: Request, limit: number, boundary: string, deadlineMs: number, idleMs: number, rate: { minBytesPerSecond: number; graceMs: number }): Promise<BodyRead> {
+  const startedAt = Date.now();
   if (request.body === null) return { kind: "unreadable" };
   const reader = request.body.getReader();
   const countParts = createBoundaryCounter(boundary);
@@ -252,6 +258,12 @@ async function readBodyBounded(request: Request, limit: number, boundary: string
         return { kind: "too_large" };
       }
       total += step.value.byteLength;
+      // Velocidad mínima sostenida: el plazo de inactividad (10 s) no ve a quien gotea 1 byte cada 9 s; esto sí.
+      const elapsed = Date.now() - startedAt;
+      if (elapsed > rate.graceMs && total / (elapsed / 1000) < rate.minBytesPerSecond) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "timeout" };
+      }
       if (total > limit) {
         await reader.cancel().catch(() => undefined);
         return { kind: "too_large" };
@@ -282,8 +294,8 @@ function precheck(request: Request): { ok: true; boundary: string } | { ok: fals
   return { ok: true, boundary };
 }
 
-async function parseReport(request: Request, boundary: string, deadlineMs: number, idleMs: number): Promise<ParseResult> {
-  const read = await readBodyBounded(request, MAX_BODY_BYTES, boundary, deadlineMs, idleMs);
+async function parseReport(request: Request, boundary: string, deadlineMs: number, idleMs: number, rate: { minBytesPerSecond: number; graceMs: number }): Promise<ParseResult> {
+  const read = await readBodyBounded(request, MAX_BODY_BYTES, boundary, deadlineMs, idleMs, rate);
   if (read.kind === "too_large") return { ok: false, status: 413, error: "too_large" };
   if (read.kind === "too_many_parts") return { ok: false, status: 400, error: "too_many_parts" };
   if (read.kind === "timeout") return { ok: false, status: 408, error: "request_timeout" };
@@ -339,7 +351,7 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
   const newId = dependencies.newId ?? randomUUID;
 
   async function processReport(request: Request, session: FeedbackSession, boundary: string): Promise<Response> {
-    const parsed = await parseReport(request, boundary, dependencies.readDeadlineMs ?? READ_DEADLINE_MS, dependencies.readIdleMs ?? READ_IDLE_MS);
+    const parsed = await parseReport(request, boundary, dependencies.readDeadlineMs ?? READ_DEADLINE_MS, dependencies.readIdleMs ?? READ_IDLE_MS, { minBytesPerSecond: dependencies.minBytesPerSecond ?? MIN_BYTES_PER_SECOND, graceMs: dependencies.rateGraceMs ?? RATE_GRACE_MS });
     if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
     const { report } = parsed;
 
@@ -352,7 +364,14 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
     try {
       for (const [index, image] of images.entries()) {
         const key = `feedback/${id}/${index}.${EXTENSION[image.mime]}`;
-        await withDeadline(dependencies.storage!.put(key, image.bytes, image.mime), dependencies.storageTimeoutMs ?? STORAGE_TIMEOUT_MS);
+        const upload = dependencies.storage!.put(key, image.bytes, image.mime);
+        try {
+          await withDeadline(upload, dependencies.storageTimeoutMs ?? STORAGE_TIMEOUT_MS);
+        } catch (error) {
+          // La subida colgada puede terminar DESPUÉS del plazo: cuando termine, el objeto se borra (ningún registro lo referencia; no quedan huérfanos en el bucket).
+          void upload.then(() => dependencies.storage?.remove(key)).catch(() => undefined);
+          throw error;
+        }
         stored.push({ key, mime: image.mime, bytes: image.bytes.length });
       }
     } catch {

@@ -176,6 +176,9 @@ function isAncestor(git: Git, ancestor: string, descendant: string): boolean {
 
 const codeDiff = (git: Git, from: string, to: string): string => git(codeDiffArgs(from, to));
 
+/** Cambio de CÓDIGO entre dos commits: sin docs/ ni *.md (un retoque de documentación no es corregir lo que un revisor rechazó). */
+const sourceDiff = (git: Git, from: string, to: string): string => git([...codeDiffArgs(from, to), ":(exclude)docs/", ":(exclude)*.md"]);
+
 interface Candidate {
   file: string;
   record: ReviewRecord;
@@ -236,7 +239,7 @@ function checkRecord(git: Git, mergeBase: string, head: string, candidate: Candi
   if (actualHash !== record.diffSha256) problems.push(`${tag}: diffSha256 no coincide con el diff real (esperado ${actualHash.slice(0, 12)}…): la revisión no describe este cambio.`);
 }
 
-export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string): Verdict {
+export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string, now: Date = new Date()): Verdict {
   const problems: string[] = [];
   const notes: string[] = [];
   const mergeBase = tryGit(git, ["merge-base", baseSha, headSha])?.trim();
@@ -249,7 +252,10 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
   const { providers: allowed, problem: providersProblem } = allowedProviders(git, baseSha);
   if (providersProblem !== undefined) notes.push(providersProblem);
   const risks = acceptedRisks(git, baseSha);
-  const headDate = (tryGit(git, ["show", "-s", "--format=%cI", headSha]) ?? "").trim().slice(0, 10);
+  // Caducidad: se toma la MÁS TARDÍA entre la fecha del commit head (el autor puede ponerla atrás con GIT_COMMITTER_DATE) y el reloj de quien verifica (el CI).
+  const commitDate = (tryGit(git, ["show", "-s", "--format=%cI", headSha]) ?? "").trim().slice(0, 10);
+  const clockDate = now.toISOString().slice(0, 10);
+  const headDate = commitDate > clockDate ? commitDate : clockDate;
 
   const candidates: Candidate[] = [];
   for (const file of added) {
@@ -311,6 +317,13 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
       const mentions = countSeverityMentions(raw);
       const fromRecord: Record<Severity, number> = { BLOQUEANTE: 0, ALTA: 0, MEDIA: 0, BAJA: 0 };
       for (const finding of record.findings) fromRecord[finding.severity] += 1;
+      const squashed = raw.replace(/\s+/g, " ").toLowerCase();
+      for (const finding of record.findings) {
+        if (!squashed.includes(finding.summary.replace(/\s+/g, " ").trim().toLowerCase())) problems.push(`${tag}: el resumen del hallazgo ${finding.severity} en ${finding.file} no aparece tal cual en la salida cruda: el registro no puede decir otra cosa que el revisor.`);
+      }
+      const anyMention = SEVERITIES.some((severity) => mentions[severity] > 0);
+      const anyLine = SEVERITIES.some((severity) => lineStart[severity] > 0);
+      if (anyMention && !anyLine && record.findings.length === 0) problems.push(`${tag}: la salida cruda menciona severidades pero no tiene líneas de hallazgo reconocibles ("N. SEVERIDAD ..."): use ese formato.`);
       for (const severity of SEVERITIES) {
         // Cota inferior: cada línea "N. SEVERIDAD ..." de la salida cruda tiene su hallazgo en el registro (no se puede ocultar uno). Cota superior: el registro no
         // puede traer más hallazgos de una severidad que veces aparece esa palabra en la salida cruda (formatos raros pasan, inventar hallazgos no).
@@ -328,13 +341,32 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
       const reasoned = (finding.reason?.trim().length ?? 0) >= MIN_ACCEPTANCE_REASON;
       // ALTA y BLOQUEANTE solo pasan ACEPTADOS (no "rejected" con texto libre) y razonados; MEDIA/BAJA pueden quedar como observaciones.
       if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition !== "accepted") problems.push(`${where}: solo pasa con disposition "accepted" (aceptación explícita y razonada), no "${finding.disposition}".`);
-      else if (finding.severity === "ALTA" && !reasoned) problems.push(`${where} sin razón suficiente (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
-      if (finding.severity === "BLOQUEANTE" && finding.disposition === "accepted") {
+      if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition === "accepted") {
         const risk = finding.acceptedRisk === undefined ? undefined : risks.get(finding.acceptedRisk);
-        if (risk === undefined) problems.push(`${where} sin resolver: solo pasa como riesgo aceptado por el propietario (acceptedRisk en ${ACCEPTED_RISKS_FILE} de la rama base).`);
+        if (risk === undefined) problems.push(`${where} sin resolver: solo pasa como riesgo aceptado por el propietario (acceptedRisk en ${ACCEPTED_RISKS_FILE} de la rama base): un ALTA o BLOQUEANTE no lo acepta quien escribe el PR.`);
         else if (!finding.summary.toLowerCase().includes(risk.match)) problems.push(`${where}: el riesgo ${finding.acceptedRisk} solo cubre hallazgos que mencionan "${risk.match}"; no es un comodín.`);
         else if (risk.expires !== undefined && headDate !== "" && headDate > risk.expires) problems.push(`${where}: el riesgo ${finding.acceptedRisk} caducó el ${risk.expires}; el propietario debe volver a aceptarlo.`);
         else if (!reasoned) problems.push(`${where}: el riesgo aceptado exige además una razón (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
+      }
+    }
+  }
+
+  // Rondas ANTERIORES de un proveedor: un RECHAZADO o un hallazgo grave no se entierra con un registro nuevo. Hace falta que el código haya cambiado desde esa ronda y que
+  // cada ALTA/BLOQUEANTE de entonces figure `fixed` (con su commit, comprobado abajo).
+  for (const [provider, records] of byProvider) {
+    const latestHead = current.find((entry) => entry.record.reviewer.provider === provider)?.record.reviewedHead;
+    if (latestHead === undefined) continue;
+    for (const candidate of records) {
+      if (candidate.record.reviewedHead === latestHead) continue;
+      const earlier = candidate.record;
+      const tag = `${candidate.file} (${provider}, ronda anterior ${earlier.reviewedHead.slice(0, 8)})`;
+      if (earlier.verdict === "RECHAZADO" && isAncestor(git, earlier.reviewedHead, latestHead) && sourceDiff(git, earlier.reviewedHead, latestHead).length === 0) {
+        problems.push(`${tag}: fue RECHAZADO y el código no cambió desde entonces: no se entierra con un registro nuevo.`);
+      }
+      for (const finding of earlier.findings) {
+        if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition !== "fixed") {
+          problems.push(`${tag}: ${finding.severity} en ${finding.file} de una ronda anterior sin arreglar (debe figurar fixed con su commit).`);
+        }
       }
     }
   }
@@ -383,7 +415,7 @@ if (import.meta.main) {
     console.error("Uso: bun run scripts/ci/verify-review-evidence.ts <base-sha-40hex> <head-sha-40hex>");
     process.exit(2);
   }
-  const verdict = verifyReviewEvidence(realGit(), base, head);
+  const verdict = verifyReviewEvidence(realGit(), base, head, new Date());
   for (const note of verdict.notes) console.log(`nota: ${note}`);
   if (verdict.ok) {
     console.log("OK: revisiones independientes comprobadas contra git.");
