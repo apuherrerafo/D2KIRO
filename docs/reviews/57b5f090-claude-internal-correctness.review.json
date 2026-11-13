@@ -10,7 +10,7 @@
   },
   "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
   "reviewedHead": "57b5f090b5cdf617f0b233e1fca91684929480d2",
-  "diffSha256": "0d52eccf18bf2f53908f3c6cb865b0d0ffa4af0356f2e6c594d418b57490e0d4",
+  "diffSha256": "777a2812afd4351246528c85cce5ee12155c19d4965d31fa54713f4925ed3259",
   "rawOutput": {
     "file": "docs/reviews/57b5f090-claude-internal-correctness.raw.txt",
     "sha256": "a67fd57dcb612d63500de26bd5f659270a8e0189a6ae276b91b537d84070f0c1"
