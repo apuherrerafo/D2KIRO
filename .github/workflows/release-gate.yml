@@ -22,9 +22,10 @@ jobs:
     steps:
       # Sin `ref:` => rama base (el valor por defecto de pull_request_target). Historia completa para poder calcular merge-base y diffs.
       - name: Checkout the protected base branch (never the PR head)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (fijado por SHA: este job decide el veredicto de una rama protegida)
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fetch the PR objects (no checkout, nothing is executed)
         env:
@@ -32,7 +33,7 @@ jobs:
         run: git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2 (fijado por SHA)
 
       - name: Review evidence is real, bound to this exact diff, current and from 2+ providers
         env:

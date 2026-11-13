@@ -197,6 +197,9 @@ export interface DetailPanelProps {
 function CandidateFeedback({ heroId, position }: { heroId: number; position: number }) {
   const target = useRecommendationFeedbackTarget();
   if (target === null) return null;
+  // La identidad del voto (sesión + héroe + stateIdentity) sale de la decisión V4 de la posición VISTA: solo se opina sobre lo que esa decisión recomendó.
+  // Un candidato de otra columna del tablero (que viene de otra consulta) se vería votable con el stateIdentity de una decisión que no lo propuso.
+  if (position !== target.viewedPosition || !target.rankedHeroIds.includes(heroId)) return null;
   return (
     <div className="sl-feedback" data-testid="sl-feedback">
       <RecommendationFeedback key={`${heroId}:${target.stateIdentity}`} sessionId={target.sessionId} heroId={heroId} targetPosition={position} stateIdentity={target.stateIdentity} rulesetVersion={target.rulesetVersion} />

@@ -3,7 +3,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer, request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VISUAL_RUNTIME } from "./companion-visual";
@@ -772,26 +772,87 @@ describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell,
 describe.skipIf(!onWindows)("Companion uninstall vs a file that Windows still holds (deterministic, repeatable -- root cause of the intermittent failure)", () => {
   // CAUSA RAÍZ de la intermitencia: Stop-Process -Force devuelve ANTES de que Windows suelte el .exe del helper. Si el desinstalador borraba la carpeta `visual`
   // en ese instante, el borrado fallaba (archivo en uso), el error se tragaba y la carpeta quedaba en el PC del jugador tras un desinstalado "exitoso".
-  // Antes solo se veía de vez en cuando bajo carga. Aquí el bloqueo es DETERMINISTA: otro proceso mantiene abierto un archivo de la carpeta 1,5 s.
-  test("uninstall removes the helper folder even when one of its files is held open for 1.5 s", async () => {
+  // Aquí el bloqueo es DETERMINISTA y sin relojes: otro proceso retiene un archivo HASTA QUE LA PRUEBA lo suelta (con una señal), y la prueba sabe CUÁNDO el
+  // desinstalador ya hizo su primer intento de borrado (el archivo hermano desaparece, la carpeta no). Así la prueba no depende de la velocidad de la máquina.
+  const POWERSHELL = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+
+  function holdFile(path: string, sentinel: string): ChildProcess {
+    const script = `$f=[IO.File]::Open('${path}','Open','Read','None'); [Console]::Out.WriteLine('held'); [Console]::Out.Flush(); $t=[Diagnostics.Stopwatch]::StartNew(); while (-not (Test-Path '${sentinel}') -and $t.Elapsed.TotalSeconds -lt 60) { Start-Sleep -Milliseconds 50 }; $f.Dispose()`;
+    const holder = spawn(POWERSHELL, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], { stdio: ["ignore", "pipe", "ignore"] });
+    children.push(holder);
+    return holder;
+  }
+
+  function scenario() {
     const m = machine();
     expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
     const visual = join(m.home, "visual");
-    mkdirSync(join(visual, "0.1.2"), { recursive: true });
-    writeFileSync(join(visual, "0.1.2", "d2kiro-visual.exe"), "stub");
-    const locked = join(visual, "0.1.2", "held.bin");
+    const folder = join(visual, "0.1.2");
+    mkdirSync(folder, { recursive: true });
+    const sibling = join(folder, "a.txt"); // no retenido: el primer intento de borrado lo elimina
+    const locked = join(folder, "held.bin");
+    writeFileSync(sibling, "x");
     writeFileSync(locked, "x");
-    const holder = spawn(
-      join(process.env.SystemRoot ?? "C:\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
-      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$f=[IO.File]::Open('${locked}','Open','Read','None'); [Console]::Out.WriteLine('held'); [Console]::Out.Flush(); Start-Sleep -Milliseconds 1500; $f.Dispose()`],
-      { stdio: ["ignore", "pipe", "ignore"] },
-    );
-    children.push(holder);
+    const sentinel = join(m.root, "release-lock.flag");
+    return { m, visual, sibling, locked, sentinel };
+  }
+
+  function startUninstall(m: Machine): { done: Promise<{ code: number | null; output: string }> } {
+    const child = spawn("cmd.exe", ["/d", "/s", "/c", `""${join(m.home, "desinstalar-d2kiro-companion.cmd")}""`], { env: testEnv(m), windowsVerbatimArguments: true, stdio: ["ignore", "pipe", "pipe"] });
+    children.push(child);
+    let output = "";
+    child.stdout!.on("data", (chunk: Buffer) => (output += chunk.toString("utf8")));
+    child.stderr!.on("data", (chunk: Buffer) => (output += chunk.toString("utf8")));
+    return { done: new Promise((resolve) => child.on("close", (code) => resolve({ code, output }))) };
+  }
+
+  async function holdUntilFirstAttemptFailed(): Promise<{ m: Machine; visual: string; sentinel: string; done: Promise<{ code: number | null; output: string }> }> {
+    const { m, visual, sibling, locked, sentinel } = scenario();
+    const holder = holdFile(locked, sentinel);
     await waitFor(() => new Promise<boolean | null>((resolve) => holder.stdout!.once("data", () => resolve(true))), 30_000);
-    const uninstall = spawnSync("cmd.exe", ["/d", "/s", "/c", `""${join(m.home, "desinstalar-d2kiro-companion.cmd")}""`], { env: testEnv(m), windowsVerbatimArguments: true, encoding: "utf8" });
-    expect(uninstall.status).toBe(0);
+    const { done } = startUninstall(m);
+    // El primer intento ya ocurrió cuando el archivo hermano desapareció; como el retenido sigue ahí, la carpeta NO pudo borrarse todavía.
+    await waitFor(() => (existsSync(sibling) ? null : true), 60_000);
+    expect(existsSync(visual)).toBe(true);
+    return { m, visual, sentinel, done };
+  }
+
+  test("uninstall retries and removes the helper folder once the file is released (first attempt provably failed)", async () => {
+    const { visual, sentinel, done } = await holdUntilFirstAttemptFailed();
+    writeFileSync(sentinel, "go"); // se suelta el archivo DESPUÉS del primer intento fallido: solo un reintento puede completar el borrado
+    const result = await done;
+    expect(result.code).toBe(0);
     expect(existsSync(visual)).toBe(false);
-  }, 90_000);
+    expect(result.output).not.toContain("PERO no se pudo borrar");
+  }, 120_000);
+
+  test("a folder that stays held beyond the retry window is REPORTED to the player, never announced as a clean uninstall", async () => {
+    const { visual, sentinel, done } = await holdUntilFirstAttemptFailed();
+    const result = await done; // el archivo sigue retenido durante toda la ventana de reintentos (~3 s)
+    writeFileSync(sentinel, "go");
+    expect(result.code).toBe(0);
+    expect(existsSync(visual)).toBe(true);
+    expect(result.output).toContain("PERO no se pudo borrar la carpeta del lector visual");
+    expect(result.output).toContain(visual);
+  }, 120_000);
+
+  test("a helper under a SIBLING folder (visual-backup) is not stopped by the uninstaller (path prefix needs a separator)", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const sibling = join(m.home, "visual-backup");
+    mkdirSync(sibling, { recursive: true });
+    // copia de un ejecutable inocuo con el nombre del helper, EN LA CARPETA HERMANA, corriendo durante la desinstalación
+    const exe = join(sibling, "d2kiro-visual.exe");
+    copyFileSync(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "ping.exe"), exe);
+    const decoy = spawn(exe, ["-n", "40", "127.0.0.1"], { stdio: "ignore" });
+    children.push(decoy);
+    await Bun.sleep(300);
+    mkdirSync(join(m.home, "visual"), { recursive: true });
+    const { done } = startUninstall(m);
+    expect((await done).code).toBe(0);
+    expect(decoy.exitCode).toBeNull(); // sigue vivo: no era del helper instalado
+    expect(alive(decoy.pid!)).toBe(true);
+  }, 120_000);
 });
 
 // Opt-in: the REAL production path (public GitHub release, real SHA-256 pin, the real packaged exe). Off by default

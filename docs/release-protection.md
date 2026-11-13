@@ -14,32 +14,42 @@ garantizarse. Se escribió después de que 12 commits (581 archivos) entraron en
 | 5 | Verificaciones en verde y al día | `strict`: la rama del PR debe estar al día con la base; conversaciones resueltas |
 
 ## `independent-review`: de «dos nombres» a evidencia comprobada contra git
-Antes bastaba escribir dos líneas en la descripción del PR. Ahora el PR **debe añadir** registros `docs/reviews/*.review.json` y la compuerta los comprueba:
+Antes bastaba escribir dos líneas en la descripción del PR. Ahora el PR **debe añadir** registros `docs/reviews/*.review.json` (esquema `review-evidence/v1`, se crean con
+`bun run scripts/ci/record-review.ts`) y la compuerta los comprueba:
 
-1. **Proveedores distintos**: al menos 2 (p. ej. `openai` y `anthropic`). Dos registros del mismo proveedor cuentan como uno.
-2. **Atados al diff exacto**: `diffSha256` se **recalcula** con git (`merge-base..reviewedHead`, sin `docs/reviews`). Un registro inventado sin conocer el diff no coincide.
+1. **Proveedores distintos y conocidos**: al menos 2, de la lista `docs/reviews/providers.json` **de la rama base** (un PR no puede ampliarla) o `human:<login>`. «openai2»
+   o «gpt» no cuentan.
+2. **Atados al diff exacto**: `diffSha256` se **recalcula** con git (`merge-base..reviewedHead`, sin `docs/reviews`), con las opciones de git fijadas (prefijos, algoritmo,
+   renames, drivers externos) para que no dependa de la configuración de cada máquina. Un registro inventado sin conocer el diff no coincide.
 3. **Vigentes**: si cambió una sola línea de código después de `reviewedHead`, esa revisión caduca y el proveedor debe revisar el head actual. De cada proveedor cuenta su
-   registro más reciente; los anteriores quedan como historial.
-4. **Salida cruda íntegra**: el texto original del revisor se guarda junto al registro; su SHA-256 debe coincidir, tiene un mínimo de sustancia, cita archivos del diff y
-   no puede ser idéntico al de otro revisor.
-5. **Hallazgos**: ningún BLOQUEANTE sin resolver; un ALTA sin arreglar exige una aceptación razonada (≥ 40 caracteres); los arreglos citados (`fixedIn`) deben ser commits del
-   PR que de verdad tocan el archivo del hallazgo. Un veredicto RECHAZADO bloquea.
-6. **Seguridad del propio check**: corre con `pull_request_target`, así el verificador se lee de la rama base y un PR no puede reescribirlo; nunca hace checkout del
-   código del PR (solo `git fetch` de sus objetos y lectura de blobs); el número de PR y los SHA entran por `env`.
+   ronda más reciente y **se evalúan todos sus registros** (un RECHAZADO no se tapa con un APROBADO del mismo head).
+4. **Salida cruda íntegra**: el texto original del revisor se guarda junto al registro; su SHA-256 (sobre el texto normalizado: BOM y CRLF no importan) debe coincidir, tiene un
+   mínimo de sustancia, cita archivos del diff y no puede ser idéntico al de otro revisor.
+5. **Hallazgos contrastados con la salida cruda**: la cuenta por severidad (líneas «N. BLOQUEANTE|ALTA|MEDIA|BAJA …») debe coincidir con la del registro. Un BLOQUEANTE que
+   el revisor escribió no puede desaparecer del registro sin editar la salida cruda, y eso cambia su hash.
+6. **Resolución**: en la ronda vigente ningún hallazgo puede figurar `fixed` (si el revisor lo ve en el código actual, no está arreglado). Un ALTA exige una aceptación razonada
+   (≥ 40 caracteres). Un BLOQUEANTE solo pasa como **riesgo aceptado por el propietario**: `acceptedRisk` debe ser un id de `docs/reviews/ACCEPTED-RISKS.json` **de la rama base**
+   (el propietario lo acepta al fusionar el PR que lo añade; ese PR no se aprueba con su propia lista). Los arreglos de rondas anteriores exigen un commit del PR que toque
+   el archivo citado.
+7. **Seguridad del propio check**: corre con `pull_request_target`, así el verificador se lee de la rama base y un PR no puede reescribirlo; nunca hace checkout del código del PR
+   (solo `git fetch` de sus objetos y lectura de blobs); el número de PR y los SHA entran por `env`; las acciones están fijadas por SHA y sin credenciales persistidas.
 
-Formato (`docs/reviews/<sha8>-<proveedor>.review.json`, esquema `review-evidence/v1`) y prueba del verificador: `scripts/ci/verify-review-evidence.test.ts` (repos git reales
-y efímeros; se comprobó con *mutantes*: desactivar la regla del hash o la de vigencia hace fallar sus pruebas).
+Las pruebas (`scripts/ci/verify-review-evidence.test.ts`) usan repos git reales y efímeros, y se comprobaron con *mutantes*: desactivar la regla del hash, la de vigencia, la
+allowlist, el cruce con la salida cruda o la evaluación de toda la ronda hace fallar al menos una prueba.
 
 ## Lo que NO se puede garantizar (límites honestos)
 - **No es infalsificable.** Quien quiera fingir una revisión debe fabricar la salida cruda de un revisor y dejar esa fabricación para siempre en el historial de git, en vez de
-  teclear un nombre. Eso sube el costo y deja rastro, pero GitHub no puede verificar que quien escribió «Codex» fue Codex. La autenticidad criptográfica exige una de estas
+  teclear un nombre. Eso sube el costo y deja rastro, pero GitHub no puede verificar que quien escribió «openai» fue OpenAI. La autenticidad criptográfica exige una de estas
   opciones, **todas dependen del propietario**:
   - **(a) Aprobación nativa de una segunda cuenta de GitHub** (colaborador con permiso de escritura) y `required_approving_review_count: 1`. Con un solo mantenedor no es
     utilizable: el autor no puede aprobar su propio PR. *BLOCKED.*
   - **(b) Un revisor que corra dentro del CI** con una credencial propia del repositorio. Cuesta dinero y agrega un secreto: no se crea sin aprobación. *BLOCKED.*
   - **(c) Registros firmados** con una clave de revisor registrada en el repositorio. *No implementado.*
+  Mientras tanto la limitación queda declarada como riesgo `R-001` en `docs/reviews/ACCEPTED-RISKS.json` (propuesto; vale solo si el propietario lo fusiona).
 - **El agente que escribe el código y uno de los revisores pueden ser del mismo proveedor** (hoy: Claude escribe y un subagente Claude revisa). Por eso se exige un segundo
   proveedor distinto, pero el solapamiento con el autor sigue siendo una debilidad.
+- **Cada avance de la base, merge o rebase obliga a revisar de nuevo** (el diff y `reviewedBase` cambian). Es el precio de atar la revisión al diff exacto; con la rama
+  protegida y «al día» exigido, un PR concurrente que se fusione fuerza dos revisiones nuevas en los demás.
 - **`ci.yml` sigue siendo editable por el propio PR** (`pull_request`): un PR malicioso podría debilitar el CI. Cerrarlo del todo exige CODEOWNERS sobre `.github/**` con una
   segunda persona revisora. *BLOCKED.*
 - `enforce_admins` impide el push directo accidental; el propietario *puede* quitar la protección desde Settings (es su repositorio). Queda en el log de auditoría de GitHub.

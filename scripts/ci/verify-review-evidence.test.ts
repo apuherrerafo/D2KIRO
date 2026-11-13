@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { cleanGitEnv, EVIDENCE_DIR, parseRecord, realGit, verifyReviewEvidence, type Git } from "./verify-review-evidence";
+import { decodeReviewerOutput } from "./record-review";
+import { ACCEPTED_RISKS_FILE, cleanGitEnv, codeDiffArgs, countSeverities, EVIDENCE_DIR, normalizeRaw, parseRecord, PROVIDERS_FILE, realGit, verifyReviewEvidence, type Git } from "./verify-review-evidence";
 
 // Repos git REALES y efímeros (cero red, cero repo del proyecto): la compuerta se prueba contra git de verdad, no contra mocks de git.
 const dirs: string[] = [];
@@ -36,46 +37,49 @@ class Repo {
     return this.git(["rev-parse", "HEAD"]).trim();
   }
 
-  mergeBase(base: string, head: string): string {
-    return this.git(["merge-base", base, head]).trim();
-  }
-
-  /** Hash del diff de código, calculado aquí con git (no con el código bajo prueba). */
+  /** Hash del diff de código con los MISMOS argumentos fijados que usa el verificador (codeDiffArgs). */
   diffHash(base: string, reviewedHead: string): string {
-    return sha256(this.git(["diff", "--no-color", "--binary", base, reviewedHead, "--", ".", `:(exclude)${EVIDENCE_DIR}`]));
+    return sha256(this.git(codeDiffArgs(base, reviewedHead)));
   }
 
-  /** Escribe registro + salida cruda; devuelve los archivos (sin commitear). */
-  evidence(options: { provider: string; base: string; reviewedHead: string; raw?: string; findings?: unknown[]; verdict?: string; diffSha256?: string; rawSha256?: string; model?: string }): Record<string, string> {
+  /** Escribe registro + salida cruda; devuelve los archivos (sin commitear). Si hay hallazgos, la salida cruda los lista en su formato ("N. SEVERIDAD ..."). */
+  evidence(options: { provider: string; base: string; reviewedHead: string; raw?: string; findings?: Array<Record<string, unknown>>; verdict?: string; diffSha256?: string; rawSha256?: string; model?: string; eol?: string; name?: string }): Record<string, string> {
     this.counter += 1;
-    const rawFile = `${EVIDENCE_DIR}${options.provider}-${this.counter}.raw.txt`;
-    const raw = options.raw ?? `Revisión de ${options.provider}. Archivos revisados: src/app.ts y src/util.ts. ${"Observaciones detalladas sobre el cambio. ".repeat(12)} (${this.counter})`;
+    const stem = options.name ?? `${options.provider}-${this.counter}`;
+    const rawFile = `${EVIDENCE_DIR}${stem}.raw.txt`;
+    const findingLines = (options.findings ?? []).map((finding, index) => `${index + 1}. ${String(finding.severity)} — ${String(finding.file)}: ${String(finding.summary)}`).join("\n");
+    const raw = options.raw ?? `Revisión de ${options.provider}. Archivos revisados: src/app.ts y src/util.ts. ${"Observaciones detalladas sobre el cambio. ".repeat(12)} (${this.counter})\n${findingLines}\n`;
+    const eol = options.eol ?? "\n";
     const record = {
       schema: "review-evidence/v1",
       reviewer: { provider: options.provider, tool: `${options.provider}-cli 1.0`, model: options.model ?? `${options.provider}-model` },
       reviewedBase: options.base,
       reviewedHead: options.reviewedHead,
       diffSha256: options.diffSha256 ?? this.diffHash(options.base, options.reviewedHead),
-      rawOutput: { file: rawFile, sha256: options.rawSha256 ?? sha256(raw) },
+      rawOutput: { file: rawFile, sha256: options.rawSha256 ?? sha256(normalizeRaw(raw)) },
       findings: options.findings ?? [],
       verdict: options.verdict ?? "APROBADO",
     };
-    return { [rawFile]: raw, [`${EVIDENCE_DIR}${options.provider}-${this.counter}.review.json`]: JSON.stringify(record, null, 2) };
+    return { [rawFile]: raw.replace(/\n/g, eol), [`${EVIDENCE_DIR}${stem}.review.json`]: JSON.stringify(record, null, 2) };
   }
 }
 
-/** base (main) + un commit de código en la rama del PR. */
-function scenario() {
+/** base (main) + un commit de código en la rama del PR. `baseFiles` van en la rama base (providers.json, ACCEPTED-RISKS.json). */
+function scenario(baseFiles: Record<string, string> = {}) {
   const repo = new Repo();
-  const base = repo.commit({ "src/app.ts": "export const a = 1;\n", "README.md": "x\n" }, "base");
+  const base = repo.commit({ "src/app.ts": "export const a = 1;\n", "README.md": "x\n", ...baseFiles }, "base");
   repo.git(["checkout", "-q", "-b", "pr"]);
   const code = repo.commit({ "src/app.ts": "export const a = 2;\n", "src/util.ts": "export const u = () => 1;\n" }, "feature");
   return { repo, base, code };
 }
 
-function twoProviders(repo: Repo, base: string, code: string, extra: Partial<Parameters<Repo["evidence"]>[0]> = {}) {
+type EvidenceOptions = Parameters<Repo["evidence"]>[0];
+function twoProviders(repo: Repo, base: string, code: string, extra: Partial<EvidenceOptions> = {}) {
   return { ...repo.evidence({ provider: "openai", base, reviewedHead: code, ...extra }), ...repo.evidence({ provider: "anthropic", base, reviewedHead: code, ...extra }) };
 }
+
+const high = { severity: "ALTA", file: "src/app.ts", summary: "riesgo de regresión en la constante", disposition: "accepted", reason: "Riesgo conocido y acotado: la constante solo se lee en una ruta de desarrollo, con prueba que la cubre." };
+const blocker = { severity: "BLOQUEANTE", file: "src/app.ts", summary: "sobrescribe el valor sin validar nada", disposition: "accepted", reason: "Limitación inherente y documentada: la independencia no se autentica sin segunda cuenta.", acceptedRisk: "R-001" };
 
 describe("compuerta de revisión independiente v2", () => {
   test("camino feliz: dos proveedores, diff coincide, nada cambió después, salida cruda íntegra", () => {
@@ -87,12 +91,11 @@ describe("compuerta de revisión independiente v2", () => {
   });
 
   test("SOLO NOMBRES (lo que antes bastaba): sin registros en el PR → rechazado", () => {
-    const { repo, base, code } = scenario();
+    const { repo, base } = scenario();
     const head = repo.commit({ "NOTAS.md": "- [x] Revision independiente 1 (Codex): APROBADO -- revisé todo bien\n- [x] Revision independiente 2 (Claude): APROBADO -- revisé todo bien\n" }, "solo texto");
     const verdict = verifyReviewEvidence(repo.git, base, head);
     expect(verdict.ok).toBe(false);
     expect(verdict.problems.join(" ")).toContain("no añade ningún registro");
-    expect(code).toBeDefined();
   });
 
   test("dos registros del MISMO proveedor no son dos revisores", () => {
@@ -103,6 +106,25 @@ describe("compuerta de revisión independiente v2", () => {
     expect(verdict.problems.join(" ")).toContain("al menos 2 proveedores distintos");
   });
 
+  test("proveedores INVENTADOS (openai2, gpt, codex) no cuentan: solo la lista de la rama base y human:<login>", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit({ ...repo.evidence({ provider: "openai", base, reviewedHead: code }), ...repo.evidence({ provider: "openai2", base, reviewedHead: code }) }, "inventado");
+    const verdict = verifyReviewEvidence(repo.git, base, head);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("proveedor desconocido (openai2)");
+
+    const ok = scenario();
+    const humanHead = ok.repo.commit({ ...ok.repo.evidence({ provider: "openai", base: ok.base, reviewedHead: ok.code }), ...ok.repo.evidence({ provider: "human:alice", base: ok.base, reviewedHead: ok.code, name: "human-alice" }) }, "humano");
+    expect(verifyReviewEvidence(ok.repo.git, ok.base, humanHead).problems).toEqual([]);
+  });
+
+  test("la lista de proveedores sale de la rama BASE: el PR no puede ampliarla para colar un proveedor propio", () => {
+    const { repo, base, code } = scenario({ [PROVIDERS_FILE]: JSON.stringify({ providers: ["openai", "anthropic"] }) });
+    const head = repo.commit({ ...repo.evidence({ provider: "openai", base, reviewedHead: code }), ...repo.evidence({ provider: "google", base, reviewedHead: code }), [PROVIDERS_FILE]: JSON.stringify({ providers: ["openai", "anthropic", "google"] }) }, "amplia la lista");
+    const verdict = verifyReviewEvidence(repo.git, base, head);
+    expect(verdict.problems.join(" ")).toContain("proveedor desconocido (google)");
+  });
+
   test("un diffSha256 inventado (no describe el cambio real) se rechaza: hay que conocer el diff para fingir", () => {
     const { repo, base, code } = scenario();
     const head = repo.commit({ ...repo.evidence({ provider: "openai", base, reviewedHead: code, diffSha256: "a".repeat(64) }), ...repo.evidence({ provider: "anthropic", base, reviewedHead: code }) }, "hash falso");
@@ -111,18 +133,26 @@ describe("compuerta de revisión independiente v2", () => {
     expect(verdict.problems.join(" ")).toContain("diffSha256 no coincide");
   });
 
+  test("el hash del diff NO depende de la configuración local de git (diff.noprefix, mnemonicPrefix...)", () => {
+    const { repo, base, code } = scenario();
+    const files = twoProviders(repo, base, code); // hash calculado con la config por defecto
+    repo.git(["config", "diff.noprefix", "true"]);
+    repo.git(["config", "diff.mnemonicPrefix", "true"]);
+    repo.git(["config", "diff.algorithm", "patience"]);
+    repo.git(["config", "diff.renames", "copies"]);
+    const head = repo.commit(files, "evidencia");
+    expect(verifyReviewEvidence(repo.git, base, head).problems).toEqual([]);
+  });
+
   test("el código cambió DESPUÉS de revisar: la revisión caduca; con una nueva sobre el head actual vuelve a pasar", () => {
     const { repo, base, code } = scenario();
-    const withEvidence = repo.commit(twoProviders(repo, base, code), "evidencia");
+    repo.commit(twoProviders(repo, base, code), "evidencia");
     const changed = repo.commit({ "src/app.ts": "export const a = 3; // retoque tras revisar\n" }, "retoque");
     const stale = verifyReviewEvidence(repo.git, base, changed);
     expect(stale.ok).toBe(false);
     expect(stale.problems.join(" ")).toContain("el código cambió después de esta revisión");
-    // re-revisión del head actual por ambos proveedores
     const fresh = repo.commit(twoProviders(repo, base, changed), "re-revisión");
-    const verdict = verifyReviewEvidence(repo.git, base, fresh);
-    expect(verdict.problems).toEqual([]);
-    expect(withEvidence).toBeDefined();
+    expect(verifyReviewEvidence(repo.git, base, fresh).problems).toEqual([]);
   });
 
   test("la salida cruda editada tras fijar su hash se detecta", () => {
@@ -133,90 +163,140 @@ describe("compuerta de revisión independiente v2", () => {
     expect(verdict.problems.join(" ")).toContain("no coincide con su SHA-256");
   });
 
+  test("la salida cruda con CRLF (Windows, core.autocrlf) y con BOM sigue coincidiendo: el hash es sobre el texto normalizado", () => {
+    const { repo, base, code } = scenario();
+    const crlf = twoProviders(repo, base, code, { eol: "\r\n" });
+    const withBom = Object.fromEntries(Object.entries(crlf).map(([path, content]) => [path, path.endsWith(".raw.txt") ? `﻿${content}` : content]));
+    const head = repo.commit(withBom, "crlf + bom");
+    expect(verifyReviewEvidence(repo.git, base, head).problems).toEqual([]);
+  });
+
   test("una 'revisión' demasiado corta o que no menciona ningún archivo del diff no cuenta", () => {
     const { repo, base, code } = scenario();
     const short = { ...repo.evidence({ provider: "openai", base, reviewedHead: code, raw: "ok todo bien" }), ...repo.evidence({ provider: "anthropic", base, reviewedHead: code }) };
-    const shortVerdict = verifyReviewEvidence(repo.git, base, repo.commit(short, "corta"));
-    expect(shortVerdict.problems.join(" ")).toContain("demasiado corta");
+    expect(verifyReviewEvidence(repo.git, base, repo.commit(short, "corta")).problems.join(" ")).toContain("demasiado corta");
 
-    const { repo: repo2, base: base2, code: code2 } = scenario();
+    const other = scenario();
     const generic = "Esto es una revisión larga pero genérica que habla de buenas prácticas sin citar un solo archivo concreto del cambio. ".repeat(6);
-    const noFiles = { ...repo2.evidence({ provider: "openai", base: base2, reviewedHead: code2, raw: generic }), ...repo2.evidence({ provider: "anthropic", base: base2, reviewedHead: code2 }) };
-    const noFilesVerdict = verifyReviewEvidence(repo2.git, base2, repo2.commit(noFiles, "generica"));
-    expect(noFilesVerdict.problems.join(" ")).toContain("no menciona ningún archivo del diff");
+    const noFiles = { ...other.repo.evidence({ provider: "openai", base: other.base, reviewedHead: other.code, raw: generic }), ...other.repo.evidence({ provider: "anthropic", base: other.base, reviewedHead: other.code }) };
+    expect(verifyReviewEvidence(other.repo.git, other.base, other.repo.commit(noFiles, "generica")).problems.join(" ")).toContain("no menciona ningún archivo del diff");
   });
 
   test("dos salidas crudas idénticas: se copió una revisión", () => {
     const { repo, base, code } = scenario();
     const same = "Revisión de src/app.ts y src/util.ts. ".repeat(20);
     const files = { ...repo.evidence({ provider: "openai", base, reviewedHead: code, raw: same }), ...repo.evidence({ provider: "anthropic", base, reviewedHead: code, raw: same }) };
-    const verdict = verifyReviewEvidence(repo.git, base, repo.commit(files, "copia"));
-    expect(verdict.problems.join(" ")).toContain("idéntica a la de otro revisor");
+    expect(verifyReviewEvidence(repo.git, base, repo.commit(files, "copia")).problems.join(" ")).toContain("idéntica a la de otro revisor");
   });
 
-  test("hallazgos: BLOQUEANTE sin arreglar bloquea; ALTA aceptada exige razón; RECHAZADO bloquea", () => {
-    const blocker = { severity: "BLOQUEANTE", file: "src/app.ts", summary: "sobrescribe el valor sin validar nada", disposition: "accepted", reason: "x".repeat(60) };
-    let { repo, base, code } = scenario();
-    let verdict = verifyReviewEvidence(repo.git, base, repo.commit(twoProviders(repo, base, code, { findings: [blocker] }), "e"));
-    expect(verdict.problems.join(" ")).toContain("BLOQUEANTE sin arreglar");
+  test("los hallazgos del registro se CONTRASTAN con la salida cruda: un BLOQUEANTE que el revisor escribió no puede desaparecer del registro", () => {
+    const { repo, base, code } = scenario();
+    // la salida cruda trae un BLOQUEANTE y el registro (tecleado a mano) dice `findings: []` y APROBADO
+    const raw = `Revisión de src/app.ts.\n1. BLOQUEANTE — src/app.ts:1: ejecución insegura de entrada externa sin validar.\n${"Detalle de la revisión. ".repeat(20)}\n`;
+    const files = { ...repo.evidence({ provider: "openai", base, reviewedHead: code, raw, findings: [] }), ...repo.evidence({ provider: "anthropic", base, reviewedHead: code }) };
+    const verdict = verifyReviewEvidence(repo.git, base, repo.commit(files, "oculta el bloqueante"));
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("1 hallazgo(s) BLOQUEANTE y el registro 0");
+  });
 
-    ({ repo, base, code } = scenario());
-    const high = { severity: "ALTA", file: "src/app.ts", summary: "riesgo de regresión en la constante", disposition: "accepted", reason: "ok" };
-    verdict = verifyReviewEvidence(repo.git, base, repo.commit(twoProviders(repo, base, code, { findings: [high] }), "e"));
-    expect(verdict.problems.join(" ")).toContain("ALTA aceptada sin razón suficiente");
+  test("countSeverities lee los formatos reales de los revisores (Codex y Claude) y no confunde prosa en minúscula", () => {
+    const raw = ["1. **ALTA** — `a.ts:1` — x", "2. BLOQUEANTE, a.ts:2 — y", "3) [MEDIA] z", "- BAJA: w", "La severidad alta del problema es media-alta y no cuenta.", "  ## 5. ALTA, b.ts"].join("\n");
+    expect(countSeverities(raw)).toEqual({ BLOQUEANTE: 1, ALTA: 2, MEDIA: 1, BAJA: 1 });
+  });
 
-    ({ repo, base, code } = scenario());
-    const reasoned = { ...high, reason: "Riesgo conocido y acotado: la constante solo se lee en una ruta de desarrollo, con prueba que la cubre." };
-    verdict = verifyReviewEvidence(repo.git, base, repo.commit(twoProviders(repo, base, code, { findings: [reasoned] }), "e"));
-    expect(verdict.problems).toEqual([]);
+  test("hallazgos: ALTA aceptada exige razón; RECHAZADO bloquea; BLOQUEANTE solo pasa como riesgo aceptado POR LA RAMA BASE", () => {
+    let s = scenario();
+    const noReason = { ...high, reason: "ok" };
+    expect(verifyReviewEvidence(s.repo.git, s.base, s.repo.commit(twoProviders(s.repo, s.base, s.code, { findings: [noReason] }), "e")).problems.join(" ")).toContain("sin razón suficiente");
 
-    ({ repo, base, code } = scenario());
-    verdict = verifyReviewEvidence(repo.git, base, repo.commit(twoProviders(repo, base, code, { verdict: "RECHAZADO" }), "e"));
+    s = scenario();
+    expect(verifyReviewEvidence(s.repo.git, s.base, s.repo.commit(twoProviders(s.repo, s.base, s.code, { findings: [high] }), "e")).problems).toEqual([]);
+
+    s = scenario();
+    expect(verifyReviewEvidence(s.repo.git, s.base, s.repo.commit(twoProviders(s.repo, s.base, s.code, { verdict: "RECHAZADO" }), "e")).problems.join(" ")).toContain("RECHAZADO");
+
+    // BLOQUEANTE sin acceptedRisk válido en la base
+    s = scenario();
+    expect(verifyReviewEvidence(s.repo.git, s.base, s.repo.commit(twoProviders(s.repo, s.base, s.code, { findings: [blocker] }), "e")).problems.join(" ")).toContain("solo pasa como riesgo aceptado por el propietario");
+
+    // el riesgo aceptado existe SOLO en el PR (no en la base): no vale, el PR no se aprueba a sí mismo
+    s = scenario();
+    const selfAccepted = { ...twoProviders(s.repo, s.base, s.code, { findings: [blocker] }), [ACCEPTED_RISKS_FILE]: JSON.stringify({ risks: [{ id: "R-001", summary: "x" }] }) };
+    expect(verifyReviewEvidence(s.repo.git, s.base, s.repo.commit(selfAccepted, "e")).problems.join(" ")).toContain("solo pasa como riesgo aceptado por el propietario");
+
+    // el riesgo ya está en la rama base (el propietario lo aceptó al fusionar): pasa, con razón
+    s = scenario({ [ACCEPTED_RISKS_FILE]: JSON.stringify({ risks: [{ id: "R-001", summary: "Independencia no autenticada" }] }) });
+    expect(verifyReviewEvidence(s.repo.git, s.base, s.repo.commit(twoProviders(s.repo, s.base, s.code, { findings: [blocker] }), "e")).problems).toEqual([]);
+  });
+
+  test("un RECHAZADO no se tapa con otro registro APROBADO del mismo proveedor y el mismo head (se evalúan todos los de la ronda vigente)", () => {
+    const { repo, base, code } = scenario();
+    const files = {
+      ...repo.evidence({ provider: "openai", base, reviewedHead: code, verdict: "APROBADO", name: "aaa-openai" }),
+      ...repo.evidence({ provider: "openai", base, reviewedHead: code, verdict: "RECHAZADO", name: "zzz-openai" }),
+      ...repo.evidence({ provider: "anthropic", base, reviewedHead: code }),
+    };
+    const verdict = verifyReviewEvidence(repo.git, base, repo.commit(files, "tapado"));
+    expect(verdict.ok).toBe(false);
     expect(verdict.problems.join(" ")).toContain("RECHAZADO");
   });
 
-  test("un arreglo citado debe existir en el PR y tocar el archivo del hallazgo (ronda anterior + re-revisión)", () => {
+  test("un hallazgo `fixed` en la ronda VIGENTE se rechaza (si el revisor lo ve en el código actual, no está arreglado)", () => {
     const { repo, base, code } = scenario();
-    const round1 = repo.commit(twoProviders(repo, base, code, { findings: [{ severity: "ALTA", file: "src/app.ts", summary: "valor sin validar en la constante", disposition: "accepted", reason: "se corrige en la siguiente ronda de cambios" }] }), "ronda 1");
-    const fix = repo.commit({ "src/app.ts": "export const a = 4; // arreglo\n" }, "arreglo");
-    const fixedFinding = (fixedIn: string, file = "src/app.ts") => ({ severity: "ALTA", file, summary: "valor sin validar en la constante", disposition: "fixed", fixedIn });
-    // ronda 2 sobre el head con el arreglo; el hallazgo de la ronda 1 queda como `fixed` apuntando al commit real
-    const round2 = repo.commit({ ...repo.evidence({ provider: "openai", base, reviewedHead: fix, findings: [] }), ...repo.evidence({ provider: "anthropic", base, reviewedHead: fix, findings: [] }) }, "ronda 2");
-    expect(verifyReviewEvidence(repo.git, base, round2).problems).toEqual([]);
-    expect(round1).toBeDefined();
+    const fixed = { severity: "ALTA", file: "src/app.ts", summary: "valor sin validar en la constante", disposition: "fixed", fixedIn: code };
+    const verdict = verifyReviewEvidence(repo.git, base, repo.commit(twoProviders(repo, base, code, { findings: [fixed] }), "e"));
+    expect(verdict.problems.join(" ")).toContain("figura como arreglado en la ronda vigente");
+  });
 
-    // registro de ronda anterior que cita un arreglo inexistente en el PR
+  test("un arreglo citado en una ronda ANTERIOR debe existir en el PR y tocar el archivo del hallazgo", () => {
+    const { repo, base, code } = scenario();
+    const fix = repo.commit({ "src/app.ts": "export const a = 4; // arreglo\n" }, "arreglo");
+    const round1Finding = (fixedIn: string, file = "src/app.ts") => ({ severity: "ALTA", file, summary: "valor sin validar en la constante", disposition: "fixed", fixedIn });
+    const old = repo.evidence({ provider: "openai", base, reviewedHead: code, findings: [round1Finding(fix)], name: "ronda1-openai" });
+    const round2 = repo.commit({ ...old, ...twoProviders(repo, base, fix) }, "ronda 2");
+    expect(verifyReviewEvidence(repo.git, base, round2).problems).toEqual([]);
+
     const bad = scenario();
-    const badHead = bad.repo.commit(twoProviders(bad.repo, bad.base, bad.code, { findings: [fixedFinding("b".repeat(40))] }), "e");
+    const badFiles = { ...bad.repo.evidence({ provider: "openai", base: bad.base, reviewedHead: bad.code, findings: [round1Finding("b".repeat(40))], name: "r1" }) };
+    const badFix = bad.repo.commit({ "src/app.ts": "export const a = 5;\n" }, "otro cambio");
+    const badHead = bad.repo.commit({ ...badFiles, ...twoProviders(bad.repo, bad.base, badFix) }, "e");
     expect(verifyReviewEvidence(bad.repo.git, bad.base, badHead).problems.join(" ")).toContain("no pertenece a este PR");
 
-    // registro que cita un commit real del PR pero que NO toca el archivo
     const wrong = scenario();
-    const wrongHead = wrong.repo.commit(twoProviders(wrong.repo, wrong.base, wrong.code, { findings: [fixedFinding(wrong.code, "README.md")] }), "e");
+    const wrongOld = wrong.repo.evidence({ provider: "openai", base: wrong.base, reviewedHead: wrong.code, findings: [round1Finding(wrong.code, "README.md")], name: "r1" });
+    const wrongFix = wrong.repo.commit({ "src/app.ts": "export const a = 6;\n" }, "arreglo de otra cosa");
+    const wrongHead = wrong.repo.commit({ ...wrongOld, ...twoProviders(wrong.repo, wrong.base, wrongFix) }, "e");
     expect(verifyReviewEvidence(wrong.repo.git, wrong.base, wrongHead).problems.join(" ")).toContain("no toca ese archivo");
   });
 
   test("un registro de OTRO PR (ya estaba en la base) no cuenta como evidencia de este", () => {
     const repo = new Repo();
-    const oldCode = repo.commit({ "src/app.ts": "1\n" }, "viejo");
-    const oldBase = repo.git(["rev-parse", "HEAD~0"]).trim();
+    repo.commit({ "src/app.ts": "1\n" }, "viejo");
+    const oldBase = repo.git(["rev-parse", "HEAD"]).trim();
     repo.commit(twoProviders(repo, oldBase, oldBase), "evidencia vieja ya fusionada");
     const base = repo.git(["rev-parse", "HEAD"]).trim();
     repo.git(["checkout", "-q", "-b", "pr"]);
     const head = repo.commit({ "src/app.ts": "2\n" }, "cambio sin evidencia");
     expect(verifyReviewEvidence(repo.git, base, head).problems.join(" ")).toContain("no añade ningún registro");
-    expect(oldCode).toBeDefined();
   });
 
-  test("parseRecord rechaza basura: no JSON, schema ajeno, rutas fuera de docs/reviews, hallazgos mal formados", () => {
+  test("parseRecord rechaza basura: no JSON, schema ajeno, rutas fuera de docs/reviews, hallazgos mal formados, acceptedRisk inválido", () => {
     expect(parseRecord("{no json")).toBe("no es JSON");
     expect(parseRecord(JSON.stringify({ schema: "otro" }))).toBe("schema distinto de review-evidence/v1");
     const base = { schema: "review-evidence/v1", reviewer: { provider: "openai", tool: "codex", model: "m1" }, reviewedBase: "a".repeat(40), reviewedHead: "b".repeat(40), diffSha256: "c".repeat(64), rawOutput: { file: `${EVIDENCE_DIR}x.raw.txt`, sha256: "d".repeat(64) }, findings: [], verdict: "APROBADO" };
     expect(typeof parseRecord(JSON.stringify(base))).toBe("object");
     expect(parseRecord(JSON.stringify({ ...base, rawOutput: { file: "../../etc/passwd", sha256: "d".repeat(64) } }))).toContain("fuera de docs/reviews");
     expect(parseRecord(JSON.stringify({ ...base, findings: [{ severity: "ENORME" }] }))).toContain("severidad desconocida");
+    expect(parseRecord(JSON.stringify({ ...base, findings: [{ ...blocker, acceptedRisk: "no válido!" }] }))).toContain("acceptedRisk");
     expect(parseRecord(JSON.stringify({ ...base, verdict: "tal vez" }))).toContain("veredicto desconocido");
     expect(parseRecord("x".repeat(300_000))).toBe("registro demasiado grande");
+  });
+
+  test("record-review decodifica UTF-16 de PowerShell y normaliza igual que el verificador", () => {
+    const text = "Revisión de src/app.ts\r\nlínea dos";
+    const utf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]);
+    expect(normalizeRaw(decodeReviewerOutput(utf16))).toBe("Revisión de src/app.ts\nlínea dos");
+    expect(normalizeRaw(decodeReviewerOutput(Buffer.from(`﻿${text}`, "utf8")))).toBe("Revisión de src/app.ts\nlínea dos");
   });
 });
 

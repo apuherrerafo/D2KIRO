@@ -1,7 +1,7 @@
 import type { Locator } from "@playwright/test";
 import { expect, test } from "./support/failure-evidence";
 import Database from "better-sqlite3";
-import { boardOf, decisionCardIds, latestDecision, waitForBoard } from "./support/decision";
+import { boardOf, latestDecision, waitForBoard } from "./support/decision";
 import { record } from "./support/wave1";
 
 test.describe("Modern Coach Recommendation Feedback", () => {
@@ -26,15 +26,26 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     await expect.poll(() => latestDecision(page) !== null, { timeout: 30_000 }).toBe(true);
     await expect(page.getByTestId("copilot-panel")).toHaveCount(0); // no reaparece el Copilot duplicado
     const board = boardOf(page);
-    const cardButtons = board.locator("[data-card-key] button");
-    await expect(cardButtons.first(), "at least one pending position has a recommendation to rate").toBeVisible({ timeout: 30_000 });
-    const cardCount = await cardButtons.count();
-    expect(cardCount).toBeGreaterThan(0);
+    // El voto se emite sobre la decisión V4 de la posición VISTA (su identidad de estado): se busca, entre las posiciones pendientes, la primera cuya decisión trae
+    // recomendaciones. Contrato de elegibilidad: puede que la posición propia no tenga ninguna; el selector del buscador cambia la posición vista.
+    const positionSelector = page.getByRole("group", { name: "Posición para el próximo pick" });
+    for (const position of [1, 3, 4, 5]) {
+      if ((latestDecision(page)?.ranked.length ?? 0) > 0) break;
+      const answered = page.waitForResponse((response) => /recommendations\?format=v4/.test(response.url()), { timeout: 30_000 });
+      await positionSelector.getByRole("button", { name: new RegExp(`Pos${position} `) }).click();
+      await answered;
+      await page.waitForTimeout(500);
+    }
+    const decision = latestDecision(page)!;
+    expect(decision.ranked.length, "at least one pending position has a recommendation to rate").toBeGreaterThan(0);
+    const viewedColumn = board.getByTestId(`team-coach-column-${decision.viewedPosition}`);
+    const cards = viewedColumn.locator("[data-card-key]").filter({ has: page.locator("button") });
+    await expect(cards.first()).toBeVisible({ timeout: 30_000 });
+    const rankedCardIds = (await cards.evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))))).filter((id) => decision.ranked.includes(id));
+    expect(rankedCardIds.length).toBeGreaterThan(0);
 
-    async function openCard(index: number): Promise<{ heroId: number; controls: Locator }> {
-      const card = board.locator("[data-card-key]").nth(index);
-      const heroId = Number(await card.getAttribute("data-hero-id"));
-      expect(heroId).toBeGreaterThan(0);
+    async function openCard(heroId: number): Promise<{ heroId: number; controls: Locator }> {
+      const card = viewedColumn.locator(`[data-card-key][data-hero-id="${heroId}"]`);
       await card.locator("button").click();
       await expect(card.locator("button")).toHaveAttribute("aria-pressed", "true");
       const controls = board.getByTestId("sl-feedback");
@@ -42,8 +53,15 @@ test.describe("Modern Coach Recommendation Feedback", () => {
       return { heroId, controls };
     }
 
+    // Un candidato de OTRA columna (no de la decisión vista) se puede abrir, pero NO ofrece voto: no es lo que esa decisión recomendó.
+    const otherColumnCard = board.locator("[data-testid^='team-coach-column-']").filter({ hasNot: viewedColumn }).locator("[data-card-key]").filter({ has: page.locator("button") }).first();
+    if ((await otherColumnCard.count()) > 0) {
+      await otherColumnCard.locator("button").click();
+      await expect(board.getByTestId("sl-feedback")).toHaveCount(0);
+    }
+
     // 2. Feedback POSITIVO (👍) sobre la primera recomendación
-    const first = await openCard(0);
+    const first = await openCard(rankedCardIds[0]!);
     const firstHeroId = first.heroId;
     await expect(first.controls.locator('[data-testid="recommendation-feedback-controls"]')).toBeVisible();
     await first.controls.locator('[data-testid="feedback-thumb-up"]').click();
@@ -56,11 +74,9 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     await expect(firstSubmitted).toBeVisible({ timeout: 10_000 });
     await expect(firstSubmitted).toContainText("Feedback guardado");
 
-    // 4. Feedback NEGATIVO (👎) sobre otra recomendación (otro héroe) si existe
-    const heroIds = await decisionCardIds(page);
-    if (heroIds.length > 1) {
-      const otherIndex = (await board.locator("[data-card-key]").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))))).findIndex((id) => id !== firstHeroId);
-      const second = await openCard(otherIndex);
+    // 4. Feedback NEGATIVO (👎) sobre otra recomendación de la misma decisión (otro héroe) si existe
+    if (rankedCardIds.length > 1) {
+      const second = await openCard(rankedCardIds[1]!);
       expect(second.heroId).not.toBe(firstHeroId);
       await second.controls.locator('[data-testid="feedback-thumb-down"]').click();
       await expect(second.controls.locator('[data-testid="feedback-form"]')).toBeVisible();

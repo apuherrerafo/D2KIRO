@@ -7,6 +7,10 @@ import { createContext, useContext, type ReactNode } from "react";
 // muestra el control; sin proveedor no se pinta nada.
 export interface RecommendationFeedbackTarget {
   sessionId: string;
+  /** Posición que mira la decisión V4 vigente: el voto solo existe para SUS candidatos, nunca para los de otra columna del tablero. */
+  viewedPosition: number;
+  /** Héroes que esa decisión V4 propuso (tarjetas ranqueadas). Un candidato del tablero que no esté aquí no es "la recomendación" sobre la que se vota. */
+  rankedHeroIds: readonly number[];
   /** Identidad del estado de la decisión V4 sobre la que se opina (evita votar dos veces la misma recomendación). */
   stateIdentity: string;
   rulesetVersion: string | null;

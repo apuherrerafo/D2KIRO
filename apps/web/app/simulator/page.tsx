@@ -20,6 +20,7 @@ import { EngineUnreachableBanner } from "@/features/random-draft-simulator/compo
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import { useScrollToTop } from "@/features/random-draft-simulator/use-scroll-to-top";
 import { SimulatorLightScope } from "@/features/simulator-light";
+import type { RecommendationFeedbackTarget } from "@/features/simulator-light/feedback-context";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -49,6 +50,18 @@ function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
       compact
     />
   );
+}
+
+// Solo una decisión ACTIONABLE tiene posición vista y tarjetas ranqueadas; sin ella no hay sobre qué opinar.
+function feedbackTargetOf(decision: Session["state"]["currentDecision"]): RecommendationFeedbackTarget | null {
+  if (decision === null || decision.decision.kind !== "ACTIONABLE") return null;
+  return {
+    sessionId: decision.sessionId,
+    viewedPosition: decision.decision.viewedPosition,
+    rankedHeroIds: decision.decision.candidates.cards.map((card) => card.heroId),
+    stateIdentity: decision.meta.basedOn.stateIdentity,
+    rulesetVersion: decision.meta.readiness?.empiricalPatchClaim?.patch ?? decision.meta.readiness?.rulesetTarget ?? null,
+  };
 }
 
 function RosterBeforeRound({ session, heroCatalog }: PhaseViewProps) {
@@ -132,11 +145,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const decisionView = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.viewedPosition : null;
   const selectedTarget = requestedTarget ?? decisionView;
   // 👍/👎 sobre la decisión V4 vigente (la misma identidad de estado que ve el motor): sin decisión todavía, no hay nada sobre qué opinar.
-  const feedbackTarget = currentDecision === null ? null : {
-    sessionId: currentDecision.sessionId,
-    stateIdentity: currentDecision.meta.basedOn.stateIdentity,
-    rulesetVersion: currentDecision.meta.readiness?.empiricalPatchClaim?.patch ?? currentDecision.meta.readiness?.rulesetTarget ?? null,
-  };
+  const feedbackTarget = feedbackTargetOf(currentDecision);
 
   return (
     <div className="flex flex-col gap-4">

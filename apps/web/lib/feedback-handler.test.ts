@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFeedbackAdminHandlers, csvCell, toCsv } from "./feedback-admin-handler";
-import { createFeedbackHandlers, createReadGate, detectImageMime, MAX_FORM_PARTS, type FeedbackSession, type ReadGate } from "./feedback-handler";
+import { createFeedbackHandlers, createReadGate, detectImageMime, MAX_FORM_PARTS, multipartBoundary, type FeedbackSession, type ReadGate } from "./feedback-handler";
 import { readFeedbackStore } from "./feedback-store";
 import type { ObjectStorage } from "./object-storage";
 import { createRateLimiter } from "./rate-limit";
@@ -213,7 +213,7 @@ describe("enviar feedback", () => {
       expect(cancelled).toBe(true);
     });
 
-    test("ráfaga de lecturas simultáneas: pasado el máximo, 503 con Retry-After; al liberarse un cupo se acepta de nuevo", async () => {
+    test("ráfaga de envíos simultáneos: pasado el máximo global, 503 con Retry-After; la misma cuenta no abre dos a la vez (429); al liberarse un cupo se acepta de nuevo", async () => {
       const gate = createReadGate(2);
       const open: Array<() => void> = [];
       function held(): Request {
@@ -229,16 +229,84 @@ describe("enviar feedback", () => {
         });
         return streamRequest(stream);
       }
-      const handlers = user(ANA, fakeStorage(), "Ana", { readGate: gate, readDeadlineMs: 5_000 });
-      const first = handlers.POST(held());
-      const second = handlers.POST(held());
+      const read = { readGate: gate, readDeadlineMs: 5_000 };
+      const first = user(ANA, fakeStorage(), "Ana", read).POST(held());
+      const second = user(BEN, fakeStorage(), "Ben", read).POST(held());
       await Bun.sleep(30);
-      const refused = await handlers.POST(held());
+      const refused = await user(OWNER, fakeStorage(), "Dueño", read).POST(held());
       expect(refused.status).toBe(503);
       expect(refused.headers.get("retry-after")).toBe("5");
+      const sameAccount = await user(ANA, fakeStorage(), "Ana", read).POST(held());
+      expect(sameAccount.status).toBe(429); // ANA ya tiene un envío en curso
+      expect(((await sameAccount.json()) as { error: string }).error).toBe("upload_in_progress");
       for (const release of open) release();
       expect([(await first).status, (await second).status]).toEqual([400, 400]); // cuerpo vacío: rechazado, pero el cupo se liberó
-      expect((await handlers.POST(report({}))).status).toBe(201);
+      expect((await user(ANA, fakeStorage(), "Ana", read).POST(report({}))).status).toBe(201);
+    });
+
+    test("el cupo cubre TODO el envío, también la subida al bucket (memoria retenida mientras el almacén es lento)", async () => {
+      const gate = createReadGate(1);
+      let releaseUpload: () => void = () => undefined;
+      const slow: ObjectStorage = {
+        async put() {
+          await new Promise<void>((resolve) => {
+            releaseUpload = resolve;
+          });
+        },
+        async get() {
+          return null;
+        },
+        async remove() {},
+      };
+      const read = { readGate: gate, readDeadlineMs: 5_000 };
+      const uploading = user(ANA, slow, "Ana", read).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
+      await Bun.sleep(50); // la lectura ya terminó; el envío está esperando al bucket
+      const other = await user(BEN, fakeStorage(), "Ben", read).POST(report({}));
+      expect(other.status).toBe(503);
+      releaseUpload();
+      expect((await uploading).status).toBe(201);
+      expect((await user(BEN, fakeStorage(), "Ben", read).POST(report({}))).status).toBe(201);
+    });
+
+    test("un 415/413 por cabeceras NO gasta el cupo por hora de la cuenta", async () => {
+      const limited = createRateLimiter(1, 60_000);
+      const make = () => createFeedbackHandlers({ session: async () => ({ accountId: ANA, personaName: "Ana" }), env: env(), publicOrigin: ORIGIN, now: () => clock, storage: null, limiter: limited });
+      expect((await make().POST(streamRequest(chunks(1, 10), { "content-type": "application/json" }))).status).toBe(415);
+      expect((await make().POST(streamRequest(chunks(1, 10), { "content-length": "99999999" }))).status).toBe(413);
+      expect((await make().POST(report({}))).status).toBe(201); // el único cupo de la hora seguía intacto
+      expect((await make().POST(report({}))).status).toBe(429);
+    });
+
+    test("EVASIÓN del tope de partes con `x-boundary=` antes del boundary real: el boundary se lee con tokenizador, no con regex suelta", async () => {
+      const part = '--BBB\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const body = new TextEncoder().encode(part.repeat(20_000) + "--BBB--\r\n");
+      const attack = new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": "multipart/form-data; x-boundary=AAA; boundary=BBB" }, body });
+      const response = await user(ANA, fakeStorage()).POST(attack);
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toBe("too_many_parts"); // se contó con BBB, el mismo que usa el parser
+    });
+
+    test("boundary ambiguo o fuera de RFC (dos boundary, >70 caracteres, sin cerrar comillas, vacío, sin parámetros): 415", async () => {
+      const bad = [
+        "multipart/form-data; boundary=a; boundary=b",
+        `multipart/form-data; boundary="${"b".repeat(71)}"`,
+        'multipart/form-data; boundary="abc',
+        "multipart/form-data; boundary=",
+        "multipart/form-data; charset",
+        "text/plain; boundary=x",
+      ];
+      for (const contentType of bad) {
+        const response = await user(ANA, fakeStorage(), "Ana", { readGate: createReadGate(8) }).POST(streamRequest(chunks(1, 10), { "content-type": contentType }));
+        expect(response.status, contentType).toBe(415);
+      }
+    });
+
+    test("multipartBoundary: lee boundary con y sin comillas y en cualquier orden de parámetros", () => {
+      expect(multipartBoundary("multipart/form-data; boundary=abc")).toBe("abc");
+      expect(multipartBoundary('multipart/form-data; boundary="a b-c"')).toBe("a b-c");
+      expect(multipartBoundary("multipart/form-data; charset=utf-8; boundary=zzz")).toBe("zzz");
+      expect(multipartBoundary("MULTIPART/FORM-DATA; Boundary=Q")).toBe("Q");
+      expect(multipartBoundary("multipart/form-data; x-boundary=AAA")).toBeNull();
     });
 
     test(`miles de partes diminutas bajo el tope de bytes: 400 too_many_parts (más de ${MAX_FORM_PARTS} boundaries), sin parsear`, async () => {
