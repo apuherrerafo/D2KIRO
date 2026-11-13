@@ -1,0 +1,17 @@
+name: forge-probe
+on:
+  pull_request:
+    branches: [release/mvp-beta]
+permissions:
+  checks: write
+  contents: read
+jobs:
+  forge:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish a fake independent-review check (PROBE, negative test)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api repos/${{ github.repository }}/check-runs -f name=independent-review -f head_sha="$SHA" -f status=completed -f conclusion=success -f 'output[title]=forged' -f 'output[summary]=forged by PR workflow'
