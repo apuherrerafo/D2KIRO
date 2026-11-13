@@ -31,7 +31,7 @@ export function parsePolicy(text: string | null): ReviewPolicy | null {
     const raw: unknown = JSON.parse(text);
     if (!isRecord(raw) || raw.schema !== "review-policy/v1") return null;
     const { criticalPaths, internalPasses, prompts } = raw;
-    if (!Array.isArray(criticalPaths) || criticalPaths.length === 0 || !criticalPaths.every((entry) => typeof entry === "string" && SAFE.test(entry))) return null;
+    if (!Array.isArray(criticalPaths) || criticalPaths.length === 0 || !criticalPaths.every((entry) => typeof entry === "string" && SAFE.test(entry) && !entry.includes(".."))) return null;
     if (typeof internalPasses !== "number" || !Number.isInteger(internalPasses) || internalPasses < 2 || internalPasses > 5) return null;
     if (!isRecord(prompts) || Object.keys(prompts).length < internalPasses) return null;
     const parsed: Record<string, { file: string }> = {};

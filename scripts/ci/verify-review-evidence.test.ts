@@ -598,7 +598,8 @@ describe("review-policy (puro)", () => {
     expect(parsePolicy("{")).toBeNull();
     expect(parsePolicy(JSON.stringify({ schema: "otro" }))).toBeNull();
     expect(parsePolicy(JSON.stringify({ schema: "review-policy/v1", internalPasses: 1, criticalPaths: ["a/"], prompts: {} }))).toBeNull();
-    expect(parsePolicy(JSON.stringify({ schema: "review-policy/v1", internalPasses: 2, criticalPaths: ["../x"], prompts: { aa: { file: "x" }, bb: { file: "y" } } }))).not.toBeNull();
+    expect(parsePolicy(JSON.stringify({ schema: "review-policy/v1", internalPasses: 2, criticalPaths: ["../x"], prompts: { aa: { file: "x" }, bb: { file: "y" } } }))).toBeNull();
+    expect(parsePolicy(POLICY_TEXT)).not.toBeNull();
   });
 
   test("criticalMatches: prefijo con barra y archivo exacto", () => {
