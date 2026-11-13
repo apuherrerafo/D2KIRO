@@ -110,7 +110,7 @@ export function createObjectStorage(config: ObjectStorageConfig, fetchImpl: Fetc
     const signed = signRequest({ method, host: endpoint.host, canonicalPath, headers: extra, payloadHash: sha256Hex(payload), region: config.region, accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey, date: now() });
     const headers: Record<string, string> = { ...extra, "x-amz-date": signed.amzDate, "x-amz-content-sha256": signed.headers["x-amz-content-sha256"], authorization: signed.authorization };
     // Plazo propio: un bucket colgado no puede retener para siempre el cupo de envíos ni la memoria del cuerpo.
-    return fetchImpl(`${endpoint.origin}${canonicalPath}`, { method, headers, body: method === "PUT" ? payload : undefined, signal: method === "GET" ? undefined : AbortSignal.timeout(30_000) }); // el plazo cubre PUT/DELETE; en GET cortaría la descarga en streaming de una captura a quien tiene conexión lenta
+    return fetchImpl(`${endpoint.origin}${canonicalPath}`, { method, headers, body: method === "PUT" ? payload : undefined, signal: AbortSignal.timeout(30_000) }); // cubre TODO pedido al bucket, también GET: `get()` baja el objeto completo en el servidor (arrayBuffer), no hace streaming al cliente
   }
 
   return {

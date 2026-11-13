@@ -146,6 +146,16 @@ export function countSeverities(raw: string): Record<Severity, number> {
   return counts;
 }
 
+/** Líneas de hallazgo de la salida cruda (mismo formato que `countSeverities`) con su severidad y su texto normalizado en minúsculas. */
+export function findingLinesOf(raw: string): Array<{ severity: Severity; text: string }> {
+  const found: Array<{ severity: Severity; text: string }> = [];
+  for (const line of raw.split("\n")) {
+    const match = /^[ \t#>*-]*(?:\d+[.)]\s*)?[[*(]*(BLOQUEANTE|ALTA|MEDIA|BAJA)\b/.exec(line);
+    if (match?.[1] !== undefined) found.push({ severity: match[1] as Severity, text: line.replace(/\s+/g, " ").trim().toLowerCase() });
+  }
+  return found;
+}
+
 /** Menciones de cada severidad (palabra en mayúsculas exactas) en cualquier parte de la salida cruda: cota superior de lo que el registro puede declarar. */
 export function countSeverityMentions(raw: string): Record<Severity, number> {
   const counts: Record<Severity, number> = { BLOQUEANTE: 0, ALTA: 0, MEDIA: 0, BAJA: 0 };
@@ -198,8 +208,8 @@ function allowedProviders(git: Git, baseSha: string): { providers: Set<string>; 
 }
 
 interface AcceptedRisk {
-  /** Texto que el resumen del hallazgo debe contener (sin distinguir mayúsculas): un riesgo aceptado no es un comodín para cualquier BLOQUEANTE. */
-  match: string;
+  /** Cadenas que el resumen del hallazgo debe contener TODAS (sin distinguir mayúsculas): un riesgo aceptado no es un comodín para cualquier hallazgo. */
+  match: string[];
   /** Fecha límite `YYYY-MM-DD` frente a la fecha del commit head (no al reloj): pasada, el riesgo deja de valer y hay que volver a aceptarlo. */
   expires?: string;
 }
@@ -212,9 +222,11 @@ function acceptedRisks(git: Git, baseSha: string): Map<string, AcceptedRisk> {
     const parsed: unknown = JSON.parse(text);
     if (!isRecord(parsed) || !Array.isArray(parsed.risks)) return risks;
     for (const entry of parsed.risks) {
-      if (!isRecord(entry) || !isString(entry.id) || !RISK_ID.test(entry.id) || !isString(entry.match) || entry.match.trim().length < 4) continue; // sin `match` no vale
+      if (!isRecord(entry) || !isString(entry.id) || !RISK_ID.test(entry.id)) continue;
+      const needles = (Array.isArray(entry.match) ? entry.match : [entry.match]).filter((item): item is string => isString(item) && item.trim().length >= 4).map((item) => item.trim().toLowerCase());
+      if (needles.length === 0) continue; // sin `match` no vale
       if (entry.expires !== undefined && (!isString(entry.expires) || !/^\d{4}-\d{2}-\d{2}$/.test(entry.expires))) continue;
-      risks.set(entry.id, { match: entry.match.trim().toLowerCase(), expires: entry.expires as string | undefined });
+      risks.set(entry.id, { match: needles, expires: entry.expires as string | undefined });
     }
   } catch {
     // lista ilegible = ningún riesgo aceptado
@@ -317,13 +329,20 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
       const mentions = countSeverityMentions(raw);
       const fromRecord: Record<Severity, number> = { BLOQUEANTE: 0, ALTA: 0, MEDIA: 0, BAJA: 0 };
       for (const finding of record.findings) fromRecord[finding.severity] += 1;
-      const squashed = raw.replace(/\s+/g, " ").toLowerCase();
+      // Vínculo 1 a 1: cada hallazgo del registro debe estar, con su resumen TAL CUAL, en una línea de hallazgo de la salida cruda de SU severidad, y ninguna línea de
+      // hallazgo puede quedar sin registro. Así un ALTA real no se reemplaza por otro ALTA cuyo resumen aparece en prosa.
+      const findingLines = findingLinesOf(raw);
+      const unused = new Set(findingLines.keys());
       for (const finding of record.findings) {
-        if (!squashed.includes(finding.summary.replace(/\s+/g, " ").trim().toLowerCase())) problems.push(`${tag}: el resumen del hallazgo ${finding.severity} en ${finding.file} no aparece tal cual en la salida cruda: el registro no puede decir otra cosa que el revisor.`);
+        const needle = finding.summary.replace(/\s+/g, " ").trim().toLowerCase();
+        const at = findingLines.findIndex((line, index) => unused.has(index) && line.severity === finding.severity && line.text.includes(needle));
+        if (at === -1) problems.push(`${tag}: el resumen del hallazgo ${finding.severity} en ${finding.file} no está tal cual en una línea de hallazgo ${finding.severity} de la salida cruda: el registro no puede decir otra cosa que el revisor.`);
+        else unused.delete(at);
       }
-      const anyMention = SEVERITIES.some((severity) => mentions[severity] > 0);
-      const anyLine = SEVERITIES.some((severity) => lineStart[severity] > 0);
-      if (anyMention && !anyLine && record.findings.length === 0) problems.push(`${tag}: la salida cruda menciona severidades pero no tiene líneas de hallazgo reconocibles ("N. SEVERIDAD ..."): use ese formato.`);
+      for (const index of unused) problems.push(`${tag}: la salida cruda lista un hallazgo ${findingLines[index]!.severity} ("${findingLines[index]!.text.slice(0, 70)}…") que el registro no recoge.`);
+      // Líneas que parecen hallazgos (viñeta o número) con una severidad dentro pero fuera del formato reconocible, con un registro vacío: formato libre que oculta hallazgos.
+      const looseLines = raw.split("\n").filter((line) => /^[ \t]*(?:(?:\d+[.)]|[-*•])\s+|(?:Severidad|Hallazgo|Severity|Finding)\b[^A-Z\n]{0,20})[^\n]*\b(BLOQUEANTE|ALTA|MEDIA|BAJA)\b/.test(line)).length;
+      if (looseLines > findingLines.length && record.findings.length < looseLines) problems.push(`${tag}: la salida cruda tiene ${looseLines} líneas con severidad pero solo ${findingLines.length} en el formato reconocible ("N. SEVERIDAD ..."): use ese formato.`);
       for (const severity of SEVERITIES) {
         // Cota inferior: cada línea "N. SEVERIDAD ..." de la salida cruda tiene su hallazgo en el registro (no se puede ocultar uno). Cota superior: el registro no
         // puede traer más hallazgos de una severidad que veces aparece esa palabra en la salida cruda (formatos raros pasan, inventar hallazgos no).
@@ -344,7 +363,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
       if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition === "accepted") {
         const risk = finding.acceptedRisk === undefined ? undefined : risks.get(finding.acceptedRisk);
         if (risk === undefined) problems.push(`${where} sin resolver: solo pasa como riesgo aceptado por el propietario (acceptedRisk en ${ACCEPTED_RISKS_FILE} de la rama base): un ALTA o BLOQUEANTE no lo acepta quien escribe el PR.`);
-        else if (!finding.summary.toLowerCase().includes(risk.match)) problems.push(`${where}: el riesgo ${finding.acceptedRisk} solo cubre hallazgos que mencionan "${risk.match}"; no es un comodín.`);
+        else if (!risk.match.every((needle) => finding.summary.toLowerCase().includes(needle))) problems.push(`${where}: el riesgo ${finding.acceptedRisk} solo cubre hallazgos que mencionan ${risk.match.map((needle) => `"${needle}"`).join(" y ")}; no es un comodín.`);
         else if (risk.expires !== undefined && headDate !== "" && headDate > risk.expires) problems.push(`${where}: el riesgo ${finding.acceptedRisk} caducó el ${risk.expires}; el propietario debe volver a aceptarlo.`);
         else if (!reasoned) problems.push(`${where}: el riesgo aceptado exige además una razón (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
       }
@@ -364,8 +383,11 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string,
         problems.push(`${tag}: fue RECHAZADO y el código no cambió desde entonces: no se entierra con un registro nuevo.`);
       }
       for (const finding of earlier.findings) {
-        if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition !== "fixed") {
-          problems.push(`${tag}: ${finding.severity} en ${finding.file} de una ronda anterior sin arreglar (debe figurar fixed con su commit).`);
+        if (finding.severity !== "ALTA" && finding.severity !== "BLOQUEANTE") continue;
+        const risk = finding.disposition === "accepted" && finding.acceptedRisk !== undefined ? risks.get(finding.acceptedRisk) : undefined;
+        const coveredByRisk = risk !== undefined && risk.match.every((needle) => finding.summary.toLowerCase().includes(needle)) && (risk.expires === undefined || headDate === "" || headDate <= risk.expires);
+        if (finding.disposition !== "fixed" && !coveredByRisk) {
+          problems.push(`${tag}: ${finding.severity} en ${finding.file} de una ronda anterior sin arreglar (debe figurar fixed con su commit o estar cubierto por un riesgo aceptado vigente de la rama base).`);
         }
       }
     }

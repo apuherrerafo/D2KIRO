@@ -2,7 +2,7 @@
   "risks": [
     {
       "id": "R-001",
-      "match": "autentic",
+      "match": ["autentic", "revis"],
       "expires": "2027-05-12",
       "summary": "La independencia/identidad de los revisores no se autentica criptográficamente: la evidencia es comprobable contra git (diff, vigencia, salida cruda) pero un autor decidido puede fabricar la salida cruda de un revisor. Cerrarlo exige una segunda cuenta de GitHub, un revisor dentro del CI con credencial propia o registros firmados.",
       "status": "PROPUESTO: entra en vigor solo si el propietario fusiona el PR que añade este archivo a la rama base"

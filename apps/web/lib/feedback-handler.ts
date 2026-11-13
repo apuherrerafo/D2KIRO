@@ -369,7 +369,7 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
           await withDeadline(upload, dependencies.storageTimeoutMs ?? STORAGE_TIMEOUT_MS);
         } catch (error) {
           // La subida colgada puede terminar DESPUÉS del plazo: cuando termine, el objeto se borra (ningún registro lo referencia; no quedan huérfanos en el bucket).
-          void upload.then(() => dependencies.storage?.remove(key)).catch(() => undefined);
+          void upload.then(() => undefined, () => undefined).then(() => dependencies.storage?.remove(key)).catch(() => undefined); // éxito O rechazo (p. ej. abortado tras escribir): borrar un objeto inexistente es inocuo
           throw error;
         }
         stored.push({ key, mime: image.mime, bytes: image.bytes.length });
