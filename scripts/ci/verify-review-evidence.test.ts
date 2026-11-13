@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { decodeReviewerOutput } from "./record-review";
+import { checkCoverage, criticalMatches, parsePolicy, POLICY_FILE } from "./review-policy";
 import { ACCEPTED_RISKS_FILE, cleanGitEnv, codeDiffArgs, countSeverities, EVIDENCE_DIR, normalizeRaw, parseRecord, PROVIDERS_FILE, realGit, verifyReviewEvidence, type Git } from "./verify-review-evidence";
 
 // Cada prueba crea varios repos git reales (en Windows ~1 s por repo): el plazo por defecto de 5 s no alcanza para las que arman 5-6 escenarios.
@@ -46,7 +47,7 @@ class Repo {
   }
 
   /** Escribe registro + salida cruda; devuelve los archivos (sin commitear). Si hay hallazgos, la salida cruda los lista en su formato ("N. SEVERIDAD ..."). */
-  evidence(options: { provider: string; base: string; reviewedHead: string; raw?: string; findings?: Array<Record<string, unknown>>; verdict?: string; diffSha256?: string; rawSha256?: string; model?: string; eol?: string; name?: string }): Record<string, string> {
+  evidence(options: { reviewerExtra?: Record<string, unknown>; provider: string; base: string; reviewedHead: string; raw?: string; findings?: Array<Record<string, unknown>>; verdict?: string; diffSha256?: string; rawSha256?: string; model?: string; eol?: string; name?: string }): Record<string, string> {
     this.counter += 1;
     const stem = options.name ?? `${options.provider}-${this.counter}`;
     const rawFile = `${EVIDENCE_DIR}${stem}.raw.txt`;
@@ -56,7 +57,7 @@ Revisión de ${options.provider}. Archivos revisados: src/app.ts y src/util.ts. 
     const eol = options.eol ?? "\n";
     const record = {
       schema: "review-evidence/v1",
-      reviewer: { provider: options.provider, tool: `${options.provider}-cli 1.0`, model: options.model ?? `${options.provider}-model` },
+      reviewer: { provider: options.provider, tool: `${options.provider}-cli 1.0`, model: options.model ?? `${options.provider}-model`, ...(options.reviewerExtra ?? {}) },
       reviewedBase: options.base,
       reviewedHead: options.reviewedHead,
       diffSha256: options.diffSha256 ?? this.diffHash(options.base, options.reviewedHead),
@@ -487,5 +488,143 @@ describe("aislamiento de git (regresión: dentro de un hook, GIT_INDEX_FILE/GIT_
     expect(real.git(["rev-parse", "HEAD"]).trim()).toBe(before);
     expect(real.git(["ls-files", "-s"])).toBe(indexBefore);
     expect(real.git(["status", "--porcelain"]).trim()).toBe("");
+  });
+});
+
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Política híbrida (opción B): pasadas INTERNAS Claude + externo obligatorio en cambios críticos. Política y prompts salen del checkout CONFIABLE (`trusted`), no del PR.
+// ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+const PROMPT_TEXT: Record<string, string> = { "docs/reviews/prompts/security.md": "prompt de seguridad v1\n", "docs/reviews/prompts/correctness.md": "prompt de correctitud v1\n" };
+const POLICY_TEXT = JSON.stringify({
+  schema: "review-policy/v1",
+  internalPasses: 2,
+  criticalPaths: [".github/", "scripts/ci/", "docs/reviews/policy.json", "apps/web/proxy.ts"],
+  prompts: { security: { file: "docs/reviews/prompts/security.md" }, correctness: { file: "docs/reviews/prompts/correctness.md" } },
+});
+const trustedWith = (files: Record<string, string>) => (path: string): string | null => files[path] ?? null;
+const trustedOk = trustedWith({ [POLICY_FILE]: POLICY_TEXT, ...PROMPT_TEXT });
+const promptSha = (id: "security" | "correctness") => sha256(normalizeRaw(PROMPT_TEXT[`docs/reviews/prompts/${id}.md`]!));
+const internal = (repo: Repo, base: string, code: string, id: "security" | "correctness", extra: Record<string, unknown> = {}) =>
+  repo.evidence({ provider: "claude-internal", base, reviewedHead: code, name: `claude-internal-${id}`, reviewerExtra: { promptId: id, promptSha256: promptSha(id), isolation: "fresh-context", ...extra } });
+
+describe("política híbrida (INTERNA vs independiente)", () => {
+  test("cambio estándar: 2 pasadas internas con prompts distintos pasan, marcadas como SOLO internas", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit({ ...internal(repo, base, code, "security"), ...internal(repo, base, code, "correctness") }, "evidencia interna");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.problems).toEqual([]);
+    expect(verdict.ok).toBe(true);
+    expect(verdict.internalOnly).toBe(true);
+  });
+
+  test("una sola pasada interna no alcanza", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit(internal(repo, base, code, "security"), "una pasada");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("pasadas INTERNAS");
+  });
+
+  test("dos pasadas con el MISMO prompt no cuentan como dos", () => {
+    const { repo, base, code } = scenario();
+    const second = repo.evidence({ provider: "claude-internal", base, reviewedHead: code, name: "claude-internal-otra", reviewerExtra: { promptId: "security", promptSha256: promptSha("security"), isolation: "fresh-context" } });
+    const head = repo.commit({ ...internal(repo, base, code, "security"), ...second }, "mismo prompt");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+  });
+
+  test("promptSha256 inventado (el PR no puede aportar su propio prompt) → rechazado", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit({ ...internal(repo, base, code, "security", { promptSha256: "a".repeat(64) }), ...internal(repo, base, code, "correctness") }, "prompt falso");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("promptSha256 no coincide");
+  });
+
+  test("sin isolation=fresh-context → rechazado", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit({ ...internal(repo, base, code, "security", { isolation: "same-session" }), ...internal(repo, base, code, "correctness") }, "sin aislamiento");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("fresh-context");
+  });
+
+  test("SIN política confiable, claude-internal no existe: nunca se relaja la regla", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit({ ...internal(repo, base, code, "security"), ...internal(repo, base, code, "correctness") }, "sin politica");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedWith({}));
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("proveedor desconocido");
+  });
+
+  test("anthropic + claude-internal son la MISMA familia: no suman independencia", () => {
+    const { repo, base, code } = scenario();
+    const head = repo.commit({ ...repo.evidence({ provider: "anthropic", base, reviewedHead: code }), ...internal(repo, base, code, "security") }, "misma familia");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+  });
+
+  test("CRÍTICO (CI): dos pasadas internas NO bastan, exige revisor externo", () => {
+    const { repo, base } = scenario();
+    const code = repo.commit({ ".github/workflows/x.yml": "name: x\n" }, "toca CI");
+    const head = repo.commit({ ...internal(repo, base, code, "security"), ...internal(repo, base, code, "correctness") }, "evidencia");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join(" ")).toContain("CRÍTICO");
+  });
+
+  test("CRÍTICO (CI): un externo (openai) + una pasada Claude pasa y NO es solo interno", () => {
+    const { repo, base } = scenario();
+    const code = repo.commit({ ".github/workflows/x.yml": "name: x\n" }, "toca CI");
+    const head = repo.commit({ ...repo.evidence({ provider: "openai", base, reviewedHead: code }), ...internal(repo, base, code, "security") }, "evidencia");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.problems).toEqual([]);
+    expect(verdict.internalOnly).toBe(false);
+  });
+
+  test("CRÍTICO: un PR que debilita la política (docs/reviews/policy.json) no se autocertifica con internas", () => {
+    const { repo, base } = scenario();
+    const code = repo.commit({ [POLICY_FILE]: JSON.stringify({ schema: "review-policy/v1", internalPasses: 2, criticalPaths: ["nada/"], prompts: {} }) }, "debilita la politica");
+    const head = repo.commit({ ...internal(repo, base, code, "security"), ...internal(repo, base, code, "correctness") }, "evidencia");
+    const verdict = verifyReviewEvidence(repo.git, base, head, new Date(), trustedOk);
+    expect(verdict.ok).toBe(false);
+  });
+});
+
+describe("review-policy (puro)", () => {
+  test("parsePolicy rechaza forma inválida, nunca lanza", () => {
+    expect(parsePolicy(null)).toBeNull();
+    expect(parsePolicy("{")).toBeNull();
+    expect(parsePolicy(JSON.stringify({ schema: "otro" }))).toBeNull();
+    expect(parsePolicy(JSON.stringify({ schema: "review-policy/v1", internalPasses: 1, criticalPaths: ["a/"], prompts: {} }))).toBeNull();
+    expect(parsePolicy(JSON.stringify({ schema: "review-policy/v1", internalPasses: 2, criticalPaths: ["../x"], prompts: { aa: { file: "x" }, bb: { file: "y" } } }))).toBeNull();
+    expect(parsePolicy(POLICY_TEXT)).not.toBeNull();
+  });
+
+  test("criticalMatches: prefijo con barra y archivo exacto", () => {
+    const policy = parsePolicy(POLICY_TEXT)!;
+    expect(criticalMatches(["apps/web/proxy.ts", ".github/workflows/a.yml", "apps/web/page.tsx"], policy)).toEqual(["apps/web/proxy.ts", ".github/workflows/a.yml"]);
+    expect(criticalMatches(["scripts/ci-other/x.ts"], policy)).toEqual([]);
+  });
+
+  test("checkCoverage: crítico exige externo + otra pasada; estándar acepta 2 familias o 2 pasadas", () => {
+    const policy = parsePolicy(POLICY_TEXT)!;
+    expect(checkCoverage({ providers: ["claude-internal"], internalPromptIds: ["security", "correctness"] }, true, policy).problems.length).toBeGreaterThan(0);
+    expect(checkCoverage({ providers: ["human:alice", "claude-internal"], internalPromptIds: ["security"] }, true, policy).problems).toEqual([]);
+    expect(checkCoverage({ providers: ["openai", "anthropic"], internalPromptIds: [] }, false, policy).problems).toEqual([]);
+    expect(checkCoverage({ providers: ["claude-internal"], internalPromptIds: ["security", "correctness"] }, false, policy).internalOnly).toBe(true);
+  });
+});
+
+describe("hash del diff reproducible entre máquinas", () => {
+  test("no depende de core.abbrev: el CI usa 7 y un equipo de desarrollo suele usar 8-12 (defecto medido el 2026-11-13)", () => {
+    const { repo, base, code } = scenario();
+    const hashes = new Set<string>();
+    for (const abbrev of ["7", "8", "12", "40"]) {
+      repo.git(["config", "core.abbrev", abbrev]);
+      hashes.add(repo.diffHash(base, code));
+    }
+    expect([...hashes]).toHaveLength(1);
   });
 });
