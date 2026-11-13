@@ -1,0 +1,17 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "ChatGPT (modelo por defecto de la cuenta personal del propietario)"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "40e9bc44ac4bb7990bb709cdc3d14f09ff215951",
+  "diffSha256": "cbb1b304c531107778fdc6c64745869c2dc64710640a1b82c9aaa96b13214e2a",
+  "rawOutput": {
+    "file": "docs/reviews/40e9bc44-openai.raw.txt",
+    "sha256": "6843a48e45360db907f22c7bb6695bb7c4da2053c58b98adfe8035be35cff25c"
+  },
+  "findings": [],
+  "verdict": "APROBADO"
+}
