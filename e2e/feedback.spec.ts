@@ -54,7 +54,8 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     }
 
     // Un candidato de OTRA columna (no de la decisión vista) se puede abrir, pero NO ofrece voto: no es lo que esa decisión recomendó.
-    const otherColumnCard = board.locator("[data-testid^='team-coach-column-']").filter({ hasNot: viewedColumn }).locator("[data-card-key]").filter({ has: page.locator("button") }).first();
+    // (`data-card-key` es `<posición>:<héroe>`: se excluye por prefijo de posición; `hasNot` con un locator del tablero no excluía nada.)
+    const otherColumnCard = board.locator(`[data-card-key]:not([data-card-key^="${decision.viewedPosition}:"])`).filter({ has: page.locator("button") }).first();
     if ((await otherColumnCard.count()) > 0) {
       await otherColumnCard.locator("button").click();
       await expect(board.getByTestId("sl-feedback")).toHaveCount(0);

@@ -30,6 +30,8 @@ export type Git = (args: string[]) => string;
 export const EVIDENCE_DIR = "docs/reviews/";
 export const PROVIDERS_FILE = `${EVIDENCE_DIR}providers.json`;
 export const ACCEPTED_RISKS_FILE = `${EVIDENCE_DIR}ACCEPTED-RISKS.json`;
+/** Solo los registros y las salidas crudas quedan fuera del diff revisado; providers.json y ACCEPTED-RISKS.json (de las que depende la compuerta) SÍ lo integran. */
+export const EVIDENCE_OUTPUT_EXCLUDES = [`:(exclude)${EVIDENCE_DIR}*.review.json`, `:(exclude)${EVIDENCE_DIR}*.raw.txt`];
 const DEFAULT_PROVIDERS = ["openai", "anthropic", "google"];
 const MAX_RECORD_BYTES = 200_000;
 const MIN_RAW_OUTPUT_CHARS = 300;
@@ -144,12 +146,19 @@ export function countSeverities(raw: string): Record<Severity, number> {
   return counts;
 }
 
+/** Menciones de cada severidad (palabra en mayúsculas exactas) en cualquier parte de la salida cruda: cota superior de lo que el registro puede declarar. */
+export function countSeverityMentions(raw: string): Record<Severity, number> {
+  const counts: Record<Severity, number> = { BLOQUEANTE: 0, ALTA: 0, MEDIA: 0, BAJA: 0 };
+  for (const match of raw.matchAll(/\b(BLOQUEANTE|ALTA|MEDIA|BAJA)\b/g)) counts[match[1] as Severity] += 1;
+  return counts;
+}
+
 /** Argumentos de `git diff` del código revisado, con todo lo que cambia el texto fijado (prefijos, algoritmo, renames, drivers externos). Los usa también record-review. */
 export function codeDiffArgs(from: string, to: string): string[] {
   return [
     "-c", "diff.noprefix=false", "-c", "diff.mnemonicPrefix=false", "-c", "diff.algorithm=myers", "-c", "diff.renames=false", "-c", "core.quotepath=true",
     "diff", "--no-color", "--binary", "--no-ext-diff", "--no-textconv", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/",
-    from, to, "--", ".", `:(exclude)${EVIDENCE_DIR}`,
+    from, to, "--", ".", ...EVIDENCE_OUTPUT_EXCLUDES,
   ];
 }
 
@@ -185,16 +194,29 @@ function allowedProviders(git: Git, baseSha: string): { providers: Set<string>; 
   return { providers: new Set(DEFAULT_PROVIDERS), problem: `${PROVIDERS_FILE} de la rama base es ilegible: se usa la lista de fábrica` };
 }
 
-function acceptedRiskIds(git: Git, baseSha: string): Set<string> {
+interface AcceptedRisk {
+  /** Texto que el resumen del hallazgo debe contener (sin distinguir mayúsculas): un riesgo aceptado no es un comodín para cualquier BLOQUEANTE. */
+  match: string;
+  /** Fecha límite `YYYY-MM-DD` frente a la fecha del commit head (no al reloj): pasada, el riesgo deja de valer y hay que volver a aceptarlo. */
+  expires?: string;
+}
+
+function acceptedRisks(git: Git, baseSha: string): Map<string, AcceptedRisk> {
+  const risks = new Map<string, AcceptedRisk>();
   const text = tryGit(git, ["show", `${baseSha}:${ACCEPTED_RISKS_FILE}`]);
-  if (text === null) return new Set();
+  if (text === null) return risks;
   try {
     const parsed: unknown = JSON.parse(text);
-    if (!isRecord(parsed) || !Array.isArray(parsed.risks)) return new Set();
-    return new Set(parsed.risks.flatMap((entry) => (isRecord(entry) && isString(entry.id) && RISK_ID.test(entry.id) ? [entry.id] : [])));
+    if (!isRecord(parsed) || !Array.isArray(parsed.risks)) return risks;
+    for (const entry of parsed.risks) {
+      if (!isRecord(entry) || !isString(entry.id) || !RISK_ID.test(entry.id) || !isString(entry.match) || entry.match.trim().length < 4) continue; // sin `match` no vale
+      if (entry.expires !== undefined && (!isString(entry.expires) || !/^\d{4}-\d{2}-\d{2}$/.test(entry.expires))) continue;
+      risks.set(entry.id, { match: entry.match.trim().toLowerCase(), expires: entry.expires as string | undefined });
+    }
   } catch {
-    return new Set();
+    // lista ilegible = ningún riesgo aceptado
   }
+  return risks;
 }
 
 function providerKnown(provider: string, providers: Set<string>): boolean {
@@ -226,7 +248,8 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
 
   const { providers: allowed, problem: providersProblem } = allowedProviders(git, baseSha);
   if (providersProblem !== undefined) notes.push(providersProblem);
-  const riskIds = acceptedRiskIds(git, baseSha);
+  const risks = acceptedRisks(git, baseSha);
+  const headDate = (tryGit(git, ["show", "-s", "--format=%cI", headSha]) ?? "").trim().slice(0, 10);
 
   const candidates: Candidate[] = [];
   for (const file of added) {
@@ -247,6 +270,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
   for (const candidate of candidates) byProvider.set(candidate.record.reviewer.provider, [...(byProvider.get(candidate.record.reviewer.provider) ?? []), candidate]);
   if (byProvider.size < 2) problems.push(`se exigen revisiones de al menos 2 proveedores distintos; hay ${byProvider.size} (${[...byProvider.keys()].join(", ")}).`);
 
+  const addedSet = new Set(lines(tryGit(git, ["diff", "--name-only", "--no-renames", "--diff-filter=A", mergeBase, headSha, "--", EVIDENCE_DIR]) ?? ""));
   const current: Candidate[] = [];
   for (const [provider, records] of byProvider) {
     const heads = [...new Set(records.map((entry) => entry.record.reviewedHead))];
@@ -255,7 +279,7 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
     else current.push(...records.filter((entry) => entry.record.reviewedHead === latest[0]));
   }
 
-  const changedFiles = new Set(lines(tryGit(git, ["diff", "--name-only", mergeBase, headSha, "--", ".", `:(exclude)${EVIDENCE_DIR}`]) ?? ""));
+  const changedFiles = new Set(lines(tryGit(git, ["diff", "--name-only", mergeBase, headSha, "--", ".", ...EVIDENCE_OUTPUT_EXCLUDES]) ?? ""));
   const rangeCommits = new Set(lines(tryGit(git, ["rev-list", `${mergeBase}..${headSha}`]) ?? ""));
   const rawHashes = new Set<string>();
 
@@ -272,19 +296,26 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
     const blob = tryGit(git, ["show", `${headSha}:${record.rawOutput.file}`]);
     if (blob === null) {
       problems.push(`${tag}: falta la salida cruda ${record.rawOutput.file} en el PR.`);
+    } else if (!addedSet.has(record.rawOutput.file)) {
+      problems.push(`${tag}: la salida cruda ${record.rawOutput.file} no la añade este PR: se reutilizó la de otra revisión.`);
     } else {
       const raw = normalizeRaw(blob);
       const rawHash = sha256(raw);
       if (rawHash !== record.rawOutput.sha256) problems.push(`${tag}: la salida cruda no coincide con su SHA-256 (fue editada).`);
       if (raw.trim().length < MIN_RAW_OUTPUT_CHARS) problems.push(`${tag}: la salida cruda es demasiado corta (${raw.trim().length} < ${MIN_RAW_OUTPUT_CHARS}) para ser una revisión.`);
+      if (!raw.includes(record.reviewedHead)) problems.push(`${tag}: la salida cruda no nombra el head revisado (${record.reviewedHead.slice(0, 8)}): no es la revisión de este código.`);
       if (![...changedFiles].some((path) => raw.includes(path))) problems.push(`${tag}: la salida cruda no menciona ningún archivo del diff: no revisó este cambio.`);
       if (rawHashes.has(rawHash)) problems.push(`${tag}: la salida cruda es idéntica a la de otro revisor.`);
       rawHashes.add(rawHash);
-      const fromRaw = countSeverities(raw);
+      const lineStart = countSeverities(raw);
+      const mentions = countSeverityMentions(raw);
       const fromRecord: Record<Severity, number> = { BLOQUEANTE: 0, ALTA: 0, MEDIA: 0, BAJA: 0 };
       for (const finding of record.findings) fromRecord[finding.severity] += 1;
       for (const severity of SEVERITIES) {
-        if (fromRaw[severity] !== fromRecord[severity]) problems.push(`${tag}: la salida cruda trae ${fromRaw[severity]} hallazgo(s) ${severity} y el registro ${fromRecord[severity]}: los hallazgos no coinciden con lo que escribió el revisor.`);
+        // Cota inferior: cada línea "N. SEVERIDAD ..." de la salida cruda tiene su hallazgo en el registro (no se puede ocultar uno). Cota superior: el registro no
+        // puede traer más hallazgos de una severidad que veces aparece esa palabra en la salida cruda (formatos raros pasan, inventar hallazgos no).
+        if (fromRecord[severity] < lineStart[severity]) problems.push(`${tag}: la salida cruda lista ${lineStart[severity]} hallazgo(s) ${severity} y el registro solo ${fromRecord[severity]}: los hallazgos no coinciden con lo que escribió el revisor.`);
+        if (fromRecord[severity] > mentions[severity]) problems.push(`${tag}: el registro trae ${fromRecord[severity]} hallazgo(s) ${severity} pero la salida cruda solo menciona ${mentions[severity]}.`);
       }
     }
     if (record.verdict === "RECHAZADO") problems.push(`${tag}: el veredicto es RECHAZADO.`);
@@ -295,13 +326,15 @@ export function verifyReviewEvidence(git: Git, baseSha: string, headSha: string)
         continue;
       }
       const reasoned = (finding.reason?.trim().length ?? 0) >= MIN_ACCEPTANCE_REASON;
-      if (finding.severity === "ALTA" && !reasoned) problems.push(`${where} sin razón suficiente (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
-      if (finding.severity === "BLOQUEANTE") {
-        if (finding.disposition !== "accepted" || finding.acceptedRisk === undefined || !riskIds.has(finding.acceptedRisk)) {
-          problems.push(`${where} sin resolver: solo pasa como riesgo aceptado por el propietario (acceptedRisk en ${ACCEPTED_RISKS_FILE} de la rama base).`);
-        } else if (!reasoned) {
-          problems.push(`${where}: el riesgo aceptado exige además una razón (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
-        }
+      // ALTA y BLOQUEANTE solo pasan ACEPTADOS (no "rejected" con texto libre) y razonados; MEDIA/BAJA pueden quedar como observaciones.
+      if ((finding.severity === "ALTA" || finding.severity === "BLOQUEANTE") && finding.disposition !== "accepted") problems.push(`${where}: solo pasa con disposition "accepted" (aceptación explícita y razonada), no "${finding.disposition}".`);
+      else if (finding.severity === "ALTA" && !reasoned) problems.push(`${where} sin razón suficiente (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
+      if (finding.severity === "BLOQUEANTE" && finding.disposition === "accepted") {
+        const risk = finding.acceptedRisk === undefined ? undefined : risks.get(finding.acceptedRisk);
+        if (risk === undefined) problems.push(`${where} sin resolver: solo pasa como riesgo aceptado por el propietario (acceptedRisk en ${ACCEPTED_RISKS_FILE} de la rama base).`);
+        else if (!finding.summary.toLowerCase().includes(risk.match)) problems.push(`${where}: el riesgo ${finding.acceptedRisk} solo cubre hallazgos que mencionan "${risk.match}"; no es un comodín.`);
+        else if (risk.expires !== undefined && headDate !== "" && headDate > risk.expires) problems.push(`${where}: el riesgo ${finding.acceptedRisk} caducó el ${risk.expires}; el propietario debe volver a aceptarlo.`);
+        else if (!reasoned) problems.push(`${where}: el riesgo aceptado exige además una razón (>= ${MIN_ACCEPTANCE_REASON} caracteres).`);
       }
     }
   }

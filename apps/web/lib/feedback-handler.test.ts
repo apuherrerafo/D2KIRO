@@ -43,7 +43,7 @@ function env(): Record<string, string> {
   return { FEEDBACK_FILE: file, BETA_ADMIN_STEAM_IDS: String(OWNER), SESSION_SECRET: SECRET, RAILWAY_GIT_COMMIT_SHA: "a".repeat(40) };
 }
 
-function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana", read: { readGate?: ReadGate; readDeadlineMs?: number } = {}) {
+function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana", read: { readGate?: ReadGate; readDeadlineMs?: number; readIdleMs?: number; storageTimeoutMs?: number } = {}) {
   const session: FeedbackSession | null = accountId === null ? null : { accountId, personaName: name };
   return createFeedbackHandlers({
     ...read,
@@ -299,6 +299,63 @@ describe("enviar feedback", () => {
         const response = await user(ANA, fakeStorage(), "Ana", { readGate: createReadGate(8) }).POST(streamRequest(chunks(1, 10), { "content-type": contentType }));
         expect(response.status, contentType).toBe(415);
       }
+    });
+
+    test("INACTIVIDAD: un cliente que manda un trozo y se queda callado se corta por el plazo de inactividad (no retiene el cupo los 45 s)", async () => {
+      let cancelled = false;
+      const stalled = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(new Uint8Array(10));
+          return new Promise(() => undefined);
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      const started = Date.now();
+      const response = await user(ANA, fakeStorage(), "Ana", { readDeadlineMs: 30_000, readIdleMs: 60 }).POST(streamRequest(stalled));
+      expect(response.status).toBe(408);
+      expect(Date.now() - started).toBeLessThan(2_000); // por inactividad, mucho antes que el plazo total de 30 s
+      expect(cancelled).toBe(true);
+    });
+
+    test("INUNDACIÓN de trozos de 1 byte (CPU, no bytes): se corta por cantidad de trozos con 413", async () => {
+      let pulls = 0;
+      const request = streamRequest(chunks(60_000, 1, () => (pulls += 1)));
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(413);
+      expect(pulls).toBeLessThan(25_000); // MAX_CHUNKS = 20 000: se dejó de leer
+    });
+
+    test("un bucket COLGADO no retiene el cupo: la subida vence por plazo (502) y el cupo queda libre", async () => {
+      const gate = createReadGate(1);
+      const hung: ObjectStorage = { async put() { await new Promise(() => undefined); }, async get() { return null; }, async remove() {} };
+      const read = { readGate: gate, readDeadlineMs: 5_000, storageTimeoutMs: 80 };
+      const started = Date.now();
+      const response = await user(ANA, hung, "Ana", read).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
+      expect(response.status).toBe(502);
+      expect(Date.now() - started).toBeLessThan(3_000);
+      expect((await user(BEN, fakeStorage(), "Ben", read).POST(report({}))).status).toBe(201); // el único cupo se liberó
+      expect(readFeedbackStore(file).items.filter((item) => item.author === ANA)).toHaveLength(0);
+    });
+
+    test("un 429 'envío en curso' o un 503 'ocupado' NO gastan uno de los envíos de la hora de la cuenta", async () => {
+      const gate = createReadGate(8);
+      const limited = createRateLimiter(2, 60_000);
+      const handlersFor = (accountId: number) => createFeedbackHandlers({ session: async () => ({ accountId, personaName: "x" }), env: env(), publicOrigin: ORIGIN, now: () => clock, storage: null, limiter: limited, readGate: gate, readDeadlineMs: 5_000 });
+      let release: () => void = () => undefined;
+      const held = new ReadableStream<Uint8Array>({ pull(controller) { return new Promise<void>((resolve) => { release = () => { controller.close(); resolve(); }; }); } });
+      const first = handlersFor(ANA).POST(streamRequest(held)); // gasta 1 de 2
+      await Bun.sleep(30);
+      expect((await handlersFor(ANA).POST(report({}))).status).toBe(429); // en curso: rechazado SIN gastar el segundo
+      release();
+      await first;
+      expect((await handlersFor(ANA).POST(report({}))).status).toBe(201); // si el rechazado hubiera gastado el token, aquí sería 429
+    });
+
+    test("multipartBoundary tolera el `;` final que emiten clientes no navegador", () => {
+      expect(multipartBoundary("multipart/form-data; boundary=abc;")).toBe("abc");
+      expect(multipartBoundary("multipart/form-data; boundary=abc; ")).toBe("abc");
     });
 
     test("multipartBoundary: lee boundary con y sin comillas y en cualquier orden de parámetros", () => {

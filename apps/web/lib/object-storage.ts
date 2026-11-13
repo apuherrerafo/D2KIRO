@@ -20,7 +20,7 @@ export interface ObjectStorage {
 }
 
 type Env = Record<string, string | undefined>;
-type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: Uint8Array }) => Promise<Response>;
+type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: Uint8Array; signal?: AbortSignal }) => Promise<Response>;
 
 /** Lee la configuración del entorno. Devuelve null si falta cualquier dato: sin ella no hay subida de imágenes (el texto del feedback sigue funcionando). */
 export function readObjectStorageConfig(env: Env): ObjectStorageConfig | null {
@@ -109,7 +109,8 @@ export function createObjectStorage(config: ObjectStorageConfig, fetchImpl: Fetc
     const extra: Record<string, string> = contentType === undefined ? {} : { "content-type": contentType };
     const signed = signRequest({ method, host: endpoint.host, canonicalPath, headers: extra, payloadHash: sha256Hex(payload), region: config.region, accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey, date: now() });
     const headers: Record<string, string> = { ...extra, "x-amz-date": signed.amzDate, "x-amz-content-sha256": signed.headers["x-amz-content-sha256"], authorization: signed.authorization };
-    return fetchImpl(`${endpoint.origin}${canonicalPath}`, { method, headers, body: method === "PUT" ? payload : undefined });
+    // Plazo propio: un bucket colgado no puede retener para siempre el cupo de envíos ni la memoria del cuerpo.
+    return fetchImpl(`${endpoint.origin}${canonicalPath}`, { method, headers, body: method === "PUT" ? payload : undefined, signal: AbortSignal.timeout(30_000) });
   }
 
   return {

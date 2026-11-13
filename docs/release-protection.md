@@ -19,18 +19,22 @@ Antes bastaba escribir dos líneas en la descripción del PR. Ahora el PR **debe
 
 1. **Proveedores distintos y conocidos**: al menos 2, de la lista `docs/reviews/providers.json` **de la rama base** (un PR no puede ampliarla) o `human:<login>`. «openai2»
    o «gpt» no cuentan.
-2. **Atados al diff exacto**: `diffSha256` se **recalcula** con git (`merge-base..reviewedHead`, sin `docs/reviews`), con las opciones de git fijadas (prefijos, algoritmo,
-   renames, drivers externos) para que no dependa de la configuración de cada máquina. Un registro inventado sin conocer el diff no coincide.
+2. **Atados al diff exacto**: `diffSha256` se **recalcula** con git (`merge-base..reviewedHead`), con las opciones de git fijadas (prefijos, algoritmo, renames, drivers
+   externos) para que no dependa de la configuración de cada máquina. Solo quedan fuera del diff los registros `*.review.json` y las salidas `*.raw.txt`: **`providers.json` y
+   `ACCEPTED-RISKS.json` sí entran**, así los revisores ven cualquier cambio a las listas de las que depende la compuerta. Un registro inventado sin conocer el diff no coincide.
 3. **Vigentes**: si cambió una sola línea de código después de `reviewedHead`, esa revisión caduca y el proveedor debe revisar el head actual. De cada proveedor cuenta su
    ronda más reciente y **se evalúan todos sus registros** (un RECHAZADO no se tapa con un APROBADO del mismo head).
-4. **Salida cruda íntegra**: el texto original del revisor se guarda junto al registro; su SHA-256 (sobre el texto normalizado: BOM y CRLF no importan) debe coincidir, tiene un
-   mínimo de sustancia, cita archivos del diff y no puede ser idéntico al de otro revisor.
-5. **Hallazgos contrastados con la salida cruda**: la cuenta por severidad (líneas «N. BLOQUEANTE|ALTA|MEDIA|BAJA …») debe coincidir con la del registro. Un BLOQUEANTE que
-   el revisor escribió no puede desaparecer del registro sin editar la salida cruda, y eso cambia su hash.
-6. **Resolución**: en la ronda vigente ningún hallazgo puede figurar `fixed` (si el revisor lo ve en el código actual, no está arreglado). Un ALTA exige una aceptación razonada
-   (≥ 40 caracteres). Un BLOQUEANTE solo pasa como **riesgo aceptado por el propietario**: `acceptedRisk` debe ser un id de `docs/reviews/ACCEPTED-RISKS.json` **de la rama base**
-   (el propietario lo acepta al fusionar el PR que lo añade; ese PR no se aprueba con su propia lista). Los arreglos de rondas anteriores exigen un commit del PR que toque
-   el archivo citado.
+4. **Salida cruda íntegra y propia de este PR**: el texto original del revisor se guarda junto al registro; **lo añade este PR** (no vale reutilizar la de una revisión anterior),
+   **nombra el head revisado**, su SHA-256 (sobre el texto normalizado: BOM y CRLF no importan) debe coincidir, tiene un mínimo de sustancia, cita archivos del diff y no
+   puede ser idéntica a la de otro revisor.
+5. **Hallazgos contrastados con la salida cruda**: cada línea «N. BLOQUEANTE|ALTA|MEDIA|BAJA …» de la salida cruda debe tener su hallazgo en el registro (cota inferior: un
+   BLOQUEANTE que el revisor escribió no puede desaparecer sin editar la salida cruda, y eso cambia su hash) y el registro no puede declarar más hallazgos de una severidad que
+   menciones de esa palabra hay en la salida (cota superior).
+6. **Resolución**: en la ronda vigente ningún hallazgo puede figurar `fixed` (si el revisor lo ve en el código actual, no está arreglado). Un ALTA solo pasa con
+   `disposition: "accepted"` y una razón de ≥ 40 caracteres (`rejected` con texto libre no vale). Un BLOQUEANTE solo pasa como **riesgo aceptado por el propietario**:
+   `acceptedRisk` debe ser un id de `docs/reviews/ACCEPTED-RISKS.json` **de la rama base**, el resumen del hallazgo debe contener el `match` de ese riesgo (no es un comodín) y
+   no puede estar caducado (`expires`, comparado con la fecha del commit head). El propietario acepta un riesgo al fusionar el PR que lo añade; ese PR no se aprueba con su propia
+   lista. Los arreglos de rondas anteriores exigen un commit del PR que toque el archivo citado.
 7. **Seguridad del propio check**: corre con `pull_request_target`, así el verificador se lee de la rama base y un PR no puede reescribirlo; nunca hace checkout del código del PR
    (solo `git fetch` de sus objetos y lectura de blobs); el número de PR y los SHA entran por `env`; las acciones están fijadas por SHA y sin credenciales persistidas.
 

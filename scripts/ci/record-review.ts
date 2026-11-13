@@ -37,7 +37,7 @@ if (import.meta.main) {
   const findingsPath = arg("findings");
   const findings = findingsPath !== undefined ? (JSON.parse(readFileSync(findingsPath, "utf8")) as unknown[]) : [];
   mkdirSync(EVIDENCE_DIR, { recursive: true });
-  const stem = `${reviewedHead.slice(0, 8)}-${provider}`;
+  const stem = `${reviewedHead.slice(0, 8)}-${provider.replace(/[^a-z0-9._-]/gi, "-")}`; // `human:alice` -> `human-alice` (el `:` es inválido en Windows y en las rutas permitidas)
   const rawTarget = `${EVIDENCE_DIR}${stem}.raw.txt`;
   const raw = normalizeRaw(decodeReviewerOutput(readFileSync(rawPath)));
   writeFileSync(rawTarget, raw);

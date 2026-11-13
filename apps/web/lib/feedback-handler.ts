@@ -29,6 +29,10 @@ export interface FeedbackDependencies {
   readGate?: ReadGate;
   /** Plazo total para recibir el cuerpo, en ms (inyectable en pruebas). */
   readDeadlineMs?: number;
+  /** Plazo sin recibir bytes, en ms (inyectable en pruebas). */
+  readIdleMs?: number;
+  /** Plazo de cada subida al bucket, en ms (inyectable en pruebas). */
+  storageTimeoutMs?: number;
 }
 
 const sharedLimiter = createRateLimiter(10, 60 * 60 * 1000);
@@ -116,7 +120,10 @@ type ParseResult = { ok: true; report: ParsedReport } | { ok: false; status: num
 //  6. Menos copias: los trozos pasan al Blob y se sueltan (antes: trozos + copia contigua + Blob). `formData()` y `arrayBuffer()` siguen copiando: el pico por envío es
 //     de unas 3-4 veces el cuerpo (~25-30 MB), por eso el cupo cubre TODO el procesamiento del envío y no solo la lectura, y hay un máximo global y uno por cuenta.
 export const MAX_FORM_PARTS = 30;
-export const READ_DEADLINE_MS = 45_000; // 7,7 MB a ~1,4 Mbps de subida: un móvil lento con 3 capturas legítimas termina; el goteo no se queda para siempre
+export const READ_IDLE_MS = 10_000; // sin recibir un solo byte en 10 s: se corta (el goteo no retiene el cupo los 45 s)
+export const MAX_CHUNKS = 20_000; // millones de trozos de 1 byte son CPU, no bytes: se corta por cantidad de trozos
+export const READ_DEADLINE_MS = 45_000;
+export const STORAGE_TIMEOUT_MS = 30_000; // 7,7 MB a ~1,4 Mbps de subida: un móvil lento con 3 capturas legítimas termina; el goteo no se queda para siempre
 export const MAX_CONCURRENT_READS = 8;
 
 export type GateResult = "ok" | "busy" | "account_busy";
@@ -160,6 +167,7 @@ export function multipartBoundary(contentType: string | null): string | null {
   if (parts[0]?.trim().toLowerCase() !== "multipart/form-data") return null;
   let boundary: string | null = null;
   for (const raw of parts.slice(1)) {
+    if (raw.trim() === "") continue; // `...; boundary=abc;` (cliente no navegador): el `;` final no es un parámetro
     const eq = raw.indexOf("=");
     if (eq === -1) return null;
     const name = raw.slice(0, eq).trim().toLowerCase();
@@ -179,25 +187,42 @@ export function multipartBoundary(contentType: string | null): string | null {
 /** Cuenta cuántas veces aparece `--boundary` en el flujo sin juntar los trozos (conserva solo la cola que podría cruzar de un trozo al siguiente). */
 function createBoundaryCounter(boundary: string): (chunk: Uint8Array) => number {
   const needle = Buffer.from(`--${boundary}`);
+  const keep = needle.length - 1;
   let tail = Buffer.alloc(0);
   let count = 0;
-  return (chunk) => {
-    const window = Buffer.concat([tail, chunk]);
+  function countIn(window: Buffer, onlyStartingBefore: number): void {
     let from = 0;
     for (;;) {
       const at = window.indexOf(needle, from);
-      if (at === -1) break;
+      if (at === -1 || at >= onlyStartingBefore) break;
       count += 1;
       from = at + needle.length;
     }
-    tail = window.subarray(Math.max(0, window.length - needle.length + 1));
+  }
+  return (chunk) => {
+    const view = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength); // sin copiar el trozo
+    // Costura: solo los `keep` bytes que acaban el trozo anterior + los `keep` que empiezan este (un separador que cruza la frontera), nunca el trozo entero.
+    if (tail.length > 0) countIn(Buffer.concat([tail, view.subarray(0, keep)]), tail.length);
+    countIn(view, view.length);
+    tail = keep === 0 ? Buffer.alloc(0) : Buffer.from(tail.length + view.length <= keep ? Buffer.concat([tail, view]) : view.subarray(Math.max(0, view.length - keep)));
     return count;
   };
 }
 
+/** La promesa o un rechazo por plazo: una subida colgada no retiene el cupo (la petición queda abortada por el AbortSignal del cliente del bucket). */
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("storage_timeout")), ms);
+  });
+  return Promise.race([work, expired]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
 type BodyRead = { kind: "ok"; body: Blob } | { kind: "too_large" } | { kind: "too_many_parts" } | { kind: "timeout" } | { kind: "unreadable" };
 
-async function readBodyBounded(request: Request, limit: number, boundary: string, deadlineMs: number): Promise<BodyRead> {
+async function readBodyBounded(request: Request, limit: number, boundary: string, deadlineMs: number, idleMs: number): Promise<BodyRead> {
   if (request.body === null) return { kind: "unreadable" };
   const reader = request.body.getReader();
   const countParts = createBoundaryCounter(boundary);
@@ -207,14 +232,25 @@ async function readBodyBounded(request: Request, limit: number, boundary: string
   const expired = new Promise<"expired">((resolve) => {
     timer = setTimeout(() => resolve("expired"), deadlineMs);
   });
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  function idle(): Promise<"expired"> {
+    return new Promise((resolve) => {
+      idleTimer = setTimeout(() => resolve("expired"), Math.min(idleMs, deadlineMs));
+    });
+  }
   try {
     for (;;) {
-      const step = await Promise.race([reader.read(), expired]);
+      const step = await Promise.race([reader.read(), expired, idle()]);
+      if (idleTimer !== undefined) clearTimeout(idleTimer);
       if (step === "expired") {
         await reader.cancel().catch(() => undefined);
         return { kind: "timeout" };
       }
       if (step.done) break;
+      if (chunks.length >= MAX_CHUNKS) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "too_large" };
+      }
       total += step.value.byteLength;
       if (total > limit) {
         await reader.cancel().catch(() => undefined);
@@ -230,6 +266,7 @@ async function readBodyBounded(request: Request, limit: number, boundary: string
     return { kind: "unreadable" };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
   }
   const body = new Blob(chunks as BlobPart[]);
   chunks.length = 0; // los trozos ya viven dentro del Blob: se sueltan para que no queden dos copias vivas
@@ -245,8 +282,8 @@ function precheck(request: Request): { ok: true; boundary: string } | { ok: fals
   return { ok: true, boundary };
 }
 
-async function parseReport(request: Request, boundary: string, deadlineMs: number): Promise<ParseResult> {
-  const read = await readBodyBounded(request, MAX_BODY_BYTES, boundary, deadlineMs);
+async function parseReport(request: Request, boundary: string, deadlineMs: number, idleMs: number): Promise<ParseResult> {
+  const read = await readBodyBounded(request, MAX_BODY_BYTES, boundary, deadlineMs, idleMs);
   if (read.kind === "too_large") return { ok: false, status: 413, error: "too_large" };
   if (read.kind === "too_many_parts") return { ok: false, status: 400, error: "too_many_parts" };
   if (read.kind === "timeout") return { ok: false, status: 408, error: "request_timeout" };
@@ -302,7 +339,7 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
   const newId = dependencies.newId ?? randomUUID;
 
   async function processReport(request: Request, session: FeedbackSession, boundary: string): Promise<Response> {
-    const parsed = await parseReport(request, boundary, dependencies.readDeadlineMs ?? READ_DEADLINE_MS);
+    const parsed = await parseReport(request, boundary, dependencies.readDeadlineMs ?? READ_DEADLINE_MS, dependencies.readIdleMs ?? READ_IDLE_MS);
     if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
     const { report } = parsed;
 
@@ -315,7 +352,7 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
     try {
       for (const [index, image] of images.entries()) {
         const key = `feedback/${id}/${index}.${EXTENSION[image.mime]}`;
-        await dependencies.storage!.put(key, image.bytes, image.mime);
+        await withDeadline(dependencies.storage!.put(key, image.bytes, image.mime), dependencies.storageTimeoutMs ?? STORAGE_TIMEOUT_MS);
         stored.push({ key, mime: image.mime, bytes: image.bytes.length });
       }
     } catch {
@@ -363,16 +400,16 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
       // Rechazos baratos primero (sin leer el cuerpo y sin gastar el cupo por hora de la cuenta).
       const pre = precheck(request);
       if (!pre.ok) return json({ error: pre.error }, pre.status);
-      if (!limiter.allow(String(session.accountId), dependencies.now())) return json({ error: "rate_limited" }, 429);
-      if (countRecentByAuthor(file, session.accountId, dependencies.now() - 60 * 60 * 1000) >= 30) return json({ error: "rate_limited" }, 429);
-
       // El cupo cubre TODO el procesamiento del envío (lectura, parseo, copias de las imágenes y subida al bucket): es lo que mantiene memoria acotada.
+      // Se pide ANTES del límite por hora: un 429 "ya tienes un envío en curso" o un 503 "ocupado" no gastan uno de los envíos de la hora de la cuenta.
       const gate = dependencies.readGate ?? sharedReadGate;
       const accountKey = String(session.accountId);
       const entry = gate.tryEnter(accountKey);
       if (entry === "account_busy") return json({ error: "upload_in_progress" }, 429);
       if (entry === "busy") return Response.json({ error: "busy" }, { status: 503, headers: { "cache-control": "no-store", "retry-after": "5" } });
       try {
+        if (!limiter.allow(String(session.accountId), dependencies.now())) return json({ error: "rate_limited" }, 429);
+        if (countRecentByAuthor(file, session.accountId, dependencies.now() - 60 * 60 * 1000) >= 30) return json({ error: "rate_limited" }, 429);
         return await processReport(request, session, pre.boundary);
       } finally {
         gate.leave(accountKey);

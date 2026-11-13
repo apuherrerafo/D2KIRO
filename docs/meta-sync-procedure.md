@@ -17,14 +17,15 @@ con respaldo y reversa, y qué esperar en la calidad de las recomendaciones. Enc
    snapshot nuevo no puede ser menor que el 90 % (héroes) / 80 % (filas de matchup) del anterior. Si algo falla: `meta_sync.status = 'failed'` y **se sigue sirviendo el
    snapshot anterior**.
 3. **Publicación atómica** en una sola transacción (`publishAtomically`): nunca queda un snapshot a medias.
-4. Reintentos ante 429: 1 s, 4 s, 16 s; máximo 3.
+4. Reintentos (máximo 3 además del primer intento): errores de red esperan 1 s, 4 s, 16 s; un **429** espera el `Retry-After` de OpenDota, luego su reset y, si faltan ambos, 60 s
+   (`RATE_LIMIT_FALLBACK_WAIT_MS`). Una sincronización bajo límite de tasa puede tardar varios minutos: no es un cuelgue.
 5. El **parche** lo estampa el proyecto (`CURRENT_PATCH = "7.41e"`, `UNVERIFIED_PATCH_BASIS`): OpenDota no reporta parche. Es el riesgo principal (abajo).
 
 ## Impacto esperado en las recomendaciones (análisis de código; sin medición en producción)
 | Qué cambia al sincronizar | Señal afectada | Efecto esperado |
 |---|---|---|
-| `patchStats` (winrate/pickrate por héroe) | `patch_meta` | Se mueve el orden de héroes con poca evidencia posicional |
-| `matchups` (counter estadístico) | `counter` | Cambian los counters estadísticos; los curados (`hero-counters.json`) no cambian |
+| `patchStats` (winrate/pickrate por héroe) | `patch_meta` | **Solo informativa**: el motor la marca `informational_only` (P0-04, `INFORMATIONAL_SIGNALS`): se muestra pero **no vota**, así que por sí sola no mueve el ranking. También fija la etiqueta de parche de la procedencia |
+| `matchups` (counter estadístico) | `counter` | **Es el cambio de ranking esperado**: cambian los counters estadísticos; los curados (`hero-counters.json`) no |
 | `isStale` pasa a `false` | confianza | Dejan de bajar a «media» por meta viejo; desaparece el aviso de datos desactualizados |
 | *No cambia* | `position_fit`, `team_synergy`, `archetype_fit`, `hero_pool_fit` | Usan datos curados o de la sesión, no el meta sincronizado |
 
@@ -56,7 +57,9 @@ Correr de nuevo los 30 escenarios contra Preview y comparar con el ensayo.
 
 **5. Reversa.**
 - Si la sincronización *falla*: no hace falta nada, el snapshot anterior sigue sirviéndose.
-- Si *funciona pero empeora* la calidad: poner `META_SYNC` en off (otro reinicio) y restaurar el respaldo del paso 1 (parar el servicio, reemplazar el archivo, arrancar).
+- Si *funciona pero empeora* la calidad: poner `META_SYNC` en off (otro reinicio). Restaurar el respaldo completo del paso 1 (parar el servicio, reemplazar el archivo, arrancar) devuelve
+  **todo** el archivo SQLite a ese instante: **se pierden las cuentas, pools, equipos y estado de beta que los invitados hayan creado desde el respaldo**. Solo es aceptable en minutos, no en horas.
+  La reversa acotada es restaurar únicamente las tablas del meta (`heroes`, `hero_patch_stats`, `hero_matchups`, `meta_sync`) desde el respaldo con `sqlite3` (`ATTACH` + `INSERT … SELECT` dentro de una transacción), dejando intactas las tablas de cuentas.
 - Dejarlo encendido de forma permanente o apagarlo tras la primera sincronización buena es una segunda decisión: encendido, refresca solo cada hora si el meta pasa de 24 h.
 
 ## Qué falta y quién lo decide
