@@ -43,6 +43,8 @@ COPY apps/web/design ./apps/web/design
 COPY apps/web/features ./apps/web/features
 COPY apps/web/lib ./apps/web/lib
 COPY apps/web/server ./apps/web/server
+# SECURITY-001: Next 16.4 tipa los *.test.tsx durante `next build` y esos tests importan `@/test-support/*`; con Next 16.2 el build pasaba sin esta carpeta.
+COPY apps/web/test-support ./apps/web/test-support
 COPY apps/web/public ./apps/web/public
 # next-env.d.ts nunca se copia -- vive en apps/web/.gitignore a proposito (Next.js lo
 # genera/actualiza solo en next dev/build/lint), asi que nunca existe en el contexto de build de
