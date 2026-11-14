@@ -123,3 +123,24 @@ describe("GET /healthz", () => {
     }
   });
 });
+
+describe("SECURITY-001: /_next/image", () => {
+  test("responde 404 sin sesión y con sesión, sin llegar a leer el secreto ni el motor", async () => {
+    delete process.env[INTERNAL_SECRET_ENV];
+    const anonymous = await proxy(new NextRequest("http://localhost:3000/_next/image?url=%2Ffile.svg&w=64&q=75"));
+    expect(anonymous.status).toBe(404);
+    const signedIn = await proxy(await authenticatedRequest("/_next/image?url=%2Ffile.svg&w=64&q=75"));
+    expect(signedIn.status).toBe(404);
+    // Next reconoce el optimizador por prefijo: las variantes con barra final o sufijo también se cortan.
+    for (const variant of ["/_next/image/", "/_next/image/x", "/_next/imagefoo"]) {
+      expect((await proxy(new NextRequest(`http://localhost:3000${variant}`))).status).toBe(404);
+    }
+  });
+
+  test("el matcher del proxy ya no excluye /_next/image (si lo excluyera, el corte nunca correría)", async () => {
+    const { config } = await import("./proxy");
+    const [pattern] = config.matcher;
+    expect(pattern).not.toContain("_next/image");
+    expect(pattern).toContain("_next/static");
+  });
+});
