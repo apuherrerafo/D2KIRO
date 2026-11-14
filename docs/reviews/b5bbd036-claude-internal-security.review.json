@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "38a874db8d4fed36fd9c218120d9b45878422fe8",
+  "reviewedHead": "b5bbd0362658d56a306bded6ec041f6425b5dafa",
+  "diffSha256": "73ee01889f9cc74edfc8b7f220bf27a5a187740870219b847f04a41fbe9893a8",
+  "rawOutput": {
+    "file": "docs/reviews/b5bbd036-claude-internal-security.raw.txt",
+    "sha256": "fbae6469d3b19780696cc3f5915000d743db1346a1d3ca26b6431857918b19a7"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "apps/web/lib/security-headers.ts: la CSP completa (script-src, img-src, connect-src, etc.) está solo en Report-Only y no tiene report-uri ni report-to",
+      "disposition": "accepted",
+      "reason": "Aceptado: es la misma observacion que el revisor externo; la CSP completa es transitoria y el endpoint de reportes es un seguimiento."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "apps/web/lib/security-headers.ts: script-src 'unsafe-inline' en la política Report-Only",
+      "disposition": "accepted",
+      "reason": "Aceptado: el revisor confirma que el autor lo declara como paso futuro (nonces) y que no es una regresion."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "apps/web/lib/security-headers.ts: HSTS sin includeSubDomains ni preload y activado por NODE_ENV",
+      "disposition": "accepted",
+      "reason": "Aceptado: el revisor la califica de eleccion conservadora y razonable para el dominio compartido de Railway; riesgo menor."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/proxy.ts",
+      "summary": "apps/web/proxy.ts: el corte de /_next/image devuelve new NextResponse(null, {status: 404}) antes del gate de sesión",
+      "disposition": "accepted",
+      "reason": "Aceptado: el revisor concluye que es seguro (deny-by-default) y que la 404 sin cabeceras no tiene impacto de seguridad."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

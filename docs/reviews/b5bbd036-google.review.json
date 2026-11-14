@@ -1,0 +1,39 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "google",
+    "tool": "Gemini (herramienta de revision externa; salida compartida via ChatGPT)",
+    "model": "Gemini 2.5 Pro"
+  },
+  "reviewedBase": "38a874db8d4fed36fd9c218120d9b45878422fe8",
+  "reviewedHead": "b5bbd0362658d56a306bded6ec041f6425b5dafa",
+  "diffSha256": "73ee01889f9cc74edfc8b7f220bf27a5a187740870219b847f04a41fbe9893a8",
+  "rawOutput": {
+    "file": "docs/reviews/b5bbd036-google.raw.txt",
+    "sha256": "288f831bfaa95f314ac9b67f5c18db4d3b9ba7ce59b69cc313d661192d1bb75c"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "apps/web/proxy.ts",
+      "summary": "apps/web/proxy.ts: Las respuestas emitidas directamente por proxy.ts no incorporan las cabeceras de seguridad",
+      "disposition": "accepted",
+      "reason": "Aceptado sin cambiar el codigo de B: las respuestas propias del proxy son 404 sin cuerpo, redirecciones y un 503 de texto fijo, sin contenido ejecutable. Queda como seguimiento; R-001 y #137 siguen abiertos."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "apps/web/lib/security-headers.ts: Content-Security-Policy-Report-Only no define directiva de reporte",
+      "disposition": "accepted",
+      "reason": "Aceptado: el propio codigo declara la CSP completa como Report-Only transitoria y sin endpoint colector todavia; endurecerla con nonces y reportes es un paso aparte."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/proxy.ts",
+      "summary": "apps/web/proxy.ts: Ausencia de normalización canónica de rutas en isImageOptimizerPath",
+      "disposition": "accepted",
+      "reason": "Aceptado: el propio revisor indica que las variantes con mayuscula o doble barra igual las descarta images.unoptimized y el router de Next, asi que no hay impacto explotable."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}
