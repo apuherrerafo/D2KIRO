@@ -1,0 +1,42 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente general-purpose, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "f96e4ea7ef1001f2ff90299991aebfa6cb0b8b79",
+  "diffSha256": "97b4c13c78f383f4272733fd3bca169d86a5889de8e61379fea0d3b381b7246a",
+  "rawOutput": {
+    "file": "docs/reviews/f96e4ea7-claude-internal-security.raw.txt",
+    "sha256": "49b7d65c47425619122f61a63edaeba82955e3d6a45d0b21ae718fd2972c31c7"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "los topes por cuenta y global (`sharedReadGate`) viven en memoria del proceso",
+      "disposition": "accepted",
+      "reason": "Despliegue de una sola instancia; observacion sin cambio en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/object-storage.ts",
+      "summary": "el timeout fijo de 30 s cubre también los GET de capturas",
+      "disposition": "accepted",
+      "reason": "Riesgo de disponibilidad reconocido en el codigo, no de seguridad."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "el contador de partes cuenta `--boundary` en el cuerpo crudo",
+      "disposition": "accepted",
+      "reason": "Falla cerrado, sin impacto de seguridad; caso muy improbable."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

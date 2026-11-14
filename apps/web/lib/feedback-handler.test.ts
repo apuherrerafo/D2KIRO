@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFeedbackAdminHandlers, csvCell, toCsv } from "./feedback-admin-handler";
-import { createFeedbackHandlers, detectImageMime, type FeedbackSession } from "./feedback-handler";
+import { createFeedbackHandlers, createReadGate, detectImageMime, MAX_FORM_PARTS, multipartBoundary, type FeedbackSession, type ReadGate } from "./feedback-handler";
 import { readFeedbackStore } from "./feedback-store";
 import type { ObjectStorage } from "./object-storage";
 import { createRateLimiter } from "./rate-limit";
@@ -43,9 +43,10 @@ function env(): Record<string, string> {
   return { FEEDBACK_FILE: file, BETA_ADMIN_STEAM_IDS: String(OWNER), SESSION_SECRET: SECRET, RAILWAY_GIT_COMMIT_SHA: "a".repeat(40) };
 }
 
-function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana") {
+function user(accountId: number | null, storage: ObjectStorage | null, name = "Ana", read: { readGate?: ReadGate; readDeadlineMs?: number; readIdleMs?: number; storageTimeoutMs?: number; minBytesPerSecond?: number; rateGraceMs?: number } = {}) {
   const session: FeedbackSession | null = accountId === null ? null : { accountId, personaName: name };
   return createFeedbackHandlers({
+    ...read,
     session: async () => session,
     env: env(),
     publicOrigin: ORIGIN,
@@ -153,6 +154,324 @@ describe("enviar feedback", () => {
     expect(response.status).toBe(413);
     expect(pulled).toBeLessThan(20); // se leyeron ~8 MB como mucho, no los 60 MB que el cliente quería mandar
     expect(readFeedbackStore(file).items).toHaveLength(0);
+  });
+
+  describe("ataques al endpoint de subida (revisión independiente: memoria, goteo, ráfagas)", () => {
+    const BOUNDARY = "multipart/form-data; boundary=x";
+    function streamRequest(stream: ReadableStream<Uint8Array>, headers: Record<string, string> = {}): Request {
+      return new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": BOUNDARY, ...headers }, body: stream, duplex: "half" } as RequestInit);
+    }
+    function chunks(count: number, size: number, onPull?: () => void): ReadableStream<Uint8Array> {
+      let sent = 0;
+      const chunk = new Uint8Array(size);
+      return new ReadableStream<Uint8Array>({
+        pull(controller) {
+          onPull?.();
+          if (sent >= count) return controller.close();
+          sent += 1;
+          controller.enqueue(chunk);
+        },
+      });
+    }
+
+    test("content-length MENTIROSO (dice 100 bytes, manda ~60 MB): 413 y se corta la lectura", async () => {
+      let pulls = 0;
+      const request = streamRequest(chunks(60, 1_000_000, () => (pulls += 1)), { "content-length": "100" });
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(413);
+      expect(pulls).toBeLessThan(20);
+    });
+
+    test("tipo de contenido que no es multipart: 415 sin leer ni un byte del cuerpo", async () => {
+      let pulls = 0;
+      const request = streamRequest(chunks(60, 1_000_000, () => (pulls += 1)), { "content-type": "application/json" });
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(415);
+      expect(pulls).toBeLessThanOrEqual(1); // un ReadableStream pide 1 trozo al crearse (highWaterMark); el handler no lee ninguno más
+    });
+
+    test("multipart sin boundary: 415", async () => {
+      const request = streamRequest(chunks(1, 10), { "content-type": "multipart/form-data" });
+      expect((await user(ANA, fakeStorage()).POST(request)).status).toBe(415);
+    });
+
+    test("goteo lento (el cliente nunca termina de mandar): 408 dentro del plazo, la lectura se cancela", async () => {
+      let cancelled = false;
+      const stalled = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(new Uint8Array(10));
+          return new Promise(() => undefined); // jamás entrega el siguiente trozo
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      const started = Date.now();
+      const response = await user(ANA, fakeStorage(), "Ana", { readDeadlineMs: 80 }).POST(streamRequest(stalled));
+      expect(response.status).toBe(408);
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(cancelled).toBe(true);
+    });
+
+    test("ráfaga de envíos simultáneos: pasado el máximo global, 503 con Retry-After; la misma cuenta no abre dos a la vez (429); al liberarse un cupo se acepta de nuevo", async () => {
+      const gate = createReadGate(2);
+      const open: Array<() => void> = [];
+      function held(): Request {
+        const stream = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            return new Promise<void>((resolve) => {
+              open.push(() => {
+                controller.close();
+                resolve();
+              });
+            });
+          },
+        });
+        return streamRequest(stream);
+      }
+      const read = { readGate: gate, readDeadlineMs: 5_000 };
+      const first = user(ANA, fakeStorage(), "Ana", read).POST(held());
+      const second = user(BEN, fakeStorage(), "Ben", read).POST(held());
+      await Bun.sleep(30);
+      const refused = await user(OWNER, fakeStorage(), "Dueño", read).POST(held());
+      expect(refused.status).toBe(503);
+      expect(refused.headers.get("retry-after")).toBe("5");
+      const sameAccount = await user(ANA, fakeStorage(), "Ana", read).POST(held());
+      expect(sameAccount.status).toBe(429); // ANA ya tiene un envío en curso
+      expect(((await sameAccount.json()) as { error: string }).error).toBe("upload_in_progress");
+      for (const release of open) release();
+      expect([(await first).status, (await second).status]).toEqual([400, 400]); // cuerpo vacío: rechazado, pero el cupo se liberó
+      expect((await user(ANA, fakeStorage(), "Ana", read).POST(report({}))).status).toBe(201);
+    });
+
+    test("el cupo cubre TODO el envío, también la subida al bucket (memoria retenida mientras el almacén es lento)", async () => {
+      const gate = createReadGate(1);
+      let releaseUpload: () => void = () => undefined;
+      const slow: ObjectStorage = {
+        async put() {
+          await new Promise<void>((resolve) => {
+            releaseUpload = resolve;
+          });
+        },
+        async get() {
+          return null;
+        },
+        async remove() {},
+      };
+      const read = { readGate: gate, readDeadlineMs: 5_000 };
+      const uploading = user(ANA, slow, "Ana", read).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
+      await Bun.sleep(50); // la lectura ya terminó; el envío está esperando al bucket
+      const other = await user(BEN, fakeStorage(), "Ben", read).POST(report({}));
+      expect(other.status).toBe(503);
+      releaseUpload();
+      expect((await uploading).status).toBe(201);
+      expect((await user(BEN, fakeStorage(), "Ben", read).POST(report({}))).status).toBe(201);
+    });
+
+    test("un 415/413 por cabeceras NO gasta el cupo por hora de la cuenta", async () => {
+      const limited = createRateLimiter(1, 60_000);
+      const make = () => createFeedbackHandlers({ session: async () => ({ accountId: ANA, personaName: "Ana" }), env: env(), publicOrigin: ORIGIN, now: () => clock, storage: null, limiter: limited });
+      expect((await make().POST(streamRequest(chunks(1, 10), { "content-type": "application/json" }))).status).toBe(415);
+      expect((await make().POST(streamRequest(chunks(1, 10), { "content-length": "99999999" }))).status).toBe(413);
+      expect((await make().POST(report({}))).status).toBe(201); // el único cupo de la hora seguía intacto
+      expect((await make().POST(report({}))).status).toBe(429);
+    });
+
+    test("EVASIÓN del tope de partes con `x-boundary=` antes del boundary real: el boundary se lee con tokenizador, no con regex suelta", async () => {
+      const part = '--BBB\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const body = new TextEncoder().encode(part.repeat(20_000) + "--BBB--\r\n");
+      const attack = new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": "multipart/form-data; x-boundary=AAA; boundary=BBB" }, body });
+      const response = await user(ANA, fakeStorage()).POST(attack);
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toBe("too_many_parts"); // se contó con BBB, el mismo que usa el parser
+    });
+
+    test("boundary ambiguo o fuera de RFC (dos boundary, >70 caracteres, sin cerrar comillas, vacío, sin parámetros): 415", async () => {
+      const bad = [
+        "multipart/form-data; boundary=a; boundary=b",
+        `multipart/form-data; boundary="${"b".repeat(71)}"`,
+        'multipart/form-data; boundary="abc',
+        "multipart/form-data; boundary=",
+        "multipart/form-data; charset",
+        "text/plain; boundary=x",
+      ];
+      for (const contentType of bad) {
+        const response = await user(ANA, fakeStorage(), "Ana", { readGate: createReadGate(8) }).POST(streamRequest(chunks(1, 10), { "content-type": contentType }));
+        expect(response.status, contentType).toBe(415);
+      }
+    });
+
+    test("INACTIVIDAD: un cliente que manda un trozo y se queda callado se corta por el plazo de inactividad (no retiene el cupo los 45 s)", async () => {
+      let cancelled = false;
+      const stalled = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(new Uint8Array(10));
+          return new Promise(() => undefined);
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      const started = Date.now();
+      const response = await user(ANA, fakeStorage(), "Ana", { readDeadlineMs: 30_000, readIdleMs: 60 }).POST(streamRequest(stalled));
+      expect(response.status).toBe(408);
+      expect(Date.now() - started).toBeLessThan(2_000); // por inactividad, mucho antes que el plazo total de 30 s
+      expect(cancelled).toBe(true);
+    });
+
+    test("INUNDACIÓN de trozos de 1 byte (CPU, no bytes): se corta por cantidad de trozos con 413", async () => {
+      let pulls = 0;
+      const request = streamRequest(chunks(60_000, 1, () => (pulls += 1)));
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(413);
+      expect(pulls).toBeLessThan(25_000); // MAX_CHUNKS = 20 000: se dejó de leer
+    });
+
+    test("un bucket COLGADO no retiene el cupo: la subida vence por plazo (502) y el cupo queda libre", async () => {
+      const gate = createReadGate(1);
+      const hung: ObjectStorage = { async put() { await new Promise(() => undefined); }, async get() { return null; }, async remove() {} };
+      const read = { readGate: gate, readDeadlineMs: 5_000, storageTimeoutMs: 80 };
+      const started = Date.now();
+      const response = await user(ANA, hung, "Ana", read).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
+      expect(response.status).toBe(502);
+      expect(Date.now() - started).toBeLessThan(3_000);
+      expect((await user(BEN, fakeStorage(), "Ben", read).POST(report({}))).status).toBe(201); // el único cupo se liberó
+      expect(readFeedbackStore(file).items.filter((item) => item.author === ANA)).toHaveLength(0);
+    });
+
+    test("un 429 'envío en curso' o un 503 'ocupado' NO gastan uno de los envíos de la hora de la cuenta", async () => {
+      const gate = createReadGate(8);
+      const limited = createRateLimiter(2, 60_000);
+      const handlersFor = (accountId: number) => createFeedbackHandlers({ session: async () => ({ accountId, personaName: "x" }), env: env(), publicOrigin: ORIGIN, now: () => clock, storage: null, limiter: limited, readGate: gate, readDeadlineMs: 5_000 });
+      let release: () => void = () => undefined;
+      const held = new ReadableStream<Uint8Array>({ pull(controller) { return new Promise<void>((resolve) => { release = () => { controller.close(); resolve(); }; }); } });
+      const first = handlersFor(ANA).POST(streamRequest(held)); // gasta 1 de 2
+      await Bun.sleep(30);
+      expect((await handlersFor(ANA).POST(report({}))).status).toBe(429); // en curso: rechazado SIN gastar el segundo
+      release();
+      await first;
+      expect((await handlersFor(ANA).POST(report({}))).status).toBe(201); // si el rechazado hubiera gastado el token, aquí sería 429
+    });
+
+    test("GOTEO a velocidad constante pero ínfima (evita el plazo de inactividad): se corta por velocidad mínima", async () => {
+      // 10 bytes cada 20 ms = 500 B/s; con mínimo de 5 000 B/s y 60 ms de gracia, se corta con 408 aunque nunca esté callado más de 20 ms.
+      let cancelled = false;
+      const dripping = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          await Bun.sleep(20);
+          controller.enqueue(new Uint8Array(10));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      const started = Date.now();
+      const response = await user(ANA, fakeStorage(), "Ana", { readDeadlineMs: 30_000, readIdleMs: 5_000, minBytesPerSecond: 5_000, rateGraceMs: 60 }).POST(streamRequest(dripping));
+      expect(response.status).toBe(408);
+      expect(Date.now() - started).toBeLessThan(3_000);
+      expect(cancelled).toBe(true);
+    });
+
+    test("una subida colgada que termina DESPUÉS del plazo no deja un objeto huérfano: se borra cuando acaba", async () => {
+      const objects = new Map<string, Uint8Array>();
+      let finishPut: () => void = () => undefined;
+      const late: ObjectStorage = {
+        async put(key, body) {
+          await new Promise<void>((resolve) => {
+            finishPut = resolve;
+          });
+          objects.set(key, body);
+        },
+        async get() {
+          return null;
+        },
+        async remove(key) {
+          objects.delete(key);
+        },
+      };
+      const response = await user(ANA, late, "Ana", { storageTimeoutMs: 40 }).POST(report({}, [{ bytes: PNG, name: "a.png", type: "image/png" }]));
+      expect(response.status).toBe(502); // venció el plazo
+      finishPut(); // el bucket por fin termina de escribir...
+      await Bun.sleep(50);
+      expect(objects.size).toBe(0); // ...y el objeto, que ningún registro referencia, se borra
+    });
+
+    test("multipartBoundary tolera el `;` final que emiten clientes no navegador", () => {
+      expect(multipartBoundary("multipart/form-data; boundary=abc;")).toBe("abc");
+      expect(multipartBoundary("multipart/form-data; boundary=abc; ")).toBe("abc");
+    });
+
+    test("multipartBoundary: lee boundary con y sin comillas y en cualquier orden de parámetros", () => {
+      expect(multipartBoundary("multipart/form-data; boundary=abc")).toBe("abc");
+      expect(multipartBoundary('multipart/form-data; boundary="a b-c"')).toBe("a b-c");
+      expect(multipartBoundary("multipart/form-data; charset=utf-8; boundary=zzz")).toBe("zzz");
+      expect(multipartBoundary("MULTIPART/FORM-DATA; Boundary=Q")).toBe("Q");
+      expect(multipartBoundary("multipart/form-data; x-boundary=AAA")).toBeNull();
+    });
+
+    test(`miles de partes diminutas bajo el tope de bytes: 400 too_many_parts (más de ${MAX_FORM_PARTS} boundaries), sin parsear`, async () => {
+      const part = '--x\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const body = new TextEncoder().encode(part.repeat(20_000) + "--x--\r\n");
+      expect(body.byteLength).toBeLessThan(2_000_000); // cabe en el tope de bytes: solo el conteo de partes lo frena
+      const request = new Request(`${ORIGIN}/api/feedback`, { method: "POST", headers: { origin: ORIGIN, "content-type": BOUNDARY }, body });
+      const response = await user(ANA, fakeStorage()).POST(request);
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toBe("too_many_parts");
+      expect(readFeedbackStore(file).items).toHaveLength(0);
+    });
+
+    test("un boundary partido entre dos trozos se cuenta igual (no se evade el tope de partes)", async () => {
+      const part = '--x\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const all = new TextEncoder().encode(part.repeat(MAX_FORM_PARTS + 5) + "--x--\r\n");
+      const pieces: Uint8Array[] = [];
+      for (let at = 0; at < all.length; at += 7) pieces.push(all.slice(at, at + 7)); // trozos de 7 bytes: cada `--x` cruza fronteras
+      let index = 0;
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (index >= pieces.length) return controller.close();
+          controller.enqueue(pieces[index++]!);
+        },
+      });
+      const response = await user(ANA, fakeStorage()).POST(streamRequest(stream));
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toBe("too_many_parts");
+    });
+
+    test("un separador repartido en trozos de 1, 2 y 3 bytes (más chicos que el separador) se cuenta igual: no se evade el tope de partes", async () => {
+      const part = '--x\r\nContent-Disposition: form-data; name="f"\r\n\r\nv\r\n';
+      const all = new TextEncoder().encode(part.repeat(MAX_FORM_PARTS + 5) + "--x--\r\n");
+      for (const size of [1, 2, 3]) {
+        const pieces: Uint8Array[] = [];
+        for (let at = 0; at < all.length; at += size) pieces.push(all.slice(at, at + size));
+        let index = 0;
+        const stream = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            if (index >= pieces.length) return controller.close();
+            controller.enqueue(pieces[index++]!);
+          },
+        });
+        const response = await user(ANA, fakeStorage(), "Ana", { readGate: createReadGate(8) }).POST(streamRequest(stream));
+        expect(response.status, `trozos de ${size} byte(s)`).toBe(400);
+        expect(((await response.json()) as { error: string }).error, `trozos de ${size} byte(s)`).toBe("too_many_parts");
+      }
+    });
+
+    test("un reporte legítimo con 3 capturas sigue pasando con todas las defensas activas", async () => {
+      const storage = fakeStorage();
+      const three = [PNG, JPG, WEBP].map((bytes, index) => ({ bytes, name: `${index}.bin`, type: "application/octet-stream" }));
+      expect((await user(ANA, storage).POST(report({}, three))).status).toBe(201);
+      expect(storage.objects.size).toBe(3);
+    });
+
+    test("archivo enorme con firma de imagen válida: se rechaza por tamaño y nada llega al bucket", async () => {
+      const storage = fakeStorage();
+      const huge = new Uint8Array(2_600_000);
+      huge.set(PNG);
+      const response = await user(ANA, storage).POST(report({}, [{ bytes: huge, name: "huge.png", type: "image/png" }]));
+      expect(response.status).toBe(413);
+      expect(storage.objects.size).toBe(0);
+      expect(readFeedbackStore(file).items).toHaveLength(0);
+    });
   });
 
   test("sin bucket configurado: el texto funciona, las imágenes dan 503 y nada se guarda a medias", async () => {

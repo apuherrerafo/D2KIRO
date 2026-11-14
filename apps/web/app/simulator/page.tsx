@@ -20,6 +20,7 @@ import { EngineUnreachableBanner } from "@/features/random-draft-simulator/compo
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import { useScrollToTop } from "@/features/random-draft-simulator/use-scroll-to-top";
 import { SimulatorLightScope } from "@/features/simulator-light";
+import type { RecommendationFeedbackTarget } from "@/features/simulator-light/feedback-context";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -49,6 +50,18 @@ function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
       compact
     />
   );
+}
+
+// Solo una decisión ACTIONABLE tiene posición vista y tarjetas ranqueadas; sin ella no hay sobre qué opinar.
+function feedbackTargetOf(decision: Session["state"]["currentDecision"]): RecommendationFeedbackTarget | null {
+  if (decision === null || decision.decision.kind !== "ACTIONABLE") return null;
+  return {
+    sessionId: decision.sessionId,
+    viewedPosition: decision.decision.viewedPosition,
+    rankedHeroIds: decision.decision.candidates.cards.map((card) => card.heroId),
+    stateIdentity: decision.meta.basedOn.stateIdentity,
+    rulesetVersion: decision.meta.readiness?.empiricalPatchClaim?.patch ?? decision.meta.readiness?.rulesetTarget ?? null,
+  };
 }
 
 function RosterBeforeRound({ session, heroCatalog }: PhaseViewProps) {
@@ -131,6 +144,8 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   // field of the same decision.
   const decisionView = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.viewedPosition : null;
   const selectedTarget = requestedTarget ?? decisionView;
+  // 👍/👎 sobre la decisión V4 vigente (la misma identidad de estado que ve el motor): sin decisión todavía, no hay nada sobre qué opinar.
+  const feedbackTarget = feedbackTargetOf(currentDecision);
 
   return (
     <div className="flex flex-col gap-4">
@@ -148,6 +163,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         boardStatus={teamBoardStatus}
         humanPosition={config?.playerPosition ?? null}
         onRetryBoard={session.actions.retryPreview}
+        feedbackTarget={feedbackTarget}
       />
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
     </div>

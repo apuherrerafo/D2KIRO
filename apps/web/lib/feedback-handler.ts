@@ -25,6 +25,17 @@ export interface FeedbackDependencies {
   storage: ObjectStorage | null;
   newId?: () => string;
   limiter?: RateLimiter;
+  /** Máximo de lecturas de cuerpo simultáneas (inyectable en pruebas; por defecto, compartido por todo el proceso). */
+  readGate?: ReadGate;
+  /** Plazo total para recibir el cuerpo, en ms (inyectable en pruebas). */
+  readDeadlineMs?: number;
+  /** Plazo sin recibir bytes, en ms (inyectable en pruebas). */
+  readIdleMs?: number;
+  /** Plazo de cada subida al bucket, en ms (inyectable en pruebas). */
+  storageTimeoutMs?: number;
+  /** Velocidad mínima de recepción y su periodo de gracia (inyectables en pruebas). */
+  minBytesPerSecond?: number;
+  rateGraceMs?: number;
 }
 
 const sharedLimiter = createRateLimiter(10, 60 * 60 * 1000);
@@ -102,46 +113,198 @@ interface ParsedReport {
 
 type ParseResult = { ok: true; report: ParsedReport } | { ok: false; status: number; error: string };
 
-/** Lee el cuerpo acumulando hasta `limit` bytes; en cuanto se pasa, cancela la lectura y avisa. null = sin cuerpo o ilegible. */
-async function readBodyBounded(request: Request, limit: number): Promise<Uint8Array | "too_large" | null> {
-  if (request.body === null) return null;
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > limit) {
-        await reader.cancel().catch(() => undefined);
-        return "too_large";
-      }
-      chunks.push(value);
-    }
-  } catch {
-    return null;
-  }
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return out;
+// ---- Lectura acotada del cuerpo (defensa contra memoria, goteo y ráfagas) ---------------------------------------------------------------------
+// Cada capa responde a un ataque concreto; todas se prueban en feedback-handler.test.ts:
+//  1. content-type multipart/form-data con `boundary` válido, ANTES de leer un solo byte (si no, 415).
+//  2. Tope real de bytes mientras se lee (el content-length lo declara el cliente: una petición chunked no lo trae y una mentirosa lo falsea) -> 413.
+//  3. Plazo TOTAL de lectura: un cliente que gotea bytes no retiene conexión ni memoria indefinidamente -> 408.
+//  4. Un máximo de lecturas simultáneas en todo el proceso: N conexiones lentas o grandes no suman N x 7.7 MB -> 503 (con Retry-After).
+//  5. Tope de partes multipart contando el `boundary` mientras llega (miles de campos diminutos caben bajo el tope de bytes) -> 400, sin parsear.
+//  6. Menos copias: los trozos pasan al Blob y se sueltan (antes: trozos + copia contigua + Blob). `formData()` y `arrayBuffer()` siguen copiando: el pico por envío es
+//     de unas 3-4 veces el cuerpo (~25-30 MB), por eso el cupo cubre TODO el procesamiento del envío y no solo la lectura, y hay un máximo global y uno por cuenta.
+export const MAX_FORM_PARTS = 30;
+export const READ_IDLE_MS = 10_000; // sin recibir un solo byte en 10 s: se corta (el goteo no retiene el cupo los 45 s)
+export const MIN_BYTES_PER_SECOND = 6_000; // ~48 kbps: un móvil muy malo lo supera de sobra; el goteo "1 byte cada 9 s" no
+export const RATE_GRACE_MS = 5_000; // los primeros segundos no se miden (handshake, arranque lento)
+export const MAX_CHUNKS = 20_000; // millones de trozos de 1 byte son CPU, no bytes: se corta por cantidad de trozos
+export const READ_DEADLINE_MS = 45_000;
+export const STORAGE_TIMEOUT_MS = 30_000; // 7,7 MB a ~1,4 Mbps de subida: un móvil lento con 3 capturas legítimas termina; el goteo no se queda para siempre
+export const MAX_CONCURRENT_READS = 8;
+
+export type GateResult = "ok" | "busy" | "account_busy";
+
+/** Cupo de envíos EN PROCESO: un máximo global y, además, uno por cuenta (varios envíos simultáneos de la misma cuenta son un abuso, no un uso). */
+export interface ReadGate {
+  tryEnter(accountKey: string): GateResult;
+  leave(accountKey: string): void;
 }
 
-async function parseReport(request: Request): Promise<ParseResult> {
+export function createReadGate(max: number, perAccount = 1): ReadGate {
+  let active = 0;
+  const byAccount = new Map<string, number>();
+  return {
+    tryEnter(accountKey) {
+      if ((byAccount.get(accountKey) ?? 0) >= perAccount) return "account_busy";
+      if (active >= max) return "busy";
+      active += 1;
+      byAccount.set(accountKey, (byAccount.get(accountKey) ?? 0) + 1);
+      return "ok";
+    },
+    leave(accountKey) {
+      active = Math.max(0, active - 1);
+      const left = (byAccount.get(accountKey) ?? 1) - 1;
+      if (left <= 0) byAccount.delete(accountKey);
+      else byAccount.set(accountKey, left);
+    },
+  };
+}
+
+const sharedReadGate = createReadGate(MAX_CONCURRENT_READS);
+
+/**
+ * Lee los parámetros de `Content-Type` con un tokenizador (nombre=valor, valor entre comillas o sin ellas), y devuelve el ÚNICO parámetro llamado exactamente
+ * `boundary`. Una regex suelta (`/boundary=/`) también encajaba dentro de `x-boundary=...`, y entonces el contador de partes buscaba un separador distinto del
+ * que usa el parser real (hallazgo de la revisión independiente: así se evadía el tope de partes). Ambiguo o fuera de RFC 2046 (1-70 caracteres) -> null.
+ */
+export function multipartBoundary(contentType: string | null): string | null {
+  if (contentType === null || contentType.length > 300) return null;
+  const parts = contentType.split(";");
+  if (parts[0]?.trim().toLowerCase() !== "multipart/form-data") return null;
+  let boundary: string | null = null;
+  for (const raw of parts.slice(1)) {
+    if (raw.trim() === "") continue; // `...; boundary=abc;` (cliente no navegador): el `;` final no es un parámetro
+    const eq = raw.indexOf("=");
+    if (eq === -1) return null;
+    const name = raw.slice(0, eq).trim().toLowerCase();
+    let value = raw.slice(eq + 1).trim();
+    if (value.startsWith('"')) {
+      if (value.length < 2 || !value.endsWith('"')) return null;
+      value = value.slice(1, -1);
+    }
+    if (name !== "boundary") continue;
+    if (boundary !== null) return null; // dos boundary: el parser y este contador podrían elegir distinto
+    boundary = value;
+  }
+  if (boundary === null || boundary.length === 0 || boundary.length > 70 || !/^[0-9A-Za-z'()+_,\-./:=? ]+$/.test(boundary) || boundary.endsWith(" ")) return null;
+  return boundary;
+}
+
+/** Cuenta cuántas veces aparece `--boundary` en el flujo sin juntar los trozos (conserva solo la cola que podría cruzar de un trozo al siguiente). */
+function createBoundaryCounter(boundary: string): (chunk: Uint8Array) => number {
+  const needle = Buffer.from(`--${boundary}`);
+  const keep = needle.length - 1;
+  let tail = Buffer.alloc(0);
+  let count = 0;
+  function countIn(window: Buffer, onlyStartingBefore: number): void {
+    let from = 0;
+    for (;;) {
+      const at = window.indexOf(needle, from);
+      if (at === -1 || at >= onlyStartingBefore) break;
+      count += 1;
+      from = at + needle.length;
+    }
+  }
+  return (chunk) => {
+    const view = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength); // sin copiar el trozo
+    // Costura: solo los `keep` bytes que acaban el trozo anterior + los `keep` que empiezan este (un separador que cruza la frontera), nunca el trozo entero.
+    if (tail.length > 0) countIn(Buffer.concat([tail, view.subarray(0, keep)]), tail.length);
+    countIn(view, view.length);
+    // La cola son los ÚLTIMOS `keep` bytes de (cola + trozo): con trozos más chicos que el separador, descartar la cola vieja perdía separadores repartidos en 3+ trozos.
+    const combined = view.length >= keep ? view : Buffer.concat([tail, view]);
+    tail = keep === 0 ? Buffer.alloc(0) : Buffer.from(combined.subarray(Math.max(0, combined.length - keep)));
+    return count;
+  };
+}
+
+/** La promesa o un rechazo por plazo: una subida colgada no retiene el cupo (la petición queda abortada por el AbortSignal del cliente del bucket). */
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("storage_timeout")), ms);
+  });
+  return Promise.race([work, expired]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
+type BodyRead = { kind: "ok"; body: Blob } | { kind: "too_large" } | { kind: "too_many_parts" } | { kind: "timeout" } | { kind: "unreadable" };
+
+async function readBodyBounded(request: Request, limit: number, boundary: string, deadlineMs: number, idleMs: number, rate: { minBytesPerSecond: number; graceMs: number }): Promise<BodyRead> {
+  const startedAt = Date.now();
+  if (request.body === null) return { kind: "unreadable" };
+  const reader = request.body.getReader();
+  const countParts = createBoundaryCounter(boundary);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), deadlineMs);
+  });
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  function idle(): Promise<"expired"> {
+    return new Promise((resolve) => {
+      idleTimer = setTimeout(() => resolve("expired"), Math.min(idleMs, deadlineMs));
+    });
+  }
+  try {
+    for (;;) {
+      const step = await Promise.race([reader.read(), expired, idle()]);
+      if (idleTimer !== undefined) clearTimeout(idleTimer);
+      if (step === "expired") {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "timeout" };
+      }
+      if (step.done) break;
+      if (chunks.length >= MAX_CHUNKS) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "too_large" };
+      }
+      total += step.value.byteLength;
+      // Velocidad mínima sostenida: el plazo de inactividad (10 s) no ve a quien gotea 1 byte cada 9 s; esto sí.
+      const elapsed = Date.now() - startedAt;
+      if (elapsed > rate.graceMs && total / (elapsed / 1000) < rate.minBytesPerSecond) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "timeout" };
+      }
+      if (total > limit) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "too_large" };
+      }
+      if (countParts(step.value) > MAX_FORM_PARTS) {
+        await reader.cancel().catch(() => undefined);
+        return { kind: "too_many_parts" };
+      }
+      chunks.push(step.value);
+    }
+  } catch {
+    return { kind: "unreadable" };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
+  }
+  const body = new Blob(chunks as BlobPart[]);
+  chunks.length = 0; // los trozos ya viven dentro del Blob: se sueltan para que no queden dos copias vivas
+  return { kind: "ok", body };
+}
+
+/** Validaciones baratas, SIN leer el cuerpo: tipo de contenido y tamaño declarado. Van antes del límite de frecuencia para no gastar el cupo de la cuenta en un 415/413. */
+function precheck(request: Request): { ok: true; boundary: string } | { ok: false; status: number; error: string } {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { ok: false, status: 413, error: "too_large" };
-  // El content-length lo declara el cliente: una petición chunked no lo trae y una mentirosa lo falsea. El límite REAL se aplica al leer el cuerpo,
-  // byte a byte, y se corta en cuanto se pasa (revisión independiente: antes `request.formData()` materializaba todo el cuerpo en memoria primero).
-  const raw = await readBodyBounded(request, MAX_BODY_BYTES);
-  if (raw === "too_large") return { ok: false, status: 413, error: "too_large" };
-  if (raw === null) return { ok: false, status: 400, error: "bad_request" };
+  const boundary = multipartBoundary(request.headers.get("content-type"));
+  if (boundary === null) return { ok: false, status: 415, error: "unsupported_media_type" };
+  return { ok: true, boundary };
+}
+
+async function parseReport(request: Request, boundary: string, deadlineMs: number, idleMs: number, rate: { minBytesPerSecond: number; graceMs: number }): Promise<ParseResult> {
+  const read = await readBodyBounded(request, MAX_BODY_BYTES, boundary, deadlineMs, idleMs, rate);
+  if (read.kind === "too_large") return { ok: false, status: 413, error: "too_large" };
+  if (read.kind === "too_many_parts") return { ok: false, status: 400, error: "too_many_parts" };
+  if (read.kind === "timeout") return { ok: false, status: 408, error: "request_timeout" };
+  if (read.kind === "unreadable") return { ok: false, status: 400, error: "bad_request" };
   let form: FormData;
   try {
-    form = await new Response(new Blob([raw as BlobPart]), { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
+    form = await new Response(read.body, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
   } catch {
     return { ok: false, status: 400, error: "bad_request" };
   }
@@ -189,6 +352,59 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
   const file = feedbackFilePath(dependencies.env);
   const newId = dependencies.newId ?? randomUUID;
 
+  async function processReport(request: Request, session: FeedbackSession, boundary: string): Promise<Response> {
+    const parsed = await parseReport(request, boundary, dependencies.readDeadlineMs ?? READ_DEADLINE_MS, dependencies.readIdleMs ?? READ_IDLE_MS, { minBytesPerSecond: dependencies.minBytesPerSecond ?? MIN_BYTES_PER_SECOND, graceMs: dependencies.rateGraceMs ?? RATE_GRACE_MS });
+    if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+    const { report } = parsed;
+
+    const images = await prepareImages(report.files);
+    if (!Array.isArray(images)) return json({ error: images.error }, images.status);
+    if (images.length > 0 && dependencies.storage === null) return json({ error: "images_unavailable" }, 503);
+
+    const id = newId();
+    const stored: FeedbackImage[] = [];
+    try {
+      for (const [index, image] of images.entries()) {
+        const key = `feedback/${id}/${index}.${EXTENSION[image.mime]}`;
+        const upload = dependencies.storage!.put(key, image.bytes, image.mime);
+        try {
+          await withDeadline(upload, dependencies.storageTimeoutMs ?? STORAGE_TIMEOUT_MS);
+        } catch (error) {
+          // La subida colgada puede terminar DESPUÉS del plazo: cuando termine, el objeto se borra (ningún registro lo referencia; no quedan huérfanos en el bucket).
+          void upload.then(() => undefined, () => undefined).then(() => dependencies.storage?.remove(key)).catch(() => undefined); // éxito O rechazo (p. ej. abortado tras escribir): borrar un objeto inexistente es inocuo
+          throw error;
+        }
+        stored.push({ key, mime: image.mime, bytes: image.bytes.length });
+      }
+    } catch {
+      await discard(dependencies.storage, stored);
+      return json({ error: "image_upload_failed" }, 502);
+    }
+
+    const now = dependencies.now();
+    const record: FeedbackRecord = {
+      id,
+      createdAt: now,
+      type: report.type,
+      status: "pendiente",
+      statusAt: now,
+      message: report.message,
+      route: report.route,
+      appVersion: appVersion(dependencies.env),
+      context: { viewport: report.viewport, language: report.language, userAgent: report.userAgent },
+      images: stored,
+      author: session.accountId,
+      authorName: singleLine(session.personaName, 100) || "Jugador de Steam",
+    };
+    try {
+      appendFeedback(file, record);
+    } catch {
+      await discard(dependencies.storage, stored);
+      return json({ error: "unavailable" }, 503);
+    }
+    return json({ ok: true, item: toPublicFeedback(record) }, 201);
+  }
+
   return {
     /** Mis reportes (solo los míos, aunque yo sea administrador) y si las capturas están disponibles. */
     async GET(): Promise<Response> {
@@ -202,52 +418,23 @@ export function createFeedbackHandlers(dependencies: FeedbackDependencies) {
       const session = await dependencies.session();
       if (session === null) return json({ error: "unauthorized" }, 401);
       if (!sameOriginOk(request, dependencies.publicOrigin)) return json({ error: "forbidden" }, 403);
-      if (!limiter.allow(String(session.accountId), dependencies.now())) return json({ error: "rate_limited" }, 429);
-      if (countRecentByAuthor(file, session.accountId, dependencies.now() - 60 * 60 * 1000) >= 30) return json({ error: "rate_limited" }, 429);
-
-      const parsed = await parseReport(request);
-      if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
-      const { report } = parsed;
-
-      const images = await prepareImages(report.files);
-      if (!Array.isArray(images)) return json({ error: images.error }, images.status);
-      if (images.length > 0 && dependencies.storage === null) return json({ error: "images_unavailable" }, 503);
-
-      const id = newId();
-      const stored: FeedbackImage[] = [];
+      // Rechazos baratos primero (sin leer el cuerpo y sin gastar el cupo por hora de la cuenta).
+      const pre = precheck(request);
+      if (!pre.ok) return json({ error: pre.error }, pre.status);
+      // El cupo cubre TODO el procesamiento del envío (lectura, parseo, copias de las imágenes y subida al bucket): es lo que mantiene memoria acotada.
+      // Se pide ANTES del límite por hora: un 429 "ya tienes un envío en curso" o un 503 "ocupado" no gastan uno de los envíos de la hora de la cuenta.
+      const gate = dependencies.readGate ?? sharedReadGate;
+      const accountKey = String(session.accountId);
+      const entry = gate.tryEnter(accountKey);
+      if (entry === "account_busy") return json({ error: "upload_in_progress" }, 429);
+      if (entry === "busy") return Response.json({ error: "busy" }, { status: 503, headers: { "cache-control": "no-store", "retry-after": "5" } });
       try {
-        for (const [index, image] of images.entries()) {
-          const key = `feedback/${id}/${index}.${EXTENSION[image.mime]}`;
-          await dependencies.storage!.put(key, image.bytes, image.mime);
-          stored.push({ key, mime: image.mime, bytes: image.bytes.length });
-        }
-      } catch {
-        await discard(dependencies.storage, stored);
-        return json({ error: "image_upload_failed" }, 502);
+        if (!limiter.allow(String(session.accountId), dependencies.now())) return json({ error: "rate_limited" }, 429);
+        if (countRecentByAuthor(file, session.accountId, dependencies.now() - 60 * 60 * 1000) >= 30) return json({ error: "rate_limited" }, 429);
+        return await processReport(request, session, pre.boundary);
+      } finally {
+        gate.leave(accountKey);
       }
-
-      const now = dependencies.now();
-      const record: FeedbackRecord = {
-        id,
-        createdAt: now,
-        type: report.type,
-        status: "pendiente",
-        statusAt: now,
-        message: report.message,
-        route: report.route,
-        appVersion: appVersion(dependencies.env),
-        context: { viewport: report.viewport, language: report.language, userAgent: report.userAgent },
-        images: stored,
-        author: session.accountId,
-        authorName: singleLine(session.personaName, 100) || "Jugador de Steam",
-      };
-      try {
-        appendFeedback(file, record);
-      } catch {
-        await discard(dependencies.storage, stored);
-        return json({ error: "unavailable" }, 503);
-      }
-      return json({ ok: true, item: toPublicFeedback(record) }, 201);
     },
 
     /** Una captura: solo su autor o el administrador. Las capturas son privadas; nunca hay URL pública del bucket. */

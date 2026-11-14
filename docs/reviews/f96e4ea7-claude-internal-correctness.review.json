@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente general-purpose, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "f96e4ea7ef1001f2ff90299991aebfa6cb0b8b79",
+  "diffSha256": "97b4c13c78f383f4272733fd3bca169d86a5889de8e61379fea0d3b381b7246a",
+  "rawOutput": {
+    "file": "docs/reviews/f96e4ea7-claude-internal-correctness.raw.txt",
+    "sha256": "1585c328f28b08f5219d33b7db160a8ef1411eedfa59b27a15b6692c0a7e07ac"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "el contador de partes cuenta ocurrencias de `--boundary`, que son N+1 para N partes",
+      "disposition": "accepted",
+      "reason": "Inocuo en la practica (formulario real ~9 campos + 3 capturas); constante desfasada en 1."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "el limite de velocidad minima (6 kB/s tras 5 s de gracia) puede cortar con 408",
+      "disposition": "accepted",
+      "reason": "Decision deliberada y probada; umbrales inyectables."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/feedback.spec.ts",
+      "summary": "la rama \"otra columna no ofrece voto\" y la del 👎 solo anotan `not-exercised`",
+      "disposition": "accepted",
+      "reason": "Queda visible en las anotaciones, no es silencioso."
+    },
+    {
+      "severity": "BAJA",
+      "file": "docs/meta-sync-procedure.md",
+      "summary": "documento declarativo (cifras como \"30 escenarios P0-05B\"",
+      "disposition": "accepted",
+      "reason": "Documento declarativo; sin contradiccion interna."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

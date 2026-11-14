@@ -1,4 +1,6 @@
 import { useRef, type ReactNode } from "react";
+import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
+import { useRecommendationFeedbackTarget } from "../feedback-context";
 import { Glass } from "@/design/canonical/primitives";
 import { HeroIcon, HeroPortrait } from "@/design/canonical/hero-media";
 import { useReducedMotion } from "@/design/round-3a/lab-context";
@@ -188,6 +190,23 @@ export interface DetailPanelProps {
   manualCandidate?: ManualCandidate | null;
 }
 
+/**
+ * 👍/👎 sobre el candidato que el motor propuso y el jugador tiene abierto. Sin proveedor (Live) no se pinta nada.
+ * La `key` es por héroe + identidad de estado: sin ella, abrir otro héroe heredaba el estado "ya enviado" del anterior (bug visto en el E2E).
+ */
+function CandidateFeedback({ heroId, position }: { heroId: number; position: number }) {
+  const target = useRecommendationFeedbackTarget();
+  if (target === null) return null;
+  // La identidad del voto (sesión + héroe + stateIdentity) sale de la decisión V4 de la posición VISTA: solo se opina sobre lo que esa decisión recomendó.
+  // Un candidato de otra columna del tablero (que viene de otra consulta) se vería votable con el stateIdentity de una decisión que no lo propuso.
+  if (position !== target.viewedPosition || !target.rankedHeroIds.includes(heroId)) return null;
+  return (
+    <div className="sl-feedback" data-testid="sl-feedback">
+      <RecommendationFeedback key={`${heroId}:${target.stateIdentity}`} sessionId={target.sessionId} heroId={heroId} targetPosition={position} stateIdentity={target.stateIdentity} rulesetVersion={target.rulesetVersion} />
+    </div>
+  );
+}
+
 export function DetailPanel({ positions, selectedKey, recommendation, noActionReason, showPlan, footNote = DETAIL_NO_ACTION_NOTE, pickAction, manualCandidate = null }: DetailPanelProps) {
   const reduced = useReducedMotion();
   const body = useRef<HTMLDivElement>(null);
@@ -241,6 +260,7 @@ export function DetailPanel({ positions, selectedKey, recommendation, noActionRe
           </section>
         )}
         {decision !== null && <DecisionSection openHeroId={candidate.heroId} view={decision} />}
+        <CandidateFeedback heroId={candidate.heroId} position={column.position} />
         <p className="sl-foot">{footNote}</p>
       </div>
     </Glass>

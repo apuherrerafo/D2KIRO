@@ -1,0 +1,32 @@
+REVISIÓN INTERNA, NO INDEPENDIENTE (revisor Claude con contexto nuevo, mismo modelo que el autor). Solo lectura, no ejecuté código ni tests.
+
+Head revisado: f96e4ea7ef1001f2ff90299991aebfa6cb0b8b79. Base: 9108f7ecdf029204c8574e573c926bd56c19cabd.
+
+Archivos que miré: apps/web/lib/feedback-handler.ts (diff completo), apps/web/lib/object-storage.ts, apps/web/server/companion/companion-scripts.ts, apps/web/app/simulator/page.tsx, apps/web/features/simulator-light/feedback-context.tsx, apps/web/features/simulator-light/components/DetailPanel.tsx, apps/web/features/simulator-light/index.ts, apps/web/features/random-draft-simulator/components/BlindRoundPanel.tsx, e2e/feedback.spec.ts y docs/meta-sync-procedure.md. Los archivos de tests (feedback-handler.test.ts, companion-installer.test.ts) solo los vi en la estadística, no línea a línea.
+
+Análisis:
+- Subida de capturas (feedback-handler.ts). La defensa en capas es sólida:
+  - Se comprueba el content-type antes de leer el cuerpo.
+  - El `boundary` se tokeniza con exactitud: rechaza dos `boundary` y `x-boundary`, y limita el largo y el juego de caracteres.
+  - Hay tope real de bytes, plazo total, plazo de inactividad, velocidad mínima, tope de trozos y tope de partes multipart.
+  - El cupo de lecturas simultáneas es global y por cuenta, y se libera en `finally`.
+  - Los 429/503 por cupo no gastan el límite por hora.
+  - Una subida colgada se borra del bucket cuando termina.
+  - Las claves del bucket (`feedback/${id}/${index}.ext`) salen de un id generado por el servidor y de una extensión de lista cerrada, no del cliente. No vi path traversal.
+  - Se mantiene el chequeo `sameOriginOk` y el 401 sin sesión.
+  - `accountId` solo se usa como clave interna y como `author` del registro. No lo vi en logs ni en cuerpos de error, y no hay `console.*`.
+- object-storage.ts: añade `AbortSignal.timeout(30_000)` a cada pedido al bucket. Es una mejora y no abre superficie nueva.
+- companion-scripts.ts: el desinstalador compara la ruta del proceso contra `visualRoot` con separador final. Antes un `StartsWith` sin separador podía matar un proceso `d2kiro-visual` de una carpeta hermana con el mismo prefijo, por ejemplo `visual-old`. Esto reduce el riesgo. El script no interpola entrada externa.
+- 👍/👎 (page.tsx, feedback-context.tsx, DetailPanel.tsx): la identidad del voto sale de la decisión V4 vigente. El control solo se pinta si el héroe pertenece a las tarjetas ranqueadas de la posición vista, y sin proveedor no se pinta nada. Eso evita votar con un `stateIdentity` ajeno. No hay `dangerouslySetInnerHTML`. No vi que el cliente pase `accountId`.
+- docs/meta-sync-procedure.md: solo documentación. Sin secretos, sin Steam32 y sin tokens. Los comandos que menciona (`sqlite3 .backup`, Railway) son procedimiento para el propietario y no se ejecutan.
+- Secretos y PII: no hay literales sospechosos en el diff.
+- Referencias a CI: el diff no borra ni renombra ningún archivo (`--name-status` sin D ni R). Las referencias a `.github/workflows/ci.yml`, `visual-runtime.yml`, `release-gate.yml` y `scripts/verify-simplicity.sh` apuntan a archivos que existen en este worktree. Comprobé `ls .github/workflows` (ci.yml, release-gate.yml, visual-regression.yml, visual-runtime.yml) y `ls scripts/verify-simplicity.sh`. Los imports nuevos del e2e (`./support/decision`, `./support/wave1`) también existen. No encontré referencias rotas a archivos de CI retirados. Solo revisé el árbol de ese worktree, no otra rama.
+
+Hallazgos:
+1. BAJA — apps/web/lib/feedback-handler.ts: los topes por cuenta y global (`sharedReadGate`) viven en memoria del proceso. Con varias réplicas o tras un reinicio el cupo no se comparte, y el límite por hora depende del archivo. Es aceptable para el despliegue de una sola instancia que describe el proyecto. Es una observación, no un defecto.
+2. BAJA — apps/web/lib/object-storage.ts: el timeout fijo de 30 s cubre también los GET de capturas. Una captura grande en un enlace lento podría cortarse. El comentario del autor lo reconoce y es un riesgo de disponibilidad, no de seguridad.
+3. BAJA — apps/web/lib/feedback-handler.ts: el contador de partes cuenta `--boundary` en el cuerpo crudo, y un adjunto binario que contenga esa cadena podría dar un falso positivo de `too_many_parts`. Es un caso muy improbable, falla cerrado y no tiene impacto de seguridad.
+
+No hay hallazgos BLOQUEANTES, ALTAS ni MEDIAS.
+
+Veredicto: APROBADO CON OBSERVACIONES (solo tres BAJAS, informativas).

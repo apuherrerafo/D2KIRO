@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente general-purpose, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "78bfb1bf450a822aec5b585247e67494f876ab93",
+  "diffSha256": "f6dee207ce0f7d78e11eae5a0d2e7cdf33b274d4fa0e3b7426d8e3dd1869fda2",
+  "rawOutput": {
+    "file": "docs/reviews/78bfb1bf-claude-internal-correctness.raw.txt",
+    "sha256": "90ec1feb02cceeca5d64fdc19c90d622956d921dc22fdf1cb64c5bdfbb157302"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "el tope `countRecentByAuthor(...) >= 30` por hora es inalcanzable en la práctica",
+      "disposition": "accepted",
+      "reason": "Defensa redundante tras reinicio del proceso; no es un bug."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/features/simulator-light/components/DetailPanel.tsx",
+      "summary": "la clase `sl-feedback` solo se usa como atributo, sin estilo propio",
+      "disposition": "accepted",
+      "reason": "Cosmetico; el control funciona. Queda como pendiente de pulido visual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "el contador de partes cuenta también el delimitador de cierre",
+      "disposition": "accepted",
+      "reason": "No afecta a un envio legitimo (unas 8 partes de 29 posibles)."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/server/companion/companion-scripts.ts",
+      "summary": "con la carpeta del lector visual retenida, el desinstalador termina con exit 0",
+      "disposition": "accepted",
+      "reason": "Decision explicita cubierta por prueba y visible al jugador por mensaje."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}
