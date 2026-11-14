@@ -16,11 +16,11 @@
     "test:design:vrt": "playwright test design/tests/visual.pw.ts --config design/playwright.config.ts",
     "test:design:vrt:update": "playwright test design/tests/visual.pw.ts --config design/playwright.config.ts --update-snapshots"
   },
-  "// ALLOWED": "zustand: única excepción de datos para la vista de draft en vivo (WebSocket), TSK-012, docs/agents/journal.md evt-20260727-049. @types/bun: solo tipos (sin código en runtime), mismo paquete ya aprobado y en uso en apps/engine desde TSK-001. @reduxjs/toolkit + react-redux: régimen de datos por defecto del sitio (RTK Query), TSK-014, docs/agents/journal.md evt-20260727-062. iron-session: sesión web cifrada del login Steam OpenID, TSK-100, docs/specs/SPEC.md §12.5.",
+  "// ALLOWED": "zustand: única excepción de datos para la vista de draft en vivo (WebSocket), TSK-012, docs/agents/journal.md evt-20260727-049. @types/bun: solo tipos (sin código en runtime), mismo paquete ya aprobado y en uso en apps/engine desde TSK-001. @reduxjs/toolkit + react-redux: régimen de datos por defecto del sitio (RTK Query), TSK-014, docs/agents/journal.md evt-20260727-062. iron-session: sesión web cifrada del login Steam OpenID, TSK-100, docs/specs/SPEC.md §12.5. next: NO es una dependencia nueva, es la subida de 16.2.12 a 16.4.6 (exacta) por avisos críticos GHSA-2xp9-vwfh-vxw4, GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr y GHSA-p3m5-59mp-jv5r (SECURITY-001, docs/agents/journal.md evt-20261114-001); eslint-config-next sube igual y es devDependency.",
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
     "iron-session": "^8.0.4",
-    "next": "16.2.12",
+    "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-redux": "^9.3.0",
@@ -39,7 +39,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.4.6",
     "storybook": "10.6.1",
     "tailwindcss": "^4",
     "typescript": "^5"
