@@ -1,0 +1,22 @@
+REVISION INTERNA (Claude, contexto nuevo; NO independiente del autor: mismo modelo). Prompt seguido: docs/reviews/prompts/correctness.md.
+Head revisado: f96e4ea7ef1001f2ff90299991aebfa6cb0b8b79. Base: 9108f7ecdf029204c8574e573c926bd56c19cabd. Solo lectura, no se ejecuto codigo ni pruebas.
+
+Archivos leidos: apps/web/lib/feedback-handler.ts (diff completo), apps/web/lib/object-storage.ts, apps/web/lib/feedback-handler.test.ts (solo referencias a MAX_FORM_PARTS/too_many_parts), apps/web/app/simulator/page.tsx, BlindRoundPanel.tsx, features/simulator-light/{feedback-context.tsx,index.ts,components/DetailPanel.tsx}, server/companion/{companion-scripts.ts,companion-installer.test.ts}, e2e/feedback.spec.ts, docs/meta-sync-procedure.md.
+
+Verificado:
+- Cero referencias a scripts/ci, release-gate o record-review en el diff.
+- Imports del e2e (boardOf, waitForBoard, latestDecision en e2e/support/decision.ts; record en e2e/support/wave1.ts) existen en el head. feedback-context exporta lo que page.tsx, BlindRoundPanel y DetailPanel importan.
+- Contrato del feedback: el control solo aparece si position == viewedPosition y el heroId esta en rankedHeroIds; key por heroId+stateIdentity evita heredar "ya enviado". Sin proveedor (Live) no pinta nada. Coherente.
+- Handler: orden precheck (415/413) -> gate (429/503 sin gastar cupo horario) -> limiter -> processReport; gate.leave en finally en todos los caminos. Timers (total/idle) se limpian en finally. Subida colgada: se borra el objeto al terminar y se descartan los ya subidos. AbortSignal.timeout(30s) coherente con STORAGE_TIMEOUT_MS.
+- Companion: el prefijo con separador corrige el caso visual-backup (con prueba que lo cubre); el mensaje "PERO no se pudo borrar" tiene prueba con archivo retenido deterministico.
+- Los reportes que cambian el contrato de test del e2e (test.fixme -> test) llevan su prueba.
+
+Hallazgos:
+1. BAJA — apps/web/lib/feedback-handler.ts: el contador de partes cuenta ocurrencias de `--boundary`, que son N+1 para N partes (incluye el delimitador de cierre). Con `> MAX_FORM_PARTS (30)` el maximo real aceptado es 29 partes, no 30. El nombre/comentario sugiere 30. Inocuo en la practica (el formulario real trae ~9 campos + hasta 3 capturas), pero la constante esta desfasada en 1.
+2. BAJA — apps/web/lib/feedback-handler.ts: el limite de velocidad minima (6 kB/s tras 5 s de gracia) puede cortar con 408 a un cliente legitimo en una red muy mala subiendo 3 capturas (~7.7 MB necesitan ~1.3 MB/s para los 45 s del plazo total; el plazo total ya lo acota). Es una decision de producto/seguridad deliberada y esta probada; solo se anota el riesgo de falso positivo en moviles lentos.
+3. BAJA — e2e/feedback.spec.ts: la rama "otra columna no ofrece voto" y la del 👎 solo anotan `not-exercised` si no hay tarjetas; la prueba puede pasar sin ejercitar esas dos garantias (queda visible en las anotaciones, no silencioso). No bloquea.
+4. BAJA — docs/meta-sync-procedure.md: documento declarativo (cifras como "30 escenarios P0-05B", rutas y umbrales) que no pude contrastar contra el codigo de meta (fuera del diff); no hay contradiccion interna visible.
+
+No encontre errores de logica bloqueantes, imports rotos, espejos de tipos desalineados ni dependencias de CI/politica retirada. Nota: no se pudo comprobar con tipos que `decision.meta.readiness?.empiricalPatchClaim?.patch` / `rulesetTarget` existan con ese nombre exacto en el tipo de decision (el grep los encuentra usados en coach-client.ts y CoachPanel.tsx del mismo paquete, por lo que parecen existentes).
+
+VEREDICTO: APROBADO CON OBSERVACIONES (solo observaciones BAJAS).
