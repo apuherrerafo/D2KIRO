@@ -1,12 +1,13 @@
 name: release-gate
 
-# Compuerta propia de release/mvp-beta (lo que Railway Preview publica). Separada de ci.yml a proposito: se vuelve a evaluar al EDITAR la descripcion del PR
-# (donde se declaran las revisiones), sin relanzar los ~7 minutos de CI completo.
+# Compuerta propia de release/mvp-beta (lo que Railway Preview publica): `independent-review` COMPRUEBA las revisiones contra git
+# (scripts/ci/verify-review-evidence.ts); ya no basta con declarar dos nombres en la descripción del PR.
 #
-# `pull_request_target` (no `pull_request`) A PROPOSITO: el workflow y el script que decide el veredicto se leen de la rama BASE protegida, no del PR. Con
-# `pull_request` un PR podia reescribir check-independent-review.sh para terminar en `exit 0` y la compuerta salia verde sin revisar nada (hallazgo
-# BLOQUEANTE de la revision independiente). Reglas de seguridad de este trigger: NUNCA se hace checkout del codigo del PR, y la descripcion entra solo
-# como variable de entorno (dato, jamas codigo).
+# `pull_request_target` (no `pull_request`) A PROPOSITO: el workflow y el script que decide el veredicto se leen de la rama PREDETERMINADA (master), no del PR.
+# Este archivo DEBE existir en master: GitHub solo registra/dispara estos workflows desde la rama predeterminada (sin eso `independent-review` nunca reporta).
+# Con `pull_request` un PR podia reescribir el verificador para terminar en `exit 0`. Reglas de seguridad de este trigger:
+#   - NUNCA se hace checkout del codigo del PR: solo se traen sus objetos con `git fetch` y el verificador LEE blobs (`git show`/`git diff`), no ejecuta nada;
+#   - el numero de PR y los SHA entran por `env` (datos), jamas interpolados en el script.
 on:
   pull_request_target:
     branches: [release/mvp-beta]
@@ -14,17 +15,41 @@ on:
 
 permissions:
   contents: read
+  checks: read   # solo LEER los check-runs (guard de productores); nunca escribir
+  actions: read  # solo LEER los workflow runs que produjeron cada check
 
 jobs:
   independent-review:
     name: independent-review
     runs-on: ubuntu-24.04
     steps:
-      # Sin `ref:` => se descarga la rama base (el valor por defecto de pull_request_target). No se toca github.event.pull_request.head.
-      - name: Checkout the protected base branch (never the PR head)
-        uses: actions/checkout@v4
+      # `ref` = rama PREDETERMINADA (master): el verificador se lee de una referencia confiable que ningun PR hacia release/mvp-beta puede reescribir,
+      # y no depende de que la rama base ya contenga el verificador. Historia completa para calcular merge-base y diffs.
+      - name: Checkout the trusted default branch (never the PR head)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (fijado por SHA: este job decide el veredicto de una rama protegida)
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Two independent reviews are declared in the PR description
+      - name: Fetch the PR objects (no checkout, nothing is executed)
         env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: bash scripts/ci/check-independent-review.sh
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2 (fijado por SHA)
+
+      - name: Review evidence is real, bound to this exact diff, current and from 2+ providers
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bun run scripts/ci/verify-review-evidence.ts "$BASE_SHA" "$HEAD_SHA"
+
+      # Defensa en profundidad: un workflow del PR puede publicar su propio check `independent-review` en verde (mismo app). Se rechaza cualquier productor que no sea
+      # este workflow con evento pull_request_target. Ver scripts/ci/check-gate-producers.ts y docs/reviews/POLICY.md (limite: no sustituye una GitHub App con app_id fijado).
+      - name: No foreign producer of the independent-review check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bun run scripts/ci/check-gate-producers.ts "$HEAD_SHA"

@@ -1,0 +1,46 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "anthropic",
+    "tool": "Claude Code subagente general-purpose (contexto limpio)",
+    "model": "claude-sonnet-5-5"
+  },
+  "reviewedBase": "9108f7ecdf029204c8574e573c926bd56c19cabd",
+  "reviewedHead": "40e9bc44ac4bb7990bb709cdc3d14f09ff215951",
+  "diffSha256": "cbb1b304c531107778fdc6c64745869c2dc64710640a1b82c9aaa96b13214e2a",
+  "rawOutput": {
+    "file": "docs/reviews/40e9bc44-anthropic.raw.txt",
+    "sha256": "bccc112029b9392e04794d788bb2cf77cc8187cdd6cd651e70c847372656a908"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "docs/reviews/ACCEPTED-RISKS.json",
+      "summary": "el riesgo R-001 se declara con match",
+      "disposition": "accepted",
+      "reason": "Aceptado para el PR: R-001 ya se limitó a rutas de la compuerta y caduca el 2027-05-12; sigue siendo amplio y por eso es PROPUESTO: solo vale si el propietario lo fusiona."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/ci/verify-review-evidence.ts",
+      "summary": "si `paths` de un riesgo esta declarado pero ninguna entrada pasa SAFE_PATH",
+      "disposition": "accepted",
+      "reason": "Pendiente de endurecer: un paths inválido debería invalidar el riesgo en vez de ensancharlo; se anota como seguimiento."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/feedback-handler.ts",
+      "summary": "la velocidad minima se evalua solo al llegar un trozo",
+      "disposition": "accepted",
+      "reason": "Riesgo bajo y reintentable: solo cuerpos que tardan más de 5 s en recibir su primer trozo; el umbral es de 6000 B/s."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/ci/verify-review-evidence.ts",
+      "summary": "cuenta cualquier viñeta o linea numerada",
+      "disposition": "accepted",
+      "reason": "Falso rechazo posible solo si un revisor resume con las palabras de severidad en una viñeta; el formato exigido al revisor lo evita."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}
