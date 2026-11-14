@@ -1,4 +1,0 @@
-{
-  "providers": ["openai", "anthropic", "google"],
-  "note": "Proveedores de revisión admitidos por la compuerta independent-review. Se lee de la rama BASE: un PR no puede ampliarla para colar un proveedor propio. `human:<login>` se admite aparte."
-}
