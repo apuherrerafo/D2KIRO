@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "4132516b48a70ce9cb84812a898577573fe46ce7",
+  "reviewedHead": "109208ecc4e12b7d2c9918c4f06360059d2b7b16",
+  "diffSha256": "bdc1c412ea2b9c2a7faf2a3a5ad807f8ee3c274e20d20c3ca5dc86c76f909305",
+  "rawOutput": {
+    "file": "docs/reviews/109208ec-claude-internal-security.raw.txt",
+    "sha256": "60b20ca3f26d6d869f04cf2be0c466abab542b84f4529e08fe345e901ee37cdb"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/bun.lock",
+      "summary": "apps/web/bun.lock: la subida arrastra paquetes nuevos o actualizados que no se ven en package.json. Son sharp",
+      "disposition": "accepted",
+      "reason": "Resuelto: integrity de los 44 paquetes arrastrados (sharp, @img/*, @next/swc-*, swc/helpers, nanoid, source-map-js) contrastada con el registro npm, 0 discrepancias; bun install --frozen-lockfile pasa en el docker build."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/package.json",
+      "summary": "apps/web/package.json: `next` y `eslint-config-next` quedan fijados con versión exacta, sin caret. Es lo corre",
+      "disposition": "accepted",
+      "reason": "Aceptado: versiones exactas son lo correcto; los 4 GHSA aparecen en bun audit del arbol base y desaparecen en el de A."
+    },
+    {
+      "severity": "BAJA",
+      "file": "Dockerfile",
+      "summary": "Dockerfile: se agrega `COPY apps/web/test-support`. Es una ruta relativa fija, sin ARG ni interpolación. Sin r",
+      "disposition": "accepted",
+      "reason": "Resuelto: test-support solo contiene ayudantes de prueba sin secretos; el build Linux real pasa y el target runtime borra los *.test.ts del motor; no hay fixtures con datos reales."
+    },
+    {
+      "severity": "BAJA",
+      "file": "docs/agents/journal.md",
+      "summary": "docs/agents/journal.md: la entrada es solo una línea añadida, sin borrados, y cumple el formato. No contiene S",
+      "disposition": "accepted",
+      "reason": "Aceptado: una linea anadida sin borrados, sin Steam32 ni secretos; la nota reconoce que Context7 no estuvo disponible."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

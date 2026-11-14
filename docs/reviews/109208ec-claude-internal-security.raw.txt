@@ -1,0 +1,16 @@
+Revisión INTERNA de Claude (Sonnet 5.5, contexto nuevo). No soy independiente del autor: comparto modelo con quien escribió el código. Esta revisión no cuenta como revisión externa.
+
+Head revisado: 109208ecc4e12b7d2c9918c4f06360059d2b7b16 (base 4132516b).
+Archivos que miré, con `git diff` de solo lectura: Dockerfile, apps/web/package.json, apps/web/bun.lock, docs/agents/journal.md. No ejecuté nada.
+
+Hallazgos:
+1. BAJA — apps/web/bun.lock: la subida arrastra paquetes nuevos o actualizados que no se ven en package.json. Son sharp 0.35.5 con 20 binarios @img/*, @next/swc-* 16.4.6, @swc/helpers 0.5.23, nanoid 3.3.20 y source-map-js. Todas las entradas usan el registro npm con hash sha512. No vi `git+`, `github:`, `file:` ni URLs http. Sin embargo, no contrasté los hashes con el registro. El journal dice que lo hizo solo para next, y yo no puedo confirmarlo. Recomiendo que `bun install --frozen-lockfile` en CI sea el control.
+2. BAJA — apps/web/package.json: `next` y `eslint-config-next` quedan fijados con versión exacta, sin caret. Es lo correcto. El comentario `// ALLOWED` documenta la subida y cita los 4 GHSA. No pude verificar esos IDs ni las versiones desde aquí.
+3. BAJA — Dockerfile: se agrega `COPY apps/web/test-support`. Es una ruta relativa fija, sin ARG ni interpolación. Sin riesgo de inyección ni de path traversal. Copia código de pruebas a la imagen de build. Conviene confirmar que esa carpeta no contiene fixtures con datos reales ni secretos, y que no llega a la imagen final de runtime si hay un stage multi-etapa. No lo pude comprobar solo con el diff.
+4. BAJA — docs/agents/journal.md: la entrada es solo una línea añadida, sin borrados, y cumple el formato. No contiene Steam32 ni accountId ni secretos. Reconoce que Context7 no estuvo disponible y que la verificación se hizo contra el registro npm.
+
+No hay cambios en workflows, ni `pull_request_target`, ni acciones sin fijar, ni falsificación de checks. No hay secretos, SQL, SSRF ni PII en el diff. El diff no toca código de la aplicación.
+
+Observación de proceso: la excepción `// ALLOWED` se usa para esquivar un falso positivo de `verify-simplicity.sh`. El journal dice que el guard no se tocó, y es coherente con el diff. Como la política de dependencias distingue `dependencies` de `devDependencies`, `next` sí está en `dependencies`. La justificación documentada es suficiente: es una subida de una dependencia que ya existía, no una nueva.
+
+Veredicto: APROBADO CON OBSERVACIONES (sin bloqueantes). Las observaciones 1 y 3 se resuelven con el CI de lockfile congelado y con una comprobación rápida del contenido de test-support.

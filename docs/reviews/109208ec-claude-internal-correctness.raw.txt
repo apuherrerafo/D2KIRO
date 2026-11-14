@@ -1,0 +1,24 @@
+Revisión INTERNA de Claude con contexto nuevo. No soy independiente del autor: comparto modelo con quien escribió el código, así que esto no cuenta como revisión externa. Solo leí el diff y los archivos del árbol del head. No ejecuté nada.
+
+Head revisado: 109208ecc4e12b7d2c9918c4f06360059d2b7b16. Base: 4132516b.
+Archivos que miré: `Dockerfile`, `apps/web/package.json`, `apps/web/bun.lock` (diff completo), `docs/agents/journal.md`, `apps/web/tsconfig.json`, el listado de `apps/web/` y `apps/web/test-support/`.
+
+Hallazgos:
+
+1. MEDIA — `apps/web/bun.lock`: la subida de Next arrastra `sharp` 0.34.5→0.35.5 y todos los `@img/sharp-*` y libvips (1.2.4→1.3.4). Este cambio de optimizador de imágenes en runtime no está en la nota del journal ni en el `// ALLOWED`. El journal solo verifica la integridad de `next`. Conviene comprobar la integridad de `sharp` y libvips contra el registro, y confirmar que la imagen `node:22` con musl o glibc sigue resolviendo el binario nativo. Con `--frozen-lockfile` el build lo detectará, pero un fallo de `sharp` en runtime solo se vería en Railway.
+2. MEDIA — `Dockerfile`: se copia `test-support` para que `next build` tipe los `*.test.tsx`. Es un parche puntual. Si algún test importa otro directorio que no se copia (`.storybook`, helpers fuera de `app`, `components`, `design`, `features`, `lib`, `server`), el build seguirá fallando. Los tests raíz `proxy*.test.ts` y `next.config.test.ts` no se copian. Lo más robusto es excluir los tests de `tsconfig` para el build, o verificar con un `docker build` real. El diff solo prueba lo que cubre `test-support`.
+3. BAJA — `apps/web/package.json`: la `// ALLOWED` y la nota del journal dicen que `next` sube de versión y no es una dependencia nueva. Es coherente con la política y el guard no se tocó. Pero `next` queda fijado exacto y `eslint-config-next` también, lo cual es correcto. La entrada del journal admite que Context7 no estuvo disponible y que la verificación fue manual contra el registro. Esa verificación es la única evidencia y no la puedo reproducir.
+4. BAJA — `apps/web/bun.lock`: el lockfile elimina los overrides `next/postcss` 8.4.31 y `vite/postcss/nanoid`. Next 16.4.6 ahora usa `postcss` 8.5.23, que es la versión sin el aviso viejo de 8.4.31, así que el cambio va en buena dirección. Aun así, los tests de CSS o Tailwind deberían ejecutarse porque cambia la versión de `postcss` de Next.
+5. BAJA — `docs/agents/journal.md`: el formato de línea es correcto y es solo un añadido. Reconoce que R-001 sigue abierto y que esta auditoría no cuenta como revisión externa. No hay inconsistencia.
+
+Sin hallazgos en estos puntos:
+- No toca `apps/engine`.
+- No hay espejos de tipos desalineados.
+- El `.gitignore` y los archivos de datos no cambian.
+- No hay secretos en el diff.
+- El `COPY apps/web/test-support` apunta a un directorio que existe en el head (`happy-dom.ts` y `team-fixtures.ts`).
+- Las versiones de `next` y `eslint-config-next` coinciden entre `package.json` y `bun.lock`.
+
+Límite de esta revisión: no confirmé que 16.4.6 cierre los cuatro avisos GHSA citados. Tampoco que 16.4 no traiga cambios de comportamiento en `proxy.ts` o en la config. `proxy.ts` y `next.config.ts` no están en este diff, y `next.config.test.ts` y `proxy.ts` aparecen como modificados en el árbol principal, ajeno a este worktree.
+
+Veredicto: APROBADO CON OBSERVACIONES. Antes de mergear, pido un `docker build` real o el CI de build, y revisar el binario de `sharp`.

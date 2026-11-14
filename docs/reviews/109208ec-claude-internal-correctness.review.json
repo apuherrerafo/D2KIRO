@@ -1,0 +1,56 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code (subagente, contexto nuevo)",
+    "model": "claude-sonnet-5-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "4132516b48a70ce9cb84812a898577573fe46ce7",
+  "reviewedHead": "109208ecc4e12b7d2c9918c4f06360059d2b7b16",
+  "diffSha256": "bdc1c412ea2b9c2a7faf2a3a5ad807f8ee3c274e20d20c3ca5dc86c76f909305",
+  "rawOutput": {
+    "file": "docs/reviews/109208ec-claude-internal-correctness.raw.txt",
+    "sha256": "1f3bc2a3da77ebcffe3200931b786a7a031a8343c96512ee27b6cdf6a3c6bb62"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "apps/web/bun.lock",
+      "summary": "apps/web/bun.lock`: la subida de Next arrastra `sharp` 0.34.5→0.35.5 y todos los `@img/sharp-*` y libvips (1.2",
+      "disposition": "accepted",
+      "reason": "Resuelto con evidencia sobre el codigo final: integrity de 44 paquetes del bun.lock (next, sharp, @img/*, @next/*, postcss, nanoid, swc/helpers, source-map-js) == registro npm, 0 discrepancias; sharp 0.35.5 + libvips 8.18.7 carga en la imagen Linux node:22 construida con este head."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "Dockerfile",
+      "summary": "Dockerfile`: se copia `test-support` para que `next build` tipe los `*.test.tsx`. Es un parche puntual. Si alg",
+      "disposition": "accepted",
+      "reason": "Resuelto: docker build real (Linux, target runtime por defecto) de este head OK y next build tipa los tests; test-support es la unica carpeta importada por los *.test.tsx. Excluir tests del build queda como seguimiento opcional, no en este parche urgente."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/package.json",
+      "summary": "apps/web/package.json`: la `// ALLOWED` y la nota del journal dicen que `next` sube de versión y no es una dep",
+      "disposition": "accepted",
+      "reason": "Aceptado: la subida es de una dependencia existente, sin dependencia nueva; verify-simplicity pasa con la marca ALLOWED y el guard no se toco. Verificacion contra el registro npm reproducible con el script de integrity."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/bun.lock",
+      "summary": "apps/web/bun.lock`: el lockfile elimina los overrides `next/postcss` 8.4.31 y `vite/postcss/nanoid`. Next 16.4",
+      "disposition": "accepted",
+      "reason": "Resuelto: la subida de postcss la cubren test(web) del CI y el E2E del navegador (ver matriz Base/A/B); sin fallo atribuible a CSS."
+    },
+    {
+      "severity": "BAJA",
+      "file": "docs/agents/journal.md",
+      "summary": "docs/agents/journal.md`: el formato de línea es correcto y es solo un añadido. Reconoce que R-001 sigue abiert",
+      "disposition": "accepted",
+      "reason": "Aceptado: observacion de formato sin cambio de comportamiento; la linea cumple el formato de journal."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}
