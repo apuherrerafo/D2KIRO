@@ -44,7 +44,18 @@ async function revokedAccessRedirect(request: NextRequest): Promise<NextResponse
   return redirect;
 }
 
+// SECURITY-001: ninguna pantalla usa `next/image`, pero `/_next/image` es una ruta pública de Next (el matcher la excluía del gate de
+// sesión) y el endpoint de los avisos críticos de sharp/libvips. Se corta acá, antes de cualquier trabajo. Next la reconoce por
+// PREFIJO (`startsWith('/_next/image')`), así que el corte hace lo mismo y no depende de que `images.unoptimized` siga en `true`.
+const IMAGE_OPTIMIZER_PATH = "/_next/image";
+
+function isImageOptimizerPath(pathname: string): boolean {
+  return pathname.startsWith(IMAGE_OPTIMIZER_PATH);
+}
+
 export async function proxy(request: NextRequest) {
+  if (isImageOptimizerPath(request.nextUrl.pathname)) return new NextResponse(null, { status: 404 });
+
   if (isPublicPath(request.nextUrl.pathname)) return NextResponse.next();
 
   const internalSecret = process.env.INTERNAL_AUTH_SECRET;
@@ -69,5 +80,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|favicon.ico).*)"],
 };
