@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { ENGINE_DIRECT, engineDirectHeaders } from "./support/wave1";
 import { expect, test } from "./support/failure-evidence";
+import { awaitLiveDraftLinked } from "./support/live-linked";
 
 // Fase 4B.2 · CIERRE DE CERTIFICACIÓN. Motor real (V6 intacto) + web real. Dota SIMULADO: nada de esto es un cliente Dota auténtico.
 //  A) GoldenCardView / FreeThreatsView alcanzables: la respuesta de team-recommendations se enriquece EN EL NAVEGADOR (page.route); el motor no se toca.
@@ -91,7 +92,7 @@ test.describe("4B.2 cierre de certificación", () => {
       await route.fulfill({ response, json: board });
     });
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     await seedCuratedDraft(page, link.sessionId);
     await expect(page.getByTestId("live-light-pick-seat")).toBeVisible({ timeout: 60_000 });
     await page.getByTestId("live-light-seat-2").click();
@@ -137,7 +138,7 @@ test.describe("4B.2 cierre de certificación", () => {
       await route.fulfill({ response, json: board });
     });
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     const status = await page.evaluate(async (name) => (await fetch("/engine/api/team-groups", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: `${name} · equipo`, partySize: 5, members: [
       { slot: 1, position: 1, name, heroPool: [1, 8, 10] }, { slot: 2, position: 2, name, heroPool: [11, 13, 52] }, { slot: 3, position: 3, name, heroPool: [2, 7, 28] },
       { slot: 4, position: 4, name, heroPool: [3, 20, 26] }, { slot: 5, position: 5, name, heroPool: [5, 30, 83] }] }) })).status, LONG_NAME);
@@ -206,7 +207,7 @@ test.describe("4B.2 cierre de certificación", () => {
     await beat(request, link);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     await seedCuratedDraft(page, link.sessionId);
     await expect(page.getByTestId("live-light-pick-seat")).toBeVisible({ timeout: 60_000 });
     const ended = await request.post(`${ENGINE_DIRECT}/api/live/gsi/${link.liveId}`, { data: gsiBody(link.token, "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"), headers: { "content-type": "application/json" } });
