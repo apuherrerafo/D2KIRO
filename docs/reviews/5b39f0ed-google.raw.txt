@@ -1,0 +1,42 @@
+# D2KIRO — SECURITY-001 Parte B | REVISIÓN EXTERNA DE SEGURIDAD
+
+**SHA del head revisado**: `5b39f0ed59063a9e996e58c88014c9e16b4830ec`  
+**Base SHA**: `10a5a4e40bced923b042a121077979184b8731f8`
+
+### Archivos examinados
+1. [apps/web/lib/security-headers.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/lib/security-headers.ts)
+2. [apps/web/lib/security-headers.test.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/lib/security-headers.test.ts)
+3. [apps/web/next.config.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/next.config.ts)
+4. [apps/web/proxy.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/proxy.ts)
+5. [apps/web/proxy.test.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/proxy.test.ts)
+6. [docs/reviews/historical/b5bbd036-claude-internal-security.historical.json](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/docs/reviews/historical/b5bbd036-claude-internal-security.historical.json)
+7. [docs/reviews/historical/b5bbd036-google.historical.json](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/docs/reviews/historical/b5bbd036-google.historical.json)
+
+---
+
+### Análisis de Seguridad
+
+- **Inyección, SSRF y Path Traversal**: No se introducen vectores de inyección ni deserialización no confiable. El corte en [apps/web/proxy.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/proxy.ts) y la configuración de `images: { unoptimized: true, remotePatterns: [] }` en [apps/web/next.config.ts](file:///D:/JULIO/apuherrerafoprojects/_secB2-validate/apps/web/next.config.ts) desactivan de manera efectiva la superficie de ataque y el riesgo de SSRF del optimizador de imágenes de Next.js.
+- **Secretos y PII**: No hay credenciales, tokens ni secretos expuestos en el diff. Tampoco se filtran identificadores de cuenta (`accountId`, `steam32`) ni datos personales en cabeceras o respuestas de error.
+- **Regresiones de autenticación en proxy.ts**: La ruta `/_next/image*` se intercepta antes del gate de autenticación y responde `404` de forma consistente tanto para usuarios anónimos como autenticados. La lista `isPublicPath` no ha sido alterada y las rutas protegidas mantienen su perímetro intacto.
+- **Cabeceras de seguridad e interoperabilidad**:
+  - `Content-Security-Policy`: Aplica de forma estricta (`enforced`) directivas estructurales seguras (`frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`) que previenen clickjacking y secuestro de base sin interferir con scripts ni estilos.
+  - `Content-Security-Policy-Report-Only`: Describe los recursos permitidos para la aplicación en modo observabilidad. No interfiere con el flujo de login de Steam (redirección OpenID externa) ni con la comunicación con el motor (proxeada bajo el mismo origen vía `/engine`).
+  - `Strict-Transport-Security`: Se aplica únicamente en builds de producción (`max-age=31536000`), omitiendo intencionalmente `includeSubDomains` y `preload` debido al dominio compartido `*.up.railway.app`.
+  - `X-Frame-Options` (`DENY`), `X-Content-Type-Options` (`nosniff`) y `Permissions-Policy` restringen correctamente capacidades de hardware y APIs del navegador.
+- **Falsificación de checks y pruebas**: Las pruebas unitarias añadidas en `security-headers.test.ts` y `proxy.test.ts` ejecutan las funciones y rutas reales sin atajos ni mocks espurios.
+
+---
+
+### Hallazgos
+
+1. BAJA — apps/web/lib/security-headers.ts: La política CSP completa está configurada únicamente en Report-Only sin directivas report-to ni report-uri, limitando la visibilidad de infracciones a la consola local del navegador.
+2. BAJA — apps/web/lib/security-headers.ts: La directiva script-src en Report-Only contiene 'unsafe-inline', lo cual requerirá migrar a nonces antes de activar el bloqueo estricto.
+3. BAJA — apps/web/lib/security-headers.ts: La directiva img-src de la CSP omite el host histórico steamcdn-a.akamaihd.net admitido en lib/steam-profile.ts, lo que reportará violaciones cosméticas si un usuario carga un avatar antiguo.
+4. BAJA — apps/web/lib/security-headers.test.ts: La prueba unitaria de configuración de imágenes valida remotePatterns y formats pero omite una aserción directa sobre la propiedad unoptimized.
+
+---
+
+### Veredicto
+
+APROBADO CON OBSERVACIONES

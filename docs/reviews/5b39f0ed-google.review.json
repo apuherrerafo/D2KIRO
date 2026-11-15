@@ -1,0 +1,46 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "google",
+    "tool": "antigravity-cli (agy), modo plan, solo lectura",
+    "model": "gemini-3.8-flash-high"
+  },
+  "reviewedBase": "10a5a4e40bced923b042a121077979184b8731f8",
+  "reviewedHead": "5b39f0ed59063a9e996e58c88014c9e16b4830ec",
+  "diffSha256": "77244e436e7db5762990c9e43561c9693ff0adce7f98f2b58a8190342dfd9520",
+  "rawOutput": {
+    "file": "docs/reviews/5b39f0ed-google.raw.txt",
+    "sha256": "25fc96e8a4749af4ce96b1a2f9678edb7a4f72990a100396c89aeb3e6cd8af6f"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "La política CSP completa está configurada únicamente en Report-Only sin directivas report-to ni report-uri, limitando la visibilidad de infracciones a la consola local del navegador.",
+      "disposition": "accepted",
+      "reason": "Aceptado: misma observacion que el revisor interno; la CSP completa en Report-Only sin report-uri/report-to solo limita la visibilidad de infracciones a la consola del navegador. No es una vulnerabilidad ni abre superficie; la CSP enforced (frame-ancestors, base-uri, object-src) si aplica en runtime."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "La directiva script-src en Report-Only contiene 'unsafe-inline', lo cual requerirá migrar a nonces antes de activar el bloqueo estricto.",
+      "disposition": "accepted",
+      "reason": "Aceptado: script-src con unsafe-inline existe solo en Content-Security-Policy-Report-Only, que no bloquea ni afloja nada de lo enforced. Pasar a nonces antes de activar el bloqueo estricto es un paso posterior ya declarado en el codigo."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "La directiva img-src de la CSP omite el host histórico steamcdn-a.akamaihd.net admitido en lib/steam-profile.ts, lo que reportará violaciones cosméticas si un usuario carga un avatar antiguo.",
+      "disposition": "accepted",
+      "reason": "Aceptado: el host steamcdn-a.akamaihd.net faltante en img-src solo afecta a la politica Report-Only, que no bloquea imagenes; el unico efecto es un aviso de consola con avatares antiguos. Cosmetico, sin impacto de seguridad ni de funcionamiento del login."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.test.ts",
+      "summary": "La prueba unitaria de configuración de imágenes valida remotePatterns y formats pero omite una aserción directa sobre la propiedad unoptimized.",
+      "disposition": "accepted",
+      "reason": "Aceptado: falta una asercion directa sobre unoptimized en security-headers.test.ts, pero el comportamiento queda cubierto por el 404 de /_next/image en proxy.test.ts y por la medicion HTTP en runtime. Es un hueco de cobertura menor, sin efecto en produccion."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

@@ -1,0 +1,40 @@
+Declaración de no independencia: soy un revisor INTERNO de Claude con contexto nuevo. Comparto modelo con quien escribió el código, así que esta revisión no es independiente.
+
+Revisé solo el diff entre la base 10a5a4e40bced923b042a121077979184b8731f8 y el head. No ejecuté código del PR y no usé el working tree.
+
+**Hallazgos**
+
+1. BAJA — apps/web/proxy.ts: las respuestas creadas dentro del proxy no reciben las cabeceras de `next.config.ts`. Son el 404 de `/_next/image`, las redirecciones a `/login` y `/access-denied`, y el 503. Los documentos históricos lo registran como afirmación de Gemini y lo miden con sondas HTTP, así que ya está registrado. El riesgo es bajo porque son respuestas sin contenido y sin datos sensibles.
+
+2. BAJA — apps/web/lib/security-headers.ts: `script-src` y `style-src` llevan `'unsafe-inline'`, pero solo en la política Report-Only, así que no hay protección contra XSS todavía. La política aplicada (`frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`) solo endurece. El código declara el endurecimiento con nonces como paso aparte.
+
+3. BAJA — apps/web/lib/security-headers.ts: no hay endpoint de reportes (`report-uri`/`report-to`), por lo que las violaciones de la política Report-Only solo se ven en la consola del navegador. No es un riesgo de seguridad.
+
+4. BAJA — apps/web/next.config.ts: `images.formats: ["image/webp"]` junto con `remotePatterns: []` y `unoptimized: true` es defensa en profundidad y no abre superficie nueva. Es una observación, no un defecto.
+
+**Revisado sin hallazgos**
+- **Corte de `/_next/image`:** `proxy.ts` lo corta con `startsWith` antes de leer `INTERNAL_AUTH_SECRET` o la sesión, igual que el prefijo de Next. Quitar `_next/image` del matcher hace que el proxy lo vea, y la prueba lo verifica. No hay bypass por variantes de ruta (`/_next/image/`, `/_next/imagefoo`), cubiertas en `proxy.test.ts`.
+- **Inyección, SSRF y path traversal:** no hay input externo nuevo en el código. No hay shell, SQL ni plantillas.
+- **HSTS:** `max-age=31536000` solo en producción, sin `includeSubDomains` ni `preload`. Es razonable para un dominio compartido.
+- **Secretos y PII:** no hay secretos ni literales sospechosos en los cinco archivos de código. En `docs/reviews/historical/` solo hay SHAs y hashes, y las coincidencias con "token", "secret" y "key" son menciones de texto (por ejemplo `INTERNAL_AUTH_SECRET` como nombre de variable). No encontré ningún Steam32 ni accountId. No hay credenciales tipo `AIza`, `sk-` o `ghp_`.
+- **Workflows:** el diff no toca workflows, `pull_request_target`, acciones sin fijar ni checks.
+
+**Head revisado:** 5b39f0ed59063a9e996e58c88014c9e16b4830ec
+
+**Archivos mirados:**
+- apps/web/lib/security-headers.ts
+- apps/web/lib/security-headers.test.ts (solo en la estadística del diff)
+- apps/web/next.config.ts
+- apps/web/proxy.ts
+- apps/web/proxy.test.ts
+- docs/reviews/historical/b5bbd036-claude-internal-security.historical.json
+- docs/reviews/historical/b5bbd036-claude-internal-security.raw.txt
+- docs/reviews/historical/b5bbd036-google-v1.raw.txt
+- docs/reviews/historical/b5bbd036-google-v1.record.raw.txt
+- docs/reviews/historical/b5bbd036-google-v2-http-findings.raw.txt
+- docs/reviews/historical/b5bbd036-google.historical.json
+- docs/reviews/historical/b5bbd036-google.raw.txt
+
+Los documentos históricos los revisé con una búsqueda por patrones sobre las líneas añadidas, no línea por línea.
+
+**Veredicto: APROBADO CON OBSERVACIONES** (solo hallazgos BAJA, ninguno bloqueante).
