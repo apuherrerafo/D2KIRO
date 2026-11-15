@@ -18,7 +18,7 @@
       "file": "apps/web/proxy.ts",
       "summary": "apps/web/proxy.ts: Las respuestas generadas prematuramente en proxy.ts no reciben las cabeceras de",
       "disposition": "accepted",
-      "reason": "Aceptado sin cambiar el codigo de B (el codigo revisado sigue siendo b5bbd036): el revisor afirma que next.config headers() no se aplica a respuestas del proxy; las pruebas HTTP reales documentadas aparte en docs/reviews/b5bbd036-google-v2-http-findings.md cuestionan esa afirmacion. R-001 y #137 siguen abiertos."
+      "reason": "Aceptado sin cambiar el codigo de B (el codigo revisado sigue siendo b5bbd036): el revisor afirma que next.config headers() no se aplica a respuestas del proxy; las pruebas HTTP reales documentadas aparte en docs/reviews/historical/b5bbd036-google-v2-http-findings.raw.txt cuestionan esa afirmacion. R-001 y #137 siguen abiertos."
     },
     {
       "severity": "BAJA",
