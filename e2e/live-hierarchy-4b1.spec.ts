@@ -22,6 +22,11 @@ const BLOCKS = ["live-capture-status", "live-seat", "live-light-pick-seat", "liv
 interface IssuedLink { liveId: string; token: string; sessionId: string }
 const results: Record<string, unknown> = { label: LABEL, viewport: VIEW, evidence: "PRUEBA: motor real + web real, Dota SIMULADO (GSI/observaciones de prueba), no es sesión auténtica de Dota" };
 
+// `live-dota` es el cascarón de /live-draft SOLO mientras carga o no hay enlace; con el enlace emitido la vista pasa a `live-team-coach`.
+// Esperar `live-dota` era una carrera contra esa carga. El estado estable correcto es la vista enlazada; si falla la auth/carga, esto falla (no se oculta).
+async function awaitLiveDraftLinked(page: Page) {
+  await expect(page.getByTestId("live-team-coach")).toBeVisible({ timeout: 60_000 });
+}
 async function waitImages(page: Page) {
   await page.waitForFunction(() => [...document.querySelectorAll("img")].every((img) => img.complete), undefined, { timeout: 20_000 }).catch(() => undefined);
 }
@@ -86,7 +91,7 @@ test.describe(`4B.1 jerarquía (${LABEL})`, () => {
     await beat(request, link);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     await seedCuratedDraft(page, link.sessionId);
     await expect(page.getByTestId("live-light-pick-seat")).toBeVisible({ timeout: 60_000 });
     await shoot(page, "solo-1-sin-declarar", request, link);
@@ -119,7 +124,7 @@ test.describe(`4B.1 jerarquía (${LABEL})`, () => {
     await beat(request, link);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     const status = await page.evaluate(async () => (await fetch("/engine/api/team-groups", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "E2E 4B1 Party", partySize: 5, members: [
       { slot: 1, position: 1, name: "Pos 1", heroPool: [1, 8, 10] }, { slot: 2, position: 2, name: "Pos 2", heroPool: [11, 13, 52] }, { slot: 3, position: 3, name: "Pos 3", heroPool: [2, 7, 28] },
       { slot: 4, position: 4, name: "Pos 4", heroPool: [3, 20, 26] }, { slot: 5, position: 5, name: "Pos 5", heroPool: [5, 30, 83] }] }) })).status);
@@ -143,7 +148,7 @@ test.describe(`4B.1 jerarquía (${LABEL})`, () => {
     await beat(request, link);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     const first = await request.post(`${ENGINE_DIRECT}/api/live/gsi/${link.liveId}`, { data: gsiBody(link.token, "DOTA_GAMERULES_STATE_HERO_SELECTION"), headers: { "content-type": "application/json" } });
     expect(first.status()).toBe(200);
     await page.reload();
@@ -159,7 +164,7 @@ test.describe(`4B.1 jerarquía (${LABEL})`, () => {
     await beat(request, link);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     await seedCuratedDraft(page, link.sessionId);
     await expect(page.getByTestId("live-light-pick-seat")).toBeVisible({ timeout: 60_000 });
     await page.getByTestId("live-light-seat-2").click();
@@ -214,7 +219,7 @@ test.describe(`4B.1 jerarquía (${LABEL})`, () => {
     await beat(request, link);
     await page.setViewportSize(VIEW);
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     await expect(page.getByTestId("live-capture-status")).toContainText("Companion conectado", { timeout: 60_000 });
     results.companionTextFresh = (await page.getByTestId("live-capture-status").innerText()).replace(/\s+/g, " ");
     await page.screenshot({ path: resolve(OUT, "estado-vigente.png"), fullPage: false });
