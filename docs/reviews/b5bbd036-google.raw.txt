@@ -1,124 +1,125 @@
-  D2KIRO — SECURITY-001 | REVISIÓN INDEPENDIENTE DE SEGURIDAD                                                                           
-                                                                                                                                         
-  Rol: Senior Application Security Engineer / Revisor Independiente                                                                      
-  Alcance: SECURITY-001 (Parte B v2) — Cabeceras de seguridad HTTP, CSP y corte de /_next/image                                          
-  Rama: security/headers-hardening-v2                                                                                                    
-  Head SHA: b5bbd0362658d56a306bded6ec041f6425b5dafa                                                                                     
-  Base SHA: 38a874db8d4fed36fd9c218120d9b45878422fe8 (release/mvp-beta)                                                                  
-  ──────                                                                                                                                 
-  ## 1. Verificación del árbol de trabajo y diff real                                                                                    
-                                                                                                                                         
-  Se realizó la verificación criptográfica del diff mediante Git en el worktree local D:\JULIO\apuherrerafoprojects\_secB2:              
-                                                                                                                                         
-  • Merge base comprobado: 38a874db8d4fed36fd9c218120d9b45878422fe8                                                                      
-  • Head commit comprobado: b5bbd0362658d56a306bded6ec041f6425b5dafa                                                                     
-  • Archivos modificados en el diff (5 archivos):                                                                                        
-      • A apps/web/lib/security-headers.ts                                                                                               
-      • A apps/web/lib/security-headers.test.ts                                                                                          
-      • M apps/web/next.config.ts                                                                                                        
-      • M apps/web/proxy.ts                                                                                                              
-      • M apps/web/proxy.test.ts                                                                                                         
-  • Suite de pruebas ejecutada: bun test apps/web completó 1.267 pruebas pasadas, 1 omitida y 0 fallos (incluyendo los 20 tests          
-  específicos de security-headers.test.ts, proxy.test.ts y next.config.test.ts).                                                         
-  ──────                                                                                                                                 
-  ## 2. Análisis detallado por vectores de seguridad                                                                                     
-                                                                                                                                         
-  ### 2.1. Bloqueo y contención de /_next/image                                                                                          
-                                                                                                                                         
-  • Defensa en profundidad (3 capas):                                                                                                    
-      1. Capa Proxy / Gateway (apps/web/proxy.ts): Se eliminó _next/image de la exclusión del matcher, permitiendo que el proxy          
-      intercepte la ruta. En la primera línea de ejecución, isImageOptimizerPath evalúa request.nextUrl.pathname.                        
-      startsWith('/_next/image') y retorna inmediatamente NextResponse(null, { status: 404 }). Esto ocurre antes de verificar            
-      INTERNAL_AUTH_SECRET, sesiones de usuario o consultar el backend.                                                                  
-      2. Capa Servidor Next.js (apps/web/next.config.ts): Se configuró images: { unoptimized: true }. Verificado en el runtime de Next.js
-      16.4.6 (next-server.js), cuando images.unoptimized === true, cualquier petición entrante a handleNextImageRequest es terminada con 
-      this.render404(req, res) antes de ejecutar cualquier validación de parámetros o invocar procesamiento de sharp/libvips.            
-      3. Capa de Restricción Remota (apps/web/next.config.ts): Se fijaron remotePatterns: [] y formats: ["image/webp"] (eliminando       
-      image/avif), neutralizando vectores de SSRF o procesamiento de imágenes remotas no confiables en caso de una hipotética            
-      reactivación accidental.                                                                                                           
-                                                                                                                                         
-                                                                                                                                         
-  ### 2.2. Cabeceras de seguridad y CSP                                                                                                  
-                                                                                                                                         
-  • Content-Security-Policy (Enforced): Aplica frame-ancestors 'none', base-uri 'self', object-src 'none'. Previene de manera efectiva   
-  ataques de Clickjacking, secuestro de base URL y ejecución de plugins heredados sin riesgo de romper scripts o estilos en producción.  
-  • Content-Security-Policy-Report-Only: Contiene la política completa (default-src 'self', img-src restringido a orígenes locales y CDNs
-  de Valve/Steam https://cdn.cloudflare.steamstatic.com y https://*.steamstatic.com, connect-src 'self', form-action 'self'). Mantiene   
-  'unsafe-inline' para scripts y estilos como medida transitoria documentada antes de implementar nonces criptográficos.                 
-  • Strict-Transport-Security (HSTS): Emite max-age=31536000 exclusivamente en compilaciones de producción (NODE_ENV === "production").  
-  Se omiten deliberadamente includeSubDomains y preload, decisión correcta dado que el dominio de despliegue es compartido (*.up.railway.
-  app).                                                                                                                                  
-  • Otras cabeceras: X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-Frame-Options: DENY,           
-  Permissions-Policy (deshabilita cámara, micrófono, geolocalización, pagos, captura de pantalla y USB) y poweredByHeader: false en next.
-  config.ts.                                                                                                                             
-                                                                                                                                         
-  ### 2.3. Autenticación Steam, sesiones y compatibilidad de navegación                                                                  
-                                                                                                                                         
-  • El flujo de autenticación Steam OpenID (/api/auth/steam/login) opera mediante redirección de nivel superior (window.location.assign),
-  no viéndose afectado por connect-src ni form-action.                                                                                   
-  • El retorno desde Steam a /api/auth/steam/callback conserva compatibilidad con Referrer-Policy: strict-origin-when-cross-origin y     
-  cookies de sesión SameSite: Lax.                                                                                                       
-  • La comunicación de la SPA con el motor backend se realiza a través de rutas relativas sobre el mismo origen (/engine/* reescrito vía 
-  next.config.ts), garantizando compatibilidad total con connect-src 'self'.                                                             
-  ──────                                                                                                                                 
-  ## 3. Hallazgos                                                                                                                        
-                                                                                                                                         
-  1. MEDIA — apps/web/proxy.ts: Las respuestas emitidas directamente por proxy.ts no incorporan las cabeceras de seguridad de next.      
-  config.ts                                                                                                                              
-  En Next.js, cuando el middleware/proxy finaliza la petición de forma anticipada retornando una instancia directa de NextResponse (como 
-  ocurre en el 404 de /_next/image, en las redirecciones loginRedirect() y revokedAccessRedirect(), o ante un error 503 por secreto no   
-  configurado), el ciclo de vida del servidor omite la aplicación de las cabeceras definidas en headers() de next.config.ts. Si bien un  
-  404 sin cuerpo no presenta riesgo de ejecución de código, las respuestas de redirección carecen de cabeceras de endurecimiento         
-  perimetral (HSTS, X-Content-Type-Options, frame-ancestors). Se recomienda inyectar explícitamente las cabeceras de seguridad a las     
-  respuestas terminales creadas dentro de proxy.ts.                                                                                      
-  2. BAJA — apps/web/lib/security-headers.ts: Content-Security-Policy-Report-Only no define directiva de reporte (report-to / report-uri)
-  La directiva Content-Security-Policy-Report-Only actualmente vuelca las infracciones únicamente en la consola de herramientas de       
-  desarrollo del navegador del cliente. Al carecer de un endpoint colector (report-to o report-uri), el equipo de ingeniería no cuenta   
-  con telemetría centralizada para auditar infracciones reales en entornos de preview o producción antes de promover la política a modo  
-  bloqueante (enforced).                                                                                                                 
-  3. BAJA — apps/web/proxy.ts: Ausencia de normalización canónica de rutas en isImageOptimizerPath                                       
-  La función isImageOptimizerPath efectúa una comparación estricta de prefijo mediante pathname.startsWith('/_next/image'). Rutas con    
-  caracteres en mayúscula (ej. /_NEXT/image) o dobles barras (ej. //_next/image) evalúan como false en esta compuerta preliminar. Aunque 
-  estas variantes son igualmente descartadas por la configuración nativa images.unoptimized: true y el router general de Next.js, se     
-  sugiere normalizar el pathname a minúsculas y colapsar barras duplicadas para robustecer la compuerta de proxy.                        
-  ──────                                                                                                                                 
-  ## 4. Archivos examinados                                                                                                              
-                                                                                                                                         
-  • apps/web/lib/security-headers.ts                                                                                                     
-  • apps/web/lib/security-headers.test.ts                                                                                                
-  • apps/web/next.config.ts                                                                                                              
-  • apps/web/proxy.ts                                                                                                                    
-  • apps/web/proxy.test.ts                                                                                                               
-  • apps/web/app/api/auth/steam/login/route.ts                                                                                           
-  • apps/web/features/auth/LoginAction.tsx                                                                                               
-  • apps/web/lib/engine-url.ts                                                                                                           
-  • apps/web/node_modules/next/dist/server/next-server.js (rutas internas de handleNextImageRequest y runMiddleware)                     
-  ──────                                                                                                                                 
-  ## 5. Resumen de hallazgos y recomendaciones                                                                                           
-                                                                                                                                         
-  • BLOQUEANTE: 0                                                                                                                        
-  • ALTA: 0                                                                                                                              
-  • MEDIA: 1                                                                                                                             
-  • BAJA: 2                                                                                                                              
-                                                                                                                                         
-  Recomendaciones para evoluciones posteriores:                                                                                          
-                                                                                                                                         
-  1. Crear una función auxiliar en apps/web/proxy.ts para anexar buildSecurityHeaders(process.env.NODE_ENV === "production") a las       
-  respuestas que el proxy genere de forma prematura (new NextResponse(...)).                                                             
-  2. Implementar un endpoint dedicado de ingesta de reportes CSP (ej. /api/telemetry/csp-report) y enlazarlo en Content-Security-Policy- 
-  Report-Only mediante report-to / report-uri.                                                                                           
-  3. Aplicar .toLowerCase().replace(/\/+/g, "/") en la verificación previa de rutas dentro de proxy.ts.                                  
-  ──────                                                                                                                                 
-  ## 6. Veredicto                                                                                                                        
-                                                                                                                                         
-  APROBADO CON OBSERVACIONES                                                                                                             
-                                                                                                                                         
-  El cambio mitiga de manera sólida los vectores de denegación de servicio y explotación de /_next/image mediante una arquitectura de    
-  defensa en profundidad comprobada, implementa cabeceras defensivas esenciales (anti-clickjacking y política de permisos restrictiva) y 
-  preserva íntegramente los flujos de autenticación y comunicación de la aplicación. Las observaciones señaladas no constituyen          
-  vulnerabilidades explotables en el estado actual y pueden atenderse en ciclos normales de refinamiento.                                
-  ──────                                                                                                                                 
-  ## 7. Metadatos de la auditoría                                                                                                        
-                                                                                                                                         
-  • SHA revisado: b5bbd0362658d56a306bded6ec041f6425b5dafa                                                                               
-  • Modelo utilizado: Gemini 2.5 Pro (Google AI)               
+D2KIRO — SECURITY-001 | REVISIÓN INDEPENDIENTE DE SEGURIDAD (v2)                                                     
+                                                                                                                        
+  Rol: Senior Application Security Engineer / Revisor Independiente                                                     
+  Alcance: SECURITY-001 (Parte B v2) — Cabeceras de seguridad HTTP, CSP y corte de /_next/image                         
+  Rama: security/headers-hardening-v2                                                                                   
+  Head SHA: b5bbd0362658d56a306bded6ec041f6425b5dafa                                                                    
+  Base SHA: 38a874db8d4fed36fd9c218120d9b45878422fe8 (release/mvp-beta)                                                 
+  Worktree: D:\JULIO\apuherrerafoprojects\_secB2                                                                        
+  ──────                                                                                                                
+  ## 1. Verificación del árbol de trabajo y diff real                                                                   
+                                                                                                                        
+  Se realizó la verificación criptográfica del diff mediante Git en el worktree local:                                  
+                                                                                                                        
+  • Merge base comprobado: 38a874db8d4fed36fd9c218120d9b45878422fe8                                                     
+  • Head commit comprobado: b5bbd0362658d56a306bded6ec041f6425b5dafa                                                    
+  • Archivos modificados en el diff:                                                                                    
+      • A apps/web/lib/security-headers.ts                                                                              
+      • A apps/web/lib/security-headers.test.ts                                                                         
+      • M apps/web/next.config.ts                                                                                       
+      • M apps/web/proxy.ts                                                                                             
+      • M apps/web/proxy.test.ts                                                                                        
+  • Verificación de pruebas: Se ejecutó la suite de pruebas unitarias e integración en apps/web con 1.267 pruebas       
+  pasadas, 1 omitida y 0 fallos, confirmando la estabilidad del módulo web.                                             
+  ──────                                                                                                                
+  ## 2. Análisis técnico de seguridad                                                                                   
+                                                                                                                        
+  ### 2.1. Bloqueo y contención de /_next/image                                                                         
+                                                                                                                        
+  • Capa Proxy / Gateway (apps/web/proxy.ts): Se eliminó _next/image del patrón negativo del matcher, permitiendo que el
+  proxy intercepte todas las peticiones dirigidas al optimizador. En la primera línea de ejecución, isImageOptimizerPath
+  evalúa request.nextUrl.pathname.startsWith('/_next/image') y retorna de forma inmediata NextResponse(null, { status:  
+  404 }). Esto se procesa antes de verificar secretos de autenticación interna, sesiones de usuario o consultar el motor
+  backend.                                                                                                              
+  • Capa Servidor Next.js (apps/web/next.config.ts): Se configuró images: { unoptimized: true }. En el runtime de Next. 
+  js 16.4.6 (next-server.js), cuando images.unoptimized === true, cualquier petición entrante a handleNextImageRequest  
+  es terminada mediante this.render404(req, res) antes de ejecutar cualquier validación de parámetros o invocar         
+  procesamiento de sharp/libvips.                                                                                       
+  • Capa de Restricción Remota (apps/web/next.config.ts): Se configuraron remotePatterns: [] y formats: ["image/webp"]  
+  (descartando image/avif), neutralizando vectores de SSRF o procesamiento de imágenes remotas no confiables en caso de 
+  una hipotética reactivación accidental.                                                                               
+                                                                                                                        
+  ### 2.2. Cabeceras de seguridad y CSP                                                                                 
+                                                                                                                        
+  • Content-Security-Policy (Enforced): Aplica frame-ancestors 'none', base-uri 'self', object-src 'none'. Previene de  
+  manera efectiva ataques de Clickjacking, secuestro de base URL y ejecución de plugins heredados sin riesgo de romper  
+  scripts o estilos en producción.                                                                                      
+  • Content-Security-Policy-Report-Only: Contiene la política completa (default-src 'self', img-src restringido a       
+  orígenes locales y CDNs de Valve/Steam https://cdn.cloudflare.steamstatic.com y https://*.steamstatic.com, connect-src
+  'self', form-action 'self'). Mantiene 'unsafe-inline' para scripts y estilos como medida transitoria documentada antes
+  de implementar nonces criptográficos.                                                                                 
+  • Strict-Transport-Security (HSTS): Emite max-age=31536000 exclusivamente en compilaciones de producción (NODE_ENV ===
+  "production"). Se omiten deliberadamente includeSubDomains y preload, decisión correcta dado que el dominio de        
+  despliegue es compartido (*.up.railway.app).                                                                          
+  • Otras cabeceras: X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-Frame-Options:
+  DENY, Permissions-Policy (deshabilita cámara, micrófono, geolocalización, pagos, captura de pantalla y USB) y         
+  poweredByHeader: false en next.config.ts.                                                                             
+                                                                                                                        
+  ### 2.3. Autenticación Steam, sesiones y rutas privadas                                                               
+                                                                                                                        
+  • El flujo de autenticación Steam OpenID (/api/auth/steam/login) opera mediante redirección de nivel superior (window.
+  location.assign), no viéndose afectado por connect-src ni form-action.                                                
+  • El retorno desde Steam a /api/auth/steam/callback conserva compatibilidad con Referrer-Policy: strict-origin-when-  
+  cross-origin y cookies de sesión SameSite: Lax.                                                                       
+  • La comunicación de la aplicación web con el motor backend se realiza a través de rutas relativas sobre el mismo     
+  origen (/engine/* reescrito vía next.config.ts), garantizando compatibilidad total con connect-src 'self'.            
+  ──────                                                                                                                
+  ## 3. Hallazgos                                                                                                       
+                                                                                                                        
+  1. MEDIA — apps/web/proxy.ts: Las respuestas generadas prematuramente en proxy.ts no reciben las cabeceras de         
+  seguridad de next.config.ts                                                                                           
+  En Next.js, cuando el middleware/proxy finaliza la petición de forma anticipada retornando una instancia directa de   
+  NextResponse (como ocurre en el 404 de /_next/image, en las redirecciones loginRedirect() y revokedAccessRedirect(), o
+  ante un error 503 por secreto ausente), el ciclo de vida del servidor omite la aplicación de las cabeceras definidas  
+  en headers() de next.config.ts. Si bien un 404 sin cuerpo no presenta riesgo de ejecución de código, las respuestas de
+  redirección carecen de cabeceras de endurecimiento perimetral (HSTS, X-Content-Type-Options, frame-ancestors). Se     
+  recomienda inyectar explícitamente las cabeceras de seguridad a las respuestas terminales creadas dentro de proxy.ts. 
+  2. BAJA — apps/web/lib/security-headers.ts: Content-Security-Policy-Report-Only no especifica directiva de telemetría 
+  (report-to / report-uri)                                                                                              
+  La directiva Content-Security-Policy-Report-Only actualmente vuelca las infracciones únicamente en la consola de      
+  herramientas de desarrollo del navegador del cliente. Al carecer de un endpoint colector (report-to o report-uri), el 
+  equipo de ingeniería no cuenta con telemetría centralizada para auditar infracciones reales en entornos de preview o  
+  producción antes de promover la política a modo bloqueante.                                                           
+  3. BAJA — apps/web/proxy.ts: Falta de normalización de rutas en la comprobación isImageOptimizerPath                  
+  La función isImageOptimizerPath efectúa una comparación estricta de prefijo mediante pathname.                        
+  startsWith('/_next/image'). Rutas con caracteres en mayúscula (ej. /_NEXT/image) o dobles barras (ej. //_next/image)  
+  evalúan como falso en esta compuerta preliminar. Aunque estas variantes son igualmente descartadas por la             
+  configuración nativa images.unoptimized: true y el router general de Next.js, se sugiere normalizar el pathname a     
+  minúsculas y colapsar barras duplicadas para robustecer la compuerta de proxy.                                        
+  ──────                                                                                                                
+  ## 4. Archivos examinados                                                                                             
+                                                                                                                        
+  • apps/web/lib/security-headers.ts                                                                                    
+  • apps/web/lib/security-headers.test.ts                                                                               
+  • apps/web/next.config.ts                                                                                             
+  • apps/web/proxy.ts                                                                                                   
+  • apps/web/proxy.test.ts                                                                                              
+  • apps/web/app/api/auth/steam/login/route.ts                                                                          
+  • apps/web/features/auth/LoginAction.tsx                                                                              
+  • apps/web/lib/engine-url.ts                                                                                          
+  • apps/web/node_modules/next/dist/server/next-server.js (rutas internas de handleNextImageRequest y runMiddleware)    
+  ──────                                                                                                                
+  ## 5. Hallazgos y recomendaciones                                                                                     
+                                                                                                                        
+  Recomendaciones técnicas para iteraciones posteriores:                                                                
+                                                                                                                        
+  1. Crear una función auxiliar en apps/web/proxy.ts para anexar buildSecurityHeaders(process.env.NODE_ENV ===          
+  "production") a las respuestas que el proxy genere de forma prematura (new NextResponse(...)).                        
+  2. Implementar un endpoint dedicado de ingesta de reportes CSP (ej. /api/telemetry/csp-report) y enlazarlo en Content-
+  Security-Policy-Report-Only mediante report-to o report-uri.                                                          
+  3. Aplicar .toLowerCase().replace(/\/+/g, "/") en la verificación previa de rutas dentro de proxy.ts.                 
+  ──────                                                                                                                
+  ## 6. Veredicto                                                                                                       
+                                                                                                                        
+  APROBADO CON OBSERVACIONES                                                                                            
+                                                                                                                        
+  El cambio mitiga de manera sólida los vectores de denegación de servicio y explotación de /_next/image mediante una   
+  arquitectura de defensa en profundidad comprobada, implementa cabeceras defensivas esenciales (anti-clickjacking y    
+  política de permisos restrictiva) y preserva íntegramente los flujos de autenticación y comunicación de la aplicación.
+  Las observaciones señaladas no constituyen vulnerabilidades explotables en el estado actual y pueden atenderse en     
+  ciclos normales de refinamiento.                                                                                      
+  ──────                                                                                                                
+  ## 7. Metadatos de la auditoría                                                                                       
+                                                                                                                        
+  • SHA revisado: b5bbd0362658d56a306bded6ec041f6425b5dafa                                                              
+  • Modelo utilizado: Gemini 2.5 Pro (Google AI)            
