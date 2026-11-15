@@ -162,3 +162,26 @@ export async function pickAnyAvailableHero(page: Page): Promise<void> {
   }
   await page.getByTestId("analyzed-pick-button").click({ timeout: 5_000 }).catch(() => undefined);
 }
+
+/**
+ * Espera a que la UI de pick este realmente lista (una tarjeta del tablero o el buscador "Buscar otro heroe").
+ * `pickAnyAvailableHero` mira con `isVisible()` instantaneo y sale en silencio si todavia no hay nada: sirve para sondear
+ * en bucle (`playPartyDraft`, donde la mayoria de las vueltas NO es turno humano), pero un test de un solo pick necesita
+ * esperar antes -- si no, el pick se omite sin error y el test falla despues con un sintoma lejano (timeout de auto-drive).
+ */
+export async function waitForPickReady(page: Page): Promise<void> {
+  const card = boardOf(page).locator("[data-card-key] button:not([disabled])").first();
+  await expect(card.or(heroSearch(page)).first()).toBeVisible({ timeout: 60_000 });
+}
+
+/** Un pick de un solo disparo: espera la UI lista y NO traga errores (si el pick no se puede hacer, el test falla aqui, con causa). */
+export async function pickAvailableHeroStrict(page: Page): Promise<void> {
+  await waitForPickReady(page);
+  const card = boardOf(page).locator("[data-card-key] button:not([disabled])").first();
+  if (await card.isVisible()) {
+    await card.click();
+  } else {
+    await heroSearch(page).locator(".sl-picker-row:not([disabled])").first().click({ timeout: 10_000 });
+  }
+  await page.getByTestId("analyzed-pick-button").click({ timeout: 10_000 });
+}

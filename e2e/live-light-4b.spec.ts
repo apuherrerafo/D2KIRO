@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { ENGINE_DIRECT, engineDirectHeaders } from "./support/wave1";
 import { expect, test } from "./support/failure-evidence";
+import { awaitLiveDraftLinked } from "./support/live-linked";
 
 // Fase 4B · Live Draft Canonical Light, en un Chromium real contra el MOTOR REAL (V6 intacto) y la web real.
 // NIVEL DE EVIDENCIA, dicho sin adornos: esto NO es una sesión de Dota real. Dota está REEMPLAZADO por observaciones directas al motor (las mismas
@@ -71,7 +72,7 @@ test.describe("Fase 4B · Live Canonical Light", () => {
     const link = await issueLink(request);
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     await seedCuratedDraft(page, link.sessionId);
 
     // 1. Solo sin posición declarada: no hay columna; hay Pos 1–5 (flujo Live existente: PUT /api/live/human-position).
@@ -204,7 +205,7 @@ test.describe("Fase 4B · Live Canonical Light", () => {
     const link = await issueLink(request);
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     const group = await page.evaluate(async () => {
       const response = await fetch("/engine/api/team-groups", {
         method: "POST",
@@ -285,7 +286,7 @@ test.describe("Fase 4B · Live Canonical Light", () => {
     const link = await issueLink(request);
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto("/live-draft");
-    await expect(page.getByTestId("live-dota")).toBeVisible({ timeout: 60_000 });
+    await awaitLiveDraftLinked(page);
     // Dota solo informa lado y héroe propio (forma real de una partida contra bots): captura parcial honesta.
     const first = await request.post(`${ENGINE_DIRECT}/api/live/gsi/${link.liveId}`, { data: gsiBody(link.token, "DOTA_GAMERULES_STATE_HERO_SELECTION"), headers: { "content-type": "application/json" } });
     expect(first.status()).toBe(200);

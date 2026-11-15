@@ -1,0 +1,14 @@
+Revisión de seguridad (INTERNA, no independiente: comparto modelo con el autor).
+Base 38a874db8d4fed36fd9c218120d9b45878422fe8, head c0bc63f66034a791be15c89f4d452f86d176f9cf.
+Archivos revisados (git diff entre ambos SHA, excluyendo docs/reviews y scripts/ci): e2e/ap-party-sizes.spec.ts, e2e/live-canonical-4b2-cert.spec.ts, e2e/live-canonical-4b2.spec.ts, e2e/live-hierarchy-4b1.spec.ts, e2e/live-light-4b.spec.ts, e2e/simulator-4a2-remediation.spec.ts, e2e/support/decision.ts, e2e/support/live-linked.ts (nuevo).
+
+Alcance: solo pruebas e2e de Playwright y helpers. Sin cambios en apps/, workflows, dependencias ni configuración. No hay pull_request_target, acciones sin fijar, ni cambios de permisos.
+
+Hallazgos:
+1. BAJA — e2e/simulator-4a2-remediation.spec.ts: la regex /^Elegir a .+ como Pos(\d)/ y el Number() se aplican a un aria-label del propio DOM de la prueba; solo se usa en aserciones, sin inyección ni ejecución. Sin riesgo real.
+2. BAJA — e2e/simulator-4a2-remediation.spec.ts: guarda en JSON de evidencia (save) la respuesta del sello (solo position y accepted); no incluye accountId/Steam32. Sin PII en el diff.
+3. BAJA — e2e/support/live-linked.ts y otros: los tokens/links usados (link.token, x-capture style) vienen de las fixtures existentes; no hay literales de secretos nuevos en el diff.
+
+Sin hallazgos BLOQUEANTES, ALTAS ni MEDIAS. No se detectó inyección, SSRF, path traversal, secretos, PII ni falsificación de checks (las nuevas esperas fallan ante errores reales: live-forbidden/live-engine-unreachable no se ocultan; pickAvailableHeroStrict no traga errores).
+
+Veredicto: APROBADO

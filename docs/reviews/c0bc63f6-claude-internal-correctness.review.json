@@ -1,0 +1,56 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "38a874db8d4fed36fd9c218120d9b45878422fe8",
+  "reviewedHead": "c0bc63f66034a791be15c89f4d452f86d176f9cf",
+  "diffSha256": "400ae353438d65a717c12b067278a167e22ee84408ee041e6dab35c40383c6c9",
+  "rawOutput": {
+    "file": "docs/reviews/c0bc63f6-claude-internal-correctness.raw.txt",
+    "sha256": "77904fc09859a58a8cdac67c9b3c2200d66ecf424623b0bffb299cbc5a1e0e36"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "e2e/simulator-4a2-remediation.spec.ts",
+      "summary": "la comprobación final \"la posición ya no figura pendiente\" devuelve false (pasa) también cuando `pending-human-positions` no existe (count()===0 -> null -> false). Si el panel se desmontara por un error y no por cierre legítimo de ronda, el poll pasaría igual. Queda cubierto en parte por las aserciones del sello (accepted y ownAssignedPositions), que sí leen el contrato real (snapshotBody devuelve ownAssignedPositions con {assignedPosition, heroId}; el POST responde 202, seal.ok() vale).",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/simulator-4a2-remediation.spec.ts",
+      "summary": "`waitForResponse` empareja cualquier POST a /protocol/<id>/command, sin filtrar por el sello. Si un comando de auto-drive/bot llegara antes del clic, se evaluaría una respuesta equivocada (carrera teórica; la etiqueta aria `Elegir a X como Pos<n> ...` y la regex /^Elegir a .+ como Pos(\\d)/ sí coinciden con BlindRoundPanel.tsx:202).",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/ap-party-sizes.spec.ts",
+      "summary": "`commandResponse` (waitForResponse sin filtro del cuerpo) sigue pudiendo capturar un comando que no sea el pick humano; preexistente, no empeora. Es correcto que waitForPickReady ahora corra antes de armar los temporizadores de 15 s.",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/support/decision.ts",
+      "summary": "`waitForPickReady` acepta como \"lista\" el buscador (`heroSearch`) aunque no sea turno humano; si ese buscador es visible siempre, la espera no garantiza turno de pick y el click posterior en `.sl-picker-row` o `analyzed-pick-button` falla con timeout de 10 s (falla visible y con causa, no silenciosa).",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/support/live-linked.ts",
+      "summary": "`awaitLiveDraftLinked` espera `live-team-coach`, que solo existe con enlace emitido (verificado: LiveDotaView -> LinkedLiveView -> LiveTeamCoachView). Correcto para todos los usos del diff, que emiten el enlace antes de `goto`. Efecto de contrato: ya no pasa en el estado \"sin enlace\"; cualquier test futuro que quiera ese estado no debe usar el helper. Los fallos reales (`live-dota-unreachable`, forbidden) no se ocultan. Cambio de whitespace/BOM en la línea de import de live-hierarchy-4b1.spec.ts (sin efecto).",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

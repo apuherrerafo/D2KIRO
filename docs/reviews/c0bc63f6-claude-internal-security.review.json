@@ -1,0 +1,42 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "38a874db8d4fed36fd9c218120d9b45878422fe8",
+  "reviewedHead": "c0bc63f66034a791be15c89f4d452f86d176f9cf",
+  "diffSha256": "400ae353438d65a717c12b067278a167e22ee84408ee041e6dab35c40383c6c9",
+  "rawOutput": {
+    "file": "docs/reviews/c0bc63f6-claude-internal-security.raw.txt",
+    "sha256": "386cb3fee6ab0e222ccc503dbbb78ff0a6a4a541ebf532410ea67aa03974d3fb"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "e2e/simulator-4a2-remediation.spec.ts",
+      "summary": "la regex /^Elegir a .+ como Pos(\\d)/ y el Number() se aplican a un aria-label del propio DOM de la prueba; solo se usa en aserciones, sin inyección ni ejecución. Sin riesgo real.",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/simulator-4a2-remediation.spec.ts",
+      "summary": "guarda en JSON de evidencia (save) la respuesta del sello (solo position y accepted); no incluye accountId/Steam32. Sin PII en el diff.",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    },
+    {
+      "severity": "BAJA",
+      "file": "e2e/support/live-linked.ts",
+      "summary": "los tokens/links usados (link.token, x-capture style) vienen de las fixtures existentes; no hay literales de secretos nuevos en el diff.",
+      "disposition": "accepted",
+      "reason": "Observación de robustez de pruebas e2e; sin impacto en producto ni seguridad, se acepta tal cual."
+    }
+  ],
+  "verdict": "APROBADO"
+}

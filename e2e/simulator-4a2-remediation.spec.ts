@@ -126,10 +126,26 @@ for (const item of PARTY_CASES) {
     save(`axe-fixture-${item.name}.json`, axe);
     expect(axe.violations, JSON.stringify(axe.violations)).toEqual([]);
 
-    // 5 · elegir con el botón de la ronda: el estado de la ronda se sincroniza (la posición sale de las pendientes).
+    // 5 · elegir con el botón de la ronda. Se comprueba el ESTADO DE NEGOCIO, no el instante en que cambia un texto:
+    //     (a) el motor ACEPTÓ el sello (la posición queda atada al héroe analizado) y (b) esa posición ya no figura pendiente.
+    //     «Pendientes» puede quedar vacío un instante o desmontarse del todo si el sello cierra la ronda/el draft: ambos son válidos, así que se lee sin esperar al elemento.
+    const pickLabel = (await pickAction.getAttribute("aria-label")) ?? "";
+    const picked = /^Elegir a .+ como Pos(\d)/.exec(pickLabel);
+    expect(picked, `etiqueta del botón de elegir inesperada: ${pickLabel}`).not.toBeNull();
+    const pickedPosition = Number(picked![1]);
+    const sealResponse = page.waitForResponse((response) => /\/api\/session\/protocol\/[^/]+\/command$/.test(response.url()) && response.request().method() === "POST", { timeout: 30_000 });
     await pickAction.click();
-    await expect(page.getByTestId("pending-human-positions")).not.toHaveText(pendingBefore ?? "", { timeout: 30_000 });
-    save(`fixture-${item.name}.json`, { fixture: true, note: "Respuesta real del motor con UNA tarjeta real promovida; V6 intacto.", patches: records, otherCandidate: otherChecked, pendingBefore, pendingAfter: await page.getByTestId("pending-human-positions").textContent() });
+    const seal = await sealResponse;
+    expect(seal.ok(), `el motor rechazó el sello: HTTP ${seal.status()}`).toBe(true);
+    const sealBody = (await seal.json()) as { accepted?: boolean; ownAssignedPositions?: Array<{ assignedPosition: number; heroId: number }> };
+    expect(sealBody.accepted).toBe(true);
+    expect(sealBody.ownAssignedPositions?.some((binding) => binding.assignedPosition === pickedPosition)).toBe(true);
+    const pendingNow = async () => {
+      const pending = page.getByTestId("pending-human-positions");
+      return (await pending.count()) === 0 ? null : await pending.textContent({ timeout: 1_000 }).catch(() => null);
+    };
+    await expect.poll(async () => (await pendingNow())?.includes(`Pos${pickedPosition}`) ?? false, { timeout: 30_000 }).toBe(false);
+    save(`fixture-${item.name}.json`, { fixture: true, note: "Respuesta real del motor con UNA tarjeta real promovida; V6 intacto.", patches: records, otherCandidate: otherChecked, pendingBefore, pendingAfter: await pendingNow(), sealed: { position: pickedPosition, accepted: sealBody.accepted } });
   });
 }
 
