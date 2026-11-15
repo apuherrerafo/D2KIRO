@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { ENGINE_DIRECT, engineDirectHeaders } from "./support/wave1";
 import { expect, test } from "./support/failure-evidence";
+import { awaitLiveDraftLinked } from "./support/live-linked";
 
 // Fase 4B.1 · jerarquía visual de /live-draft a 1600x900. MOTOR REAL (V6 intacto) + WEB REAL.
 // EVIDENCIA DE PRUEBA: Dota está SIMULADO por observaciones directas al motor y POSTs GSI con la credencial del enlace.
@@ -22,11 +23,6 @@ const BLOCKS = ["live-capture-status", "live-seat", "live-light-pick-seat", "liv
 interface IssuedLink { liveId: string; token: string; sessionId: string }
 const results: Record<string, unknown> = { label: LABEL, viewport: VIEW, evidence: "PRUEBA: motor real + web real, Dota SIMULADO (GSI/observaciones de prueba), no es sesión auténtica de Dota" };
 
-// `live-dota` es el cascarón de /live-draft SOLO mientras carga o no hay enlace; con el enlace emitido la vista pasa a `live-team-coach`.
-// Esperar `live-dota` era una carrera contra esa carga. El estado estable correcto es la vista enlazada; si falla la auth/carga, esto falla (no se oculta).
-async function awaitLiveDraftLinked(page: Page) {
-  await expect(page.getByTestId("live-team-coach")).toBeVisible({ timeout: 60_000 });
-}
 async function waitImages(page: Page) {
   await page.waitForFunction(() => [...document.querySelectorAll("img")].every((img) => img.complete), undefined, { timeout: 20_000 }).catch(() => undefined);
 }

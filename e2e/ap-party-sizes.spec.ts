@@ -1,5 +1,5 @@
 import { expect, test } from "./support/failure-evidence";
-import { pickAnyAvailableHero } from "./support/decision";
+import { pickAnyAvailableHero, pickAvailableHeroStrict, waitForPickReady } from "./support/decision";
 import type { Page } from "@playwright/test";
 
 async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
@@ -126,6 +126,8 @@ test.describe("AP Ranked Roles -- Acceptance Journeys", () => {
     await page.getByRole("button", { name: "Iniciar Draft" }).click();
     await expect(page.getByTestId("resolved-bans")).toBeVisible({ timeout: 60_000 });
 
+    // La UI de pick tiene que estar lista ANTES de armar los temporizadores: la espera no debe comerse la ventana de 15 s del auto-drive.
+    await waitForPickReady(page);
     const commandResponse = page.waitForResponse((response) =>
       response.request().method() === "POST"
       && /\/engine\/api\/session\/protocol\/[^/]+\/command$/.test(new URL(response.url()).pathname)
@@ -137,7 +139,7 @@ test.describe("AP Ranked Roles -- Acceptance Journeys", () => {
       { timeout: 15_000 },
     );
 
-    await pickAnyAvailableHero(page); // a recommended card, or the manual search when the Coach has no recommendation at all
+    await pickAvailableHeroStrict(page); // a recommended card, or the manual search when the Coach has no recommendation at all; sin tragar errores
     const accepted = await commandResponse.then((response) => response.json() as Promise<{
       accepted: boolean;
       view: { rankedAp: { phase: string } | null };
