@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { buildSecurityHeaders } from "./lib/security-headers";
 
 const ENGINE_INTERNAL_URL = process.env.ENGINE_INTERNAL_URL ?? "http://127.0.0.1:4000";
 
@@ -74,6 +75,16 @@ const nextConfig: NextConfig = {
   // desarrollador tenga abierto — y peor, le pisaría su `.next`. Con un `distDir` propio, ambos
   // conviven. Sin la variable, el valor es exactamente el de siempre.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  // SECURITY-001: no anunciar el framework y mandar las cabeceras de seguridad en toda ruta.
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: buildSecurityHeaders(process.env.NODE_ENV === "production") }];
+  },
+  // SECURITY-001: ninguna pantalla usa `next/image`, así que el optimizador no tiene razón de existir. Con `unoptimized: true` el
+  // servidor de Next (`next start`, verificado en next-server.js de 16.4.6) responde 404 a todo `/_next/image*` ANTES de decodificar
+  // nada; `proxy.ts` repite el corte por su cuenta para no depender de esa sola línea. `remotePatterns`/`formats` son defensa en
+  // profundidad: ni imágenes remotas ni AVIF si algún día se reactivara el optimizador.
+  images: { unoptimized: true, remotePatterns: [], formats: ["image/webp"] },
   async rewrites() {
     return ENGINE_REWRITE_SOURCES.map((source) => ({
       source,

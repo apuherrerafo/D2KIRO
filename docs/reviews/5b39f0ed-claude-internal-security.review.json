@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "10a5a4e40bced923b042a121077979184b8731f8",
+  "reviewedHead": "5b39f0ed59063a9e996e58c88014c9e16b4830ec",
+  "diffSha256": "77244e436e7db5762990c9e43561c9693ff0adce7f98f2b58a8190342dfd9520",
+  "rawOutput": {
+    "file": "docs/reviews/5b39f0ed-claude-internal-security.raw.txt",
+    "sha256": "fc2f403ef66849bc1988f66f11ced77be99f91383dff5d46d7f73670eeb47ef5"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "apps/web/proxy.ts",
+      "summary": "las respuestas creadas dentro del proxy no reciben las cabeceras de `next.config.ts`. Son el 404 de `/_next/image`, las redirecciones a `/login` y `/access-denied`, y el 503. Los documentos históricos lo registran como afirmación de Gemini y lo miden con sondas HTTP, así que ya está registrado. El riesgo es bajo porque son respuestas sin contenido y sin datos sensibles.",
+      "disposition": "accepted",
+      "reason": "Hallazgo no reproducido en runtime: build de produccion (NODE_ENV=production, next start) sobre 5b39f0ed, peticiones HTTP reales sin seguir redirecciones. GET /_next/image -> 404, GET /simulator sin sesion -> 307 a /login, y GET /simulator sin PUBLIC_BASE_URL -> 503: las tres respuestas generadas por el proxy llevan CSP (enforced y Report-Only), HSTS max-age=31536000, nosniff, X-Frame-Options DENY y Permissions-Policy. Sin medir: /access-denied (exige sesion revocada). Salida cruda de la medicion guardada fuera del repo (http-probe.out, sha256 19f83328dae42e40...)."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "`script-src` y `style-src` llevan `'unsafe-inline'`, pero solo en la política Report-Only, así que no hay protección contra XSS todavía. La política aplicada (`frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`) solo endurece. El código declara el endurecimiento con nonces como paso aparte.",
+      "disposition": "accepted",
+      "reason": "Aceptado: el unsafe-inline esta solo en Content-Security-Policy-Report-Only, que no bloquea nada (verificado por HTTP: la CSP enforced es solo frame-ancestors none, base-uri self, object-src none, que solo endurece). La migracion a nonces es un paso aparte declarado en security-headers.ts."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "no hay endpoint de reportes (`report-uri`/`report-to`), por lo que las violaciones de la política Report-Only solo se ven en la consola del navegador. No es un riesgo de seguridad.",
+      "disposition": "accepted",
+      "reason": "Aceptado: sin report-uri/report-to las infracciones de la politica Report-Only solo se ven en la consola del navegador. Es observabilidad, no una vulnerabilidad: no abre ruta ni dato nuevo; un endpoint de reportes seria una frontera nueva fuera del alcance de SECURITY-001 B."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/next.config.ts",
+      "summary": "`images.formats: [\"image/webp\"]` junto con `remotePatterns: []` y `unoptimized: true` es defensa en profundidad y no abre superficie nueva. Es una observación, no un defecto.",
+      "disposition": "accepted",
+      "reason": "Aceptado: images.formats con remotePatterns vacio y unoptimized true no abre superficie: el optimizador esta cortado ademas en el proxy, donde GET /_next/image responde 404 con y sin sesion (probado en runtime y en proxy.test.ts). Es una observacion del revisor, sin cambio de codigo."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

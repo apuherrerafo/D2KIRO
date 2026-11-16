@@ -1,0 +1,39 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "google",
+    "tool": "Gemini (herramienta de revision externa; salida compartida via ChatGPT) v2",
+    "model": "Gemini 2.5 Pro"
+  },
+  "reviewedBase": "38a874db8d4fed36fd9c218120d9b45878422fe8",
+  "reviewedHead": "b5bbd0362658d56a306bded6ec041f6425b5dafa",
+  "diffSha256": "73ee01889f9cc74edfc8b7f220bf27a5a187740870219b847f04a41fbe9893a8",
+  "rawOutput": {
+    "file": "docs/reviews/b5bbd036-google.raw.txt",
+    "sha256": "ceec48087bf3383268bf278158a94545bedb5acba2bc3b09a5ef9ad4113c9da1"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "apps/web/proxy.ts",
+      "summary": "apps/web/proxy.ts: Las respuestas generadas prematuramente en proxy.ts no reciben las cabeceras de",
+      "disposition": "accepted",
+      "reason": "Aceptado sin cambiar el codigo de B (el codigo revisado sigue siendo b5bbd036): el revisor afirma que next.config headers() no se aplica a respuestas del proxy; las pruebas HTTP reales documentadas aparte en docs/reviews/historical/b5bbd036-google-v2-http-findings.raw.txt cuestionan esa afirmacion. R-001 y #137 siguen abiertos."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/lib/security-headers.ts",
+      "summary": "Content-Security-Policy-Report-Only no especifica directiva de telemetría",
+      "disposition": "accepted",
+      "reason": "Aceptado: el propio codigo declara la CSP completa como Report-Only transitoria y sin endpoint colector todavia; endurecerla con nonces y reportes es un paso aparte."
+    },
+    {
+      "severity": "BAJA",
+      "file": "apps/web/proxy.ts",
+      "summary": "apps/web/proxy.ts: Falta de normalización de rutas en la comprobación isImageOptimizerPath",
+      "disposition": "accepted",
+      "reason": "Aceptado: el propio revisor indica que las variantes con mayuscula o doble barra igual las descarta images.unoptimized y el router de Next, asi que no hay impacto explotable."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

@@ -1,0 +1,14 @@
+Revisión INTERNA de Claude (contexto nuevo). No es independiente del autor: comparte modelo con quien escribió el código.
+
+Head revisado: b5bbd0362658d56a306bded6ec041f6425b5dafa. Base: 38a874db8d4fed36fd9c218120d9b45878422fe8.
+
+Archivos que miré (diff completo): apps/web/lib/security-headers.ts, apps/web/next.config.ts, apps/web/proxy.ts. Solo leí el resumen de apps/web/lib/security-headers.test.ts y apps/web/proxy.test.ts. No ejecuté nada.
+
+1. BAJA — apps/web/lib/security-headers.ts: la CSP completa (script-src, img-src, connect-src, etc.) está solo en Report-Only y no tiene report-uri ni report-to, así que las violaciones solo se ven en la consola del navegador y no hay forma de medir antes de endurecer. Lo que sí se aplica hoy es solo frame-ancestors, base-uri y object-src, coherente con lo que el comentario dice.
+2. BAJA — apps/web/lib/security-headers.ts: script-src 'unsafe-inline' en la política Report-Only. No hay protección real contra XSS por CSP hasta pasar a nonces; el autor ya lo declara como paso futuro y no es regresión.
+3. BAJA — apps/web/lib/security-headers.ts: HSTS sin includeSubDomains ni preload y activado por NODE_ENV === "production". Es una elección conservadora y razonable para el dominio compartido *.up.railway.app. Un build de producción servido por HTTP local dejaría HSTS pegado en el navegador del desarrollador, riesgo menor.
+4. BAJA — apps/web/proxy.ts: el corte de /_next/image devuelve new NextResponse(null, {status: 404}) antes del gate de sesión y el matcher ahora incluye /_next/image. Es seguro: deny-by-default, usa startsWith igual que Next y no depende de images.unoptimized. Esa 404 puede salir sin las cabeceras de seguridad de headers(); no hay impacto de seguridad.
+
+Sin hallazgos de inyección, SSRF, path traversal, secretos ni PII (Steam32/accountId) en el diff. Tampoco hay cambios de workflows, pull_request_target ni acciones sin fijar. El cambio reduce superficie: images.remotePatterns vacío, optimizador de imágenes cortado, poweredByHeader apagado, X-Frame-Options DENY junto con frame-ancestors 'none', y Permissions-Policy restrictivo.
+
+Veredicto: APROBADO CON OBSERVACIONES (solo hallazgos BAJA, ninguno bloqueante).
