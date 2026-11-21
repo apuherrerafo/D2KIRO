@@ -1,0 +1,32 @@
+{
+  "schema": "review-policy/v1",
+  "internalPasses": 2,
+  "criticalPaths": [
+    ".github/",
+    ".husky/",
+    "scripts/ci/",
+    "scripts/hooks/",
+    "scripts/verify-simplicity.sh",
+    "scripts/start-railway.sh",
+    "docs/reviews/policy.json",
+    "docs/reviews/providers.json",
+    "docs/reviews/ACCEPTED-RISKS.json",
+    "docs/reviews/prompts/",
+    "docs/release-protection.md",
+    "apps/web/proxy.ts",
+    "apps/web/lib/session.ts",
+    "apps/web/lib/steam-openid.ts",
+    "apps/web/lib/account-token.ts",
+    "apps/web/app/api/auth/",
+    "apps/engine/src/server/account-token.ts",
+    "apps/engine/src/signals/",
+    "apps/engine/src/recommendation/",
+    "apps/engine/src/pipeline/",
+    "next.config.ts",
+    "apps/web/next.config.ts"
+  ],
+  "prompts": {
+    "security": { "file": "docs/reviews/prompts/security.md" },
+    "correctness": { "file": "docs/reviews/prompts/correctness.md" }
+  }
+}
