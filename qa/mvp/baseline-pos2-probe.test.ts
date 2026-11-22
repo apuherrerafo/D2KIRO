@@ -7,6 +7,12 @@ import { independentlyCredibleForPosition, loadQaPositionEvidence } from "./posi
 
 const CARRY_IDS = [1, 8, 12] as const; // Anti-Mage, Juggernaut, Phantom Lancer.
 const MID_ID = 25; // Lina; substantial Pos2 evidence in the shipped artifact.
+// Contrato de elegibilidad (2026-11-04): la posición NO es fundamento, así que sin un fundamento ningún héroe llega al Coach. Para que la sonda
+// siga midiendo SOLO la posición, los cuatro candidatos reciben el MISMO fundamento real (un counter curado con porqué contra un héroe baneado):
+// los carries quedan fuera únicamente porque no son Pos2, no porque les falte motivo.
+const BANNED_THREAT = 2;
+const SHARED_GROUND = [{ vs: BANNED_THREAT, level: "hard" as const, why: "Su silencio lo deja sin hechizos y no puede iniciar" }];
+const HERO_COUNTERS = new Map([...CARRY_IDS, MID_ID].map((hero) => [hero, SHARED_GROUND] as const));
 
 function request(body: unknown): Request {
   return new Request("http://qa.local", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -19,6 +25,7 @@ test("QA-P0-001 baseline probe: Solo Pos2 does not serialize carry-only candidat
   const routes = createProtocolSessionRoutes({
     store,
     heroPositions: positions,
+    heroCounters: HERO_COUNTERS,
     computeSuggestions: async (state): Promise<SuggestionSet> => ({
       schema: "suggestions/v1",
       sessionId: state.sessionId,
@@ -37,7 +44,7 @@ test("QA-P0-001 baseline probe: Solo Pos2 does not serialize carry-only candidat
   }));
   expect(created.status).toBe(201);
   const { sessionId } = await created.json() as { sessionId: string };
-  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+  store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [BANNED_THREAT] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   const response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v3`));
   expect(response.status).toBe(200);
   const body = await response.json() as { recommendationSet: { decision: { controlledSlots: { position?: number }[]; humanActionability?: { eligiblePositions: number[]; roundCapacity: number } }; recommendations: { actions: { hero: number }[] }[] }; output: { shortlist: { heroId: number }[] } | null };
