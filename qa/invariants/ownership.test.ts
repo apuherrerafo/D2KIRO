@@ -22,6 +22,7 @@ import { primaryActionPositions } from "../mvp/oracles/coach-primary-action-orac
 import knownFailuresRegistry from "./known-failures.json";
 import { matrixCoverage, matrixGuardProblems, type CoverageReference } from "./matrix-coverage";
 import coverageReferenceJson from "./coverage-reference.json";
+import { curatedInputHashes } from "./curated-input-hashes";
 
 // ---------------------------------------------------------------------------------------------
 // Known-failure registry wiring (task section 9). No silent xfail: every checkpoint for an
@@ -464,7 +465,7 @@ test("sanity: humanOpenPositions is always a subset of controlledPositions", () 
 test("vacuous-pass guard: the matrix exercises the Coach path -- humans open, Coach answered, and shortlists with cards exist", () => {
   const coverage = matrixCoverage(MATRIX);
   // R3.1: ya no basta "alguna shortlist con tarjetas" -- la matriz no puede regresar respecto de su referencia congelada (coverage-reference.md).
-  const problems = matrixGuardProblems(MATRIX, coverageReferenceJson as CoverageReference);
+  const problems = matrixGuardProblems(MATRIX, coverageReferenceJson as CoverageReference, curatedInputHashes());
   expect(problems, minimalCounterexample("vacuous-pass-guard", MATRIX[0]!.checkpoints[0]!, { ...coverage, problems })).toEqual([]);
 });
 

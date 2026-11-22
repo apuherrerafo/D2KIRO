@@ -1,156 +1,236 @@
 /**
- * R3.1 -- pruebas de mutacion del guard de cobertura de la matriz de QA.
+ * R3.1/R3.2 -- pruebas de mutacion del guard de cobertura de la matriz de QA.
  *
  * Contexto: `vacuityProblems` aceptaba una matriz con UNA sola shortlist con tarjetas (>=1), asi que una regresion masiva
- * (194 -> 1 checkpoints con tarjetas) pasaba en verde. Estas pruebas parten de una matriz sintetica con la FORMA de la real
- * (varias rondas / pasos / bandos / tamanos de party / posiciones, abstenciones legitimas incluidas), derivan su referencia con
- * la misma funcion que genera `coverage-reference.json`, y la MUTAN. Ninguna lee la matriz real, una SQLite ni un JSON curado.
+ * (194 -> 1 checkpoints con tarjetas) pasaba en verde.
+ *
+ * R3.2 (revision independiente, M3): desactivar cualquiera de las reglas de tasa/escenarios/concentracion NO hacia fallar ninguna
+ * prueba, porque otra regla detectaba lo mismo. Ahora cada regla activa tiene su propia prueba de mutacion con un fixture AISLADO, y la
+ * asercion es sobre el CONJUNTO de reglas que se disparan: debe ser exactamente `[regla]`. Una prueba que pase solo porque otra regla
+ * detecto el defecto falla aqui. Ninguna lee la matriz real, una SQLite ni un JSON curado.
  */
 import { describe, expect, test } from "bun:test";
 import {
   buildCoverageReference,
+  coverageRegressionProblems,
   matrixCoverage,
   matrixGuardProblems,
+  matrixProfile,
+  referenceTrustProblems,
+  ruleOf,
   semanticCoverageProblems,
   vacuityProblems,
   type CoverageCheckpoint,
+  type CoverageReference,
   type CoverageRun,
 } from "./matrix-coverage";
 
-const ROUNDS = [1, 2, 3] as const;
-const STEPS = ["after_bans", "before_human_turn", "after_own_pick"] as const;
-const SIDES = ["radiant", "dire"] as const;
-const PARTY: readonly (readonly number[])[] = [[2], [2, 3], [1, 2, 3], [1, 2, 3, 4, 5]];
 const card = { heroId: 25 };
+const HASH_A = "a".repeat(64);
+const HASH_B = "b".repeat(64);
+const provenance = (curated: Record<string, string> = {}) => ({ commit: "fixture", measuredOn: "2026-11-22", source: "sintetica", curatedInputs: curated });
+const refOf = (matrix: readonly CoverageRun[], curated?: Record<string, string>): CoverageReference => buildCoverageReference(matrix, provenance(curated));
+const guard = (matrix: readonly CoverageRun[], reference: CoverageReference, actual?: Record<string, string>) => matrixGuardProblems(matrix, reference, actual);
+/** Conjunto de reglas disparadas (ordenado, sin repetir). */
+const rulesOf = (problems: readonly string[]) => [...new Set(problems.map(ruleOf))].sort();
 
-/** Sintetica: 48 corridas x 6 checkpoints. Tarjetas solo donde la posicion 1 esta abierta (como la real); el resto son abstenciones. */
-function baseline(): CoverageRun[] {
-  const runs: CoverageRun[] = [];
-  for (let index = 0; index < 48; index += 1) {
-    const controlled = PARTY[index % PARTY.length]!;
-    const side = SIDES[index % 2]!;
-    const checkpoints: CoverageCheckpoint[] = [];
-    for (let k = 0; k < 6; k += 1) {
-      const open = controlled.length > 1 && k % 2 === 1 ? [controlled[controlled.length - 1]!] : [...controlled];
-      const hasCarry = open.includes(1);
-      const answered = k !== 5; // el ultimo checkpoint de cada corrida: el Coach no responde
-      const cards = answered && hasCarry && (index + k) % 2 === 0;
-      checkpoints.push({
-        humanOpenPositions: open,
-        controlledPositions: controlled,
-        round: ROUNDS[k % 3]!,
-        step: STEPS[k % 3]!,
-        side,
-        v3: answered ? { shortlist: cards ? [card] : [] } : null,
-      });
-    }
-    runs.push({ scenarioId: `run-${index}`, checkpoints });
-  }
-  return runs;
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Fixture "grid": N corridas x 3 grupos x REPS checkpoints. Cada grupo fija las dimensiones; el resto es constante. Todo responde con
+// tarjeta salvo que `cards`/`answered` digan otra cosa. Sirve para mutar UNA sola cosa y ver que UNA sola regla se dispara.
+// ---------------------------------------------------------------------------------------------------------------------------------
+const REPS = 5;
+interface Group {
+  open: readonly number[];
+  ctrl: readonly number[];
+  round: number;
+  step: string;
+  side: string;
 }
+const BASE_GROUP: Group = { open: [1], ctrl: [1], round: 1, step: "s", side: "r" };
+const groupsOf = (override: (group: number) => Partial<Group>): Group[] => [0, 1, 2].map((index) => ({ ...BASE_GROUP, ...override(index) }));
 
-const REFERENCE = buildCoverageReference(baseline(), { commit: "fixture", measuredOn: "2026-11-22", source: "sintetica" });
-const guard = (matrix: readonly CoverageRun[]) => matrixGuardProblems(matrix, REFERENCE);
-
-/** Quita las tarjetas de todo checkpoint salvo los que cumplan `keep` (nth = ordinal 1-based entre los checkpoints con tarjetas). */
-function stripCards(matrix: readonly CoverageRun[], keep: (nth: number) => boolean): CoverageRun[] {
-  let nth = 0;
-  return matrix.map((run) => ({
-    ...run,
-    checkpoints: run.checkpoints.map((checkpoint) => {
-      if (!checkpoint.v3 || checkpoint.v3.shortlist.length === 0) return checkpoint;
-      nth += 1;
-      return keep(nth) ? checkpoint : { ...checkpoint, v3: { shortlist: [] } };
-    }),
+interface GridOptions {
+  runs?: number;
+  groups?: Group[];
+  cards?: (run: number, group: number, rep: number) => boolean;
+  answered?: (run: number, group: number, rep: number) => boolean;
+}
+function grid({ runs = 12, groups = groupsOf(() => ({})), cards = () => true, answered = () => true }: GridOptions = {}): CoverageRun[] {
+  return Array.from({ length: runs }, (_, run) => ({
+    scenarioId: `g-${run}`,
+    checkpoints: groups.flatMap((group, g) =>
+      Array.from({ length: REPS }, (_, rep): CoverageCheckpoint => ({
+        humanOpenPositions: group.open,
+        controlledPositions: group.ctrl,
+        round: group.round,
+        step: group.step,
+        side: group.side,
+        v3: answered(run, g, rep) ? { shortlist: cards(run, g, rep) ? [card] : [] } : null,
+      })),
+    ),
   }));
 }
 
-describe("linea base sintetica: el guard acepta una matriz representativa (control positivo)", () => {
-  test("la matriz de referencia pasa su propio guard", () => {
-    expect(guard(baseline())).toEqual([]);
-  });
-  test("tiene abstenciones legitimas y tarjetas (no es trivial)", () => {
-    const coverage = matrixCoverage(baseline());
-    expect(coverage.withCards).toBeGreaterThan(20);
-    expect(coverage.coachAnswered - coverage.withCards).toBeGreaterThan(20);
+describe("referencia de la rejilla: la matriz sin mutar pasa su propio guard (control positivo)", () => {
+  test("sin problemas, con y sin huella de datos curados coincidente", () => {
+    const matrix = grid();
+    expect(guard(matrix, refOf(matrix))).toEqual([]);
+    expect(guard(matrix, refOf(matrix, { "hero-counters.json": HASH_A }), { "hero-counters.json": HASH_A })).toEqual([]);
   });
 });
 
-describe("MUTACION: el guard viejo dejaba pasar regresiones masivas", () => {
-  test("de N a 1 checkpoint con tarjetas, matriz comparable: el guard viejo lo acepta (documenta el hueco)", () => {
-    const collapsed = stripCards(baseline(), (nth) => nth === 1);
+describe("M3: UNA prueba de mutacion por regla activa -- el conjunto de reglas disparadas es exactamente [regla]", () => {
+  test("NOT_COMPARABLE: la matriz se encoge a menos de la mitad, con las mismas tasas", () => {
+    const reference = refOf(grid());
+    const problems = guard(grid({ runs: 5 }), reference);
+    expect(rulesOf(problems)).toEqual(["NOT_COMPARABLE"]);
+  });
+
+  test("COACH_ANSWER_RATE: el Coach calla en el 60 % de los checkpoints y responde con tarjeta en el resto", () => {
+    const reference = refOf(grid());
+    const problems = guard(grid({ answered: (_run, _group, rep) => rep >= 3 }), reference);
+    expect(rulesOf(problems)).toEqual(["COACH_ANSWER_RATE"]);
+  });
+
+  test("CARD_RATE: se diluye la matriz con checkpoints respondidos sin tarjeta en dimensiones nuevas (corridas y segmentos conocidos intactos)", () => {
+    const reference = refOf(grid());
+    const diluted = grid().map((run) => ({
+      ...run,
+      checkpoints: [
+        ...run.checkpoints,
+        ...Array.from({ length: 20 }, (): CoverageCheckpoint => ({ humanOpenPositions: [9], controlledPositions: [9, 9], round: 9, step: "nuevo", side: "nuevo", v3: { shortlist: [] } })),
+      ],
+    }));
+    expect(rulesOf(guard(diluted, reference))).toEqual(["CARD_RATE"]);
+  });
+
+  test("SCENARIO_SPREAD: las tarjetas pasan de estar repartidas en las 12 corridas a concentrarse en 4 (mismos segmentos, misma tasa global)", () => {
+    const reference = refOf(grid({ cards: (_run, _group, rep) => rep < 2 }));
+    const concentrated = grid({ cards: (run) => run < 4 });
+    expect(reference.profile.runsWithCards).toBe(12);
+    expect(matrixProfile(concentrated).runsWithCards).toBe(4);
+    expect(rulesOf(guard(concentrated, reference))).toEqual(["SCENARIO_SPREAD"]);
+  });
+
+  const SEGMENTS: readonly { dimension: string; value: string; groups: Group[] }[] = [
+    { dimension: "round", value: "2", groups: groupsOf((g) => ({ round: g === 2 ? 2 : 1 })) },
+    { dimension: "step", value: "t", groups: groupsOf((g) => ({ step: g === 2 ? "t" : "s" })) },
+    { dimension: "partySize", value: "2", groups: groupsOf((g) => ({ ctrl: g === 2 ? [1, 2] : [1] })) },
+    { dimension: "side", value: "d", groups: groupsOf((g) => ({ side: g === 2 ? "d" : "r" })) },
+    { dimension: "openPosition", value: "2", groups: groupsOf((g) => ({ open: g === 2 ? [2] : [1], ctrl: [1, 2] })) },
+  ];
+  for (const { dimension, value, groups } of SEGMENTS) {
+    test(`SEGMENT_LOSS (${dimension}=${value}): un segmento con tarjetas en la referencia las pierde; el resto de la matriz sigue sano`, () => {
+      const reference = refOf(grid({ groups }));
+      const lost = grid({ groups, cards: (_run, group) => group !== 2 });
+      const problems = guard(lost, reference);
+      expect(rulesOf(problems)).toEqual(["SEGMENT_LOSS"]);
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain(`${dimension}=${value}`);
+    });
+  }
+
+  test("REFERENCE_INVALID: una referencia sin tarjetas no puede exigir nada", () => {
+    const noCards = grid({ cards: () => false });
+    const problems = coverageRegressionProblems(matrixProfile(grid()), refOf(noCards));
+    expect(rulesOf(problems)).toEqual(["REFERENCE_INVALID"]);
+  });
+
+  test("REFERENCE_INCOMPATIBLE: los datos curados cambiaron; matriz identica, y NO es PASS ni regresion", () => {
+    const matrix = grid();
+    const reference = refOf(matrix, { "hero-counters.json": HASH_A });
+    const problems = guard(matrix, reference, { "hero-counters.json": HASH_B });
+    expect(rulesOf(problems)).toEqual(["REFERENCE_INCOMPATIBLE"]);
+    expect(problems[0]).toContain("NO es una regresion");
+    expect(problems[0]).toContain("hero-counters.json");
+  });
+
+  test("REFERENCE_INCOMPATIBLE: archivo curado ausente/ilegible tambien se diagnostica (no se asume que coincide)", () => {
+    const matrix = grid();
+    const problems = guard(matrix, refOf(matrix, { "hero-counters.json": HASH_A }), {});
+    expect(rulesOf(problems)).toEqual(["REFERENCE_INCOMPATIBLE"]);
+    expect(problems[0]).toContain("no se pudo calcular");
+  });
+
+  test("cambio de datos + regresion real: ambos diagnosticos, el de datos primero (no se esconde ninguno)", () => {
+    const reference = refOf(grid(), { "hero-counters.json": HASH_A });
+    const collapsed = grid({ cards: (run, group, rep) => run === 0 && group === 0 && rep === 0 });
+    const problems = guard(collapsed, reference, { "hero-counters.json": HASH_B });
+    expect(ruleOf(problems[0]!)).toBe("REFERENCE_INCOMPATIBLE");
+    expect(rulesOf(problems)).toContain("CARD_RATE");
+  });
+
+  test("REFERENCE_TAMPERED: edicion a mano de la referencia sin regenerar la huella", () => {
+    const matrix = grid();
+    const reference = refOf(matrix);
+    const edited = structuredClone(reference);
+    edited.profile.segments.round!["1"]!.open += 1; // campo que ninguna regla usa: aislamos la huella
+    expect(rulesOf(guard(matrix, edited))).toEqual(["REFERENCE_TAMPERED"]);
+  });
+
+  test("REFERENCE_TAMPERED: una tolerancia propia en el JSON se rechaza y NO debilita el guard", () => {
+    const matrix = grid();
+    const weakened = { ...refOf(matrix), tolerance: { rateFloor: 0, minSegmentAnswered: 0 } } as CoverageReference;
+    expect(rulesOf(guard(matrix, weakened))).toEqual(["REFERENCE_TAMPERED"]);
+    // Con la tolerancia debilitada en el JSON, una regresion real SIGUE detectandose (la tolerancia efectiva es la del codigo).
+    const collapsed = grid({ cards: (run, group, rep) => run === 0 && group === 0 && rep === 0 });
+    const problems = guard(collapsed, weakened);
+    expect(rulesOf(problems)).toContain("CARD_RATE");
+    expect(rulesOf(problems)).toContain("REFERENCE_TAMPERED");
+  });
+
+  test("referenceTrustProblems sin datos reales no evalua compatibilidad (solo integridad)", () => {
+    expect(referenceTrustProblems(refOf(grid(), { "hero-counters.json": HASH_A }))).toEqual([]);
+  });
+});
+
+describe("abstenciones legitimas: ninguna regla castiga lo que no se exigia", () => {
+  test("segmento sin tarjetas en la referencia: no se exige aunque la mutada tampoco tenga", () => {
+    const groups = groupsOf((g) => ({ side: g === 2 ? "d" : "r" }));
+    const cards = (_run: number, group: number) => group !== 2;
+    expect(guard(grid({ groups, cards }), refOf(grid({ groups, cards })))).toEqual([]);
+  });
+
+  test("segmento con menos de 5 respuestas en la referencia: no se exige (sin base estadistica)", () => {
+    const tiny = (withCards: boolean): CoverageRun => ({
+      scenarioId: "tiny",
+      checkpoints: Array.from({ length: 4 }, (): CoverageCheckpoint => ({ humanOpenPositions: [1], controlledPositions: [1], round: 1, step: "s", side: "tiny", v3: { shortlist: withCards ? [card] : [] } })),
+    });
+    const reference = refOf([...grid(), tiny(true)]);
+    expect(guard([...grid(), tiny(false)], reference)).toEqual([]);
+  });
+
+  test("agregar corridas de abstencion pura (sin fundamento, cards: []) dentro de la tolerancia declarada no es regresion", () => {
+    const reference = refOf(grid());
+    const abstentions: CoverageRun[] = Array.from({ length: 6 }, (_, index) => ({
+      scenarioId: `abs-${index}`,
+      checkpoints: Array.from({ length: 15 }, (): CoverageCheckpoint => ({ humanOpenPositions: [1], controlledPositions: [1], round: 1, step: "s", side: "r", v3: { shortlist: [] } })),
+    }));
+    expect(guard([...grid(), ...abstentions], reference)).toEqual([]);
+  });
+});
+
+describe("la regresion que el revisor senalo (194 -> 1) y sus variantes", () => {
+  test("el guard viejo la aceptaba (documenta el hueco) y el nuevo la rechaza", () => {
+    const reference = refOf(grid());
+    const collapsed = grid({ cards: (run, group, rep) => run === 0 && group === 0 && rep === 0 });
     expect(matrixCoverage(collapsed).withCards).toBe(1);
     expect(vacuityProblems(matrixCoverage(collapsed))).toEqual([]);
+    expect(guard(collapsed, reference).length).toBeGreaterThan(0);
+    expect(rulesOf(guard(collapsed, reference))).toContain("CARD_RATE");
+    expect(rulesOf(guard(collapsed, reference))).toContain("SCENARIO_SPREAD");
   });
 
-  test("de N a 1 checkpoint con tarjetas: el guard nuevo FALLA", () => {
-    const collapsed = stripCards(baseline(), (nth) => nth === 1);
-    expect(guard(collapsed).length).toBeGreaterThan(0);
+  test("todas las tarjetas en un unico escenario: SCENARIO_SPREAD", () => {
+    const reference = refOf(grid());
+    expect(rulesOf(guard(grid({ cards: (run) => run === 0 }), reference))).toContain("SCENARIO_SPREAD");
   });
 
-  test("todas las tarjetas viven en un unico escenario: FALLA nombrando la concentracion", () => {
-    const concentrated = baseline().map((run, index) => ({
-      ...run,
-      checkpoints: run.checkpoints.map((checkpoint, k) =>
-        index === 0 ? { ...checkpoint, humanOpenPositions: [1], round: ROUNDS[k % 3]!, v3: { shortlist: [card] } } : checkpoint.v3 ? { ...checkpoint, v3: { shortlist: [] } } : checkpoint,
-      ),
-    }));
-    expect(matrixCoverage(concentrated).withCards).toBeGreaterThan(0);
-    expect(vacuityProblems(matrixCoverage(concentrated))).toEqual([]);
-    expect(guard(concentrated).some((problem) => problem.includes("escenario"))).toBe(true);
-  });
-
-  test("desaparecen las tarjetas de un segmento que tenia cobertura (ronda 2): FALLA nombrando el segmento", () => {
-    const lostRound2 = baseline().map((run) => ({
-      ...run,
-      checkpoints: run.checkpoints.map((checkpoint) => (checkpoint.round === 2 && checkpoint.v3 ? { ...checkpoint, v3: { shortlist: [] } } : checkpoint)),
-    }));
-    expect(vacuityProblems(matrixCoverage(lostRound2))).toEqual([]);
-    expect(guard(lostRound2).some((problem) => problem.includes("round=2"))).toBe(true);
-  });
-
-  test("el Coach deja de responder en la mayoria de los checkpoints: FALLA", () => {
-    const mute = baseline().map((run) => ({ ...run, checkpoints: run.checkpoints.map((checkpoint, k) => (k === 5 || k % 2 === 0 ? { ...checkpoint, v3: null } : checkpoint)) }));
-    expect(guard(mute).length).toBeGreaterThan(0);
-  });
-
-  test("matriz sin respuestas: FALLA", () => {
-    const none = baseline().map((run) => ({ ...run, checkpoints: run.checkpoints.map((checkpoint) => ({ ...checkpoint, v3: null })) }));
-    expect(guard(none).length).toBeGreaterThan(0);
-  });
-
-  test("matriz completamente vacia (y corridas sin checkpoints): FALLA", () => {
-    expect(guard([]).length).toBeGreaterThan(0);
-    expect(guard([{ checkpoints: [] }]).length).toBeGreaterThan(0);
-  });
-
-  test("matriz encogida a una sola corrida ya no es comparable: FALLA", () => {
-    expect(guard(baseline().slice(0, 1)).length).toBeGreaterThan(0);
-  });
-});
-
-describe("CONTROLES POSITIVOS: el guard no castiga abstenciones ni cambios de composicion", () => {
-  test("agregar checkpoints sin fundamento que correctamente devuelven cards: [] no es regresion", () => {
-    const extra: CoverageRun[] = Array.from({ length: 6 }, (_, index) => ({
-      scenarioId: `abstain-${index}`,
-      checkpoints: [{ humanOpenPositions: [3], controlledPositions: [3], round: 1, step: "after_bans", side: "radiant", v3: { shortlist: [] } }],
-    }));
-    expect(guard([...baseline(), ...extra])).toEqual([]);
-  });
-
-  test("un segmento sin tarjetas en la referencia (posicion 3 sola) no se exige", () => {
-    const withoutCarry = baseline().filter((run) => !run.checkpoints.every((checkpoint) => checkpoint.humanOpenPositions.includes(1)));
-    expect(guard(withoutCarry)).toEqual([]);
-  });
-
-  test("cambio legitimo de composicion: se agregan abstenciones nuevas y las tarjetas se mantienen en todos los segmentos", () => {
-    const noise: CoverageRun[] = baseline().map((run, index) => ({
-      ...run,
-      scenarioId: `noise-${index}`,
-      checkpoints: run.checkpoints.map((checkpoint) => (checkpoint.v3 ? { ...checkpoint, v3: { shortlist: [] } } : checkpoint)),
-    }));
-    // La tasa de tarjetas cae a ~2/3 de la referencia: dentro de la tolerancia declarada (rateFloor).
-    expect(guard([...baseline(), ...noise.slice(0, 24)])).toEqual([]);
+  test("matriz sin respuestas y matriz vacia: se rechazan", () => {
+    const reference = refOf(grid());
+    expect(guard(grid({ answered: () => false }), reference).length).toBeGreaterThan(0);
+    expect(guard([], reference).length).toBeGreaterThan(0);
+    expect(guard([{ checkpoints: [] }], reference).length).toBeGreaterThan(0);
   });
 });
 

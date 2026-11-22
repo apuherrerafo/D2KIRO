@@ -50,21 +50,22 @@ export function vacuityProblems(coverage: MatrixCoverage): string[] {
 }
 
 // =================================================================================================================
-// R3.1 -- cobertura estructural (A) y semantica (B). Pura, determinista, sin I/O.
+// R3.1/R3.2 -- cobertura estructural (A) y semantica (B). Pura, determinista, sin I/O (solo `node:crypto` para hashear).
 //
 // `vacuityProblems` solo exige >= 1 shortlist con tarjetas: una matriz que pierde 193 de 194 tarjetas seguia pasando.
 // Dos controles complementarios, cada uno con su propio alcance:
 //
 //  A. ESTRUCTURAL (`coverageRegressionProblems`): la matriz debe seguir ejercitando el camino con tarjetas en la misma
-//     proporcion y con la misma variedad que su REFERENCIA congelada (`coverage-reference.json`): tasas, escenarios
-//     distintos con tarjetas, concentracion maxima en un escenario y, por segmento, tasa de tarjetas. Es un detector de
-//     regresion contra una linea base OBSERVADA, no una verdad de producto: no sabe si una shortlist vacia es correcta.
+//     proporcion y con la misma variedad que su REFERENCIA congelada (`coverage-reference.json`). Es un detector de regresion
+//     contra una linea base OBSERVADA, no una verdad de producto: no sabe si una shortlist vacia es correcta.
 //  B. SEMANTICA (`semanticCoverageProblems`): donde el FIXTURE declara un fundamento (un counter curado inyectado contra un
 //     ban), la tarjeta es obligatoria; donde declara su ausencia, `[]` es VALID_ABSTENTION y nunca se fuerza una tarjeta.
 //     La elegibilidad la fija el fixture, jamas la respuesta del Coach (no es circular).
 //
-// Clasificacion de una sonda: EXPECTED_COVERAGE | VALID_ABSTENTION | UNEXPECTED_COVERAGE_LOSS | INSUFFICIENT_EVIDENCE.
+// Cada regla activa emite un diagnostico con codigo estable `[REGLA]`, para que una prueba pueda exigir EXACTAMENTE esa regla
+// (aislada de las demas) y para que un humano distinga una regresion tecnica de un cambio en los datos curados.
 // =================================================================================================================
+import { createHash } from "node:crypto";
 
 export interface SegmentTally {
   open: number;
@@ -75,8 +76,6 @@ export interface MatrixProfile extends MatrixCoverage {
   runs: number;
   /** Corridas (escenarios) distintas con al menos una shortlist con tarjetas. */
   runsWithCards: number;
-  /** Mayor numero de checkpoints con tarjetas dentro de UNA sola corrida. */
-  maxRunCards: number;
   /** dimension -> valor -> conteo. Dimensiones: round, step, partySize, side, openPosition. */
   segments: Record<string, Record<string, SegmentTally>>;
 }
@@ -91,102 +90,180 @@ function bump(segments: MatrixProfile["segments"], dimension: string, value: str
 
 /** Perfil de cobertura: los tres conteos de `matrixCoverage` mas variedad de escenarios y segmentos. Solo cuenta checkpoints con humano abierto. */
 export function matrixProfile(matrix: readonly CoverageRun[]): MatrixProfile {
-  const profile: MatrixProfile = { ...matrixCoverage(matrix), runs: matrix.length, runsWithCards: 0, maxRunCards: 0, segments: {} };
+  const profile: MatrixProfile = { ...matrixCoverage(matrix), runs: matrix.length, runsWithCards: 0, segments: {} };
   for (const run of matrix) {
-    let runCards = 0;
+    let runHasCards = false;
     for (const checkpoint of run.checkpoints) {
       if (checkpoint.humanOpenPositions.length === 0) continue;
       const answered = Boolean(checkpoint.v3);
       const withCards = answered && (checkpoint.v3?.shortlist.length ?? 0) > 0;
-      if (withCards) runCards += 1;
+      if (withCards) runHasCards = true;
       bump(profile.segments, "round", String(checkpoint.round ?? "none"), answered, withCards);
       bump(profile.segments, "step", checkpoint.step ?? "none", answered, withCards);
       bump(profile.segments, "partySize", String(checkpoint.controlledPositions?.length ?? "none"), answered, withCards);
       bump(profile.segments, "side", checkpoint.side ?? "none", answered, withCards);
       for (const position of checkpoint.humanOpenPositions) bump(profile.segments, "openPosition", String(position), answered, withCards);
     }
-    if (runCards > 0) profile.runsWithCards += 1;
-    profile.maxRunCards = Math.max(profile.maxRunCards, runCards);
+    if (runHasCards) profile.runsWithCards += 1;
   }
   return profile;
 }
 
-export interface CoverageTolerance {
-  /**
-   * Piso relativo: toda tasa (respuesta del Coach / humano abierto, tarjetas / respuesta, corridas con tarjetas / corridas,
-   * tarjetas por segmento) debe ser >= rateFloor x la tasa de la referencia. 0.5 absorbe un cambio legitimo de composicion
-   * (curacion de counters por parche, escenarios nuevos que solo suman abstenciones) hasta duplicar el denominador, y aun asi falla
-   * ante un colapso (194 -> 1 es 0.5% de la tasa de referencia).
-   */
-  rateFloor: number;
-  /** Tope de concentracion: ninguna corrida aporta mas de esta fraccion de todos los checkpoints con tarjetas (referencia observada: 0.041). */
-  maxRunShare: number;
-  /** Un segmento solo se exige si en la referencia tenia al menos tantas respuestas del Coach (con menos no hay base) y tarjetas > 0. */
-  minSegmentAnswered: number;
-}
-export interface CoverageReference {
-  /** Procedencia: de que commit y cuando se midio. Sin esto una referencia no es auditable. */
-  provenance: { commit: string; measuredOn: string; source: string };
-  profile: MatrixProfile;
-  tolerance: CoverageTolerance;
+/**
+ * TOLERANCIAS -- PROVISIONALES, sin justificacion estadistica. Viven AQUI, en codigo congelado, y NO dentro de `coverage-reference.json`:
+ * un JSON editable no puede debilitar el guard en silencio (la referencia que traiga un campo `tolerance` se rechaza como alterada, y
+ * `coverage-reference.lock.test.ts` fija estos valores). Cambiarlas exige editar este archivo, esa prueba y `coverage-reference.md`.
+ *
+ *  - rateFloor 0.5: toda tasa (respuesta del Coach / humano abierto, tarjetas / respuesta, escenarios con tarjetas / escenarios, tarjetas
+ *    por segmento) debe ser >= 0.5 x la de la referencia. Es una tolerancia de composicion elegida a criterio, no derivada de una
+ *    distribucion: la matriz es determinista, asi que no hay ruido de muestreo que modelar. LIMITE CONOCIDO: una perdida global de ~25 %
+ *    de las tarjetas pasa, y entre ~25 % y ~50 % solo la detecta algun segmento. Existe para detectar colapsos, no desgaste.
+ *  - minSegmentAnswered 5: un segmento solo se exige si la referencia tenia >= 5 respuestas del Coach y tarjetas > 0. Tambien arbitrario;
+ *    con bases muy chicas (p. ej. round=3: 4 tarjetas) un cambio legitimo puede disparar la regla (limite B1, registrado para R4).
+ *
+ * Se elimino el tope de concentracion de un solo escenario (10 %): era matematicamente inalcanzable en la matriz real (<= 8 checkpoints
+ * con humano abierto por corrida y >= 97 tarjetas necesarias para pasar la tasa de tarjetas => maximo 8,2 %). La concentracion la cubre
+ * `SCENARIO_SPREAD`.
+ */
+export const COVERAGE_TOLERANCE = Object.freeze({ rateFloor: 0.5, minSegmentAnswered: 5 });
+
+export type CoverageRule =
+  | "NOT_COMPARABLE"
+  | "COACH_ANSWER_RATE"
+  | "CARD_RATE"
+  | "SCENARIO_SPREAD"
+  | "SEGMENT_LOSS"
+  | "REFERENCE_INVALID"
+  | "REFERENCE_TAMPERED"
+  | "REFERENCE_INCOMPATIBLE";
+const tag = (rule: CoverageRule, text: string): string => `[${rule}] ${text}`;
+/** Regla que emitio un diagnostico (`VACUITY` para los de `vacuityProblems`, que no llevan codigo). */
+export function ruleOf(problem: string): CoverageRule | "VACUITY" {
+  const match = /^\[([A-Z_]+)\]/.exec(problem);
+  return match ? (match[1] as CoverageRule) : "VACUITY";
 }
 
-export const DEFAULT_COVERAGE_TOLERANCE: CoverageTolerance = { rateFloor: 0.5, maxRunShare: 0.1, minSegmentAnswered: 5 };
+export interface CoverageReference {
+  /**
+   * Procedencia auditable: de que commit y cuando se midio, y el sha256 (contenido con finales de linea normalizados a LF) de cada dato
+   * curado real del que depende la matriz. Hoy: `hero-counters.json` -- con counters vacios inyectados la matriz entera da 0 tarjetas.
+   */
+  provenance: { commit: string; measuredOn: string; source: string; curatedInputs: Readonly<Record<string, string>> };
+  profile: MatrixProfile;
+  /** Huella de `{ provenance, profile }`: detecta una edicion a mano de la referencia sin pasar por `buildCoverageReference`. */
+  integrity: { sha256: string };
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (typeof value === "object" && value !== null) {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function sha256Text(text: string): string {
+  return createHash("sha256").update(text.replace(/\r\n/g, "\n")).digest("hex");
+}
+
+export function referenceIntegrityHash(reference: Pick<CoverageReference, "provenance" | "profile">): string {
+  return createHash("sha256").update(stableStringify({ provenance: reference.provenance, profile: reference.profile })).digest("hex");
+}
 
 /**
  * Genera la referencia a partir de una matriz. NUNCA se invoca desde el camino de commit: una referencia nueva solo se escribe
  * a mano, con revision humana, cuando cambia el diseno de la matriz (escenarios) o la curacion de datos del fixture -- jamas
  * porque una corrida salio distinta. Ver `coverage-reference.md`.
  */
-export function buildCoverageReference(matrix: readonly CoverageRun[], provenance: CoverageReference["provenance"], tolerance: CoverageTolerance = DEFAULT_COVERAGE_TOLERANCE): CoverageReference {
-  return { provenance, profile: matrixProfile(matrix), tolerance };
+export function buildCoverageReference(matrix: readonly CoverageRun[], provenance: CoverageReference["provenance"]): CoverageReference {
+  const body = { provenance, profile: matrixProfile(matrix) };
+  return { ...body, integrity: { sha256: referenceIntegrityHash(body) } };
 }
 
 const rate = (numerator: number, denominator: number): number => (denominator === 0 ? 0 : numerator / denominator);
 const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
-/** Motivos por los que el perfil actual es una regresion de cobertura respecto de la referencia (vacio = sin regresion). */
+/**
+ * Confianza en la REFERENCIA (no en la matriz): ¿fue alterada a mano?, ¿trae una tolerancia propia?, ¿los datos curados reales siguen
+ * siendo los que la produjeron? `actualInputs` (sha256 por dato curado, calculado por el llamador con I/O) es opcional: sin el, no se
+ * evalua compatibilidad. Un cambio de datos NO es una regresion del Coach y tampoco se resuelve regenerando sola la referencia.
+ */
+export function referenceTrustProblems(reference: CoverageReference, actualInputs?: Readonly<Record<string, string>>): string[] {
+  const problems: string[] = [];
+  if ("tolerance" in (reference as object)) {
+    problems.push(tag("REFERENCE_TAMPERED", "la referencia trae un campo `tolerance` propio; las tolerancias viven solo en codigo (COVERAGE_TOLERANCE) y la del JSON se ignora"));
+  }
+  if (referenceIntegrityHash(reference) !== reference.integrity?.sha256) {
+    problems.push(tag("REFERENCE_TAMPERED", "la huella de la referencia no coincide con su contenido: se edito a mano en vez de regenerarla con buildCoverageReference (coverage-reference.md)"));
+  }
+  if (actualInputs) {
+    for (const [file, recorded] of Object.entries(reference.provenance.curatedInputs)) {
+      const actual = actualInputs[file];
+      if (actual === recorded) continue;
+      const detail = actual === undefined ? "no se pudo calcular su huella (archivo ausente o ilegible)" : `cambio: referencia sha256:${recorded.slice(0, 12)}…, actual sha256:${actual.slice(0, 12)}…`;
+      problems.push(
+        tag(
+          "REFERENCE_INCOMPATIBLE",
+          `${file} ${detail}. Esto NO es una regresion del Coach: los datos curados que alimentan la matriz son otros y la referencia ya no es comparable. No se regenera sola ni se da PASS por esto; revisar el cambio de datos y, solo con revision humana, regenerar la referencia (coverage-reference.md).`,
+        ),
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * Regresion de cobertura del perfil actual respecto de la referencia (vacio = sin regresion). Cada regla tiene su propio codigo:
+ *  NOT_COMPARABLE     la matriz se encogio (humanos abiertos < 0,5 x referencia)
+ *  COACH_ANSWER_RATE  el Coach responde menos (respuestas / humano abierto)
+ *  CARD_RATE          menos tarjetas por respuesta (tarjetas / respuestas) -- tambien salta si se diluye con muchos checkpoints sin tarjeta
+ *  SCENARIO_SPREAD    las tarjetas se concentran en pocos escenarios (corridas con tarjetas / corridas)
+ *  SEGMENT_LOSS       un segmento (round/step/partySize/side/openPosition) que tenia tarjetas pierde la mitad de su tasa
+ *  REFERENCE_INVALID  la referencia no tiene tarjetas/respuestas/humanos: no se puede exigir nada
+ */
 export function coverageRegressionProblems(current: MatrixProfile, reference: CoverageReference): string[] {
-  const { profile: ref, tolerance } = reference;
+  const { profile: ref } = reference;
   if (ref.withCards === 0 || ref.coachAnswered === 0 || ref.humanOpen === 0) {
-    return ["referencia de cobertura invalida: sin tarjetas/respuestas/humanos abiertos no se puede exigir nada (INSUFFICIENT_EVIDENCE)"];
+    return [tag("REFERENCE_INVALID", "la referencia no tiene tarjetas/respuestas/humanos abiertos: no se puede exigir cobertura (INSUFFICIENT_EVIDENCE)")];
   }
   const problems: string[] = [];
-  const floor = (value: number) => value * tolerance.rateFloor;
+  const { rateFloor, minSegmentAnswered } = COVERAGE_TOLERANCE;
+  const floor = (value: number) => value * rateFloor;
   if (current.humanOpen < floor(ref.humanOpen)) {
-    problems.push(`la matriz dejo de ser comparable: ${current.humanOpen} checkpoints con humano abierto (referencia ${ref.humanOpen}, piso ${floor(ref.humanOpen).toFixed(0)})`);
+    problems.push(tag("NOT_COMPARABLE", `la matriz dejo de ser comparable: ${current.humanOpen} checkpoints con humano abierto (referencia ${ref.humanOpen}, piso ${floor(ref.humanOpen).toFixed(0)})`));
   }
   const answeredRate = rate(current.coachAnswered, current.humanOpen);
   if (answeredRate < floor(rate(ref.coachAnswered, ref.humanOpen))) {
-    problems.push(`el Coach responde en ${pct(answeredRate)} de los checkpoints con humano abierto (referencia ${pct(rate(ref.coachAnswered, ref.humanOpen))})`);
+    problems.push(tag("COACH_ANSWER_RATE", `el Coach responde en ${pct(answeredRate)} de los checkpoints con humano abierto (referencia ${pct(rate(ref.coachAnswered, ref.humanOpen))})`));
   }
   const cardsRate = rate(current.withCards, current.coachAnswered);
   const refCardsRate = rate(ref.withCards, ref.coachAnswered);
   if (cardsRate < floor(refCardsRate)) {
-    problems.push(`${current.withCards}/${current.coachAnswered} respuestas con tarjetas = ${pct(cardsRate)} (referencia ${pct(refCardsRate)}, piso ${pct(floor(refCardsRate))})`);
+    problems.push(tag("CARD_RATE", `${current.withCards}/${current.coachAnswered} respuestas con tarjetas = ${pct(cardsRate)} (referencia ${pct(refCardsRate)}, piso ${pct(floor(refCardsRate))})`));
   }
   if (rate(current.runsWithCards, current.runs) < floor(rate(ref.runsWithCards, ref.runs))) {
-    problems.push(`solo ${current.runsWithCards}/${current.runs} escenarios producen tarjetas (referencia ${ref.runsWithCards}/${ref.runs}): la cobertura se concentro en pocos escenarios`);
-  }
-  if (current.withCards > 0 && current.maxRunCards / current.withCards > tolerance.maxRunShare) {
-    problems.push(`un solo escenario aporta ${current.maxRunCards}/${current.withCards} de las tarjetas (tope ${pct(tolerance.maxRunShare)})`);
+    problems.push(tag("SCENARIO_SPREAD", `solo ${current.runsWithCards}/${current.runs} escenarios producen tarjetas (referencia ${ref.runsWithCards}/${ref.runs}): la cobertura se concentro en pocos escenarios`));
   }
   for (const [dimension, values] of Object.entries(ref.segments)) {
     for (const [value, base] of Object.entries(values)) {
-      if (base.answered < tolerance.minSegmentAnswered || base.withCards === 0) continue; // sin base o sin tarjetas de referencia: nunca se exige
+      if (base.answered < minSegmentAnswered || base.withCards === 0) continue; // sin base o sin tarjetas de referencia: nunca se exige
       const now = current.segments[dimension]?.[value] ?? { open: 0, answered: 0, withCards: 0 };
       if (rate(now.withCards, now.answered) < floor(rate(base.withCards, base.answered))) {
-        problems.push(`segmento ${dimension}=${value} perdio cobertura: ${now.withCards}/${now.answered} con tarjetas (referencia ${base.withCards}/${base.answered})`);
+        problems.push(tag("SEGMENT_LOSS", `segmento ${dimension}=${value} perdio cobertura: ${now.withCards}/${now.answered} con tarjetas (referencia ${base.withCards}/${base.answered})`));
       }
     }
   }
   return problems;
 }
 
-/** Guard completo de la matriz: no esta vacia (`vacuityProblems`) y no regreso respecto de la referencia. */
-export function matrixGuardProblems(matrix: readonly CoverageRun[], reference: CoverageReference): string[] {
+/**
+ * Guard completo: confianza en la referencia (alteracion / datos curados distintos) + matriz no vacia + sin regresion.
+ * `actualInputs` = sha256 de los datos curados reales hoy (ver `curated-input-hashes.ts`); omitido en pruebas unitarias.
+ */
+export function matrixGuardProblems(matrix: readonly CoverageRun[], reference: CoverageReference, actualInputs?: Readonly<Record<string, string>>): string[] {
   const profile = matrixProfile(matrix);
-  return [...vacuityProblems(profile), ...coverageRegressionProblems(profile, reference)];
+  return [...referenceTrustProblems(reference, actualInputs), ...vacuityProblems(profile), ...coverageRegressionProblems(profile, reference)];
 }
 
 export type ProbeClassification = "EXPECTED_COVERAGE" | "VALID_ABSTENTION" | "UNEXPECTED_COVERAGE_LOSS" | "INSUFFICIENT_EVIDENCE";

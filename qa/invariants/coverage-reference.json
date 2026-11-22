@@ -2,7 +2,10 @@
   "provenance": {
     "commit": "6fbd8bd2",
     "measuredOn": "2026-11-22",
-    "source": "enumerateScenarios() + createFixtureRoutes(), 26 control sets x 2 sides x fill-order"
+    "source": "enumerateScenarios() + createFixtureRoutes(), 26 control sets x 2 sides x fill-order",
+    "curatedInputs": {
+      "hero-counters.json": "8ad9fbc6a9d8259c57fbfc9f272b9328909d4f680ea94522ac8866b836f62f95"
+    }
   },
   "profile": {
     "humanOpen": 652,
@@ -10,7 +13,6 @@
     "withCards": 194,
     "runs": 134,
     "runsWithCards": 55,
-    "maxRunCards": 8,
     "segments": {
       "round": {
         "1": {
@@ -109,9 +111,7 @@
       }
     }
   },
-  "tolerance": {
-    "rateFloor": 0.5,
-    "maxRunShare": 0.1,
-    "minSegmentAnswered": 5
+  "integrity": {
+    "sha256": "26e6d5ab109d0619889655771e9f9908f82b2062fd55861a36ef18c4031eeeaa"
   }
 }
