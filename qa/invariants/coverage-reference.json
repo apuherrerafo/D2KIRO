@@ -1,0 +1,117 @@
+{
+  "provenance": {
+    "commit": "6fbd8bd2",
+    "measuredOn": "2026-11-22",
+    "source": "enumerateScenarios() + createFixtureRoutes(), 26 control sets x 2 sides x fill-order"
+  },
+  "profile": {
+    "humanOpen": 652,
+    "coachAnswered": 410,
+    "withCards": 194,
+    "runs": 134,
+    "runsWithCards": 55,
+    "maxRunCards": 8,
+    "segments": {
+      "round": {
+        "1": {
+          "open": 392,
+          "answered": 194,
+          "withCards": 128
+        },
+        "2": {
+          "open": 212,
+          "answered": 168,
+          "withCards": 62
+        },
+        "3": {
+          "open": 48,
+          "answered": 48,
+          "withCards": 4
+        }
+      },
+      "step": {
+        "after_bans": {
+          "open": 134,
+          "answered": 55,
+          "withCards": 55
+        },
+        "before_human_turn": {
+          "open": 322,
+          "answered": 159,
+          "withCards": 105
+        },
+        "after_own_pick": {
+          "open": 196,
+          "answered": 196,
+          "withCards": 34
+        }
+      },
+      "partySize": {
+        "1": {
+          "open": 20,
+          "answered": 4,
+          "withCards": 4
+        },
+        "2": {
+          "open": 240,
+          "answered": 120,
+          "withCards": 66
+        },
+        "3": {
+          "open": 360,
+          "answered": 256,
+          "withCards": 106
+        },
+        "5": {
+          "open": 32,
+          "answered": 30,
+          "withCards": 18
+        }
+      },
+      "side": {
+        "radiant": {
+          "open": 326,
+          "answered": 202,
+          "withCards": 94
+        },
+        "dire": {
+          "open": 326,
+          "answered": 208,
+          "withCards": 100
+        }
+      },
+      "openPosition": {
+        "1": {
+          "open": 248,
+          "answered": 202,
+          "withCards": 194
+        },
+        "2": {
+          "open": 248,
+          "answered": 116,
+          "withCards": 73
+        },
+        "3": {
+          "open": 258,
+          "answered": 128,
+          "withCards": 71
+        },
+        "4": {
+          "open": 270,
+          "answered": 138,
+          "withCards": 64
+        },
+        "5": {
+          "open": 292,
+          "answered": 154,
+          "withCards": 54
+        }
+      }
+    }
+  },
+  "tolerance": {
+    "rateFloor": 0.5,
+    "maxRunShare": 0.1,
+    "minSegmentAnswered": 5
+  }
+}

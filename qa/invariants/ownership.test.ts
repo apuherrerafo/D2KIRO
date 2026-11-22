@@ -20,7 +20,8 @@ import { describe, test, expect } from "bun:test";
 import { enumerateScenarios, createFixtureRoutes, runScenario, fetchRecommendations, type Checkpoint, type Position } from "../scenarios/generate";
 import { primaryActionPositions } from "../mvp/oracles/coach-primary-action-oracle";
 import knownFailuresRegistry from "./known-failures.json";
-import { matrixCoverage, vacuityProblems } from "./matrix-coverage";
+import { matrixCoverage, matrixGuardProblems, type CoverageReference } from "./matrix-coverage";
+import coverageReferenceJson from "./coverage-reference.json";
 
 // ---------------------------------------------------------------------------------------------
 // Known-failure registry wiring (task section 9). No silent xfail: every checkpoint for an
@@ -462,7 +463,8 @@ test("sanity: humanOpenPositions is always a subset of controlledPositions", () 
 // de posicion de arriba no habrian juzgado nada).
 test("vacuous-pass guard: the matrix exercises the Coach path -- humans open, Coach answered, and shortlists with cards exist", () => {
   const coverage = matrixCoverage(MATRIX);
-  const problems = vacuityProblems(coverage);
+  // R3.1: ya no basta "alguna shortlist con tarjetas" -- la matriz no puede regresar respecto de su referencia congelada (coverage-reference.md).
+  const problems = matrixGuardProblems(MATRIX, coverageReferenceJson as CoverageReference);
   expect(problems, minimalCounterexample("vacuous-pass-guard", MATRIX[0]!.checkpoints[0]!, { ...coverage, problems })).toEqual([]);
 });
 
