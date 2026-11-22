@@ -158,7 +158,11 @@ describe("INV-BIND-001 -- authoritative own-team position bindings outrank RoleB
   test("V4: own hero with Pos2-only evidence bound to Pos1 never makes a Pos2-only candidate role-infeasible at the still-open Pos2", async () => {
     const POS2_ONLY_HERO_A = 90002;
     const heroPositions: HeroPositions = { ...HERO_POSITIONS, [POS2_ONLY_HERO_A]: [{ position: 2, matches: 1000 }] };
-    const { store, routes } = createFixtureRoutes(heroPositions);
+    // Contrato de elegibilidad (2026-11-03/04): solo hay tarjeta con un fundamento real. Fixture: cada heroe Pos2 de stock tiene un counter
+    // curado "hard" contra cada heroe baneado de la partida (se completa tras resolver los bans) -> BAN_OPENS, sin counters fuertes libres.
+    // Sin esto "cards > 0" no podia cumplirse y la prueba pasaria vacia.
+    const counters = new Map<number, { vs: number; level: "hard"; why: string }[]>();
+    const { store, routes } = createFixtureRoutes(heroPositions, undefined, counters);
     const side = "radiant" as const;
     const created = await routes.post(postJson({
       rulesetId: "dota2/ranked-all-pick",
@@ -174,8 +178,11 @@ describe("INV-BIND-001 -- authoritative own-team position bindings outrank RoleB
     const { sessionId } = (await created.json()) as { sessionId: string };
     expect((await routes.postResolveBans(postJson({ playerBanPreferences: [] }), sessionId)).status).toBe(200);
 
-    const drive = (await (await routes.postAutoDrive(sessionId)).json()) as PublicSnapshotLite & { stopReason?: string };
+    const drive = (await (await routes.postAutoDrive(sessionId)).json()) as PublicSnapshotLite & { stopReason?: string; view: { bannedHeroes: number[] } };
     expect(drive.stopReason).toBe("human_input");
+    const banned = drive.view.bannedHeroes.filter((id) => Math.floor(id / 100) === 1);
+    expect(banned.length, "premise: the seed bans at least one stock threat").toBeGreaterThan(0);
+    for (const id of Object.keys(HERO_POSITIONS).map(Number).filter((hero) => Math.floor(hero / 100) === 2)) counters.set(id, banned.map((vs) => ({ vs, level: "hard" as const, why: "QA fixture" })));
     const slot = drive.legalActions.find((action) => action.type === "SUBMIT_SEALED_SELECTION" && action.side === side)!;
     const submit = await routes.postCommand(
       postJson({ command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: slot.slotIndex, heroId: POS2_ONLY_HERO_A }, assignedPosition: 1 }),

@@ -16,7 +16,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { createFixtureRoutes, enumerateScenarios, runScenario, type Checkpoint, type Position, type PublicV4 } from "../scenarios/generate";
+import { createFixtureRoutes, enumerateScenarios, HERO_POSITIONS, runScenario, type Checkpoint, type Position, type PublicV4 } from "../scenarios/generate";
 
 // Oracle-side list, written independently of the engine's own constant.
 const RANKING_INVALIDATING = new Set(["SNAPSHOT_UNAVAILABLE", "NO_LEGAL_HERO_UNIVERSE", "no_signal_available"]);
@@ -120,8 +120,10 @@ describe("COHERENCE-003 / COHERENCE-004 -- an unranked result never carries rank
       const { candidates } = checkpoint.v4!.decision as Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>;
       const invalidating = candidates.degradations.some((degradation) => RANKING_INVALIDATING.has(degradation.reason));
       let ok = true;
+      // Contrato de elegibilidad (2026-11-03/04): sin ningun heroe con fundamento, RANKED lleva cards: [] (sin relleno ni mensaje). Eso ya no es una
+      // violacion; lo que sigue prohibido es presentacion ranked cuando el ranking esta invalidado, y cada tarjeta presente debe estar bien formada.
       if (candidates.state === "RANKED") {
-        ok = !invalidating && candidates.cards.length > 0 && candidates.cards.every((card, cardIndex) => card.rank === cardIndex + 1 && typeof card.score === "number" && typeof card.confidence === "string");
+        ok = !invalidating && candidates.cards.every((card, cardIndex) => card.rank === cardIndex + 1 && typeof card.score === "number" && typeof card.confidence === "string");
       } else if (candidates.state === "UNRANKED_POSITIONAL") {
         ok = candidates.reason.length > 0 && candidates.alternatives.every((alternative) => Object.keys(alternative).sort().join(",") === "heroId,position");
       } else {
@@ -194,7 +196,10 @@ describe("COHERENCE-007 (account-backed) -- a configured pool shapes the persona
   const poolCards = (decision: Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>) => (decision.candidates.state === "RANKED" ? decision.candidates.cards.filter((card) => card.isFromPool).map((card) => card.heroId) : []);
 
   test("viewing P (personal) the pool applies; navigating to Q it does not, and Q's ranking carries no pool overlay", async () => {
-    const { routes } = createFixtureRoutes(undefined, new Map([[ACCOUNT, [POOL_POS2, POOL_POS3]]]));
+    // Contrato de elegibilidad (2026-11-03/04): un pool es preferencia, no fundamento; sin fundamento no hay tarjeta. Fixture: los heroes Pos2/Pos3 de stock
+    // tienen un counter curado "hard" contra cada heroe baneado (se completa tras resolver los bans) -> BAN_OPENS, y el pool ordena entre elegibles.
+    const counters = new Map<number, { vs: number; level: "hard"; why: string }[]>();
+    const { routes } = createFixtureRoutes(undefined, new Map([[ACCOUNT, [POOL_POS2, POOL_POS3]]]), counters);
     const postJson = (body: unknown) => new Request("http://qa.local/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const created = await routes.post(postJson({
       rulesetId: "dota2/ranked-all-pick",
@@ -209,7 +214,11 @@ describe("COHERENCE-007 (account-backed) -- a configured pool shapes the persona
     expect(created.status).toBe(201);
     const { sessionId } = (await created.json()) as { sessionId: string };
     expect((await routes.postResolveBans(postJson({ playerBanPreferences: [] }), sessionId)).status).toBe(200);
-    expect(((await (await routes.postAutoDrive(sessionId)).json()) as { stopReason?: string }).stopReason).toBe("human_input");
+    const drive = (await (await routes.postAutoDrive(sessionId)).json()) as { stopReason?: string; view: { bannedHeroes: number[] } };
+    expect(drive.stopReason).toBe("human_input");
+    const threats = drive.view.bannedHeroes;
+    expect(threats.length, "premise: the seed bans at least one hero").toBeGreaterThan(0);
+    for (const hero of Object.keys(HERO_POSITIONS).map(Number).filter((id) => [2, 3].includes(Math.floor(id / 100)))) counters.set(hero, threats.map((vs) => ({ vs, level: "hard" as const, why: "QA fixture" })));
 
     const personal = await v4At(routes, sessionId, ACCOUNT, null);
     expect(personal.actionablePositions).toEqual([PERSONAL, OTHER]);
@@ -221,7 +230,8 @@ describe("COHERENCE-007 (account-backed) -- a configured pool shapes the persona
     const other = await v4At(routes, sessionId, ACCOUNT, OTHER);
     const otherAnonymous = await v4At(routes, sessionId, null, OTHER);
     expect(other.viewedPosition).toBe(OTHER);
-    expect(other.targetPosition).toBe(PERSONAL);
+    // PSR-002: navegar a Q no mueve la recomendacion (target) -- el target es el de la vista por defecto, sea cual sea la posicion que el producto recomiende.
+    expect(other.targetPosition).toBe(personal.targetPosition);
     expect(other.personalPoolApplied).toBe(false);
     expect(poolCards(other)).toEqual([]);
     expect(rankedHeroes(other)).not.toContain(POOL_POS3);

@@ -27,6 +27,7 @@
  */
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
+import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import { heroPoolFitScorer } from "../../apps/engine/src/signals/hero-pool-fit";
 import type { SuggestionSet } from "../../apps/engine/src/signals/mix";
 import type { HeroUniverse } from "../../apps/engine/src/simulator/ban-resolution";
@@ -142,13 +143,15 @@ export function heroUniverseFor(heroPositions: HeroPositions): HeroUniverse {
  * EXISTING no-arg call site (the 26x2x3 ownership matrix) is byte-identical: `HERO_POSITIONS` and
  * `heroUniverseFor(HERO_POSITIONS)` reproduce exactly what this function built before this change.
  * Optional `accountPools` (account-backed COHERENCE-007): see `createComputeSuggestions`.
+ * Optional `heroCounters`: curated counters injected as FIXTURE so a test can give a candidate a real strategic ground (the Coach shows only grounded heroes).
  */
-export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS, accountPools?: ReadonlyMap<number, readonly number[]>): { store: ProtocolSessionStore; routes: Routes } {
+export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS, accountPools?: ReadonlyMap<number, readonly number[]>, heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>): { store: ProtocolSessionStore; routes: Routes } {
   const store = new ProtocolSessionStore();
   const routes = createProtocolSessionRoutes({
     store,
     computeSuggestions: createComputeSuggestions(accountPools),
     heroPositions,
+    ...(heroCounters ? { heroCounters } : {}),
     heroUniverse: async () => heroUniverseFor(heroPositions),
   });
   return { store, routes };

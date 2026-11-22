@@ -10,7 +10,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "types": ["bun"]
+    "types": ["bun"],
+    "paths": { "@/*": ["../apps/web/*"] }
   },
   "include": ["**/*.ts"]
 }

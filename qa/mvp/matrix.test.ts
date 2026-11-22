@@ -35,9 +35,9 @@ for (const scenario of MVP_SCENARIOS) {
     }));
     expect(response.status).toBe(201);
     const { sessionId } = await response.json() as { sessionId: string };
-    expect(store.metadata(sessionId)?.controlledPositions).toEqual(scenario.expectedControl);
-    expect(store.humanOpenPositions(sessionId)).toEqual(scenario.expectedControl);
-    const complement = [1, 2, 3, 4, 5].filter((position) => !scenario.expectedControl.includes(position));
+    expect(store.metadata(sessionId)?.controlledPositions).toEqual([...scenario.expectedControl]);
+    expect(store.humanOpenPositions(sessionId)).toEqual([...scenario.expectedControl]);
+    const complement = ([1, 2, 3, 4, 5] as const).filter((position) => !scenario.expectedControl.includes(position));
     expect(store.allyBotPositions(sessionId)).toEqual(complement);
     store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
     const recommendationResponse = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v3`));
