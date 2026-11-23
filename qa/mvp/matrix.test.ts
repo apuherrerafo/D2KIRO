@@ -27,7 +27,7 @@ test("QA-MATRIX-000 corpus has at least 100 useful deterministic scenarios", () 
 for (const scenario of MVP_SCENARIOS) {
   test(`QA-MATRIX ${scenario.id}`, async () => {
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store, heroPositions: loadHeroPositions(), computeSuggestions: async (state) => allHeroSuggestions(state.sessionId, state.lastSeq) });
+    const routes = createProtocolSessionRoutes({ store, heroPositions: loadHeroPositions(), heroCounters: new Map(), computeSuggestions: async (state) => allHeroSuggestions(state.sessionId, state.lastSeq) });
     const response = await routes.post(request({
       rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator",
       partyContext: { partySize: scenario.partySize, side: "radiant", controlledSlots: [] }, controlledPositions: scenario.humanPositions,

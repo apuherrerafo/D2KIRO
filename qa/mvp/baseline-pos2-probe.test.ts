@@ -22,7 +22,8 @@ async function probe(grounded: boolean): Promise<{ serialized: number[]; coach: 
     store,
     heroPositions: positions,
     // Variante con fundamento: Lina tiene un counter curado contra una amenaza que se banea -> BAN_OPENS (fundamento real).
-    ...(grounded ? { heroCounters: new Map([[MID_ID, [{ vs: BANNED_THREAT, level: "hard" as const, why: "QA fixture" }]]]) } : {}),
+    // Sin fundamento: universo SIN counters inyectado explicitamente (omitirlo leeria hero-counters.json real).
+    heroCounters: grounded ? new Map([[MID_ID, [{ vs: BANNED_THREAT, level: "hard" as const, why: "QA fixture" }]]]) : new Map(),
     computeSuggestions: async (state): Promise<SuggestionSet> => ({
       schema: "suggestions/v1",
       sessionId: state.sessionId,

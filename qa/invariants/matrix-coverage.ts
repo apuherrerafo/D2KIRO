@@ -145,10 +145,10 @@ export function ruleOf(problem: string): CoverageRule | "VACUITY" {
 
 export interface CoverageReference {
   /**
-   * Procedencia auditable: de que commit y cuando se midio, y el sha256 (contenido con finales de linea normalizados a LF) de cada dato
-   * curado real del que depende la matriz. Hoy: `hero-counters.json` -- con counters vacios inyectados la matriz entera da 0 tarjetas.
+   * Procedencia auditable: de que commit y cuando se midio, y el sha256 de cada FIXTURE sintetico del que depende la matriz (R3.3: ya no se hashea
+   * ningun dato curado real). Hoy: `synthetic-counters` (`qa/scenarios/synthetic-counters.ts`) -- con counters vacios la matriz entera da 0 tarjetas.
    */
-  provenance: { commit: string; measuredOn: string; source: string; curatedInputs: Readonly<Record<string, string>> };
+  provenance: { commit: string; measuredOn: string; source: string; fixtureInputs: Readonly<Record<string, string>> };
   profile: MatrixProfile;
   /** Huella de `{ provenance, profile }`: detecta una edicion a mano de la referencia sin pasar por `buildCoverageReference`. */
   integrity: { sha256: string };
@@ -185,7 +185,7 @@ const rate = (numerator: number, denominator: number): number => (denominator ==
 const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
 /**
- * Confianza en la REFERENCIA (no en la matriz): ¿fue alterada a mano?, ¿trae una tolerancia propia?, ¿los datos curados reales siguen
+ * Confianza en la REFERENCIA (no en la matriz): ¿fue alterada a mano?, ¿trae una tolerancia propia?, ¿los fixtures sinteticos siguen
  * siendo los que la produjeron? `actualInputs` (sha256 por dato curado, calculado por el llamador con I/O) es opcional: sin el, no se
  * evalua compatibilidad. Un cambio de datos NO es una regresion del Coach y tampoco se resuelve regenerando sola la referencia.
  */
@@ -198,14 +198,21 @@ export function referenceTrustProblems(reference: CoverageReference, actualInput
     problems.push(tag("REFERENCE_TAMPERED", "la huella de la referencia no coincide con su contenido: se edito a mano en vez de regenerarla con buildCoverageReference (coverage-reference.md)"));
   }
   if (actualInputs) {
-    for (const [file, recorded] of Object.entries(reference.provenance.curatedInputs)) {
+    // Simetria: tambien se exige que un fixture NUEVO (presente hoy, ausente en la referencia) quede registrado; antes pasaba en silencio.
+    const names = new Set([...Object.keys(reference.provenance.fixtureInputs), ...Object.keys(actualInputs)]);
+    for (const file of names) {
+      const recorded = reference.provenance.fixtureInputs[file];
       const actual = actualInputs[file];
       if (actual === recorded) continue;
-      const detail = actual === undefined ? "no se pudo calcular su huella (archivo ausente o ilegible)" : `cambio: referencia sha256:${recorded.slice(0, 12)}…, actual sha256:${actual.slice(0, 12)}…`;
+      if (recorded === undefined) {
+        problems.push(tag("REFERENCE_INCOMPATIBLE", `${file} existe hoy pero la referencia no lo registra: se agrego un fixture sin regenerar la referencia (coverage-reference.md).`));
+        continue;
+      }
+      const detail = actual === undefined ? "no se pudo calcular su huella (fixture ausente)" : `cambio: referencia sha256:${recorded.slice(0, 12)}…, actual sha256:${actual.slice(0, 12)}…`;
       problems.push(
         tag(
           "REFERENCE_INCOMPATIBLE",
-          `${file} ${detail}. Esto NO es una regresion del Coach: los datos curados que alimentan la matriz son otros y la referencia ya no es comparable. No se regenera sola ni se da PASS por esto; revisar el cambio de datos y, solo con revision humana, regenerar la referencia (coverage-reference.md).`,
+          `${file} ${detail}. Esto NO es una regresion del Coach: los fixtures sinteticos que alimentan la matriz son otros y la referencia ya no es comparable. No se regenera sola ni se da PASS por esto; revisar el cambio del fixture y, solo con revision humana, regenerar la referencia (coverage-reference.md).`,
         ),
       );
     }
@@ -258,8 +265,8 @@ export function coverageRegressionProblems(current: MatrixProfile, reference: Co
 }
 
 /**
- * Guard completo: confianza en la referencia (alteracion / datos curados distintos) + matriz no vacia + sin regresion.
- * `actualInputs` = sha256 de los datos curados reales hoy (ver `curated-input-hashes.ts`); omitido en pruebas unitarias.
+ * Guard completo: confianza en la referencia (alteracion / fixtures distintos) + matriz no vacia + sin regresion.
+ * `actualInputs` = sha256 de los fixtures sinteticos de hoy (ver `fixture-input-hashes.ts`); omitido en pruebas unitarias.
  */
 export function matrixGuardProblems(matrix: readonly CoverageRun[], reference: CoverageReference, actualInputs?: Readonly<Record<string, string>>): string[] {
   const profile = matrixProfile(matrix);

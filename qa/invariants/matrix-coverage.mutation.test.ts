@@ -28,7 +28,7 @@ import {
 const card = { heroId: 25 };
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
-const provenance = (curated: Record<string, string> = {}) => ({ commit: "fixture", measuredOn: "2026-11-22", source: "sintetica", curatedInputs: curated });
+const provenance = (curated: Record<string, string> = {}) => ({ commit: "fixture", measuredOn: "2026-11-22", source: "sintetica", fixtureInputs: curated });
 const refOf = (matrix: readonly CoverageRun[], curated?: Record<string, string>): CoverageReference => buildCoverageReference(matrix, provenance(curated));
 const guard = (matrix: readonly CoverageRun[], reference: CoverageReference, actual?: Record<string, string>) => matrixGuardProblems(matrix, reference, actual);
 /** Conjunto de reglas disparadas (ordenado, sin repetir). */
@@ -75,7 +75,7 @@ describe("referencia de la rejilla: la matriz sin mutar pasa su propio guard (co
   test("sin problemas, con y sin huella de datos curados coincidente", () => {
     const matrix = grid();
     expect(guard(matrix, refOf(matrix))).toEqual([]);
-    expect(guard(matrix, refOf(matrix, { "hero-counters.json": HASH_A }), { "hero-counters.json": HASH_A })).toEqual([]);
+    expect(guard(matrix, refOf(matrix, { "synthetic-counters": HASH_A }), { "synthetic-counters": HASH_A })).toEqual([]);
   });
 });
 
@@ -136,26 +136,34 @@ describe("M3: UNA prueba de mutacion por regla activa -- el conjunto de reglas d
     expect(rulesOf(problems)).toEqual(["REFERENCE_INVALID"]);
   });
 
-  test("REFERENCE_INCOMPATIBLE: los datos curados cambiaron; matriz identica, y NO es PASS ni regresion", () => {
+  test("REFERENCE_INCOMPATIBLE: el fixture sintetico cambio; matriz identica, y NO es PASS ni regresion", () => {
     const matrix = grid();
-    const reference = refOf(matrix, { "hero-counters.json": HASH_A });
-    const problems = guard(matrix, reference, { "hero-counters.json": HASH_B });
+    const reference = refOf(matrix, { "synthetic-counters": HASH_A });
+    const problems = guard(matrix, reference, { "synthetic-counters": HASH_B });
     expect(rulesOf(problems)).toEqual(["REFERENCE_INCOMPATIBLE"]);
     expect(problems[0]).toContain("NO es una regresion");
-    expect(problems[0]).toContain("hero-counters.json");
+    expect(problems[0]).toContain("synthetic-counters");
   });
 
-  test("REFERENCE_INCOMPATIBLE: archivo curado ausente/ilegible tambien se diagnostica (no se asume que coincide)", () => {
+  test("REFERENCE_INCOMPATIBLE: fixture ausente tambien se diagnostica (no se asume que coincide)", () => {
     const matrix = grid();
-    const problems = guard(matrix, refOf(matrix, { "hero-counters.json": HASH_A }), {});
+    const problems = guard(matrix, refOf(matrix, { "synthetic-counters": HASH_A }), {});
     expect(rulesOf(problems)).toEqual(["REFERENCE_INCOMPATIBLE"]);
     expect(problems[0]).toContain("no se pudo calcular");
   });
 
+  test("REFERENCE_INCOMPATIBLE: un fixture NUEVO que la referencia no registra se diagnostica (simetria, R3.3)", () => {
+    const matrix = grid();
+    const problems = guard(matrix, refOf(matrix, { "synthetic-counters": HASH_A }), { "synthetic-counters": HASH_A, "otro-fixture": HASH_B });
+    expect(rulesOf(problems)).toEqual(["REFERENCE_INCOMPATIBLE"]);
+    expect(problems[0]).toContain("otro-fixture");
+    expect(problems[0]).toContain("no lo registra");
+  });
+
   test("cambio de datos + regresion real: ambos diagnosticos, el de datos primero (no se esconde ninguno)", () => {
-    const reference = refOf(grid(), { "hero-counters.json": HASH_A });
+    const reference = refOf(grid(), { "synthetic-counters": HASH_A });
     const collapsed = grid({ cards: (run, group, rep) => run === 0 && group === 0 && rep === 0 });
-    const problems = guard(collapsed, reference, { "hero-counters.json": HASH_B });
+    const problems = guard(collapsed, reference, { "synthetic-counters": HASH_B });
     expect(ruleOf(problems[0]!)).toBe("REFERENCE_INCOMPATIBLE");
     expect(rulesOf(problems)).toContain("CARD_RATE");
   });
@@ -180,7 +188,7 @@ describe("M3: UNA prueba de mutacion por regla activa -- el conjunto de reglas d
   });
 
   test("referenceTrustProblems sin datos reales no evalua compatibilidad (solo integridad)", () => {
-    expect(referenceTrustProblems(refOf(grid(), { "hero-counters.json": HASH_A }))).toEqual([]);
+    expect(referenceTrustProblems(refOf(grid(), { "synthetic-counters": HASH_A }))).toEqual([]);
   });
 });
 

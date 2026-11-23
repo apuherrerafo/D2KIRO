@@ -28,6 +28,7 @@
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
+import { SYNTHETIC_COUNTERS } from "./synthetic-counters";
 import { heroPoolFitScorer } from "../../apps/engine/src/signals/hero-pool-fit";
 import type { SuggestionSet } from "../../apps/engine/src/signals/mix";
 import type { HeroUniverse } from "../../apps/engine/src/simulator/ban-resolution";
@@ -151,7 +152,8 @@ export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITION
     store,
     computeSuggestions: createComputeSuggestions(accountPools),
     heroPositions,
-    ...(heroCounters ? { heroCounters } : {}),
+    // R3.3: NUNCA se omite -- omitirlo hace que el motor lea el hero-counters.json real. Sin override, el fixture sintetico.
+    heroCounters: heroCounters ?? SYNTHETIC_COUNTERS,
     heroUniverse: async () => heroUniverseFor(heroPositions),
   });
   return { store, routes };

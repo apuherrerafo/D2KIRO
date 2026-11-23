@@ -1,29 +1,29 @@
 {
   "provenance": {
-    "commit": "6fbd8bd2",
+    "commit": "501289d3",
     "measuredOn": "2026-11-22",
-    "source": "enumerateScenarios() + createFixtureRoutes(), 26 control sets x 2 sides x fill-order",
-    "curatedInputs": {
-      "hero-counters.json": "8ad9fbc6a9d8259c57fbfc9f272b9328909d4f680ea94522ac8866b836f62f95"
+    "source": "R3.3: enumerateScenarios() + createFixtureRoutes() con counters SINTETICOS (qa/scenarios/synthetic-counters.ts), 26 control sets x 2 sides x fill-order; medido sobre 501289d3 + cambios R3.3",
+    "fixtureInputs": {
+      "synthetic-counters": "0e445818bec7fde0124743c7ecc3ab999cc704983d59f658e7eecc7df9498d8b"
     }
   },
   "profile": {
     "humanOpen": 652,
-    "coachAnswered": 410,
-    "withCards": 194,
+    "coachAnswered": 434,
+    "withCards": 225,
     "runs": 134,
-    "runsWithCards": 55,
+    "runsWithCards": 66,
     "segments": {
       "round": {
         "1": {
           "open": 392,
-          "answered": 194,
-          "withCards": 128
+          "answered": 214,
+          "withCards": 151
         },
         "2": {
           "open": 212,
-          "answered": 168,
-          "withCards": 62
+          "answered": 172,
+          "withCards": 70
         },
         "3": {
           "open": 48,
@@ -34,18 +34,18 @@
       "step": {
         "after_bans": {
           "open": 134,
-          "answered": 55,
-          "withCards": 55
+          "answered": 65,
+          "withCards": 65
         },
         "before_human_turn": {
           "open": 322,
-          "answered": 159,
-          "withCards": 105
+          "answered": 173,
+          "withCards": 121
         },
         "after_own_pick": {
           "open": 196,
           "answered": 196,
-          "withCards": 34
+          "withCards": 39
         }
       },
       "partySize": {
@@ -56,62 +56,62 @@
         },
         "2": {
           "open": 240,
-          "answered": 120,
-          "withCards": 66
+          "answered": 124,
+          "withCards": 72
         },
         "3": {
           "open": 360,
-          "answered": 256,
-          "withCards": 106
+          "answered": 274,
+          "withCards": 129
         },
         "5": {
           "open": 32,
-          "answered": 30,
-          "withCards": 18
+          "answered": 32,
+          "withCards": 20
         }
       },
       "side": {
         "radiant": {
           "open": 326,
-          "answered": 202,
-          "withCards": 94
+          "answered": 218,
+          "withCards": 114
         },
         "dire": {
           "open": 326,
-          "answered": 208,
-          "withCards": 100
+          "answered": 216,
+          "withCards": 111
         }
       },
       "openPosition": {
         "1": {
           "open": 248,
-          "answered": 202,
-          "withCards": 194
+          "answered": 226,
+          "withCards": 225
         },
         "2": {
           "open": 248,
-          "answered": 116,
-          "withCards": 73
+          "answered": 126,
+          "withCards": 83
         },
         "3": {
           "open": 258,
-          "answered": 128,
-          "withCards": 71
+          "answered": 136,
+          "withCards": 80
         },
         "4": {
           "open": 270,
-          "answered": 138,
-          "withCards": 64
+          "answered": 150,
+          "withCards": 76
         },
         "5": {
           "open": 292,
-          "answered": 154,
-          "withCards": 54
+          "answered": 172,
+          "withCards": 72
         }
       }
     }
   },
   "integrity": {
-    "sha256": "26e6d5ab109d0619889655771e9f9908f82b2062fd55861a36ef18c4031eeeaa"
+    "sha256": "4ca1ef9c2116d1c4968561727e7cc3d152bb2b171b86141477a87e8b8bcbe98c"
   }
 }

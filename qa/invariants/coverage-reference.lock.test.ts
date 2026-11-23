@@ -3,7 +3,7 @@
  * (tolerancias) o reemplace la referencia (numeros) sin que quede a la vista. Toda constante de aqui se actualiza a mano, junto con
  * `coverage-reference.md`, en el mismo cambio y con revision humana.
  *
- * No lee `hero-counters.json` ni la matriz real (eso lo hace `ownership.test.ts`): solo el JSON de la referencia, que es un artefacto de QA.
+ * No lee ningun dato curado real ni la matriz (eso lo hace `ownership.test.ts`): solo el JSON de la referencia, que es un artefacto de QA.
  */
 import { describe, expect, test } from "bun:test";
 import referenceJson from "./coverage-reference.json";
@@ -11,8 +11,8 @@ import { COVERAGE_TOLERANCE, referenceIntegrityHash, referenceTrustProblems, typ
 
 const reference = referenceJson as unknown as CoverageReference;
 
-// Pin de la referencia vigente (commit 6fbd8bd2, 134/652/410/194). Cambiarla exige cambiar este valor a proposito.
-const PINNED_REFERENCE_SHA256 = "26e6d5ab109d0619889655771e9f9908f82b2062fd55861a36ef18c4031eeeaa";
+// Pin de la referencia vigente (R3.3, fixture sintetico: 134/652/434/225). Cambiarla exige cambiar este valor a proposito.
+const PINNED_REFERENCE_SHA256 = "4ca1ef9c2116d1c4968561727e7cc3d152bb2b171b86141477a87e8b8bcbe98c";
 // Pin de las tolerancias provisionales. Subirlas o bajarlas es una decision a revisar, nunca un ajuste para conseguir PASS.
 const PINNED_TOLERANCE: Record<string, number> = { rateFloor: 0.5, minSegmentAnswered: 5 };
 
@@ -32,11 +32,11 @@ describe("candado de la referencia de cobertura", () => {
     expect(reference.integrity.sha256).toBe(PINNED_REFERENCE_SHA256);
   });
 
-  test("la procedencia es auditable: commit, fecha y sha256 de hero-counters.json", () => {
+  test("la procedencia es auditable: commit, fecha y sha256 del fixture sintetico de counters", () => {
     expect(reference.provenance.commit).toMatch(/^[0-9a-f]{7,40}$/);
     expect(reference.provenance.measuredOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(Object.keys(reference.provenance.curatedInputs)).toEqual(["hero-counters.json"]);
-    expect(reference.provenance.curatedInputs["hero-counters.json"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(Object.keys(reference.provenance.fixtureInputs)).toEqual(["synthetic-counters"]);
+    expect(reference.provenance.fixtureInputs["synthetic-counters"]).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("candado en rojo: cambiar un numero de la referencia sin regenerar la huella se detecta", () => {
