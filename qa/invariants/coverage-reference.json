@@ -1,10 +1,11 @@
 {
   "provenance": {
-    "commit": "501289d3",
+    "commit": "e5dc6653",
     "measuredOn": "2026-11-22",
-    "source": "R3.3: enumerateScenarios() + createFixtureRoutes() con counters SINTETICOS (qa/scenarios/synthetic-counters.ts), 26 control sets x 2 sides x fill-order; medido sobre 501289d3 + cambios R3.3",
+    "source": "R3.4: enumerateScenarios() + createFixtureRoutes() con counters SINTETICOS (qa/scenarios/synthetic-counters.ts), 26 control sets x 2 sides x fill-order; medido sobre e5dc6653 + huella del universo del generador",
     "fixtureInputs": {
-      "synthetic-counters": "0e445818bec7fde0124743c7ecc3ab999cc704983d59f658e7eecc7df9498d8b"
+      "synthetic-counters": "0e445818bec7fde0124743c7ecc3ab999cc704983d59f658e7eecc7df9498d8b",
+      "scenario-universe": "c3971c6de0eea3c041654d3ecc0ea5c04985c940a11b72c6c736e5a630ec49d2"
     }
   },
   "profile": {
@@ -112,6 +113,6 @@
     }
   },
   "integrity": {
-    "sha256": "4ca1ef9c2116d1c4968561727e7cc3d152bb2b171b86141477a87e8b8bcbe98c"
+    "sha256": "61166539394216d376293ccea356a0f167564e0509e1acdfa2646e3bba6d3ac2"
   }
 }

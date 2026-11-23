@@ -12,7 +12,7 @@ import { COVERAGE_TOLERANCE, referenceIntegrityHash, referenceTrustProblems, typ
 const reference = referenceJson as unknown as CoverageReference;
 
 // Pin de la referencia vigente (R3.3, fixture sintetico: 134/652/434/225). Cambiarla exige cambiar este valor a proposito.
-const PINNED_REFERENCE_SHA256 = "4ca1ef9c2116d1c4968561727e7cc3d152bb2b171b86141477a87e8b8bcbe98c";
+const PINNED_REFERENCE_SHA256 = "61166539394216d376293ccea356a0f167564e0509e1acdfa2646e3bba6d3ac2";
 // Pin de las tolerancias provisionales. Subirlas o bajarlas es una decision a revisar, nunca un ajuste para conseguir PASS.
 const PINNED_TOLERANCE: Record<string, number> = { rateFloor: 0.5, minSegmentAnswered: 5 };
 
@@ -35,8 +35,9 @@ describe("candado de la referencia de cobertura", () => {
   test("la procedencia es auditable: commit, fecha y sha256 del fixture sintetico de counters", () => {
     expect(reference.provenance.commit).toMatch(/^[0-9a-f]{7,40}$/);
     expect(reference.provenance.measuredOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(Object.keys(reference.provenance.fixtureInputs)).toEqual(["synthetic-counters"]);
+    expect(Object.keys(reference.provenance.fixtureInputs).sort()).toEqual(["scenario-universe", "synthetic-counters"]);
     expect(reference.provenance.fixtureInputs["synthetic-counters"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(reference.provenance.fixtureInputs["scenario-universe"]).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("candado en rojo: cambiar un numero de la referencia sin regenerar la huella se detecta", () => {

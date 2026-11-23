@@ -48,7 +48,8 @@ export type CheckpointStep = "after_bans" | "before_human_turn" | "after_own_pic
 // reserved exclusively for the human's own submission of that position -- one pick per position per
 // session, so no collision is possible between the human's fixed offset and the bots' low offsets.
 // -------------------------------------------------------------------------------------------------
-const FILLER = Array.from({ length: 48 }, (_, index) => index + 1);
+/** Ids de relleno que el generador banea (y de los que dependen los counters sinteticos). Exportado para que la huella de la referencia los cubra. */
+export const FILLER = Array.from({ length: 48 }, (_, index) => index + 1);
 const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 export const HERO_POSITIONS: HeroPositions = {};
 for (const position of POSITIONS) {

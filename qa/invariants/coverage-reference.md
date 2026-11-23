@@ -1,7 +1,7 @@
 # Referencia de cobertura de la matriz de QA (R3.1 / R3.2)
 
-`coverage-reference.json` es la linea base **observada** de la matriz del generador (`qa/scenarios/generate.ts`) medida en R3.3 (sobre
-`501289d3` + los cambios de R3.3): 134 corridas, 652 checkpoints con humano abierto, 434 respuestas del Coach, 225 con tarjetas y 66 corridas
+`coverage-reference.json` es la linea base **observada** de la matriz del generador (`qa/scenarios/generate.ts`) medida en R3.3/R3.4 (sobre
+`e5dc6653`; los numeros son identicos a R3.3, R3.4 solo agrego procedencia): 134 corridas, 652 checkpoints con humano abierto, 434 respuestas del Coach, 225 con tarjetas y 66 corridas
 distintas con tarjetas, con counters **sinteticos** (`qa/scenarios/synthetic-counters.ts`). Trae tres bloques: `provenance` (commit, fecha, sha256 del fixture sintetico de counters), `profile` (los conteos) e `integrity` (huella
 de los dos anteriores). **No trae tolerancias.**
 
@@ -48,8 +48,8 @@ y la referencia hasheaba ese archivo. Eso violaba `invariantes.md` ("ninguna pru
 suite en rojo (o la dejaba midiendo otra cosa) sin que el Coach hubiera cambiado. Hallazgo ALTA de la revision independiente de R3 (Gemini).
 
 Ahora el fixture es explicito, determinista y vive en el QA (`qa/scenarios/synthetic-counters.ts`, marcado `SYNTHETIC QA FIXTURE -- not Dota 2
-knowledge`: **no es evidencia de ningun matchup real**). `createFixtureRoutes()` lo inyecta siempre; la referencia registra su sha256 en
-`provenance.fixtureInputs` y `ownership.test.ts` lo compara (`fixture-input-hashes.ts`, sin I/O):
+knowledge`: **no es evidencia de ningun matchup real**). `createFixtureRoutes()` lo inyecta siempre; la referencia registra en `provenance.fixtureInputs` el sha256 de `synthetic-counters` y de `scenario-universe` (los ids de relleno baneados `FILLER` y
+`HERO_POSITIONS` del generador, de los que depende que los counters produzcan tarjetas; R3.4) y `ownership.test.ts` lo compara (`fixture-input-hashes.ts`, sin I/O):
 
 - **Coincide**: el guard evalua regresion como siempre.
 - **Cambio, ausencia o fixture nuevo no registrado** (simetria): `[REFERENCE_INCOMPATIBLE]` — *no es una regresion del Coach, el fixture es otro* —
@@ -97,3 +97,15 @@ Solo a mano y con revision humana, cuando (a) cambia el diseno de la matriz (esc
   dato curado real; los ids sinteticos siguen coincidiendo numericamente con ids reales, pero ya no importa: el motor no lee nada real.)
 - **Fuera de alcance de R3.3**: `qa/mvp/matrix.test.ts` y `baseline-pos2-probe.test.ts` siguen cargando `hero-positions.json` real (otro dato
   curado, no `hero-counters.json`); ahora inyectan `heroCounters` vacio de forma explicita.
+
+## Independencia de datos curados (R3.4) — que se lee y que no
+
+- **Aislamiento demostrado**: `curated-independence.test.ts` sustituye, en subprocesos, los 4 JSON curados que el motor carga por defecto en la ruta del
+  Coach (`hero-counters`, `hero-synergies`, `hero-positions`, `advertir-approved`) por contenido vacio y por contenido ajeno, y exige el mismo perfil de
+  cobertura. Premisa no vacua: la sustitucion se verifica por archivo (el motor ve 0 / 2 / 1 claves). `capabilities.json` y `percentiles.json` no
+  participan de esta ruta.
+- **Lectores autorizados de datos reales** (allowlist en esa misma prueba, solo `hero-positions.json`, cada uno con su motivo): `mvp/position-oracle.ts`
+  (cabecera: `SHARED_RAW_DATA`; oraculo independiente que audita el filtro de credibilidad contra el artefacto publicado), `mvp/matrix.test.ts` y
+  `mvp/baseline-pos2-probe.test.ts` (integracion sobre esas posiciones, con counters inyectados). Son pruebas de contrato contra el artefacto publicado,
+  no fixtures de aislamiento; su acoplamiento al contenido de `hero-positions.json` es deliberado y queda registrado aqui. Cualquier otro lector real
+  hace fallar la prueba estatica.
