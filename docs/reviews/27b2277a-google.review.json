@@ -1,0 +1,53 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "google",
+    "tool": "antigravity-cli (agy), modo plan, solo lectura",
+    "model": "gemini (modelo por defecto de agy; version no informada por el CLI)"
+  },
+  "reviewedBase": "798a8813a4a1e42b05fc89706cb6192f64ce9815",
+  "reviewedHead": "27b2277a23b91fa461b944d689a2154765bf6d4b",
+  "diffSha256": "db2cd98068e9943eda4b8c1f52c0efcbad0c910ddbd8350cd2f48957beca4b0a",
+  "rawOutput": {
+    "file": "docs/reviews/27b2277a-google.raw.txt",
+    "sha256": "99ebe6c82947ce3b4839c16e4d88d67dafcd63134e3135e98c6f08b22d6015d3"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "qa/invariants/curated-independence.test.ts: La extracción de ruta relativa con `.split(\"/qa/\")[1]` falla si el path padre del checkout o runner de CI contiene la subcadena `/qa/`, debiendo usarse `path.relative()`.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "qa/invariants/curated-independence.test.ts: La heurística de `withoutComments` no elimina comentarios trailing de línea (riesgo de falsos positivos) y descarta líneas de código útiles que inicien con comentarios de bloque `/*`.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "qa/invariants/curated-independence.test.ts: Las llamadas a `runProbe` ejecutan 3 subprocesos pesados sincrónicamente en el cuerpo de `describe` en lugar de diferirse a un hook `beforeAll`.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": ".github/workflows/ci.yml",
+      "summary": ".github/workflows/ci.yml: Acciones externas referenciadas mediante tags mutables (`@v4`, `@v2`) sin fijar por commit SHA y sin bloque restrictivo de `permissions:` a nivel de workflow.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/coherence.test.ts",
+      "summary": "qa/invariants/coherence.test.ts: La remoción de `candidates.cards.length > 0` vuelve `candidates.cards.every(...)` vacuamente verdadero cuando `cards: []`, transfiriendo toda la responsabilidad anti-vacío al guard de matriz en `ownership.test.ts`.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

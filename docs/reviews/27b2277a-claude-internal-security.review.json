@@ -1,0 +1,56 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "798a8813a4a1e42b05fc89706cb6192f64ce9815",
+  "reviewedHead": "27b2277a23b91fa461b944d689a2154765bf6d4b",
+  "diffSha256": "db2cd98068e9943eda4b8c1f52c0efcbad0c910ddbd8350cd2f48957beca4b0a",
+  "rawOutput": {
+    "file": "docs/reviews/27b2277a-claude-internal-security.raw.txt",
+    "sha256": "90d8e79bc9c5616f3589205c7e5e1d96a6c507a23f55bf97d0ecee69057ebc26"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": ".github/workflows/ci.yml",
+      "summary": ".github/workflows/ci.yml: el workflow no declara `permissions:`, así que el GITHUB_TOKEN usa los permisos por defecto del repo/org. Es una condición previa al PR. El diff no la empeora, porque no añade permisos ni secretos.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": ".github/workflows/ci.yml",
+      "summary": ".github/workflows/ci.yml: las acciones (actions/checkout@v4, setup-bun@v2, cache@v4, upload-artifact@v4) están fijadas por tag y no por SHA. Ya era así antes. El PR añade pasos nuevos que usan solo `run` y no suma acciones nuevas.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "qa/invariants/curated-independence.test.ts: lanza `Bun.spawnSync([process.execPath, \"--preload\", ...])` con `{...process.env}` completo. Solo ejecuta archivos del propio repo (profile-probe.ts y el preload), con rutas fijas y sin input externo. No hay inyección de shell, porque el vector va como array de argumentos. Si en el futuro el job `qa` recibiera secretos como variables de entorno, el subproceso los heredaría. Hoy el job no usa ninguno.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "qa/invariants/curated-independence.test.ts: el chequeo estático de independencia usa un regex sobre el texto de los archivos, pero ignora las líneas que parecen comentarios. Un lector real de datos curados escrito con un truco de sintaxis podría evadirlo. Es una guarda de calidad, no una frontera de seguridad. No hay riesgo de path traversal, porque `Bun.Glob` va acotado a `qa/` y el nombre de archivo solo se usa para comparar.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/coverage-reference.json",
+      "summary": "qa/invariants/coverage-reference.json y coverage-reference.lock.test.ts: la huella de integridad (sha256) está en el mismo diff que el contenido y el pin vive en el repo. Quien edite ambos a la vez puede cambiar la referencia sin que salte nada. La protección real es la revisión humana, como ya documenta coverage-reference.md. No es falsificación de checks por un tercero.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

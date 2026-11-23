@@ -1,0 +1,28 @@
+REVISIÓN INTERNA (Claude, contexto nuevo). Aviso de independencia: comparto modelo con el autor del código, así que no soy un revisor independiente y puedo compartir sus puntos ciegos.
+
+Base: 798a8813a4a1e42b05fc89706cb6192f64ce9815
+Head revisado: 27b2277a23b91fa461b944d689a2154765bf6d4b
+
+Archivos que miré:
+- El diff completo (1623 líneas): .github/workflows/ci.yml y todo lo nuevo o cambiado en qa/. Eso incluye invariants/*, isolation/*, scenarios/generate.ts, scenarios/synthetic-counters*, mvp/* y tsconfig.json.
+- En el worktree del head solo leí el encabezado de .github/workflows/ci.yml (los triggers y las líneas con `uses:`) y la entrada de package.json con los scripts qa:typecheck.
+- No ejecuté nada del PR.
+
+Hallazgos:
+
+1. BAJA — .github/workflows/ci.yml: el workflow no declara `permissions:`, así que el GITHUB_TOKEN usa los permisos por defecto del repo/org. Es una condición previa al PR. El diff no la empeora, porque no añade permisos ni secretos.
+2. BAJA — .github/workflows/ci.yml: las acciones (actions/checkout@v4, setup-bun@v2, cache@v4, upload-artifact@v4) están fijadas por tag y no por SHA. Ya era así antes. El PR añade pasos nuevos que usan solo `run` y no suma acciones nuevas.
+3. BAJA — qa/invariants/curated-independence.test.ts: lanza `Bun.spawnSync([process.execPath, "--preload", ...])` con `{...process.env}` completo. Solo ejecuta archivos del propio repo (profile-probe.ts y el preload), con rutas fijas y sin input externo. No hay inyección de shell, porque el vector va como array de argumentos. Si en el futuro el job `qa` recibiera secretos como variables de entorno, el subproceso los heredaría. Hoy el job no usa ninguno.
+4. BAJA — qa/invariants/curated-independence.test.ts: el chequeo estático de independencia usa un regex sobre el texto de los archivos, pero ignora las líneas que parecen comentarios. Un lector real de datos curados escrito con un truco de sintaxis podría evadirlo. Es una guarda de calidad, no una frontera de seguridad. No hay riesgo de path traversal, porque `Bun.Glob` va acotado a `qa/` y el nombre de archivo solo se usa para comparar.
+5. BAJA — qa/invariants/coverage-reference.json y coverage-reference.lock.test.ts: la huella de integridad (sha256) está en el mismo diff que el contenido y el pin vive en el repo. Quien edite ambos a la vez puede cambiar la referencia sin que salte nada. La protección real es la revisión humana, como ya documenta coverage-reference.md. No es falsificación de checks por un tercero.
+
+Revisado sin hallazgos:
+- Secretos: no hay ninguno en el diff.
+- PII: no hay accountId ni Steam32 en logs ni respuestas. `ACCOUNT` en coherence.test.ts es una constante de fixture ya existente. Los ids de héroe y los hashes son sintéticos.
+- SSRF y SQL: no hay red ni consultas.
+- Plantillas: no se usan.
+- Workflow: el trigger es `pull_request` (no `pull_request_target`) y el checkout es el normal. El job `qa` instala con `--frozen-lockfile` en engine y web. Los scripts `qa:typecheck` y `qa:typecheck:invariants` existen en package.json.
+- Falsificación de checks: la matriz CI solo añade el target `qa` con `test_args: "qa/"`. El diff no hace que ningún job pase de forma artificial. El guard de cobertura endurece el chequeo anti-vacío y no lo debilita. Las tolerancias van congeladas en código y la prueba de candado las fija.
+- Cambios en tests de contrato: `computeSuggestions` pasa a lanzar excepción donde antes caía al dato real, y `heroCounters: new Map()` pasa a ser explícito. Esto aísla las pruebas de datos curados y no abre ningún hueco.
+
+Veredicto: APROBADO CON OBSERVACIONES. Son todas BAJA y no hay bloqueantes. El PR solo toca QA y CI, sin superficie de runtime de producción.
