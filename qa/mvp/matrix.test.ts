@@ -27,7 +27,7 @@ test("QA-MATRIX-000 corpus has at least 100 useful deterministic scenarios", () 
 for (const scenario of MVP_SCENARIOS) {
   test(`QA-MATRIX ${scenario.id}`, async () => {
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store, heroPositions: loadHeroPositions(), computeSuggestions: async (state) => allHeroSuggestions(state.sessionId, state.lastSeq) });
+    const routes = createProtocolSessionRoutes({ store, heroPositions: loadHeroPositions(), heroCounters: new Map(), computeSuggestions: async (state) => allHeroSuggestions(state.sessionId, state.lastSeq) });
     const response = await routes.post(request({
       rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator",
       partyContext: { partySize: scenario.partySize, side: "radiant", controlledSlots: [] }, controlledPositions: scenario.humanPositions,
@@ -35,9 +35,9 @@ for (const scenario of MVP_SCENARIOS) {
     }));
     expect(response.status).toBe(201);
     const { sessionId } = await response.json() as { sessionId: string };
-    expect(store.metadata(sessionId)?.controlledPositions).toEqual(scenario.expectedControl);
-    expect(store.humanOpenPositions(sessionId)).toEqual(scenario.expectedControl);
-    const complement = [1, 2, 3, 4, 5].filter((position) => !scenario.expectedControl.includes(position));
+    expect(store.metadata(sessionId)?.controlledPositions).toEqual([...scenario.expectedControl]);
+    expect(store.humanOpenPositions(sessionId)).toEqual([...scenario.expectedControl]);
+    const complement = ([1, 2, 3, 4, 5] as const).filter((position) => !scenario.expectedControl.includes(position));
     expect(store.allyBotPositions(sessionId)).toEqual(complement);
     store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
     const recommendationResponse = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v3`));

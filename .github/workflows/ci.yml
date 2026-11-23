@@ -40,6 +40,14 @@ jobs:
             typecheck: false
             lint: false
             test_args: "scripts/"
+          # qa/: oraculos de producto (contrato engine<->web, invariantes, matriz MVP). Hasta R3 ningun job los ejecutaba y quedaron
+          # desfasados del contrato de elegibilidad (R2.1). Corre en el mismo runner/instalacion que `root`; `bun test qa/` y `bun test scripts/`
+          # no se solapan (carpetas distintas), asi que no hay ejecucion duplicada. Su tsc propio va en el paso "QA type-check".
+          - target: qa
+            dir: .
+            typecheck: false
+            lint: false
+            test_args: "qa/"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,15 +101,27 @@ jobs:
       # drizzle-orm de apps/engine/node_modules. Sin este paso el job root falla con "Cannot find
       # module 'drizzle-orm/bun-sqlite/migrator'" (TSK-236) -- no se mockea ni se duplica la
       # dependencia en la raíz.
-      - name: Install apps/engine dependencies (needed by scripts/' real engine migration test)
-        if: matrix.target == 'root'
+      - name: Install apps/engine dependencies (needed by scripts/' real engine migration test and by qa/)
+        if: matrix.target == 'root' || matrix.target == 'qa'
         working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
+      # qa/ importa codigo de apps/web (parser/store del contrato engine<->web, alias "@/*" -> apps/web) y su tsc lo sigue.
+      - name: Install apps/web dependencies (needed by qa/)
+        if: matrix.target == 'qa'
+        working-directory: apps/web
         run: bun install --frozen-lockfile
 
       - name: Type-check
         if: matrix.typecheck
         working-directory: ${{ matrix.dir }}
         run: bunx tsc --noEmit
+
+      - name: QA type-check
+        if: matrix.target == 'qa'
+        run: |
+          bun run qa:typecheck
+          bun run qa:typecheck:invariants
 
       - name: Lint
         if: matrix.lint

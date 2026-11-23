@@ -10,7 +10,7 @@ function request(body: unknown): Request { return new Request("http://qa.local",
 
 test("contract:engine-web preserves V2 Pos2 and Coach team semantics through HTTP, parser, store, and highlight source", async () => {
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => { throw new Error("computeSuggestions is not expected in this test"); } });
   const created = await routes.post(request({
     rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator",
     partyContext: { partySize: 1, side: "radiant", controlledSlots: [] }, controlledPositions: [2], humanPosition: 2, simulatorSeed: "QACONTRACT01",

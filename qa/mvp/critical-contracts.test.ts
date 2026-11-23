@@ -15,7 +15,7 @@ function createBody(controlledPositions: readonly number[], partySize = controll
 describe("QA critical contract gate", () => {
   test("control is position based: party slots are inert, party 4 is rejected, and the bot owns only the complement", async () => {
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store });
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => { throw new Error("computeSuggestions is not expected in this test"); } });
     const accepted = await routes.post(request(createBody([2, 5])));
     expect(accepted.status).toBe(201);
     const { sessionId } = await accepted.json() as { sessionId: string };
@@ -29,7 +29,7 @@ describe("QA critical contract gate", () => {
 
   test("human-open positions are independent from chronology and a controlled position cannot be claimed twice", async () => {
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store });
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => { throw new Error("computeSuggestions is not expected in this test"); } });
     const created = await routes.post(request(createBody([2])));
     const { sessionId } = await created.json() as { sessionId: string };
     store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
@@ -51,7 +51,7 @@ describe("QA critical contract gate", () => {
   // place as historical evidence (SPEC.md task instructions: do not delete), not fixed here.
   test("QA-SEM-001 keeps V2 Pos2 and Coach Pos1 semantically distinct", () => {
     const v2 = [{ actions: [{ hero: 25, slot: { position: 2 } }] }];
-    const coach = [{ heroId: 1, position: 1 }, { heroId: 8, position: 1 }];
+    const coach = [{ heroId: 1, position: 1 as const }, { heroId: 8, position: 1 as const }];
     expect(coachShortlistMatchesPrimaryAction({ kind: "REVEAL_POSITION", position: 1 }, coach)).toBe(true);
     expect(expectedHighlightIds("v2-personal-recommendations", v2, coach)).toEqual([25]);
     expect(expectedHighlightIds("coach-team-shortlist", v2, coach)).toEqual([1, 8]);

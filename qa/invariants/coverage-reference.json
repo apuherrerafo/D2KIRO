@@ -1,0 +1,118 @@
+{
+  "provenance": {
+    "commit": "e5dc6653",
+    "measuredOn": "2026-11-22",
+    "source": "R3.4: enumerateScenarios() + createFixtureRoutes() con counters SINTETICOS (qa/scenarios/synthetic-counters.ts), 26 control sets x 2 sides x fill-order; medido sobre e5dc6653 + huella del universo del generador",
+    "fixtureInputs": {
+      "synthetic-counters": "0e445818bec7fde0124743c7ecc3ab999cc704983d59f658e7eecc7df9498d8b",
+      "scenario-universe": "c3971c6de0eea3c041654d3ecc0ea5c04985c940a11b72c6c736e5a630ec49d2"
+    }
+  },
+  "profile": {
+    "humanOpen": 652,
+    "coachAnswered": 434,
+    "withCards": 225,
+    "runs": 134,
+    "runsWithCards": 66,
+    "segments": {
+      "round": {
+        "1": {
+          "open": 392,
+          "answered": 214,
+          "withCards": 151
+        },
+        "2": {
+          "open": 212,
+          "answered": 172,
+          "withCards": 70
+        },
+        "3": {
+          "open": 48,
+          "answered": 48,
+          "withCards": 4
+        }
+      },
+      "step": {
+        "after_bans": {
+          "open": 134,
+          "answered": 65,
+          "withCards": 65
+        },
+        "before_human_turn": {
+          "open": 322,
+          "answered": 173,
+          "withCards": 121
+        },
+        "after_own_pick": {
+          "open": 196,
+          "answered": 196,
+          "withCards": 39
+        }
+      },
+      "partySize": {
+        "1": {
+          "open": 20,
+          "answered": 4,
+          "withCards": 4
+        },
+        "2": {
+          "open": 240,
+          "answered": 124,
+          "withCards": 72
+        },
+        "3": {
+          "open": 360,
+          "answered": 274,
+          "withCards": 129
+        },
+        "5": {
+          "open": 32,
+          "answered": 32,
+          "withCards": 20
+        }
+      },
+      "side": {
+        "radiant": {
+          "open": 326,
+          "answered": 218,
+          "withCards": 114
+        },
+        "dire": {
+          "open": 326,
+          "answered": 216,
+          "withCards": 111
+        }
+      },
+      "openPosition": {
+        "1": {
+          "open": 248,
+          "answered": 226,
+          "withCards": 225
+        },
+        "2": {
+          "open": 248,
+          "answered": 126,
+          "withCards": 83
+        },
+        "3": {
+          "open": 258,
+          "answered": 136,
+          "withCards": 80
+        },
+        "4": {
+          "open": 270,
+          "answered": 150,
+          "withCards": 76
+        },
+        "5": {
+          "open": 292,
+          "answered": 172,
+          "withCards": 72
+        }
+      }
+    }
+  },
+  "integrity": {
+    "sha256": "61166539394216d376293ccea356a0f167564e0509e1acdfa2646e3bba6d3ac2"
+  }
+}

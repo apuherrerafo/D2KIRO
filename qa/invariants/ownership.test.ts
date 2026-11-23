@@ -20,6 +20,9 @@ import { describe, test, expect } from "bun:test";
 import { enumerateScenarios, createFixtureRoutes, runScenario, fetchRecommendations, type Checkpoint, type Position } from "../scenarios/generate";
 import { primaryActionPositions } from "../mvp/oracles/coach-primary-action-oracle";
 import knownFailuresRegistry from "./known-failures.json";
+import { matrixCoverage, matrixGuardProblems, type CoverageReference } from "./matrix-coverage";
+import coverageReferenceJson from "./coverage-reference.json";
+import { fixtureInputHashes } from "./fixture-input-hashes";
 
 // ---------------------------------------------------------------------------------------------
 // Known-failure registry wiring (task section 9). No silent xfail: every checkpoint for an
@@ -455,13 +458,15 @@ test("sanity: humanOpenPositions is always a subset of controlledPositions", () 
 // must be non-empty/actionable, not just structurally present. And no-snapshot degradation must be
 // distinguishable from a real result, never silently confused with one.
 // ---------------------------------------------------------------------------------------------
-test("vacuous-pass guard: whenever humans have open capacity, the Coach shortlist is non-empty", () => {
-  for (const run of MATRIX) {
-    for (const checkpoint of run.checkpoints) {
-      if (checkpoint.humanOpenPositions.length === 0 || !checkpoint.v3) continue;
-      expect(checkpoint.v3.shortlist.length, minimalCounterexample("vacuous-pass-guard", checkpoint, {})).toBeGreaterThan(0);
-    }
-  }
+// Contrato de elegibilidad (2026-11-03/04, P0-04): un estado sin ningun heroe con fundamento NO tiene tarjeta, asi que "shortlist no vacia en
+// cada checkpoint" ya no es una propiedad del producto. La proteccion contra el pase vacio pasa a ser de MATRIZ: los checkpoints con humano
+// abierto existen, el Coach responde en ellos, y la matriz SI ejercita el camino con tarjetas (si ninguna shortlist tuviera nada, los oraculos
+// de posicion de arriba no habrian juzgado nada).
+test("vacuous-pass guard: the matrix exercises the Coach path -- humans open, Coach answered, and shortlists with cards exist", () => {
+  const coverage = matrixCoverage(MATRIX);
+  // R3.1: ya no basta "alguna shortlist con tarjetas" -- la matriz no puede regresar respecto de su referencia congelada (coverage-reference.md).
+  const problems = matrixGuardProblems(MATRIX, coverageReferenceJson as CoverageReference, fixtureInputHashes());
+  expect(problems, minimalCounterexample("vacuous-pass-guard", MATRIX[0]!.checkpoints[0]!, { ...coverage, problems })).toEqual([]);
 });
 
 test("vacuous-pass guard: a deliberately broken computeSuggestions degrades explicitly, never as a silent empty success", async () => {

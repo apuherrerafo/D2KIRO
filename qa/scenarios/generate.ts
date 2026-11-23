@@ -27,6 +27,8 @@
  */
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
+import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
+import { SYNTHETIC_COUNTERS } from "./synthetic-counters";
 import { heroPoolFitScorer } from "../../apps/engine/src/signals/hero-pool-fit";
 import type { SuggestionSet } from "../../apps/engine/src/signals/mix";
 import type { HeroUniverse } from "../../apps/engine/src/simulator/ban-resolution";
@@ -46,7 +48,8 @@ export type CheckpointStep = "after_bans" | "before_human_turn" | "after_own_pic
 // reserved exclusively for the human's own submission of that position -- one pick per position per
 // session, so no collision is possible between the human's fixed offset and the bots' low offsets.
 // -------------------------------------------------------------------------------------------------
-const FILLER = Array.from({ length: 48 }, (_, index) => index + 1);
+/** Ids de relleno que el generador banea (y de los que dependen los counters sinteticos). Exportado para que la huella de la referencia los cubra. */
+export const FILLER = Array.from({ length: 48 }, (_, index) => index + 1);
 const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 export const HERO_POSITIONS: HeroPositions = {};
 for (const position of POSITIONS) {
@@ -142,13 +145,16 @@ export function heroUniverseFor(heroPositions: HeroPositions): HeroUniverse {
  * EXISTING no-arg call site (the 26x2x3 ownership matrix) is byte-identical: `HERO_POSITIONS` and
  * `heroUniverseFor(HERO_POSITIONS)` reproduce exactly what this function built before this change.
  * Optional `accountPools` (account-backed COHERENCE-007): see `createComputeSuggestions`.
+ * Optional `heroCounters`: curated counters injected as FIXTURE so a test can give a candidate a real strategic ground (the Coach shows only grounded heroes).
  */
-export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS, accountPools?: ReadonlyMap<number, readonly number[]>): { store: ProtocolSessionStore; routes: Routes } {
+export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS, accountPools?: ReadonlyMap<number, readonly number[]>, heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>): { store: ProtocolSessionStore; routes: Routes } {
   const store = new ProtocolSessionStore();
   const routes = createProtocolSessionRoutes({
     store,
     computeSuggestions: createComputeSuggestions(accountPools),
     heroPositions,
+    // R3.3: NUNCA se omite -- omitirlo hace que el motor lea el hero-counters.json real. Sin override, el fixture sintetico.
+    heroCounters: heroCounters ?? SYNTHETIC_COUNTERS,
     heroUniverse: async () => heroUniverseFor(heroPositions),
   });
   return { store, routes };

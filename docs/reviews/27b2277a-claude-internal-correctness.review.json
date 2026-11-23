@@ -1,0 +1,133 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "798a8813a4a1e42b05fc89706cb6192f64ce9815",
+  "reviewedHead": "27b2277a23b91fa461b944d689a2154765bf6d4b",
+  "diffSha256": "db2cd98068e9943eda4b8c1f52c0efcbad0c910ddbd8350cd2f48957beca4b0a",
+  "rawOutput": {
+    "file": "docs/reviews/27b2277a-claude-internal-correctness.raw.txt",
+    "sha256": "b7d0bdfd6ffd90dbd1caacea44033871683bcc6447dbe79e4a7745397541d385"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "`qa/invariants/curated-independence.test.ts`: las tres corridas de la matriz completa (`runProbe(\"real\"|\"empty\"|\"scrambled\")`) están en el cuerpo del `describe`, no dentro de un `test`. Los `expect` de `runProbe` se ejecutan en la fase de recolección. Si un subproceso falla, se rompe todo el archivo con un error de recolección poco claro. Además esas corridas no tienen el timeout de un `test`. Se pagan 3 matrices secuenciales en cada `bun test qa/`, y eso incluye el CI. Conviene moverlas a `beforeAll` o a un `test` con timeout explícito.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "`qa/invariants/curated-independence.test.ts`: la prueba estática `withoutComments` solo quita líneas que *empiezan* con `//`, `*` o `/*`. Un comentario al final de línea o una cadena que mencione `hero-counters.json` dispara falso positivo. Un acceso real escrito por otro camino, como `readFileSync(join(dir, \"hero-\" + \"counters.json\"))`, se escapa. La garantía \"ningún archivo del QA lee datos curados\" depende en la práctica de la prueba conductual en subproceso. La prueba estática es más débil de lo que dice su título.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/curated-independence.test.ts",
+      "summary": "`qa/invariants/curated-independence.test.ts` (premisa de `real.seen > 2`) y `qa/isolation/empty-counters.preload.ts`: la aserción `for (count of Object.values(real.seen)) expect(count).toBeGreaterThan(2)` acopla la prueba al contenido real curado, que es lo que el PR dice evitar. Si un JSON curado queda con 2 claves o menos, la suite se pone roja sin que el Coach cambie. Es un riesgo menor, pero contradice el principio declarado. Hay que verificar que `mock.module` con ruta absoluta realmente intercepte el `import` relativo del motor, y que el modo `real` no use el preload. La prueba lo comprueba con `seen`, lo cual es bueno.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/binding.test.ts",
+      "summary": "`qa/invariants/binding.test.ts`: `banned.filter(id => Math.floor(id/100) === 1)` asume que los bans de la semilla caen en los héroes de posición 1 (100-129). El universo del fixture es `[...FILLER(1..48), ...heroes de posición]`. Si la semilla `QA...` solo baneara rellenos, la premisa `banned.length > 0` falla, y no hay forma de saberlo sin ejecutar. Si pasa, depende de la semilla, y un cambio en el simulador o en `metaOrder` rompe la prueba. Además el filtro `=== 1` no se explica. Me falta evidencia de que hoy pase. Debe confirmarlo la CI.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/binding.test.ts",
+      "summary": "`qa/invariants/binding.test.ts` y `coherence.test.ts`: los `counters` se mutan *después* de crear las rutas, con `counters.set(...)`. Esto solo funciona si el motor lee el `Map` por referencia en cada petición. Hoy `protocol-sessions.ts` pasa `deps.heroCounters` sin copiarlo, así que funciona. Si alguien agrega un snapshot, una copia o un caché al construir las rutas, las pruebas vuelven a pasar \"vacías\". La premisa `cards > 0` protege solo en parte, porque en `coherence` no se afirma que haya tarjetas. Falta una aserción explícita de que el counter inyectado produce al menos una tarjeta.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/coherence.test.ts",
+      "summary": "`qa/invariants/coherence.test.ts` (COHERENCE-003/004): se quitó `candidates.cards.length > 0` del caso RANKED. Ahora RANKED con `cards: []` es válido. Eso es coherente con el contrato de elegibilidad. Pero la prueba pierde dientes frente a un RANKED vacío por error del motor. La cobertura de que existan tarjetas queda delegada al guard de matriz, que tiene tolerancia de 0,5x. Es una debilitación aceptada pero real.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "qa/invariants/matrix-coverage.ts",
+      "summary": "`qa/invariants/matrix-coverage.ts` y `coverage-reference.json`: el guard compara contra una línea base observada, medida con un fixture inventado por el propio PR. `PINNED_REFERENCE_SHA256` y la huella interna se calculan del mismo JSON, así que la pareja huella+pin detecta ediciones a mano, pero no regeneraciones honestas. Es \"tamper-evident\", no un verificador. Aceptable, pero el documento lo presenta como candado fuerte. Además la procedencia dice `commit: e5dc6653` y la referencia se midió sobre ese commit, no sobre el head `27b2277`. Se confía en que `scenario-universe` y `synthetic-counters` cubran todo lo que cambia. No se cubre `createComputeSuggestions` ni el motor mismo.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/coverage-reference.lock.test.ts",
+      "summary": "`qa/invariants/coverage-reference.lock.test.ts`: la prueba \"candado en rojo\" solo muta `withCards` y espera `referenceTrustProblems(edited).length > 0`. Es una buena mutación, pero no prueba que `COVERAGE_TOLERANCE` sea inmutable de verdad. `Object.freeze` es superficial y alcanza para dos números. Sin hallazgo funcional.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/matrix-coverage.ts",
+      "summary": "`qa/invariants/matrix-coverage.ts`, `sha256Text`: se exporta y no se usa en el diff. Es código muerto. Probablemente es un resto de R3.2, cuando se hasheaba el JSON curado.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/matrix-coverage.ts",
+      "summary": "`qa/invariants/matrix-coverage.ts`, `classifyProbe`: un caso sin fundamento declarado que devuelve tarjetas se clasifica como `INSUFFICIENT_EVIDENCE`. Semánticamente es una violación del contrato de elegibilidad, porque una tarjeta sin fundamento es un defecto del Coach. Como \"evidencia insuficiente\" suena benigno, pero el test sí lo reporta como problema. El nombre es engañoso, no el comportamiento.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/matrix-coverage.mutation.test.ts",
+      "summary": "`qa/invariants/matrix-coverage.mutation.test.ts`, `matrix-coverage.test.ts` y `semantic-coverage.test.ts`: las pruebas de mutación son sólidas, porque exigen que el conjunto de reglas disparadas sea exactamente `[regla]`. Observación: `semantic-coverage.test.ts` fija `BANNED_THREAT = 2`, que está en el universo de relleno. Luego `probeShortlist` inyecta ese id con `RECORD_RESOLVED_BANS`, saltándose el simulador. Cubre bien \"counter vs ban abre al héroe\", pero no la ruta real de resolución de bans. El propio documento lo admite como límite.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/mvp/baseline-pos2-probe.test.ts",
+      "summary": "`qa/mvp/baseline-pos2-probe.test.ts`: el test `sin fundamento` cambia la expectativa de `coach` de `[MID_ID]` a `[]`. Eso encaja con el contrato nuevo, que el documento atribuye al dueño (2026-11-03/04). No puedo verificar el contrato con el contexto que tengo, solo que el cambio es coherente. La prueba `con fundamento` reutiliza la misma aserción, así que el probe sigue vigilando lo suyo (los carries nunca como Pos2).",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": ".github/workflows/ci.yml",
+      "summary": "`.github/workflows/ci.yml`: el target `qa` hace `bun install` de raíz, de engine y de web, y luego `bun run qa:typecheck` y `qa:typecheck:invariants`. Ese paso corre sin `working-directory`, o sea en la raíz, que es lo correcto. `qa:typecheck` usa `tsc` y no `bunx tsc`. Funciona solo si `typescript` está en `devDependencies` de la raíz; no lo verifiqué. Si no está, el job falla por \"tsc: not found\". `fail-fast: false` evita arrastrar los demás jobs. El target no está en ninguna lista de checks requeridos que yo pueda ver desde aquí.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/tsconfig.json",
+      "summary": "`qa/tsconfig.json`: se agrega `paths` sin `baseUrl`. Funciona en TS >= 4.1, con la ruta relativa al tsconfig. El alias solo existe para el typecheck. Si Bun resuelve `@/*` en runtime depende de `apps/web/tsconfig.json`, no de este. No es un problema para tests que ya importaban código de web antes.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/mvp/matrix.test.ts",
+      "summary": "`qa/mvp/matrix.test.ts` y `qa/mvp/*`: se inyecta `heroCounters: new Map()` y `computeSuggestions` lanza error si se llama en los tests de contrato. Son endurecimientos buenos y no cambian el comportamiento. Los `as const` y el spread de `expectedControl` son arreglos de tipos.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    },
+    {
+      "severity": "BAJA",
+      "file": "qa/invariants/coverage-reference.md",
+      "summary": "`qa/invariants/coverage-reference.md` y comentarios: el documento hace afirmaciones numéricas (\"~25 %\", \"<= 8,2 %\", \"97 tarjetas\") y de procedencia que no pude verificar sin ejecutar. Si la matriz cambia, quedan desfasadas. No afectan las pruebas.",
+      "disposition": "accepted",
+      "reason": "Observación MEDIA/BAJA sin impacto en producto ni seguridad (el PR solo toca QA y CI); se deja registrada y no se corrige en este PR."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

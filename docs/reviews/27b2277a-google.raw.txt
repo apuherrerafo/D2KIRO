@@ -1,0 +1,36 @@
+### SHA del head revisado
+`27b2277a23b91fa461b944d689a2154765bf6d4b`
+
+### Archivos revisados
+- `.github/workflows/ci.yml`
+- `qa/invariants/binding.test.ts`
+- `qa/invariants/coherence.test.ts`
+- `qa/invariants/coverage-reference.json`
+- `qa/invariants/coverage-reference.lock.test.ts`
+- `qa/invariants/coverage-reference.md`
+- `qa/invariants/curated-independence.test.ts`
+- `qa/invariants/fixture-input-hashes.ts`
+- `qa/invariants/matrix-coverage.mutation.test.ts`
+- `qa/invariants/matrix-coverage.test.ts`
+- `qa/invariants/matrix-coverage.ts`
+- `qa/invariants/ownership.test.ts`
+- `qa/invariants/semantic-coverage.test.ts`
+- `qa/isolation/empty-counters.preload.ts`
+- `qa/isolation/profile-probe.ts`
+- `qa/mvp/baseline-pos2-probe.test.ts`
+- `qa/mvp/contract.engine-web.test.ts`
+- `qa/mvp/critical-contracts.test.ts`
+- `qa/mvp/matrix.test.ts`
+- `qa/scenarios/generate.ts`
+- `qa/scenarios/synthetic-counters.test.ts`
+- `qa/scenarios/synthetic-counters.ts`
+- `qa/tsconfig.json`
+
+### Hallazgos
+1. MEDIA — qa/invariants/curated-independence.test.ts: La extracción de ruta relativa con `.split("/qa/")[1]` falla si el path padre del checkout o runner de CI contiene la subcadena `/qa/`, debiendo usarse `path.relative()`.
+2. BAJA — qa/invariants/curated-independence.test.ts: La heurística de `withoutComments` no elimina comentarios trailing de línea (riesgo de falsos positivos) y descarta líneas de código útiles que inicien con comentarios de bloque `/*`.
+3. BAJA — qa/invariants/curated-independence.test.ts: Las llamadas a `runProbe` ejecutan 3 subprocesos pesados sincrónicamente en el cuerpo de `describe` en lugar de diferirse a un hook `beforeAll`.
+4. BAJA — .github/workflows/ci.yml: Acciones externas referenciadas mediante tags mutables (`@v4`, `@v2`) sin fijar por commit SHA y sin bloque restrictivo de `permissions:` a nivel de workflow.
+5. BAJA — qa/invariants/coherence.test.ts: La remoción de `candidates.cards.length > 0` vuelve `candidates.cards.every(...)` vacuamente verdadero cuando `cards: []`, transfiriendo toda la responsabilidad anti-vacío al guard de matriz en `ownership.test.ts`.
+
+APROBADO CON OBSERVACIONES
