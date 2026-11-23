@@ -8,7 +8,7 @@
  *
  * Regla del fixture (deterministica, sin azar): el generador banea ids de relleno (1..48, `FILLER` en generate.ts) y la matriz solo produce
  * tarjetas para heroes de posicion 1 (ids 100-129; ver "Limites de cobertura registrados para R4" en coverage-reference.md). Por eso:
- *   - 3 de cada 4 heroes de posicion 1 (indice % 4 !== 3: 22 de 30) tienen 6 counters: 1 `hard` y 5 `medium` contra ids de relleno;
+ *   - 3 de cada 4 heroes de posicion 1 (indice % 4 !== 3: 23 de 30) tienen 6 counters: 1 `hard` y 5 `medium` contra ids de relleno;
  *   - el cuarto restante NO tiene counters (abstencion legitima: sin fundamento no hay tarjeta);
  *   - el id contrincante de cada enlace es `1 + ((index * 5 + k * 7) % 48)` con k = 0..5 (k = 0 es el `hard`).
  * Ampliar a las posiciones 2-5 cambia el diseno de la matriz y exige regenerar la referencia con revision humana. */

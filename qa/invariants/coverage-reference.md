@@ -60,8 +60,8 @@ knowledge`: **no es evidencia de ningun matchup real**). `createFixtureRoutes()`
 
 ### Procedencia y diferencias frente a la referencia R3.2
 
-Regla del fixture: 22 de los 30 heroes de posicion 1 (indice % 4 != 3) tienen 6 counters (1 `hard` + 5 `medium`) contra ids de relleno 1-48; los
-8 restantes no tienen counters (abstencion legitima). Mismo alcance que el archivo real tenia en la matriz (solo posicion 1).
+Regla del fixture: 23 de los 30 heroes de posicion 1 (indice % 4 != 3) tienen 6 counters (1 `hard` + 5 `medium`) contra ids de relleno 1-48; los
+7 restantes no tienen counters (abstencion legitima). Mismo alcance que el archivo real tenia en la matriz (solo posicion 1).
 
 | Metrica | R3.2 (archivo real) | R3.3 (sintetico) |
 |---|---|---|
