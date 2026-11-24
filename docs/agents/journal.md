@@ -927,3 +927,4 @@ Con esto, los 10 tickets de fase 1b (personalización de hero pool) quedan imple
 - [2026-11-23T23:59] event:evt-20261123-905 schema:v1 tool:warden ticket:TSK-253 result:ok — revision independiente APPROVE; ticket cerrado done
 - [2026-11-24T00:30] event:evt-20261124-906 schema:v1 tool:claude-code ticket:TSK-254 result:info — checkSkillTools (allowed-tools de skills) con prueba rojo->verde; matriz de integracion; VS Code no aislable desde el repo (ajustes machine-scope), requiere accion del propietario
 - [2026-11-24T00:45] event:evt-20261124-907 schema:v1 tool:warden ticket:TSK-254 result:ok — revision independiente APPROVE; ticket cerrado done
+- [2026-11-24T01:30] event:evt-20261124-908 schema:v1 tool:claude-code ticket:TSK-255 result:ok — 25 copias personales de skills movidas a respaldo con manifiesto SHA-256 y RESTORE.ps1 (decision del propietario); shadowing.ts = OK; dispatch/helm/compass cargan del repo en CLI y en la extension
