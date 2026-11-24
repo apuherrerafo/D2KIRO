@@ -17,8 +17,8 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
 - **Stack, comandos canónicos, política de dependencias, gates de seguridad**: `CLAUDE.md`.
 - **Invariantes que valen en toda fase** (versión de scoring activa, comando de test canónico,
   `raw: null` sagrado, etc.): `.claude/rules/invariantes.md`.
-- **Reglas por área técnica** (motor, frontend, seguridad, costuras de prueba): `.claude/rules/
-  {engine,web,security,testing-seams}.md` (cada una declara en su frontmatter `paths:` a qué rutas aplica).
+- **Reglas siempre vigentes**: `.claude/rules/invariantes.md` y `.claude/rules/security.md` (sin `paths:`).
+- **Reglas por ruta** (frontmatter `paths:`): `.claude/rules/` → `engine.md`, `web.md`, `testing-seams.md`, `context7.md`. Claude Code las carga solo al tocar esas rutas; Codex y Gemini no lo hacen — léelas a mano según el área que cambies.
 - **Narrativa de fases ya cerradas**: `docs/rules-archive/` (no hace falta leerla salvo que la
   tarea concreta lo pida).
 - **Tabla de agentes, modelos, herramienta por tarea**: `docs/agents/process.md` — no se repite aquí
@@ -26,6 +26,17 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
 - **Formato del log de `journal.md`**: `CLAUDE.md` (resumen) y `docs/agents/process.md` (detalle) — Codex
   no escribe en `journal.md` ni conoce las skills de este ecosistema (por diseño, ver `CLAUDE.md`
   tabla "HERRAMIENTA POR TAREA"), pero puede necesitar leer el formato al revisar un diff.
+
+## Quién lee qué (entrada compartida: este archivo)
+
+| Proveedor | Instrucciones | Skills / agentes / hooks de `.claude/` |
+|---|---|---|
+| Claude Code | `CLAUDE.md` + `.claude/rules/` | Sí (hooks de `.claude/settings.json` sólo gobiernan a Claude) |
+| Codex | `AGENTS.md` (probado: lo carga; no carga `.claude/skills`, sólo `.agents/skills`, que no existe aquí) | No |
+| Gemini CLI | `.gemini/settings.json` → `context.fileName: ["AGENTS.md"]` (según la doc oficial; **NOT_TESTED**, el CLI no está instalado en esta máquina) | No |
+
+Lo que sí protege a los tres por igual vive en git y GitHub: `.husky/pre-push`, `ci.yml` y la
+protección de `release/mvp-beta`. Los hooks de Claude son una capa extra, no la única.
 
 ## Cómo correr las pruebas
 

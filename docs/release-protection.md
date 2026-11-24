@@ -14,6 +14,12 @@ commits (581 archivos) entraron en la rama sin CI, sin E2E y sin revisión indep
 | 4 | Revisión independiente | Check `independent-review` (`.github/workflows/release-gate.yml` + `scripts/ci/check-independent-review.sh`): el PR debe declarar dos revisiones de revisores **distintos**, con veredicto y alcance, y ningún `BLOQUEANTE ABIERTO`. Corre con `pull_request_target`: el script se lee de la rama base, un PR no puede reescribirlo. | Ver "Estado verificado" |
 | 5 | Verificaciones en verde y al día | `strict`: la rama del PR debe estar al día con la base antes de fusionar; conversaciones resueltas | Ver "Estado verificado" |
 
+> **Discrepancia abierta (2026-11-23):** desde el PR #170 `ci.yml` también corre `test (qa)` (`bun test qa/`),
+> que no está en la lista de arriba. Si GitHub lo exige como check requerido **no está verificado**:
+> `gh api .../branches/release/mvp-beta/protection` devolvió 404 con el token usado en la auditoría. El
+> propietario debe confirmarlo en Settings → Branches y, si falta, añadirlo. Además `bun run test` (el
+> `pre-push`) no ejecuta `qa/`: ese oráculo sólo corre en CI.
+
 Formato de la atestación en la descripción del PR (una línea por revisor):
 
 ```

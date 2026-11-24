@@ -1,5 +1,10 @@
 # Harness Responsibility Matrix + Taxonomía sin solapamiento
 
+> **Documento histórico (R0.4, Task 23).** Es un snapshot: varias rutas que cita (`.claude/rules/fase-9.md`,
+> `scripts/verify-claude-md-split.sh`, `docs/rules-archive/engine.md`) ya no existen tras `TSK-218`/R0.4 Task 24.
+> No se reescribe; para el estado vigente ver `AGENTS.md`, `docs/agents/agent-guardrails.md` y
+> `scripts/agents/contracts.test.ts`.
+
 > **Spec:** `.kiro/specs/r0-engineering-baseline-recovery/` — R0.4 Harness Truth, **Task 23**.
 > **Requisitos:** 4.2 (taxonomía sin solape), 4.3 (matriz de veredictos), 4.3 c1.
 > **Fuente de diseño:** `design.md` §4.4 (Taxonomía del harness, Reconciliation Procedure, Harness
