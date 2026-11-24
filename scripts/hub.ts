@@ -12,7 +12,7 @@ const MOSCOW_ORDER: Record<string, number> = { must: 0, should: 1, could: 2, won
 
 type Task = {
   id: string; title: string; state: string; moscow: string;
-  attempts: number; tool: string; file: string;
+  attempts: number; tool: string; wipTool: string; file: string;
 };
 
 type LogEntry = { ts: string; tool: string; ticket: string; result: string; note: string };
@@ -37,6 +37,8 @@ async function loadTasks(): Promise<Task[]> {
     tasks.push({
       id: fm.id ?? file, title: fm.title ?? "(sin título)", state: fm.state ?? "backlog",
       moscow: fm.moscow ?? "could", attempts: Number(fm.attempts ?? 0),
+      // Misma regla que write-scope-guard: sin assigned_tool, el ticket gobierna a claude-code.
+      wipTool: fm.assigned_tool && fm.assigned_tool !== "null" ? fm.assigned_tool : "claude-code",
       tool: (fm.assigned_tool && fm.assigned_tool !== "null" ? fm.assigned_tool : fm.preferred_tool) ?? "sin-asignar", file,
     });
   }
@@ -198,8 +200,12 @@ function render(
       </div>`;
   }).join("");
 
-  const wip = tasks.filter((t) => t.state === "doing").length;
-  const wipWarning = wip > 1 ? `<div class="wip-alert">⚠️ WIP=${wip}, debería ser máximo 1</div>` : "";
+  // WIP=1 es POR herramienta (CLAUDE.md, write-scope-guard, verify-simplicity.sh): una tarea en
+  // doing de claude-code y otra de codex es paralelismo legítimo, no una violación.
+  const doingByTool = new Map<string, number>();
+  for (const t of tasks.filter((x) => x.state === "doing")) doingByTool.set(t.wipTool, (doingByTool.get(t.wipTool) ?? 0) + 1);
+  const wipWarning = [...doingByTool].filter(([, n]) => n > 1)
+    .map(([tool, n]) => `<div class="wip-alert">⚠️ WIP=${n} en ${tool}, debería ser máximo 1 por herramienta</div>`).join("");
 
   const stepper = PHASES.map((p) => {
     const active = progress.fase.includes(p);
