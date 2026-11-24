@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkAgent, checkAgentsMdRules, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, parseFrontmatter,
+  checkAgent, checkAgentsMdRules, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, checkSkillTools, parseFrontmatter,
 } from "./contracts";
 
 const YAML = ["tiers:", "  e:", "    modelo_actual: claude-sonnet-5", "    usado_en:", "      - .claude/agents/a.md"].join("\n");
@@ -13,6 +13,25 @@ const agentFiles = readdirSync(join(ROOT, ".claude/agents")).filter((f) => f.end
 
 const fm = (name: string, tools: string, extra = "") =>
   `---\nname: ${name}\ndescription: x\nmodel: m\ntools: ${tools}\n---\n${extra}`;
+
+describe("contratos de skills — allowed-tools", () => {
+  const sk = (tools: string) => `---\nname: x\ndescription: d\nallowed-tools: "${tools}"\n---\n`;
+  test("el revisor (redteam) con Edit o Write se rechaza", () => {
+    expect(checkSkillTools("redteam", sk("Read Grep Edit"))).toHaveLength(1);
+    expect(checkSkillTools("redteam", sk("Read Write"))).toHaveLength(1);
+  });
+  test("redteam sólo lectura pasa; un skill implementador (build) con Write pasa", () => {
+    expect(checkSkillTools("redteam", sk("Read Grep"))).toEqual([]);
+    expect(checkSkillTools("build", sk("Read Write Edit Glob Grep"))).toEqual([]);
+  });
+  test("mcp__context7 en cualquier skill se rechaza (context7.md)", () => {
+    expect(checkSkillTools("build", sk("Read mcp__context7__get-library-docs"))[0]).toContain("context7");
+  });
+  test("tokens con paréntesis y espacios (Bash(bun test:*)) no confunden el parseo; sin allowed-tools no falla", () => {
+    expect(checkSkillTools("root-cause", sk("Read Grep Edit Bash(bun test:*)"))).toEqual([]);
+    expect(checkSkillTools("scout", "---\nname: scout\ndescription: d\n---\n")).toEqual([]);
+  });
+});
 
 describe("contratos de agentes — casos negativos (deben fallar)", () => {
   test("agente de sólo lectura con Write", () => {
@@ -119,6 +138,11 @@ describe("contratos sobre el repo real", () => {
   test("dispatch declara el ciclo de coordinación y root-cause exige regresión permanente", () => {
     expect(checkCoordinationWorkflow(read(".claude/skills/dispatch/SKILL.md"))).toEqual([]);
     expect(checkRootCauseRegression(read(".claude/skills/root-cause/SKILL.md"))).toEqual([]);
+  });
+
+  test("allowed-tools de cada skill: el revisor no escribe y ninguno usa context7", () => {
+    const errs = readdirSync(join(ROOT, ".claude/skills")).flatMap((d) => checkSkillTools(d, read(`.claude/skills/${d}/SKILL.md`)));
+    expect(errs).toEqual([]);
   });
 
   test("el adaptador de Gemini apunta a AGENTS.md", () => {

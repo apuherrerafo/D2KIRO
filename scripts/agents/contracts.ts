@@ -27,6 +27,28 @@ export function parseAgent(text: string): AgentFrontmatter {
   return { name: fm.name, description: fm.description, model: fm.model, tools };
 }
 
+// `allowed-tools` de un skill: tokens separados por espacio; un token puede llevar paréntesis con
+// espacios dentro, p. ej. `Bash(git log:*)`.
+export function parseSkillTools(text: string): string[] {
+  const raw = parseFrontmatter(text)["allowed-tools"] ?? "";
+  return raw.match(/[^\s(]+(?:\([^)]*\))?/g) ?? [];
+}
+
+// Skills revisores: no escriben (el coordinador no aprueba su propio trabajo, dispatch.md).
+export const READ_ONLY_SKILLS = ["redteam"] as const;
+
+export function checkSkillTools(skill: string, text: string): string[] {
+  const tools = parseSkillTools(text);
+  const errs: string[] = [];
+  if ((READ_ONLY_SKILLS as readonly string[]).includes(skill) && tools.some((t) => (WRITE_TOOLS as readonly string[]).includes(t))) {
+    errs.push(`skill ${skill}: revisor de sólo lectura con herramienta de escritura en allowed-tools`);
+  }
+  if (tools.some((t) => t.startsWith("mcp__context7"))) {
+    errs.push(`skill ${skill}: mcp__context7 no permitido en skills (context7.md)`);
+  }
+  return errs;
+}
+
 export const READ_ONLY_AGENTS = ["sentinel", "tracer", "warden"] as const;
 export const WRITE_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"] as const;
 // context7.md: sólo Artisan (y la sesión principal) tienen mcp__context7.

@@ -45,7 +45,8 @@ if (import.meta.main) {
     const stale = shadowed.filter((s) => s.differs).map((s) => s.name);
     console.log(`SOMBREADOS: ${shadowed.length} skills del repo los gana la copia personal (~/.claude/skills).`);
     console.log(`  con contenido DISTINTO (versión vieja gana): ${stale.join(", ") || "ninguno"}`);
-    console.log("  Arranca Claude Code con scripts/agents/claude-repo-only.sh para que cargue sólo los del repo.");
+    console.log(`  todos: ${shadowed.map((s) => s.name).join(", ")}`);
+    console.log("  CLI: arranca con scripts/agents/claude-repo-only.sh. Extensión de VS Code: sólo se aísla retirando esas copias de ~/.claude/skills (acción del propietario).");
     process.exit(1);
   }
 }

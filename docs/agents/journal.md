@@ -925,3 +925,5 @@ Con esto, los 10 tickets de fase 1b (personalización de hero pool) quedan imple
 - [2026-11-23T23:59] event:evt-20261123-903 schema:v1 tool:warden ticket:TSK-252 result:ok — revision independiente APPROVE; ticket cerrado done
 - [2026-11-23T23:59] event:evt-20261123-904 schema:v1 tool:claude-code ticket:TSK-253 result:info — ecosistema sólo-repo: copias personales de ~/.claude/skills sombrean a las del repo (personal>project); aislamiento via --setting-sources project,local verificado con binario real; extensión VS Code, Codex y Gemini con limitaciones, ver docs/agents/repo-only-ecosystem.md
 - [2026-11-23T23:59] event:evt-20261123-905 schema:v1 tool:warden ticket:TSK-253 result:ok — revision independiente APPROVE; ticket cerrado done
+- [2026-11-24T00:30] event:evt-20261124-906 schema:v1 tool:claude-code ticket:TSK-254 result:info — checkSkillTools (allowed-tools de skills) con prueba rojo->verde; matriz de integracion; VS Code no aislable desde el repo (ajustes machine-scope), requiere accion del propietario
+- [2026-11-24T00:45] event:evt-20261124-907 schema:v1 tool:warden ticket:TSK-254 result:ok — revision independiente APPROVE; ticket cerrado done

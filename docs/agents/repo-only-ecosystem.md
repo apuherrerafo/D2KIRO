@@ -39,20 +39,42 @@ después de la copia personal. Subagentes: el **proyecto gana** al personal (doc
   personal. Se corre a mano; **no** es parte del CI (depende de la máquina).
 - No se duplicó ningún skill, no se tocó `~/.claude`, `~/.codex` ni `~/.gemini`, ni CI ni guardrails.
 
+## Protecciones con `--setting-sources project,local` (TSK-254, medido)
+
+- **A nivel usuario** (`~/.claude/settings.json`) sólo hay un hook `SessionStart` (el aviso «lo último», una
+  comodidad personal), sin `permissions` ni `env`. Con el flag deja de correr; no es una protección de D2Kiro.
+- **A nivel proyecto** (`.claude/settings.json`, versionado) viven las dos protecciones reales:
+  `pretooluse-guard` (gate de `git commit/push`) y `pretooluse-edit-guard` (data-boundary + `write_scope`).
+- Prueba real: un `Write` fuera del worktree se bloquea con el mismo mensaje `fail-closed` **con y sin** el flag
+  y el archivo no se crea. No probé el guard de Bash bajo el flag (mismo archivo de settings): inferido, no medido.
+- Si el flag se repite, **gana el último** (medido: `user,project,local` seguido de `project,local` → repo;
+  al revés → copia personal). La extensión de VS Code pasa su propio `--setting-sources`.
+
 ## Compatibilidad por proveedor
 
 | Proveedor | Estado | Detalle |
 |---|---|---|
-| **Claude Code (CLI)** | Aislable | Lanzar con `scripts/agents/claude-repo-only.sh`. Efecto esperable, **no medido**: al excluir la fuente `user`, tampoco rigen los hooks/permisos/modelo de `~/.claude/settings.json` |
-| **Claude Code (extensión de VS Code)** | **No aislado** | La sesión de la extensión no pasa por el lanzador: sigue ganando la copia personal (esta misma sesión cargó el `dispatch` viejo). No verifiqué una opción de la extensión para pasar flags |
-| **Codex** | Sin colisión de nombres; aislamiento parcial | No carga `.claude/skills`; el repo no tiene `.agents/skills`, así que Codex no usa skills de D2Kiro (rol reviewer, ver `AGENTS.md`). Sin `AGENTS.md` global: sólo rige el del repo (comprobado con `codex debug prompt-input`, offline). Sí ve skills globales ajenos a D2Kiro (en `~/.codex/skills` y `~/.agents/skills`, p. ej. `concorde-*`, `mi-garaje-*`). `CODEX_HOME` vacío quita `~/.codex/skills` pero **no** `~/.agents/skills`, y un home vacío pierde el login |
-| **Gemini CLI** | NOT_TESTED | No instalado. Documentado: `.gemini/settings.json` con `context.fileName: ["AGENTS.md"]` es válido; `GEMINI_CLI_HOME` aísla `~/.gemini`; la doc de Gemini dice que fue reemplazado por Antigravity el 2026-06-18 y existe `~/.gemini/antigravity-cli` — hay que confirmar la versión instalada antes de fiarse |
+| **Claude Code (CLI)** | Aislado y verificado | `scripts/agents/claude-repo-only.sh`; protecciones del proyecto intactas (sección anterior) |
+| **Claude Code (extensión de VS Code)** | **No aislable desde el repo** | `claudeCode.claudeProcessWrapper` y `claudeCode.environmentVariables` son de ámbito `machine` (manifiesto de la extensión 2.1.329): VS Code no los acepta en `.vscode/settings.json` del repo, sólo en ajustes de usuario. La extensión invoca `wrapper <claude.exe> <args>` (leído en su código) y los skills personales ganan por precedencia documentada. No se probó la extensión en ejecución → **NOT_TESTED** |
+| **Codex 0.159.0** | Carga nativa del repo verificada | `codex debug prompt-input` (offline) en un repo temporal: ve `AGENTS.md` y los skills de `<repo>/.agents/skills`; **no** ve `.claude/skills`. Sin `AGENTS.md` global. Skills de D2Kiro para Codex: ninguno (rol reviewer, `AGENTS.md`); no se crearon. Sigue viendo skills globales ajenos (`~/.codex/skills`, `~/.agents/skills`); `CODEX_HOME` vacío quita los primeros, no los segundos, y pierde el login |
+| **Gemini CLI** | NOT_TESTED | No instalado. Documentado: `context.fileName: ["AGENTS.md"]` válido; `GEMINI_CLI_HOME` aísla `~/.gemini` |
+| **Antigravity (`agy` 1.5.14)** | NOT_TESTED | Instalado; `agy agents` no devuelve nada. No se leyó su documentación oficial ni se hizo una llamada al modelo; no se afirma cómo carga instrucciones del repo |
 
-## Limitaciones y alternativa segura
+## Acción del propietario (única forma de aislar la extensión de VS Code)
 
-1. **Extensión de VS Code**: sin garantía. Alternativa segura que sólo puede aplicar el propietario (no se hizo):
-   retirar de `~/.claude/skills/` las 25 copias de D2Kiro (el repo es la fuente), o trabajar desde la CLI con el lanzador.
-2. **`--setting-sources` excluyendo skills no es contrato de la doc**: puede cambiar en una versión futura.
+Elegir **una**; yo no toco `~/.claude`:
+
+1. **Retirar de `~/.claude/skills/` las 25 copias de D2Kiro** (mover a una carpeta de respaldo, no borrar). La lista
+   exacta la imprime `bun scripts/agents/shadowing.ts`; tras moverlas el mismo comando debe decir `OK`. Efecto: los
+   demás proyectos que dependieran de esas copias personales dejan de verlas. Con esto la precedencia documentada
+   (`personal > project`) ya no tiene nada que sombrear; no lo probé en ejecución (requeriría tocar `~/.claude`).
+2. **Alternativa no verificada**: apuntar `claudeCode.claudeProcessWrapper` (ajuste de usuario) a un wrapper que añada
+   `--setting-sources project,local` **al final** de los argumentos. Se sabe que el último flag gana y cómo llama la
+   extensión al wrapper, pero no se probó en VS Code ni qué ejecutables acepta en Windows, por eso no se entregó uno.
+
+## Limitaciones
+
+1. **`--setting-sources` excluyendo skills no es contrato de la doc**: puede cambiar en una versión futura.
    Re-verificar con `bash scripts/agents/claude-repo-only.sh -p "Invoca el skill dispatch con la herramienta Skill y dime su Base directory"`.
-3. **Codex**: no hay aislamiento completo sin perder la sesión; la mitigación real es que no hay skills de D2Kiro
-   que sombrear y que `AGENTS.md` del repo es la única instrucción de proyecto.
+2. **`shadowing.ts` no corre en CI**: depende de la máquina (lee `~/.claude`).
+3. **Codex**: no hay aislamiento completo sin perder la sesión; la mitigación es que no hay skills de D2Kiro que sombrear.
