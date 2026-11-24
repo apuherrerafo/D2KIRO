@@ -56,3 +56,9 @@ clase que salen siempre en el `<style>` de la página. Se reescribió contra el 
 Veredicto inicial CHANGES, dos hallazgos aceptados y corregidos:
 1. La aserción «sí alerta y nombra cuál» pasaba también con el hub viejo (vacía). Ahora exige el texto `WIP=2 en claude-code`, que el hub viejo no emite.
 2. Sin `assigned_tool` el hub agrupaba por `preferred_tool` y el hook lo trata como `claude-code`. El hub ahora usa la regla del hook (prueba nueva). **Pendiente conocido, no tocado:** `verify-simplicity.sh` §3 sólo cuenta tickets con `assigned_tool` explícito, así que no ve ese caso.
+
+## Ejecución real del flujo (TSK-252)
+
+- `dispatch`, `helm` y `compass` se invocaron con la herramienta `Skill`: **cargaron instrucciones**, no ejecutaron nada por sí mismas; las decisiones las tomó la sesión siguiéndolas. Las skills cargadas son las de usuario (`~/.claude/skills`), que **no** traen la sección «CICLO DE COORDINACIÓN» de la copia del repo.
+- `helm`: se leyó el estado de tickets (0 en `doing`, WIP libre). No se regeneró `plan.md` ni se corrió `hub.ts` como checkpoint. `compass`: se leyó `PROGRESS.md`; no se actualizó (no hubo interacción con el usuario que confirmara el avance de fase).
+- Tarea elegida y cerrada: TSK-252 — el gate §3 de `verify-simplicity.sh` no veía tickets sin `assigned_tool` (pendiente de la sección anterior). Pruebas OB-6.

@@ -151,8 +151,14 @@ fi
 # sobre un comando suelto del pipe) neutraliza esto sin importar cuál de los greps fue el que no
 # encontró coincidencias; `${DOING_COUNT:-0}` cubre el caso borde de que la sustitución quede vacía.
 for tool_val in claude-code codex kiro-nativo hermes-vps; do
-  DOING_COUNT=$(grep -rl "^state: doing" docs/agents/tasks/ 2>/dev/null | xargs -r grep -l "^assigned_tool: $tool_val" 2>/dev/null | wc -l | tr -d ' ') || true
-  DOING_COUNT=${DOING_COUNT:-0}
+  # Un ticket sin assigned_tool (o null) gobierna a claude-code: misma regla que write-scope-guard
+  # (_hook_lib.claude_doing_tickets) y scripts/hub.ts. Antes sólo contaba el valor explícito.
+  DOING_COUNT=0
+  while IFS= read -r ticket_file; do
+    ticket_tool=$(grep -m1 "^assigned_tool:" "$ticket_file" 2>/dev/null | sed -e 's/^assigned_tool:[[:space:]]*//' -e 's/[[:space:]]*$//' -e "s/^[\"']//" -e "s/[\"']\$//") || true
+    if [ -z "$ticket_tool" ] || [ "$ticket_tool" = "null" ]; then ticket_tool="claude-code"; fi
+    if [ "$ticket_tool" = "$tool_val" ]; then DOING_COUNT=$((DOING_COUNT + 1)); fi
+  done < <(grep -rl "^state: doing" docs/agents/tasks/ 2>/dev/null || true)
   if [ "$DOING_COUNT" -gt 1 ]; then
     echo "❌ ERROR: $DOING_COUNT tareas en 'doing' asignadas a '$tool_val'. Máximo permitido: 1 por herramienta (regla WIP=1 por ejecutor)."
     ERRORS=$((ERRORS + 1))

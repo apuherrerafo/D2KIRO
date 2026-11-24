@@ -130,6 +130,32 @@ test("OB-4b gate en verde sólo con una tarea por herramienta (no se declara roj
   expect(g.code).toBe(0);
 });
 
+test("OB-6 gate: dos tickets doing SIN assigned_tool cuentan como claude-code (igual que hook y tablero) -> rojo", () => {
+  const dir = fixture({
+    "TSK-901.md": { state: "doing", preferred_tool: "codex" },
+    "TSK-902.md": { state: "doing", preferred_tool: "kiro-nativo" },
+  });
+  const g = runGate(dir);
+  expect(g.code).toBe(1);
+  expect(g.out).toContain("'claude-code'");
+});
+
+test("OB-6 gate: un doing sin assigned_tool + uno de codex -> verde (sin falso positivo)", () => {
+  const dir = fixture({
+    "TSK-901.md": { state: "doing", preferred_tool: "codex" },
+    "TSK-902.md": doing("codex"),
+  });
+  expect(runGate(dir).code).toBe(0);
+});
+
+test("OB-6 gate: un doing sin assigned_tool + uno de claude-code explícito -> rojo (se suman)", () => {
+  const dir = fixture({
+    "TSK-901.md": { state: "doing" },
+    "TSK-902.md": doing("claude-code"),
+  });
+  expect(runGate(dir).code).toBe(1);
+});
+
 test("OB-4c un ticket blocked o con attempts 3 llega al tablero marcado para decisión humana", () => {
   const dir = fixture({
     "TSK-901.md": { state: "blocked", attempts: "3", assigned_tool: "claude-code", moscow: "must" },
