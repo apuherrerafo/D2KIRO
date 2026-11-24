@@ -61,6 +61,18 @@ No hay un agente coordinador aparte: el ciclo reparte lo que `/compass`, `/helm`
 
 **Evidencia de cierre** (en `## Estado` del ticket o en el reporte): **Implementado**, **Funciona** (comando + salida real) y **Pendiente** (o `ninguno`).
 
+**Evidencia mínima por tipo de tarea** (lo que `## Estado` del ticket o el reporte debe contener; sin ella la etapa 5/6 no se da por cumplida):
+
+| Tipo | Evidencia exigida | Quién la produce |
+|---|---|---|
+| Implementación | diff dentro del `write_scope` + prueba nueva o ampliada + comando exacto y salida de los gates | autor; Warden interpreta |
+| Corrección de bug | comando de reproducción → prueba en rojo (salida pegada) → arreglo mínimo → verde → regresiones relacionadas; incluir un caso que debe seguir permitido (falso positivo) | autor; `@root-cause` |
+| Seguridad | hallazgos con severidad y evidencia reproducible (comando/payload), no sólo opinión; un gate de seguridad en rojo bloquea | Sentinel / `@redteam` (actor distinto del autor) |
+| Evaluación | dataset y versión, métrica con su baseline, comparación sobre el mismo protocolo y **limitaciones** (qué NO mide); nunca promover un baseline para obtener PASS | `evaluation-engineer` |
+| Release | gates efectivos (cuáles corrieron y cuáles están marcados como requeridos en GitHub), revisión válida según la política de revisión vigente en `master` y autorización explícita del propietario | `/castoff` + el usuario |
+
+Un estado se escribe con un vocabulario cerrado: **PASS / FAIL / SKIPPED / NOT_TESTED**. `SKIPPED` y `NOT_TESTED` nunca se leen como PASS.
+
 **El coordinador:**
 - no aprueba su propio trabajo: la revisión (etapa 6) la hace otro actor, nunca quien implementó ni quien despachó;
 - no omite pruebas ni guardrails (hooks, CI, `verify-simplicity.sh`); un check `SKIPPED`/`BLOCKED` no cuenta como PASS;

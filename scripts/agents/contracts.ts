@@ -49,6 +49,9 @@ export function checkSkillTools(skill: string, text: string): string[] {
   return errs;
 }
 
+// Sólo lectura = sin herramientas de escritura (lo comprueba checkAgent) **y** sin escritura por Bash. Lo segundo NO lo
+// garantiza el Markdown: lo impone scripts/hooks/readonly-agent-guard.py por identidad de agente (TSK-257). Una prueba
+// verifica que ese hook liste exactamente estos nombres.
 export const READ_ONLY_AGENTS = ["sentinel", "tracer", "warden"] as const;
 export const WRITE_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"] as const;
 // context7.md: sólo Artisan (y la sesión principal) tienen mcp__context7.
@@ -178,6 +181,12 @@ export const COORDINATION_CLAUSES: [string, RegExp][] = [
   ["parada: attempts 3 → Tracer", /attempts: 3/],
   ["parada: 3 rondas de redteam", /3 rondas/],
   ["regresión permanente", /prueba permanente/i],
+  ["evidencia por tipo: implementación", /\|\s*Implementaci[óo]n\s*\|[^\n]*diff[^\n]*prueba/i],
+  ["evidencia por tipo: corrección de bug", /\|\s*Correcci[óo]n de bug\s*\|[^\n]*rojo[^\n]*verde[^\n]*permitido/i],
+  ["evidencia por tipo: seguridad", /\|\s*Seguridad\s*\|[^\n]*severidad[^\n]*evidencia/i],
+  ["evidencia por tipo: evaluación", /\|\s*Evaluaci[óo]n\s*\|[^\n]*baseline[^\n]*limitaciones/i],
+  ["evidencia por tipo: release", /\|\s*Release\s*\|[^\n]*requeridos[^\n]*autorizaci[óo]n/i],
+  ["SKIPPED/NOT_TESTED no cuentan como PASS", /PASS \/ FAIL \/ SKIPPED \/ NOT_TESTED/],
 ];
 
 export function checkCoordinationWorkflow(dispatchText: string): string[] {
