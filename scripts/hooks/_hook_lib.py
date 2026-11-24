@@ -373,19 +373,51 @@ def _ticket_text(ticket: Path) -> str:
 def claude_doing_tickets(tasks_dir: Path) -> list[Path]:
     """Tickets en `state: doing` que gobiernan a ESTA sesión, leídos del worktree de la sesión.
 
-    Un ticket con `assigned_tool` de otra herramienta (codex, kiro-nativo, hermes-vps) no
-    encierra a Claude Code: WIP=1 es por herramienta. Sin `assigned_tool` -> aplica.
+    Sólo un ticket cuyo `assigned_tool` sea EXACTAMENTE una de `OTHER_TOOLS` (codex,
+    kiro-nativo, hermes-vps) deja de encerrar a Claude Code: WIP=1 es por herramienta.
+    Todo lo demás — ausente, vacío, `null`, desconocido, malformado, otra capitalización —
+    gobierna a Claude Code (TSK-256): un valor no reconocido nunca amplía permisos.
     """
     hits = []
     for p in sorted(tasks_dir.glob("TSK-*.md")):
         text = _ticket_text(p)
-        if not re.search(r"^state:\s*doing\s*$", text, re.M):
+        # Fail-closed y mismo descubrimiento que el gate y el tablero: cualquier `state:` cuyo valor
+        # EMPIECE por `doing` (espacios, tab, comillas, comentario `# ...`, un typo como `doingX`) cuenta como doing.
+        if not re.search(r"^state:[ \t]*[\"']?doing", text.lstrip(_BOM), re.M):
             continue
-        tool = re.search(r"^assigned_tool:\s*(.*)$", text, re.M)
-        if tool and tool.group(1).strip().strip("'\"") not in ("", "claude-code"):
+        if assigned_tool_of(text) in OTHER_TOOLS:
             continue
         hits.append(p)
     return hits
+
+
+# Herramientas que NO son Claude Code. Lista cerrada: lo que no esté aquí gobierna a Claude.
+_BOM = chr(0xFEFF)  # BOM de editor: se tolera al inicio del ticket, igual que en el gate y el tablero
+OTHER_TOOLS = frozenset({"codex", "kiro-nativo", "hermes-vps"})
+
+_FRONTMATTER = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
+
+
+def assigned_tool_of(text: str) -> str:
+    """Valor de `assigned_tool` leído SÓLO del frontmatter, sin comillas envolventes.
+
+    Devuelve "" si no hay frontmatter, falta la clave, el valor está vacío o la clave está
+    DUPLICADA (ambiguo: ni el hook ni el gate ni el tablero pueden coincidir en cuál vale, así
+    que no se elige ninguna). No normaliza `null`/`~`/mayúsculas: el llamador compara contra
+    `OTHER_TOOLS` exacto, así que cualquier cosa no reconocida queda del lado de "gobierna a
+    Claude Code".
+    """
+    fm = _FRONTMATTER.match(text.lstrip(_BOM))  # un BOM de editor no es ni un ataque ni un valor
+    if not fm:
+        return ""
+    # `[ \t]*` y no `\s*`: `\s` cruzaría el salto de línea y leería la clave siguiente.
+    found = re.findall(r"^assigned_tool:[ \t]*(.*?)[ \t]*\r?$", fm.group(1), re.M)
+    if len(found) != 1:
+        return ""
+    value = found[0]
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        value = value[1:-1]
+    return value
 
 
 def read_frontmatter_field(ticket: Path, field: str) -> str:

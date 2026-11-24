@@ -17,15 +17,29 @@ type Task = {
 
 type LogEntry = { ts: string; tool: string; ticket: string; result: string; note: string };
 
+// Mismo criterio que write-scope-guard y verify-simplicity.sh (TSK-256): sólo estos tres valores
+// exactos son "otra herramienta"; todo lo demás gobierna a claude-code.
+const OTHER_TOOLS = new Set(["codex", "kiro-nativo", "hermes-vps"]);
+
 function parseFrontmatter(raw: string): Record<string, string> {
-  const match = raw.match(/^---\n([\s\S]*?)\n---/);
+  // Mismos bordes que el hook y el gate: BOM inicial y espacios tras `---` se toleran.
+  const match = raw.replace(/^\uFEFF/, "").match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
   if (!match) return {};
   const out: Record<string, string> = {};
-  for (const line of match[1].split("\n")) {
-    const m = line.match(/^([a-zA-Z_]+):\s*(.*)$/);
-    if (m) out[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  for (const line of match[1].split(/\r?\n/)) {
+    const m = line.match(/^([a-zA-Z_]+):[ \t]*(.*)$/);
+    if (!m) continue;
+    // `assigned_tool` duplicada es ambigua: no se elige ninguna (hook y gate hacen lo mismo).
+    const duplicated = m[1] === "assigned_tool" && "assigned_tool" in out;
+    out[m[1]] = duplicated ? "" : m[2].trim().replace(/^(["'])(.*)\1$/, "$2");
   }
   return out;
+}
+
+// `state: doing # nota` y `state: "doing"` son doing para el hook y el gate; el tablero no los esconde.
+function normalizeState(v: string | undefined): string {
+  const state = (v ?? "backlog").replace(/\s+#.*$/, "").trim().replace(/^(["'])(.*)\1$/, "$2");
+  return state.startsWith("doing") ? "doing" : state; // fail-closed: un typo (`doingX`) sigue siendo doing
 }
 
 async function loadTasks(): Promise<Task[]> {
@@ -35,10 +49,10 @@ async function loadTasks(): Promise<Task[]> {
     const raw = await Bun.file(file).text();
     const fm = parseFrontmatter(raw);
     tasks.push({
-      id: fm.id ?? file, title: fm.title ?? "(sin título)", state: fm.state ?? "backlog",
+      id: fm.id ?? file, title: fm.title ?? "(sin título)", state: normalizeState(fm.state),
       moscow: fm.moscow ?? "could", attempts: Number(fm.attempts ?? 0),
       // Misma regla que write-scope-guard: sin assigned_tool, el ticket gobierna a claude-code.
-      wipTool: fm.assigned_tool && fm.assigned_tool !== "null" ? fm.assigned_tool : "claude-code",
+      wipTool: OTHER_TOOLS.has(fm.assigned_tool ?? "") ? fm.assigned_tool : "claude-code",
       tool: (fm.assigned_tool && fm.assigned_tool !== "null" ? fm.assigned_tool : fm.preferred_tool) ?? "sin-asignar", file,
     });
   }

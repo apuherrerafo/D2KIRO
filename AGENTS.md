@@ -35,8 +35,17 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
 | Codex | `AGENTS.md` (probado: lo carga; no carga `.claude/skills`, sólo `.agents/skills`, que no existe aquí) | No |
 | Gemini CLI | `.gemini/settings.json` → `context.fileName: ["AGENTS.md"]` (según la doc oficial; **NOT_TESTED**, el CLI no está instalado en esta máquina) | No |
 
-Lo que sí protege a los tres por igual vive en git y GitHub: `.husky/pre-push`, `ci.yml` y la
-protección de `release/mvp-beta`. Los hooks de Claude son una capa extra, no la única.
+Lo que sí protege a los tres por igual vive en git y GitHub: `.husky/pre-push` y `ci.yml` (ambos
+versionados en este repo) y la protección de rama de `release/mvp-beta`. Los hooks de Claude son una
+capa extra, no la única.
+
+**La protección de rama NO está en el repo**: es configuración de GitHub y puede cambiar sin dejar
+rastro en un commit. Medida el 2026-11-24 con `gh api repos/apuherrerafo/D2KIRO/branches/release%2Fmvp-beta/protection`:
+7 checks obligatorios (`test (engine)`, `test (web)`, `test (root)`, `verify-simplicity`,
+`intelligence-ci (eval --enforce)`, `r1-certification (verify:r1)`, `independent-review`), ramas
+al día (`strict`), sin force-push ni borrado, aplicada también a administradores, conversaciones
+resueltas. **No exige aprobación humana** (`required_approving_review_count: 0`). No des por hecho
+que sigue así: vuelve a correr ese comando antes de apoyarte en ella.
 
 ## Cómo correr las pruebas
 

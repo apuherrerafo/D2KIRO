@@ -155,10 +155,27 @@ for tool_val in claude-code codex kiro-nativo hermes-vps; do
   # (_hook_lib.claude_doing_tickets) y scripts/hub.ts. Antes sólo contaba el valor explícito.
   DOING_COUNT=0
   while IFS= read -r ticket_file; do
-    ticket_tool=$(grep -m1 "^assigned_tool:" "$ticket_file" 2>/dev/null | sed -e 's/^assigned_tool:[[:space:]]*//' -e 's/[[:space:]]*$//' -e "s/^[\"']//" -e "s/[\"']\$//") || true
-    if [ -z "$ticket_tool" ] || [ "$ticket_tool" = "null" ]; then ticket_tool="claude-code"; fi
+    # Sólo del frontmatter (nunca del cuerpo) y sólo si la clave aparece UNA vez: duplicada es
+    # ambiguo y cuenta como claude-code, igual que en el hook y en el tablero.
+    ticket_tool=$(awk '
+      NR == 1 { sub("^\357\273\277", ""); if ($0 !~ /^---[ \t\r]*$/) exit; infm = 1; next }
+      infm && /^---[ \t\r]*$/ { exit }
+      infm && /^assigned_tool:/ { n++; v = $0 }
+      END { if (n == 1) { sub(/^assigned_tool:[ \t]*/, "", v); sub(/[ \t\r]*$/, "", v); print v } }
+    ' "$ticket_file" 2>/dev/null) || true
+    # Sólo un par de comillas que cierra (como el hook y el tablero); una comilla suelta no se quita.
+    case "$ticket_tool" in
+      \"*\") ticket_tool="${ticket_tool#\"}"; ticket_tool="${ticket_tool%\"}" ;;
+      "'"*"'") ticket_tool="${ticket_tool#\'}"; ticket_tool="${ticket_tool%\'}" ;;
+    esac
+    # Sólo estos tres valores EXACTOS son "otra herramienta"; todo lo demás (null, ~, vacío,
+    # desconocido, malformado) cuenta como claude-code (TSK-256: nunca esconde un doing).
+    case "$ticket_tool" in
+      codex|kiro-nativo|hermes-vps) ;;
+      *) ticket_tool="claude-code" ;;
+    esac
     if [ "$ticket_tool" = "$tool_val" ]; then DOING_COUNT=$((DOING_COUNT + 1)); fi
-  done < <(grep -rl "^state: doing" docs/agents/tasks/ 2>/dev/null || true)
+  done < <(grep -rlE "^state:[[:space:]]*[\"']?doing" docs/agents/tasks/ 2>/dev/null || true)
   if [ "$DOING_COUNT" -gt 1 ]; then
     echo "❌ ERROR: $DOING_COUNT tareas en 'doing' asignadas a '$tool_val'. Máximo permitido: 1 por herramienta (regla WIP=1 por ejecutor)."
     ERRORS=$((ERRORS + 1))

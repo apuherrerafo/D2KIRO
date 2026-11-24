@@ -76,14 +76,15 @@ test("OB-3 prohibida: fuera del write_scope y fuera del worktree se bloquean; el
 const cleanEnv = (): Record<string, string> =>
   Object.fromEntries(Object.entries(process.env).filter(([k, v]) => v !== undefined && !k.startsWith("GIT_"))) as Record<string, string>;
 
-function fixtureRepo(tickets: Record<string, Record<string, string>>): string {
+function fixtureRepo(tickets: Record<string, Record<string, string> | string>): string {
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "d2k-orch-")));
   const bunVersion = Bun.spawnSync(["bun", "--version"]).stdout.toString().trim();
   writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: `bun@${bunVersion}` }));
   for (const [name, fm] of Object.entries(tickets)) {
     mkdirSync(join(dir, "docs", "agents", "tasks"), { recursive: true });
-    const body = Object.entries(fm).map(([k, v]) => `${k}: ${v}`).join("\n");
-    writeFileSync(join(dir, "docs", "agents", "tasks", name), `---\n${body}\n---\n`);
+    // Un string se escribe CRUDO (claves duplicadas, CRLF, claves en el cuerpo: no representables con un Record).
+    const body = typeof fm === "string" ? fm : `---\n${Object.entries(fm).map(([k, v]) => `${k}: ${v}`).join("\n")}\n---\n`;
+    writeFileSync(join(dir, "docs", "agents", "tasks", name), body);
   }
   const git = (...a: string[]) => Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: dir, env: cleanEnv() });
   git("init", "-q", "-b", "main");
@@ -105,7 +106,7 @@ function runHub(dir: string): string {
 
 const tmpDirs: string[] = [];
 afterAll(() => tmpDirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
-const fixture = (t: Record<string, Record<string, string>>): string => {
+const fixture = (t: Record<string, Record<string, string> | string>): string => {
   const d = fixtureRepo(t);
   tmpDirs.push(d);
   return d;
@@ -200,3 +201,110 @@ test("OB-5 sin assigned_tool el ticket cuenta como claude-code (igual que el hoo
   expect(runHub(dir)).toContain("WIP=2 en claude-code");
 });
 
+
+// ---------- TSK-256: el mismo criterio de assigned_tool en hook, gate y tablero ----------
+// Sólo codex / kiro-nativo / hermes-vps exactos son "otra herramienta". Lo demás (null, ~, vacío,
+// desconocido, malformado) cuenta como claude-code: un valor no reconocido nunca esconde un doing.
+
+const UNRECOGNIZED = ["null", '"null"', "~", "gemini", "Codex", "codex # temporal", '"codex', "[codex]"];
+
+for (const value of UNRECOGNIZED) {
+  test(`TSK-256 gate: dos doing con assigned_tool ${value} cuentan como claude-code -> rojo`, () => {
+    const dir = fixture({
+      "TSK-901.md": { state: "doing", assigned_tool: value },
+      "TSK-902.md": { state: "doing", assigned_tool: value },
+    });
+    const g = runGate(dir);
+    expect(g.code).toBe(1);
+    expect(g.out).toContain("'claude-code'");
+  });
+
+  test(`TSK-256 tablero: dos doing con assigned_tool ${value} alertan WIP en claude-code`, () => {
+    const dir = fixture({
+      "TSK-901.md": { state: "doing", assigned_tool: value },
+      "TSK-902.md": { state: "doing", assigned_tool: value },
+    });
+    const html = runHub(dir);
+    expect(html).toContain("WIP=2 en claude-code");
+  });
+}
+
+test("TSK-256 gate: assigned_tool entre comillas dobles de codex sigue siendo codex (control negativo)", () => {
+  const dir = fixture({
+    "TSK-901.md": { state: "doing", assigned_tool: '"codex"' },
+    "TSK-902.md": { state: "doing", assigned_tool: "claude-code" },
+  });
+  expect(runGate(dir).code).toBe(0);
+});
+
+// Dos tickets que el hook considera de claude-code deben sumar 2 también en el gate y en el tablero.
+const CLAUDE_B = "---\nstate: doing\nassigned_tool: claude-code\n---\n";
+const RAW_AS_CLAUDE: Array<[string, string]> = [
+  ["clave duplicada (codex primero)", "---\nstate: doing\nassigned_tool: codex\nassigned_tool: claude-code\n---\n"],
+  ["clave duplicada (claude-code primero)", "---\nstate: doing\nassigned_tool: claude-code\nassigned_tool: codex\n---\n"],
+  ["assigned_tool sólo en el cuerpo", "---\nstate: doing\n---\nassigned_tool: codex\n"],
+];
+
+for (const [label, ticketA] of RAW_AS_CLAUDE) {
+  test(`TSK-256 gate (crudo): ${label} + claude-code explícito -> rojo`, () => {
+    const g = runGate(fixture({ "TSK-901.md": ticketA, "TSK-902.md": CLAUDE_B }));
+    expect(g.code).toBe(1);
+    expect(g.out).toContain("'claude-code'");
+  });
+
+  test(`TSK-256 tablero (crudo): ${label} + claude-code explícito -> WIP=2 en claude-code`, () => {
+    expect(runHub(fixture({ "TSK-901.md": ticketA, "TSK-902.md": CLAUDE_B }))).toContain("WIP=2 en claude-code");
+  });
+}
+
+test("TSK-256 CRLF: un doing de codex con CRLF no cuenta como claude-code ni en el gate ni en el tablero", () => {
+  const crlf = "---\r\nstate: doing\r\nassigned_tool: codex\r\n---\r\n";
+  const dir = fixture({ "TSK-901.md": crlf, "TSK-902.md": CLAUDE_B });
+  expect(runGate(dir).code).toBe(0);
+  expect(runHub(dir)).not.toContain('wip-alert">');
+});
+
+// BOM inicial y espacios tras `---`: el hook, el gate y el tablero deben leer lo mismo (codex = otra herramienta).
+const EDGE_CODEX: Array<[string, string]> = [
+  ["BOM inicial", "\uFEFF---\nstate: doing\nassigned_tool: codex\n---\n"],
+  ["espacios tras el --- inicial", "---   \nstate: doing\nassigned_tool: codex\n---\n"],
+  ["espacios tras el --- de cierre", "---\nstate: doing\nassigned_tool: codex\n---   \n"],
+];
+
+for (const [label, codexTicket] of EDGE_CODEX) {
+  test(`TSK-256 borde (${label}): un doing de codex + uno de claude-code -> gate verde y tablero sin alerta`, () => {
+    const dir = fixture({ "TSK-901.md": codexTicket, "TSK-902.md": CLAUDE_B });
+    expect(runGate(dir).code).toBe(0);
+    expect(runHub(dir)).not.toContain('wip-alert">');
+  });
+
+  test(`TSK-256 borde (${label}): control: el mismo borde con assigned_tool null suma como claude-code -> rojo`, () => {
+    // Control: el mismo ticket con assigned_tool: null SÍ cuenta como claude-code, así que con otro claude-code da rojo.
+    const asNull = codexTicket.replace("assigned_tool: codex", "assigned_tool: null");
+    const dir = fixture({ "TSK-901.md": asNull, "TSK-902.md": CLAUDE_B });
+    expect(runGate(dir).code).toBe(1);
+    expect(runHub(dir)).toContain("WIP=2 en claude-code");
+  });
+}
+
+// Forma de `state: doing` que el tablero y el hook leen: el gate no puede descubrir menos tickets que ellos.
+const DOING_FORMS = ["state: doingX", 'state: "doingX"', "state: doing # en curso", 'state: "doing" # en curso', "state:  doing", "state:	doing", "state:doing", 'state: "doing"', "state: doing   "];
+
+for (const form of DOING_FORMS) {
+  test(`TSK-256 descubrimiento (${JSON.stringify(form)}): dos doing sin assigned_tool -> gate rojo y tablero WIP=2`, () => {
+    const t = `---
+${form}
+---
+`;
+    const dir = fixture({ "TSK-901.md": t, "TSK-902.md": t });
+    expect(runGate(dir).code).toBe(1);
+    expect(runHub(dir)).toContain("WIP=2 en claude-code");
+  });
+}
+
+test("TSK-256 CRLF: dos doing con CRLF y assigned_tool null cuentan como claude-code en gate y tablero", () => {
+  const crlfNull = "---\r\nstate: doing\r\nassigned_tool: null\r\n---\r\n";
+  const dir = fixture({ "TSK-901.md": crlfNull, "TSK-902.md": crlfNull });
+  expect(runGate(dir).code).toBe(1);
+  expect(runHub(dir)).toContain("WIP=2 en claude-code");
+});

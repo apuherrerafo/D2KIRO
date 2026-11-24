@@ -86,6 +86,149 @@ test("write-scope: dos tickets en doing, ninguno con write_scope -> no bloquea (
   rmSync(join(tasksDir, "TSK-905.md"));
 });
 
+// ---------- write-scope-guard: interpretación de assigned_tool (TSK-256) ----------
+// Sólo codex / kiro-nativo / hermes-vps EXACTOS sacan a un ticket del gobierno de Claude Code.
+// Todo lo demás (null, vacío, desconocido, malformado, otra capitalización, valor en el cuerpo)
+// gobierna: un valor no reconocido nunca amplía permisos.
+
+function rawTicket(name: string, raw: string): void {
+  writeFileSync(join(tasksDir, name), raw);
+}
+
+const OUT_OF_SCOPE = () => join(REPO, "apps/engine/src/mix.ts");
+
+const GOVERNS_CLAUDE: Array<[string, string]> = [
+  ["ausente", ""],
+  ["null", "assigned_tool: null"],
+  ["null entre comillas dobles", 'assigned_tool: "null"'],
+  ["null entre comillas simples", "assigned_tool: 'null'"],
+  ["~ (null YAML)", "assigned_tool: ~"],
+  ["vacío", "assigned_tool:"],
+  ["vacío con espacios", "assigned_tool:    "],
+  ["comillas vacías", 'assigned_tool: ""'],
+  ["claude-code", "assigned_tool: claude-code"],
+  ["claude-code entre comillas", 'assigned_tool: "claude-code"'],
+  ["desconocido", "assigned_tool: gemini"],
+  ["capitalización distinta", "assigned_tool: Codex"],
+  ["MAYÚSCULAS", "assigned_tool: CODEX"],
+  ["codex con comentario", "assigned_tool: codex # temporal"],
+  ["codex con sufijo", "assigned_tool: codex-2"],
+  ["lista YAML", "assigned_tool: [codex]"],
+  ["comilla sin cerrar", 'assigned_tool: "codex'],
+  ["sin espacio tras ':'", "assigned_tool:null"],
+  ["clave con prefijo", "x_assigned_tool: codex"],
+  ["clave indentada (anidada)", "  assigned_tool: codex"],
+];
+
+for (const [label, line] of GOVERNS_CLAUDE) {
+  test(`write-scope assigned_tool: ${label} -> el ticket doing gobierna a Claude (bloquea fuera de scope)`, async () => {
+    const extra = line ? `${line}
+` : "";
+    rawTicket("TSK-920.md", `---
+id: TSK-920
+state: doing
+${extra}write_scope: ["eval/**"]
+---
+
+cuerpo
+`);
+    expect(await runGuard("write-scope-guard", OUT_OF_SCOPE())).toBe(2);
+    expect(await runGuard("write-scope-guard", join(REPO, "eval/golden/x.json"))).toBe(0);
+    rmSync(join(tasksDir, "TSK-920.md"));
+  });
+}
+
+const OTHER_TOOLS: Array<[string, string]> = [
+  ["codex", "assigned_tool: codex"],
+  ["kiro-nativo", "assigned_tool: kiro-nativo"],
+  ["hermes-vps", "assigned_tool: hermes-vps"],
+  ["codex entre comillas dobles", 'assigned_tool: "codex"'],
+  ["codex entre comillas simples", "assigned_tool: 'codex'"],
+  ["codex con espacios finales", "assigned_tool: codex   "],
+];
+
+for (const [label, line] of OTHER_TOOLS) {
+  test(`write-scope assigned_tool: ${label} -> NO gobierna a Claude (WIP por herramienta)`, async () => {
+    rawTicket("TSK-921.md", `---
+id: TSK-921
+state: doing
+${line}
+write_scope: ["eval/**"]
+---
+
+cuerpo
+`);
+    expect(await runGuard("write-scope-guard", OUT_OF_SCOPE())).toBe(0);
+    rmSync(join(tasksDir, "TSK-921.md"));
+  });
+}
+
+test("write-scope assigned_tool: un 'assigned_tool: codex' en el CUERPO no saca al ticket del gobierno", async () => {
+  rawTicket(
+    "TSK-922.md",
+    `---
+id: TSK-922
+state: doing
+write_scope: ["eval/**"]
+---
+
+assigned_tool: codex
+`,
+  );
+  expect(await runGuard("write-scope-guard", OUT_OF_SCOPE())).toBe(2);
+  rmSync(join(tasksDir, "TSK-922.md"));
+});
+
+test("write-scope assigned_tool: null + ticket de codex en doing -> sólo el null gobierna", async () => {
+  rawTicket("TSK-923.md", `---
+id: TSK-923
+state: doing
+assigned_tool: null
+write_scope: ["eval/**"]
+---
+`);
+  rawTicket("TSK-924.md", `---
+id: TSK-924
+state: doing
+assigned_tool: codex
+write_scope: ["apps/**"]
+---
+`);
+  expect(await runGuard("write-scope-guard", OUT_OF_SCOPE())).toBe(2);
+  expect(await runGuard("write-scope-guard", join(REPO, "eval/golden/x.json"))).toBe(0);
+  rmSync(join(tasksDir, "TSK-923.md"));
+  rmSync(join(tasksDir, "TSK-924.md"));
+});
+
+const RAW_CASES: Array<[string, string, number]> = [
+  ["clave duplicada (codex primero)", `---\nstate: doing\nassigned_tool: codex\nassigned_tool: claude-code\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["clave duplicada (claude-code primero)", `---\nstate: doing\nassigned_tool: claude-code\nassigned_tool: codex\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["clave duplicada, las dos codex (sigue ambigua)", `---\nstate: doing\nassigned_tool: codex\nassigned_tool: codex\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["CRLF + codex -> otra herramienta", `---\r\nstate: doing\r\nassigned_tool: codex\r\nwrite_scope: ["eval/**"]\r\n---\r\n`, 0],
+  ["state con comentario -> el ticket gobierna", `---\nstate: doing # en curso\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["state entre comillas con comentario -> el ticket gobierna", `---\nstate: "doing" # en curso\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["state con tab -> el ticket gobierna", `---\nstate:	doing\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["state sin espacio -> el ticket gobierna", `---\nstate:doing\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["state entre comillas simples -> el ticket gobierna", `---\nstate: 'doing'\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["state typo doingX -> el ticket gobierna", `---\nstate: doingX\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["state typo entre comillas -> el ticket gobierna", `---\nstate: "doingX"\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["BOM inicial + codex -> otra herramienta", `\uFEFF---\nstate: doing\nassigned_tool: codex\nwrite_scope: ["eval/**"]\n---\n`, 0],
+  ["BOM inicial + null -> gobierna", `\uFEFF---\nstate: doing\nassigned_tool: null\nwrite_scope: ["eval/**"]\n---\n`, 2],
+  ["espacios tras --- + codex -> otra herramienta", `---   \nstate: doing\nassigned_tool: codex\nwrite_scope: ["eval/**"]\n---   \n`, 0],
+  ["CRLF + null -> gobierna",`---\r\nstate: doing\r\nassigned_tool: null\r\nwrite_scope: ["eval/**"]\r\n---\r\n`, 2],
+  ["sin frontmatter con state en cuerpo -> gobierna", `state: doing\nassigned_tool: codex\nwrite_scope: ["eval/**"]\n`, 2],
+  ["frontmatter sin cerrar: assigned_tool no cuenta", `---\nstate: doing\nassigned_tool: codex\nwrite_scope: ["eval/**"]\n`, 2],
+  ["'---' dentro del cuerpo no extiende el frontmatter", `---\nstate: doing\nwrite_scope: ["eval/**"]\n---\n\ntexto\n---\nassigned_tool: codex\n`, 2],
+];
+
+for (const [label, raw, expected] of RAW_CASES) {
+  test(`write-scope assigned_tool (crudo): ${label} -> exit ${expected}`, async () => {
+    rawTicket("TSK-925.md", raw);
+    expect(await runGuard("write-scope-guard", OUT_OF_SCOPE())).toBe(expected);
+    rmSync(join(tasksDir, "TSK-925.md"));
+  });
+}
+
 // ---------- data-boundary-guard ----------
 
 test("data-boundary: bloquea data/curated/ sin autorización", async () => {
