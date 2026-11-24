@@ -235,8 +235,22 @@ jobs:
   r1-certification:
     name: r1-certification (verify:r1)
     needs: [test, verify-simplicity, intelligence-ci]
+    # `!cancelled()` (corre aunque un need falle, pero respeta la cancelacion) + el primer paso: sin esto, un need en rojo hace que GitHub OMITA este job, y un check requerido
+    # omitido NO bloquea la fusion (TSK-259). Asi un fallo de `test (qa)` (no requerido por si solo) se convierte en
+    # un FALLO de `r1-certification (verify:r1)`, que si es requerido.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04 # mismo motivo que el job `test` (better-sqlite3 sin node-gyp en 26.04)
     steps:
+      - name: Refuse to certify unless every needed job succeeded
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          SIMPLICITY_RESULT: ${{ needs.verify-simplicity.result }}
+          INTELLIGENCE_RESULT: ${{ needs.intelligence-ci.result }}
+        run: |
+          for r in "$TEST_RESULT" "$SIMPLICITY_RESULT" "$INTELLIGENCE_RESULT"; do
+            [ "$r" = "success" ] || { echo "needs no exitosos: test=$TEST_RESULT verify-simplicity=$SIMPLICITY_RESULT intelligence-ci=$INTELLIGENCE_RESULT"; exit 1; }
+          done
+
       - name: Checkout
         uses: actions/checkout@v4
 
