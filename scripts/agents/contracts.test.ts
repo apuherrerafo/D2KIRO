@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkAgent, checkAgentsMdRules, checkGeminiAdapter, checkJournalPolicy, checkPaths, parseFrontmatter,
+  checkAgent, checkAgentsMdRules, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, parseFrontmatter,
 } from "./contracts";
 
+const YAML = ["tiers:", "  e:", "    modelo_actual: claude-sonnet-5", "    usado_en:", "      - .claude/agents/a.md"].join("\n");
 const ROOT = join(import.meta.dir, "..", "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const exists = (p: string) => existsSync(join(ROOT, p));
@@ -36,6 +37,15 @@ describe("contratos de agentes — casos negativos (deben fallar)", () => {
     expect(checkGeminiAdapter('{"context":{"fileName":"GEMINI.md"}}')).toHaveLength(1);
     expect(checkGeminiAdapter('{"context":{"fileName":["AGENTS.md","X.md"]}}')).toEqual([]);
   });
+  test("models.yaml sin un agente, o con el tier equivocado", () => {
+    const y = YAML;
+    expect(checkModelsYaml([{ file: "b.md", model: "claude-sonnet-5" }], y)).toHaveLength(1);
+    expect(checkModelsYaml([{ file: "a.md", model: "claude-haiku-4-5-20251001" }], y)).toHaveLength(1);
+  });
+  test("workflow de coordinación incompleto o root-cause sin regresión", () => {
+    expect(checkCoordinationWorkflow("# /dispatch sólo enruta").length).toBeGreaterThan(5);
+    expect(checkRootCauseRegression("Produce un comando que reproduzca el bug.")).toHaveLength(1);
+  });
   test("instruir vaciar o borrar journal.md / ledger.md", () => {
     expect(checkJournalPolicy("x.md", "- Vacía journal.md cada mes.")).toHaveLength(1);
     expect(checkJournalPolicy("x.md", "- Borra el ledger.md viejo.")).toHaveLength(1);
@@ -60,6 +70,11 @@ describe("contratos de agentes — casos legítimos (deben pasar)", () => {
   test("crear un journal.md vacío en un repo nuevo es legítimo", () => {
     const t = "4. Crea `docs/agents/journal.md` vacío y escribe una primera entrada.";
     expect(checkJournalPolicy("x.md", t)).toEqual([]);
+  });
+  test("models.yaml coherente y root-cause con regresión pasan", () => {
+    const y = YAML;
+    expect(checkModelsYaml([{ file: "a.md", model: "claude-sonnet-5" }], y)).toEqual([]);
+    expect(checkRootCauseRegression("la reproducción pasa a ser una prueba permanente: rojo antes, verde después")).toEqual([]);
   });
   test("salida generada declarada en la allowlist", () => {
     expect(checkPaths("x.md", "`docs/agents/BRAINSTORM.md`", () => false)).toEqual([]);
@@ -94,6 +109,16 @@ describe("contratos sobre el repo real", () => {
       ...readdirSync(join(ROOT, ".claude/rules")).map((f) => `.claude/rules/${f}`),
     ];
     expect(files.flatMap((f) => checkPaths(f, read(f), exists))).toEqual([]);
+  });
+
+  test("models.yaml lista cada agente bajo el tier de su modelo", () => {
+    const agents = agentFiles.map((f) => ({ file: f, model: parseFrontmatter(read(`.claude/agents/${f}`)).model }));
+    expect(checkModelsYaml(agents, read("docs/agents/models.yaml"))).toEqual([]);
+  });
+
+  test("dispatch declara el ciclo de coordinación y root-cause exige regresión permanente", () => {
+    expect(checkCoordinationWorkflow(read(".claude/skills/dispatch/SKILL.md"))).toEqual([]);
+    expect(checkRootCauseRegression(read(".claude/skills/root-cause/SKILL.md"))).toEqual([]);
   });
 
   test("el adaptador de Gemini apunta a AGENTS.md", () => {

@@ -46,6 +46,33 @@ Clasifica la intención del mensaje del usuario:
 - Al terminar, invoca `@shipcheck`.
 - Respeta WIP=1 y los límites estrictos de archivos y dependencias.
 
+## CICLO DE COORDINACIÓN (objetivo → entrega verificable)
+No hay un agente coordinador aparte: el ciclo reparte lo que `/compass`, `/helm` y `/dispatch` ya hacen. "Coordinador" = la sesión que ejecuta `/dispatch`.
+
+| Etapa | Responsable (existente) | Evidencia que deja |
+|---|---|---|
+| 1 Objetivo | usuario + `/grill-me` | ticket con criterio de aceptación verificable |
+| 2 Plan mínimo | `/compass` (dónde estamos, no ejecuta) + `/helm` (`plan.md` derivado, top 3 Must, WIP=1) | `PROGRESS.md` + ticket `ready` |
+| 3 Asignación | `/dispatch` | `assigned_tool` y `write_scope` en el frontmatter del ticket |
+| 4 Implementación | `@build` / `@root-cause` (el autor) | diff dentro del `write_scope` |
+| 5 Pruebas | gates deterministas: `bun run test`, `tsc`, `verify-simplicity.sh` (Warden los interpreta) | comando exacto + salida |
+| 6 Revisión | `@redteam` (≤3 rondas) / Sentinel pre-deploy; en un PR, dos revisiones independientes declaradas | veredicto escrito de un actor distinto del autor |
+| 7 Entrega | `@shipcheck` → `/castoff` | tabla de impacto + commit; merge/deploy sólo si el usuario lo autoriza |
+
+**Evidencia de cierre** (en `## Estado` del ticket o en el reporte): **Implementado**, **Funciona** (comando + salida real) y **Pendiente** (o `ninguno`).
+
+**El coordinador:**
+- no aprueba su propio trabajo: la revisión (etapa 6) la hace otro actor, nunca quien implementó ni quien despachó;
+- no omite pruebas ni guardrails (hooks, CI, `verify-simplicity.sh`); un check `SKIPPED`/`BLOCKED` no cuenta como PASS;
+- no declara PASS sin comando y salida que lo respalden;
+- no modifica archivos fuera del `write_scope` del ticket: si hace falta, se amplía el `write_scope`, nunca se salta el hook;
+- no hace merge ni deploy sin autorización explícita del usuario;
+- no repite una tarea fallida en bucle.
+
+**Condiciones de parada:** `attempts: 3` dispara Tracer (con el resumen sintético que pide `/helm`); `@redteam` se detiene tras 3 rondas; un gate en rojo pasa el ticket a `blocked` y decide el usuario; sin créditos en ninguna herramienta, se entrega sólo el plan.
+
+**Fallo reproducible:** se exige un comando de reproducción, una prueba permanente (rojo → arreglo → verde, ver `@root-cause`) y volver a correr las pruebas afectadas antes de cerrar.
+
 ## CONTEXTO MÍNIMO VIABLE PARA CODEX (Codex no es una caja negra perfecta)
 Codex no lee `journal.md` ni `architecture.md` — si el ticket asume una convención de nombrado o de dominio que solo vive ahí, Codex va a inventar nombres y fallar en silencio. Cada vez que asignes `tool: codex` a un ticket:
 1. Copia al cuerpo del ticket (no solo referencia la ruta) las 3-5 líneas más relevantes de `architecture.md`/`SPEC.md` que definen el vocabulario de dominio que ese ticket necesita (nombres de columnas, convenciones, entidades).

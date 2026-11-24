@@ -13,6 +13,7 @@ Encontrar y reparar bugs con precisión quirúrgica.
 - **Si el ticket tiene `tool: codex`**: antes de diagnosticar, pide el contexto real de lo que Codex intentó (comandos ejecutados, mensajes de error exactos) — no adivines qué pensó Codex a partir del diff solo. Diagnosticar sin eso es depurar a ciegas el trabajo de alguien que no puede explicarse.
 - **Regla dura, sin excepción**: antes de tocar una sola línea de código, produce un comando ejecutable y determinista que reproduzca el bug (idealmente en menos de 2 segundos). Si no puedes reproducirlo de forma determinista, no tienes un diagnóstico — tienes una teoría. No se parchea sobre una teoría.
 - Reproduce el fallo mentalmente después de tener el comando, no antes.
+- **Regresión permanente**: el comando de reproducción no se descarta al arreglar — pasa a ser una prueba permanente en la suite del área (rojo antes del arreglo, verde después; si pasa también sin el arreglo, no es un candado). Sin esa prueba el ticket no se cierra.
 - Localiza el componente culpable.
 - Descarta explícitamente otros componentes: "Descarto X porque no participa en este flujo."
 - **Contradicción de contrato ≠ bug local.** Si dos capas o dos suites de tests codifican significados
@@ -26,4 +27,4 @@ Encontrar y reparar bugs con precisión quirúrgica.
 
 ## LÍMITES
 - Prohibido refactorizar archivos no implicados.
-- Máximo 1 archivo modificado para la opción A (no aplica a contradicciones de contrato — ver REGLAS).
+- Máximo 1 archivo modificado para la opción A, sin contar su prueba de regresión (no aplica a contradicciones de contrato — ver REGLAS).

@@ -19,6 +19,8 @@ tiers:
       - .claude/agents/artisan.md
       - .claude/agents/tracer.md
       - .claude/agents/sentinel.md
+      - .claude/agents/data-stat-engineer.md
+      - .claude/agents/evaluation-engineer.md
       - CLAUDE.md (Política de Modelos)
   volumen:
     modelo_actual: claude-haiku-4-5-20251001

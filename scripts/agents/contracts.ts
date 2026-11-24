@@ -123,3 +123,47 @@ export function checkAgentsMdRules(agentsMd: string, rulesWithPaths: string[]): 
     ? []
     : [`AGENTS.md lista [${listed}] pero declaran paths: [${actual}]`];
 }
+
+// docs/agents/models.yaml es el checklist de "qué tocar si un modelo cambia de nombre": cada agente
+// debe figurar bajo el tier cuyo modelo_actual coincide con su `model:`.
+export function checkModelsYaml(agents: { file: string; model?: string }[], yamlText: string): string[] {
+  const tierOf = new Map<string, string>();
+  let current = "";
+  for (const line of yamlText.split(/\r?\n/)) {
+    const m = /modelo_actual:\s*(\S+)/.exec(line);
+    if (m) current = m[1];
+    const a = /^\s*-\s+(\.claude\/agents\/[\w-]+\.md)/.exec(line);
+    if (a) tierOf.set(a[1], current);
+  }
+  const errs: string[] = [];
+  for (const { file, model } of agents) {
+    const key = `.claude/agents/${file}`;
+    if (!tierOf.has(key)) errs.push(`models.yaml: falta ${key}`);
+    else if (tierOf.get(key) !== model) errs.push(`models.yaml: ${key} figura con ${tierOf.get(key)} pero declara ${model}`);
+  }
+  return errs;
+}
+
+// Ciclo de coordinación (dispatch + helm + compass). Chequeo ESTÁTICO de que el texto declara las
+// prohibiciones, paradas y evidencia; no prueba que un modelo las obedezca.
+export const COORDINATION_CLAUSES: [string, RegExp][] = [
+  ["sección del ciclo", /CICLO DE COORDINACI[ÓO]N/],
+  ["no aprueba su propio trabajo", /no aprueba su propio trabajo/i],
+  ["no omite tests ni guardrails", /no omite (?:pruebas|tests)/i],
+  ["PASS sólo con evidencia", /PASS sin (?:comando|evidencia)/i],
+  ["no sale del alcance autorizado", /no modifica archivos fuera del `?write_scope`?/i],
+  ["merge/deploy sólo con autorización", /merge[^.\n]*deploy[^.\n]*autorizaci[óo]n expl[íi]cita/i],
+  ["parada: attempts 3 → Tracer", /attempts: 3/],
+  ["parada: 3 rondas de redteam", /3 rondas/],
+  ["regresión permanente", /prueba permanente/i],
+];
+
+export function checkCoordinationWorkflow(dispatchText: string): string[] {
+  return COORDINATION_CLAUSES.filter(([, re]) => !re.test(dispatchText)).map(([n]) => `dispatch: falta cláusula "${n}"`);
+}
+
+export function checkRootCauseRegression(text: string): string[] {
+  return /prueba permanente/i.test(text) && /rojo/i.test(text) && /verde/i.test(text)
+    ? []
+    : ["root-cause: no exige convertir la reproducción en una prueba permanente (rojo → verde)"];
+}
