@@ -28,9 +28,8 @@ from _hook_lib import (  # noqa: E402
     claude_doing_tickets,
     matches_any,
     parse_payload,
-    parse_scope_list,
-    read_frontmatter_field,
     read_stdin,
+    read_write_scope,
     resolve_edit_target,
 )
 
@@ -47,7 +46,7 @@ def check(target: EditTarget) -> str | None:
 
     tickets = claude_doing_tickets(target.tasks_dir)
     if len(tickets) == 1:
-        globs = parse_scope_list(read_frontmatter_field(tickets[0], "write_scope"))
+        globs = read_write_scope(tickets[0])
         curated_globs = [g for g in globs if g.startswith(CURATED_PREFIX) or g.startswith("data/curated")]
         if curated_globs and matches_any(rel, curated_globs):
             return None  # el ticket lo autoriza explícitamente

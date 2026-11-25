@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ERRORS=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🦴 Verificando reglas del proyecto..."
 
@@ -144,20 +145,15 @@ if [ -n "$TRACKED_SECRET_HIT" ] || [ -n "$UNTRACKED_SECRET_FILES" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# --- 3. WIP = 1 POR HERRAMIENTA (no global) — permite paralelismo real entre claude-code/codex/kiro-nativo/hermes-vps ---
-# Tanto el primer grep (sin tickets en 'doing') como el segundo (ninguno de ese tool_val) pueden
-# legítimamente no encontrar nada y salir con status 1 — bajo `set -euo pipefail` cualquiera de
-# los dos aborta el script entero en silencio. `|| true` sobre la asignación completa (no solo
-# sobre un comando suelto del pipe) neutraliza esto sin importar cuál de los greps fue el que no
-# encontró coincidencias; `${DOING_COUNT:-0}` cubre el caso borde de que la sustitución quede vacía.
-for tool_val in claude-code codex kiro-nativo hermes-vps; do
-  DOING_COUNT=$(grep -rl "^state: doing" docs/agents/tasks/ 2>/dev/null | xargs -r grep -l "^assigned_tool: $tool_val" 2>/dev/null | wc -l | tr -d ' ') || true
-  DOING_COUNT=${DOING_COUNT:-0}
-  if [ "$DOING_COUNT" -gt 1 ]; then
-    echo "❌ ERROR: $DOING_COUNT tareas en 'doing' asignadas a '$tool_val'. Máximo permitido: 1 por herramienta (regla WIP=1 por ejecutor)."
-    ERRORS=$((ERRORS + 1))
-  fi
-done
+# --- 3. Fichas válidas y WIP = 1 POR HERRAMIENTA (no global) — permite paralelismo entre claude-code/codex/kiro-nativo/hermes-vps ---
+# El gate no lee fichas por su cuenta: usa el mismo parser que el hook y el tablero (TSK-263,
+# scripts/hooks/_hook_lib.py). Una ficha inválida es violación: nunca esconde un doing. Si el contrato no se
+# puede ejecutar (sin python3, script ausente), falla cerrado.
+if ! TICKET_ERRORS=$(python3 -B "$SCRIPT_DIR/hooks/ticket_contract.py" check docs/agents/tasks 2>&1); then
+  echo "❌ ERROR: el contrato de fichas (docs/agents/tasks) no se cumple:"
+  printf '%s\n' "$TICKET_ERRORS" | sed 's/^/   - /'
+  ERRORS=$((ERRORS + 1))
+fi
 
 # --- 4. journal*.md (incluidas particiones mensuales archivadas) y ledger.md deben ser append-only ---
 # La lista sale de la BASE (ls-tree), no del disco: si el archivo se borra entero, un glob sobre el

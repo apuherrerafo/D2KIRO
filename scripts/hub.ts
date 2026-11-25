@@ -5,6 +5,7 @@
 // Uso: bun scripts/hub.ts
 
 import { Glob } from "bun";
+import { join } from "node:path";
 
 const PHASES = ["kickoff", "pre-flight", "blueprint", "rulebook", "ejecución", "castoff"];
 const STATES = ["backlog", "ready", "doing", "review", "blocked", "done"];
@@ -12,35 +13,33 @@ const MOSCOW_ORDER: Record<string, number> = { must: 0, should: 1, could: 2, won
 
 type Task = {
   id: string; title: string; state: string; moscow: string;
-  attempts: number; tool: string; file: string;
+  attempts: number; tool: string; wipTool: string; problem: string; file: string;
 };
 
 type LogEntry = { ts: string; tool: string; ticket: string; result: string; note: string };
 
-function parseFrontmatter(raw: string): Record<string, string> {
-  const match = raw.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-  const out: Record<string, string> = {};
-  for (const line of match[1].split("\n")) {
-    const m = line.match(/^([a-zA-Z_]+):\s*(.*)$/);
-    if (m) out[m[1]] = m[2].replace(/^["']|["']$/g, "");
-  }
-  return out;
+// El tablero no interpreta fichas: usa el mismo parser que el hook y el gate (TSK-263,
+// scripts/hooks/_hook_lib.py). Si no se puede ejecutar, el tablero no se genera.
+type ContractTicket = { file: string; state: string; wipTool: string; problem: string; fields: Record<string, string> };
+
+function readTickets(): ContractTicket[] {
+  const script = join(import.meta.dir, "hooks", "ticket_contract.py");
+  const run = Bun.spawnSync(["python3", "-B", script, "list", "docs/agents/tasks"]);
+  if (run.exitCode !== 0) throw new Error(`contrato de fichas no ejecutable: ${run.stderr.toString()}`);
+  return JSON.parse(run.stdout.toString()) as ContractTicket[];
 }
 
-async function loadTasks(): Promise<Task[]> {
-  const tasks: Task[] = [];
-  const glob = new Glob("docs/agents/tasks/*.md");
-  for await (const file of glob.scan(".")) {
-    const raw = await Bun.file(file).text();
-    const fm = parseFrontmatter(raw);
-    tasks.push({
-      id: fm.id ?? file, title: fm.title ?? "(sin título)", state: fm.state ?? "backlog",
-      moscow: fm.moscow ?? "could", attempts: Number(fm.attempts ?? 0),
-      tool: (fm.assigned_tool && fm.assigned_tool !== "null" ? fm.assigned_tool : fm.preferred_tool) ?? "sin-asignar", file,
-    });
-  }
-  return tasks;
+// Una ficha inválida se muestra en `blocked` (necesita decisión) y además en la alerta de fichas.
+function loadTasks(): Task[] {
+  return readTickets().map(({ file, state, wipTool, problem, fields: fm }) => ({
+    id: fm.id || file, title: fm.title || "(sin título)", state: problem ? "blocked" : state,
+    moscow: fm.moscow || "could", attempts: Number(fm.attempts ?? 0), wipTool, problem, file,
+    tool: (fm.assigned_tool && fm.assigned_tool !== "null" ? fm.assigned_tool : fm.preferred_tool) || "sin-asignar",
+  }));
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 async function loadProgress(): Promise<{ fase: string; siguiente: string }> {
@@ -198,8 +197,15 @@ function render(
       </div>`;
   }).join("");
 
-  const wip = tasks.filter((t) => t.state === "doing").length;
-  const wipWarning = wip > 1 ? `<div class="wip-alert">⚠️ WIP=${wip}, debería ser máximo 1</div>` : "";
+  // WIP=1 es POR herramienta (CLAUDE.md, write-scope-guard, verify-simplicity.sh): una tarea en
+  // doing de claude-code y otra de codex es paralelismo legítimo, no una violación.
+  const doingByTool = new Map<string, number>();
+  for (const t of tasks.filter((x) => x.state === "doing")) doingByTool.set(t.wipTool, (doingByTool.get(t.wipTool) ?? 0) + 1);
+  const wipWarning = [...doingByTool].filter(([, n]) => n > 1)
+    .map(([tool, n]) => `<div class="wip-alert">⚠️ WIP=${n} en ${tool}, debería ser máximo 1 por herramienta</div>`).join("");
+
+  const ticketWarning = tasks.filter((t) => t.problem)
+    .map((t) => `<div class="ficha-alert">⚠️ Ficha inválida ${escapeHtml(t.file)}: ${escapeHtml(t.problem)}</div>`).join("");
 
   const stepper = PHASES.map((p) => {
     const active = progress.fase.includes(p);
@@ -247,7 +253,7 @@ function render(
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
   h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #999; margin: 24px 0 8px; }
   .subtitle { color: #888; font-size: 13px; margin-bottom: 16px; }
-  .wip-alert { background: #3a1f1f; color: #ff9d9d; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
+  .wip-alert, .ficha-alert { background: #3a1f1f; color: #ff9d9d; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
   .stepper { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
   .step { background: #21252e; color: #666; padding: 6px 12px; border-radius: 20px; font-size: 12px; }
   .step-active { background: #2d4a3a; color: #7fdba3; font-weight: 600; }
@@ -298,6 +304,7 @@ function render(
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">${ARCH_MAP}</div>
 
+  ${ticketWarning}
   ${wipWarning}
   <h3>Kanban</h3>
   <div class="board">${columns}</div>
@@ -319,7 +326,7 @@ function render(
 </html>`;
 }
 
-const tasks = await loadTasks();
+const tasks = loadTasks();
 const progress = await loadProgress();
 const journal = await loadJournal();
 const evolveReport = await loadEvolveReport();
