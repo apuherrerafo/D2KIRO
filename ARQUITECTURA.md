@@ -33,11 +33,11 @@
 
 | Agente | Modelo | Rol | Tools | Por qué existe como agente separado (no como skill) |
 |---|---|---|---|---|
-| **Warden** | `claude-sonnet-5` | Revisa: pruebas, linters, límites | Read, Glob, Grep, Bash | Necesita ejecutar comandos de verificación de forma aislada del hilo de ejecución |
+| **Warden** | `claude-sonnet-5` | Revisa: pruebas, linters, límites | Read, Glob, Grep | Interpreta la evidencia de los gates (la produce el coordinador) con contexto propio |
 | **Artisan** | `claude-sonnet-5` | Ejecuta: interfaces y sistema de diseño | Read, Write, Edit, Glob, Grep | Especialización de dominio (UI) que se beneficia de contexto propio |
 | **Chronicle** | `claude-haiku-4-5-20251001` | Documenta: memoria, specs, ledger | Read, Write, Edit, Glob, Grep | Tarea de alto volumen y bajo riesgo — modelo barato adrede |
-| **Tracer** | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Grep, Bash | Se activa solo tras 3 fallos — necesita una mirada sin el sesgo de quien escribió el código que falló |
-| **Sentinel** | `claude-sonnet-5` | Gate de seguridad, bloqueante, pre-deploy | Read, Grep, Bash | **Decisión de diseño explícita**: separado de quien genera el código, siguiendo el patrón de "guardrail en modelo distinto al que responde" — un mismo hilo autovigilándose rinde peor que una segunda pasada independiente |
+| **Tracer** | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Glob, Grep | Se activa solo tras 3 fallos — necesita una mirada sin el sesgo de quien escribió el código que falló |
+| **Sentinel** | `claude-sonnet-5` | Gate de seguridad, bloqueante, pre-deploy | Read, Glob, Grep | **Decisión de diseño explícita**: separado de quien genera el código, siguiendo el patrón de "guardrail en modelo distinto al que responde" — un mismo hilo autovigilándose rinde peor que una segunda pasada independiente |
 
 **Por qué solo 5 y no más** (rechazado explícitamente: un agente por "rol de oficina"): cada sub-agente cuesta aislamiento de contexto real — pierde la conversación en curso, hay que re-explicarle, y hay riesgo de enrutamiento incorrecto. Se añade un agente solo cuando el aislamiento aporta algo que el hilo principal no puede dar (una segunda mirada sin sesgo, un modelo de costo distinto). El resto de "roles de oficina" (PM, arquitecto, investigador) son **skills** que corren en el hilo principal, no agentes.
 
@@ -186,7 +186,7 @@ Kiro tiene su propio flujo nativo (`requirements.md → design.md → tasks.md`,
 
 - **Trust-boundary/abuse-path lens** en `/pre-flight` (diseño) y Sentinel (ejecución, cada deploy) — no una checklist genérica, sino trazar cada cruce de confianza y pensar en abuso deliberado, no solo error accidental.
 - **Gate bloqueante, no ponderado**: en `@redteam`, la seguridad se evalúa antes que cualquier otra dimensión y rechaza de inmediato si falla — no se promedia con "simplicidad" o "nomenclatura".
-- **Mínimo privilegio en dos capas**: por agente (`tools:` en el frontmatter) y por skill (`allowed-tools:`, mecanismo del estándar oficial de Agent Skills que no se estaba usando al principio).
+- **Mínimo privilegio en dos capas**: por agente (`tools:` en el frontmatter) y por skill (`allowed-tools:`, que **pre-aprueba** permisos por un turno pero **no restringe**: no es una capa de control ejecutable; lo que restringe en un skill es `disallowed-tools`, ver TSK-260).
 - **Secretos**: solo variables de entorno; cualquier literal sospechoso en el diff es FAIL automático, verificado tanto por script (`verify-simplicity.sh`) como por Sentinel.
 - **Sentinel corre en Sonnet siempre** (no Opus) — se decidió explícitamente no escalar el modelo de seguridad porque el volumen (cada deploy) no lo justifica, y porque si el diseño inicial fue sólido, esto es verificar contra lo ya decidido, no re-razonar desde cero.
 - **Independencia real, no solo "segunda pasada"**: Sentinel recibe el diff, no la conversación completa (evita heredar el marco mental de quien generó el código), y opera con presunción de inseguro — el veredicto por defecto es FAIL salvo que se aporte evidencia concreta de que no es explotable.

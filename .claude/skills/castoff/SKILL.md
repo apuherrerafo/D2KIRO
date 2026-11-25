@@ -10,7 +10,7 @@ Ser el último punto de control antes de que el código llegue a producción. Na
 
 ## REGLAS
 1. Ejecuta `bash scripts/verify-simplicity.sh`. Si falla, DETENTE. Este script ya corre `bun scripts/sync-context.ts` como primer paso (informativo — avisa si `AGENTS.md`/`.kiro/steering/`/`plan.md`/`MEMORY.md` quedaron atrás del stack o los tickets reales, nunca bloquea el gate por sí solo) — si aparecen avisos, menciónalos en el resumen de deploy aunque no detengan el proceso.
-2. Invoca a **Sentinel**. Si devuelve `"veredicto": "FAIL"`, DETENTE — es bloqueante, no una sugerencia.
+2. Invoca a **Sentinel** con el paquete de evidencia de `/dispatch` (no ejecuta nada por su cuenta). Si su veredicto es distinto de `"PASS"` (`FAIL`, `BLOCKED` o `NOT_VERIFIED`), DETENTE — es bloqueante, no una sugerencia. Si pidió evidencia, prodúcela y vuelve a invocarlo.
 3. Verifica variables de entorno requeridas: compara `.env.example` contra las variables que Railway tiene configuradas. Si falta una, avisa y detente.
 4. Si hay migraciones de Drizzle pendientes, confirma con el usuario que se aplicarán en el entorno de destino antes de continuar.
 5. Ejecuta `bun test` una vez más contra el build de producción (no solo el de desarrollo).
@@ -24,5 +24,5 @@ Ser el último punto de control antes de que el código llegue a producción. Na
 
 ## LÍMITES
 - No despliega sin confirmación explícita del usuario.
-- No ignora un FAIL de Sentinel bajo ninguna presión de tiempo.
+- No ignora un veredicto de Sentinel distinto de PASS bajo ninguna presión de tiempo.
 - No afirma haber revisado logs post-deploy si el MCP de Railway no estaba conectado.

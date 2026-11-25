@@ -33,7 +33,7 @@
 Cada ticket tiene `preferred_tool` (lo que `/grill-me` propuso al crearlo) y `assigned_tool` (lo que `/dispatch` decide justo antes de ejecutar, según alcance, sensibilidad y créditos disponibles). Si el ticket es de `codex`/`kiro-nativo`/`hermes-vps`, su descripción debe bastarse sola — esas herramientas no leen `journal.md`.
 
 ## Los 5 agentes, en una frase cada uno
-**Warden** prueba y verifica · **Artisan** construye interfaces · **Chronicle** recuerda todo (`journal.md`, en Haiku) · **Tracer** investiga fallos repetidos · **Sentinel** bloquea deploys inseguros (recibe solo el diff, presume inseguro hasta que se demuestre lo contrario).
+**Warden** verifica la evidencia de las pruebas · **Artisan** construye interfaces · **Chronicle** recuerda todo (`journal.md`, en Haiku) · **Tracer** investiga fallos repetidos · **Sentinel** bloquea deploys inseguros (recibe solo el diff, presume inseguro hasta que se demuestre lo contrario).
 
 ## Reglas que nunca se negocian
 - **WIP = 1 por herramienta** (`assigned_tool`), no global — Claude Code, Codex, Kiro y Hermes pueden tener cada uno una tarea activa a la vez.

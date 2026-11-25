@@ -24,7 +24,7 @@ Toda skill/agente que anote algo en `journal.md` usa esta primera línea fija, s
 Esto no reemplaza el texto libre de siempre — es solo la primera línea, para que `bun scripts/hub.ts` pueda contar sin tener que interpretar prosa.
 
 ## HUMAN-IN-THE-LOOP: dónde intervienes tú
-`bun scripts/hub.ts` genera un solo HTML con tres cosas: en qué fase del proyecto estás (leído de `PROGRESS.md`), el Kanban de tareas, y la actividad reciente de los agentes (leída de `journal.md`). Cuando un gate falla (`@redteam` → REJECTED, Sentinel → FAIL), el ticket pasa a `state: blocked` automáticamente y aparece con la bandera "🟡 necesita tu decisión" — ningún agente reintenta solo desde ahí. Ese es el punto exacto donde entras: revisas el motivo en `journal.md`, y decides si se reintenta, se cambia de enfoque, o se descarta.
+`bun scripts/hub.ts` genera un solo HTML con tres cosas: en qué fase del proyecto estás (leído de `PROGRESS.md`), el Kanban de tareas, y la actividad reciente de los agentes (leída de `journal.md`). Cuando un gate falla (`@redteam` → REJECTED, Sentinel → FAIL), el ticket debe pasar a `state: blocked` (redteam es de sólo lectura y no escribe; el tablero sólo lo muestra). Si la ficha está en `doing`, es de Claude Code y tiene `write_scope`, el coordinador **solicita** el cambio y lo haces tú a mano; en los demás casos lo intenta el coordinador y, si el hook lo rechaza, lo solicita igual. El coordinador no modifica ni amplía permisos, y no declara el cambio hecho hasta releer la ficha y ver el `state` guardado; sólo entonces aparece la bandera "🟡 necesita tu decisión" — ningún agente reintenta solo desde ahí. Ese es el punto exacto donde entras: revisas el motivo en `journal.md`, y decides si se reintenta, se cambia de enfoque, o se descarta.
 
 ## HERRAMIENTA POR TAREA (Kiro + Claude Code + Codex + Hermes)
 Cada ticket declara **dos campos**, no uno — la intención y la decisión real son cosas distintas:
@@ -75,11 +75,11 @@ Fuera de esta lista, la regla original se mantiene: si "hace falta" Opus y no ha
 
 | Agente | Modelo | Rol | Tools |
 |---|---|---|---|
-| Warden | `claude-sonnet-5` | Revisa: pruebas, linters, límites | Read, Glob, Grep, Bash |
+| Warden | `claude-sonnet-5` | Revisa: pruebas, linters, límites | Read, Glob, Grep |
 | Artisan | `claude-sonnet-5` | Ejecuta: interfaces y sistema de diseño | Read, Write, Edit, Glob, Grep |
 | Chronicle | `claude-haiku-4-5-20251001` | Documenta: memoria, specs, ledger | Read, Write, Edit, Glob, Grep |
-| Tracer | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Grep, Bash |
-| Sentinel | `claude-sonnet-5` | Revisa: gate de seguridad obligatorio pre-deploy | Read, Grep, Bash |
+| Tracer | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Glob, Grep |
+| Sentinel | `claude-sonnet-5` | Revisa: gate de seguridad obligatorio pre-deploy | Read, Glob, Grep |
 | data-stat-engineer | `claude-sonnet-5` | Fase 9: capa estadística offline (percentiles, Empirical Bayes, perfil de señales, procedencia). No toca el motor. Sin MCP. | Read, Glob, Grep, Bash, Write, Edit |
 | evaluation-engineer | `claude-sonnet-5` | Fase 9: harness de evaluación (replay, métricas, 2 benchmarks, Golden Dataset, `gate.ts`). No toca el motor. Sin MCP. | Read, Glob, Grep, Bash, Write, Edit |
 

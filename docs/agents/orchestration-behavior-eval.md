@@ -3,7 +3,7 @@
 Base: `d86b8131` (`agent-ecosystem/phase1`). Fecha: 2026-11-23.
 
 > **Unidad A (división de PR #171).** Registro de la rama original. `contracts.test.ts` y la sección «CICLO DE
-> COORDINACIÓN» que se citan abajo pertenecen a la unidad B y no están en esta rama.
+> COORDINACIÓN» que se citan abajo llegan con la unidad B, apilada sobre la A.
 
 **Alcance honesto.** `dispatch`, `helm` y `compass` son instrucciones en Markdown que sigue un
 modelo; no hay un programa "dispatch" que ejecutar. Lo que sí se ejecuta de verdad, y lo que esta

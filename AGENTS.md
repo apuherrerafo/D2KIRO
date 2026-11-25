@@ -17,8 +17,8 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
 - **Stack, comandos canónicos, política de dependencias, gates de seguridad**: `CLAUDE.md`.
 - **Invariantes que valen en toda fase** (versión de scoring activa, comando de test canónico,
   `raw: null` sagrado, etc.): `.claude/rules/invariantes.md`.
-- **Reglas por área técnica** (motor, frontend, seguridad, costuras de prueba): `.claude/rules/
-  {engine,web,security,testing-seams}.md` (cada una declara en su frontmatter `paths:` a qué rutas aplica).
+- **Reglas siempre vigentes**: `.claude/rules/invariantes.md` y `.claude/rules/security.md` (sin `paths:`).
+- **Reglas por ruta** (frontmatter `paths:`): `.claude/rules/` → `engine.md`, `web.md`, `testing-seams.md`, `context7.md`. Claude Code las carga solo al tocar esas rutas; Codex y Gemini no lo hacen — léelas a mano según el área que cambies.
 - **Narrativa de fases ya cerradas**: `docs/rules-archive/` (no hace falta leerla salvo que la
   tarea concreta lo pida).
 - **Tabla de agentes, modelos, herramienta por tarea**: `docs/agents/process.md` — no se repite aquí

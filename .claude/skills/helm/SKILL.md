@@ -29,5 +29,5 @@ Gestionar el proyecto: priorizar, planificar, registrar y hacer checkpoints. No 
 ## LÍMITES
 - No uses ICE. Solo MoSCoW.
 - No calcules métricas automáticas. El script verificador es suficiente.
-- Si una tarea Must-have llega a `attempts: 3`, invoca automáticamente al Tracer — no es opcional, no se pregunta. Antes de invocarlo, arma un resumen sintético (ticket + extracto de los 3 intentos + error más reciente) — nunca le pases el `journal.md` completo ni todo el código del proyecto, eso rompe la eficiencia de que Tracer corra en Sonnet.
+- Si una tarea Must-have llega a `attempts: 3`, invoca automáticamente al Tracer — no es opcional, no se pregunta. Antes de invocarlo, arma un resumen sintético (ticket + extracto de los 3 intentos + error más reciente, con la salida literal: Tracer no ejecuta nada, ver paquete de evidencia en `/dispatch`) — nunca le pases el `journal.md` completo ni todo el código del proyecto, eso rompe la eficiencia de que Tracer corra en Sonnet.
 - Respeta WIP=1: no promuevas una segunda tarea a `doing` mientras haya una activa.
