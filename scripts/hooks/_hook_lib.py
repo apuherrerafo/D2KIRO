@@ -477,10 +477,16 @@ def _key_problem(lines: list[str]) -> str:
     return ""
 
 
+def _universal_newlines(text: str) -> str:
+    """CRLF y CR aislado -> LF, igual que `read_text`: lo que se predice se lee como lo que quedará en disco."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def parse_ticket_text(path: Path, text: str) -> Ticket:
     def invalid(problem: str, fields: dict | None = None) -> Ticket:
         return Ticket(path, fields or {}, "", "claude-code", problem)
 
+    text = _universal_newlines(text)
     lines = frontmatter_lines(text)
     if lines is None:
         return invalid("sin cabecera '---' en la primera línea o sin cierre")
@@ -524,8 +530,7 @@ def parse_ticket_text(path: Path, text: str) -> Ticket:
 def _edited_texts(text: str, tool: str, tool_input: dict) -> list[str] | None:
     """Contenidos que podrían quedar tras la herramienta, o None si no se puede saber."""
 
-    def lf(value: str) -> str:
-        return value.replace("\r\n", "\n")
+    lf = _universal_newlines
 
     if tool == "Write":
         content = tool_input.get("content")

@@ -166,6 +166,60 @@ test("ficha sin write_scope: no puede darse uno (autorizaría data/curated/), pe
   expect(await own(swap("pendiente", "hecho"))).toBe(0);
 });
 
+// ---------- finales de línea: el guard debe leer el resultado igual que se leerá del disco (CR aislado) ----------
+
+const EOLS: Array<[string, string]> = [
+  ["LF", "\n"],
+  ["CRLF", "\r\n"],
+  ["CR aislado", "\r"],
+  ["CR + CRLF", "\r\r\n"],
+];
+const NO_OWNER = SCOPED.replace("assigned_tool: claude-code\n", "");
+const CURATED = 'write_scope: ["data/curated/**"]';
+
+for (const [label, eol] of EOLS) {
+  // [caso, ficha en disco, texto a sustituir, texto nuevo]
+  const forbidden: Array<[string, string, string, string]> = [
+    ["añade otro propietario", NO_OWNER, "id: TSK-1", `id: TSK-1${eol}title: x${eol}assigned_tool: codex`],
+    ["cambia el propietario", SCOPED, "assigned_tool: claude-code", `title: x${eol}assigned_tool: codex`],
+    ["saca la ficha de doing", SCOPED, "state: doing", `title: x${eol}state: review`],
+    ["repite write_scope (abriría la reparación)", SCOPED, "id: TSK-1", `id: TSK-1${eol}title: x${eol}write_scope: ["**"]`],
+    ["se da data/curated sin tener alcance", UNSCOPED, "id: TSK-1", `id: TSK-1${eol}title: x${eol}${CURATED}`],
+    ["declara alcance en el cuerpo", SCOPED, "pendiente", `x${eol}write_scope: ["**"]`],
+  ];
+  for (const [what, disk, from, to] of forbidden) {
+    for (const [tool, input] of [
+      ["Write", { content: disk.replace(from, to) }],
+      ["Edit", swap(from, to)],
+      ["MultiEdit", { edits: [swap("## Estado", "## Estado final"), swap(from, to)] }],
+    ] as Array<[string, Record<string, unknown>]>) {
+      test(`${label}, ${tool}: ${what} -> bloquea`, async () => {
+        put(disk);
+        expect(await own(input, tool)).toBe(2);
+      });
+    }
+  }
+
+  test(`${label}: ficha en disco se lee igual (dentro pasa, fuera se bloquea, gate verde)`, async () => {
+    put(SCOPED.replaceAll("\n", eol === "\r\r\n" ? "\r\n" : eol));
+    expect(check()).toBe(0);
+    expect(await outside()).toBe(2);
+    expect(await guard("Edit", "eval/x.json")).toBe(0);
+  });
+
+  test(`${label}: editar el cuerpo sigue permitido`, async () => {
+    const disk = SCOPED.replaceAll("\n", eol === "\r\r\n" ? "\r\n" : eol);
+    put(disk);
+    expect(await own(swap("pendiente", `hecho${eol}segunda línea`))).toBe(0);
+    expect(await own({ content: SCOPED.replace("pendiente", "hecho").replaceAll("\n", eol === "\r\r\n" ? "\r\n" : eol) }, "Write")).toBe(0);
+  });
+
+  test(`${label}: sin alcance, cambiar de propietario sigue permitido`, async () => {
+    put(UNSCOPED);
+    expect(await own(swap("assigned_tool: claude-code", `title: x${eol === "\r\r\n" ? "\r\n" : eol}assigned_tool: codex`))).toBe(0);
+  });
+}
+
 test("sin ficha en doing, las fichas se editan libremente", async () => {
   put(SCOPED.replace("state: doing", "state: ready"));
   expect(await own(swap("state: ready", "state: doing"))).toBe(0);

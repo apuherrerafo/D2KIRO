@@ -13,7 +13,7 @@ description: Integra el ecosistema Caveman a un repositorio que YA EXISTE (no gr
 2. No impongas el stack por defecto (Bun+HTMX+SQLite) si el repo ya tiene uno funcionando. Este ecosistema se adapta al proyecto, no al revés.
 3. Si ya existe un `CLAUDE.md` o `AGENTS.md`, no lo sobrescribas — anexa una sección nueva con las reglas de este ecosistema y pide confirmación antes de fusionar.
 4. Crea `docs/agents/journal.md` vacío y escribe una primera entrada: fecha, resumen de lo que se detectó, y qué se decidió NO tocar.
-5. Mapea las convenciones de tareas existentes (issues de GitHub, tickets de Linear) al esquema de frontmatter de `docs/agents/tasks/` — no dupliques el sistema de tickets que ya tenían, referencia el ID externo en el frontmatter.
+5. Mapea las convenciones de tareas existentes (issues de GitHub, tickets de Linear) al esquema de frontmatter de `docs/agents/tasks/` — no dupliques el sistema de tickets que ya tenían: escribe el ID externo en `## Contexto`, en el cuerpo de la ficha. No añadas claves a la cabecera: las admitidas están en `docs/agents/CONTRIBUTING-tickets.md` y cualquier otra invalida la ficha.
 6. Límite: menos de 60 líneas de instrucciones nuevas en `CLAUDE.md` en esta primera pasada. Lo demás se descubre con el tiempo, no se impone de golpe.
 
 ## OUTPUT
