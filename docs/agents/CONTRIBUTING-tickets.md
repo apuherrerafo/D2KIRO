@@ -8,11 +8,11 @@ Fuente: `SPEC.md` §15.4.7–§15.4.8, ADR-003. Aplica a todo ticket creado desd
 ---
 id: TSK-NNN
 title: "..."
-state: backlog          # backlog | ready | doing | blocked | done
+state: backlog          # backlog | ready | doing | review | blocked | done
 moscow: must            # must | should | could
 attempts: 0
 preferred_tool: claude-code   # intención al crearlo (/grill-me, /rulebook)
-assigned_tool: null           # decisión real (/dispatch) — null hasta que se despache
+assigned_tool: null
 created_at: YYYY-MM-DD
 write_scope: ["glob/**", "archivo.ts"]   # opcional; ver abajo
 blocked_by: ["TSK-XXX"]                    # opcional
@@ -23,6 +23,10 @@ implements: ["R1-2", "R3-13"]              # opcional; IDs de docs/research/ que
 **Claves admitidas:** las del ejemplo más `spec`, `spec_section`, `simplicity_exception` y `exception_reason`
 (`TICKET_KEYS` en `scripts/hooks/_hook_lib.py`). Cualquier otra clave, o una línea indentada que no sea texto de un
 bloque (`>`, `|`) ni un elemento simple de lista, invalida la ficha. Añadir una clave es un cambio de ese archivo.
+También la invalidan, en la cabecera, una línea en blanco o una línea que empiece por `#`.
+
+**`assigned_tool`** es la decisión real (`/dispatch`); `null` hasta que se despache. No admite comentario en la misma
+línea: `assigned_tool: codex  # nota` cuenta como `claude-code`.
 
 Si `docs/agents/tasks/` falta o no se puede recorrer entera, el hook y el gate bloquean (vacía es válida). Se
 restaura desde git; el hook no permite recrearla con `Edit`/`Write`.
