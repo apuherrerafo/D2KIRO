@@ -209,8 +209,10 @@ for (const [label, eol] of EOLS) {
 
   test(`${label}: editar el cuerpo sigue permitido`, async () => {
     const disk = SCOPED.replaceAll("\n", eol === "\r\r\n" ? "\r\n" : eol);
-    put(disk);
+    // Con CR suelto en disco, `Edit` no se puede predecir (ver abajo): esa ficha se reescribe con `Write`.
+    put(eol === "\r" ? SCOPED : disk);
     expect(await own(swap("pendiente", `hecho${eol}segunda línea`))).toBe(0);
+    put(disk);
     expect(await own({ content: SCOPED.replace("pendiente", "hecho").replaceAll("\n", eol === "\r\r\n" ? "\r\n" : eol) }, "Write")).toBe(0);
   });
 
@@ -219,6 +221,40 @@ for (const [label, eol] of EOLS) {
     expect(await own(swap("assigned_tool: claude-code", `title: x${eol === "\r\r\n" ? "\r\n" : eol}assigned_tool: codex`))).toBe(0);
   });
 }
+
+// `Edit` conserva un CR suelto que ya está en el texto y el parser lo lee como salto: con `replace_all` el guard
+// sustituiría en más sitios que la herramienta y validaría un contenido que no es el que se escribe.
+const SEEDED = SCOPED.replace("assigned_tool: claude-code\n", "title: x\nspec: s\rspec: s\n");
+const TAKEOVER = { ...swap("\nspec: s", "\nassigned_tool: codex"), replace_all: true };
+
+const UNPREDICTABLE: Array<[string, string, string, Record<string, unknown>]> = [
+  ["Edit replace_all sobre CR suelto en disco", SEEDED, "Edit", TAKEOVER],
+  ["MultiEdit replace_all sobre CR suelto en disco", SEEDED, "MultiEdit", { edits: [TAKEOVER] }],
+  [
+    "MultiEdit que siembra el CR y luego sustituye",
+    SCOPED.replace("assigned_tool: claude-code\n", "title: x\nspec: s\n"),
+    "MultiEdit",
+    { edits: [swap("spec: s", "spec: s\rspec: s"), TAKEOVER] },
+  ],
+  ["Edit del cuerpo con la ficha en CR", SCOPED.replaceAll("\n", "\r"), "Edit", swap("pendiente", "hecho")],
+];
+
+for (const [label, disk, tool, input] of UNPREDICTABLE) {
+  test(`resultado impredecible: ${label} -> bloquea`, async () => {
+    put(disk);
+    expect(await own(input, tool)).toBe(2);
+  });
+}
+
+test("una ficha con CR suelto en disco se puede reescribir entera con Write", async () => {
+  put(SEEDED);
+  expect(await own({ content: SCOPED.replace("pendiente", "hecho") }, "Write")).toBe(0);
+});
+
+test("MultiEdit legítimo en una ficha CRLF sigue permitido", async () => {
+  put(SCOPED.replaceAll("\n", "\r\n"));
+  expect(await own({ edits: [swap("pendiente", "a\r\nb"), swap("## Estado", "## Estado final")] }, "MultiEdit")).toBe(0);
+});
 
 test("sin ficha en doing, las fichas se editan libremente", async () => {
   put(SCOPED.replace("state: doing", "state: ready"));

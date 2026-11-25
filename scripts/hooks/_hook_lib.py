@@ -543,13 +543,17 @@ def _edited_texts(text: str, tool: str, tool_input: dict) -> list[str] | None:
         return None
     if not isinstance(edits, list) or not edits:
         return None
-    results = [text]
+    # `Edit` conserva un CR suelto y el parser lo lee como salto: sobre un texto así (en disco o dejado por un paso
+    # anterior de MultiEdit) no se sabe dónde sustituirá la herramienta, así que no se predice.
+    lone_cr = "\r" in text.replace("\r\n", "\n")
+    results = [lf(text)]
     for edit in edits:
-        if not isinstance(edit, dict):
+        if lone_cr or not isinstance(edit, dict):
             return None
         old, new = edit.get("old_string"), edit.get("new_string")
         if not isinstance(old, str) or not isinstance(new, str) or not old:
             return None
+        lone_cr = "\r" in new.replace("\r\n", "\n")
         old, new = lf(old), lf(new)
         following = []
         for current in results:
@@ -573,12 +577,12 @@ def governance_problem(ticket: Ticket, tool: str, tool_input: dict) -> str:
     Cualquier resultado que no se pueda reconstruir o que sea inválido se rechaza.
     """
     try:
-        text = ticket.path.read_text(encoding="utf-8")
+        text = ticket.path.read_bytes().decode("utf-8")  # sin traducir saltos: hay que ver un CR suelto
     except (OSError, UnicodeDecodeError) as exc:
         raise GuardBlocked(f"no se pudo leer el ticket {ticket.path.name}: {exc}") from None
     results = _edited_texts(text, tool, tool_input)
     if results is None:
-        return "no se puede reconstruir el resultado de la edición (usa Edit con texto exacto o Write)"
+        return "no se puede reconstruir el resultado de la edición (usa Edit con texto exacto o Write; con CR suelto, Write)"
     for result in results:
         after = parse_ticket_text(ticket.path, result)
         if after.problem:
