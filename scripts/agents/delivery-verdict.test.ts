@@ -1,85 +1,232 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decideDelivery, REQUIRED_GATES } from "./delivery-verdict";
+import { decideDelivery, normalizePath, PACKAGE_LOGS, parseDispatchGates, REQUIRED_GATE_NAMES, sealSentinel } from "./delivery-verdict";
 
-// Fixtures inline con el formato real de `gate()` de /dispatch. Se prueba la decisión, no el texto de ninguna instrucción.
+// El bloque de /dispatch es la ÚNICA definición de los comandos: aquí se lee el real, así que si alguien cambia un
+// comando allí, estas pruebas cruzan el cambio con el decisor. Los logs son fixtures inline con el formato real de `gate()`.
+const DISPATCH = readFileSync(join(import.meta.dir, "..", "..", ".claude", "skills", "dispatch", "SKILL.md"), "utf8");
+const SPECS = new Map(parseDispatchGates(DISPATCH).map((s) => [s.name, s]));
+const ROOT = "/d/proyecto";
 const HEAD = "a".repeat(40);
-const OLD = "b".repeat(40);
-const log = (cmd: string, exit: number, out = "") => `cwd: /repo\n$ ${cmd}\n${out}exit=${exit}\n`;
-const good = (head = HEAD): Record<string, string> => ({
-  sha: log("git rev-parse HEAD", 0, `${head}\n`),
-  ...Object.fromEntries(Object.entries(REQUIRED_GATES).map(([n, c]) => [n, log(c, 0)])),
-});
+const OTHER = "b".repeat(40);
+const log = (cwd: string, cmd: string, exit: number, out = "") => `cwd: ${cwd}\n$ ${cmd}\n${out}exit=${exit}\n`;
+const at = (name: string, exit = 0, out = "") => {
+  const s = SPECS.get(name)!;
+  return log(s.cwd ? `${ROOT}/${s.cwd}` : ROOT, s.command, exit, out);
+};
+const SHA = (h: string) => log(ROOT, "git rev-parse HEAD", 0, `${h}\n`);
+const CLEAN = (cmd: string) => log(ROOT, cmd, 0);
+const SENTINEL_PASS = '```json\n{ "veredicto": "PASS", "bloqueante": false, "hallazgos": [], "evidencia_solicitada": [] }\n```';
+
+/** Paquete completo y correcto para `head`, con Sentinel sellado. */
+function pack(head = HEAD, sentinel = SENTINEL_PASS): Record<string, string> {
+  const logs: Record<string, string> = {
+    sha: SHA(head),
+    status: CLEAN("git status --short -uall"),
+    diff: log(ROOT, "git diff base...HEAD", 0, "diff --git a/x b/x\n+x\n"),
+    "diff-local": CLEAN("git diff HEAD"),
+    "diff-nuevos": CLEAN("bash -c ..."),
+    ...Object.fromEntries(REQUIRED_GATE_NAMES.map((n) => [n, at(n)])),
+    "sha-final": SHA(head),
+    "status-final": CLEAN("git status --short -uall"),
+  };
+  logs.sentinel = sealSentinel(head, logs, sentinel);
+  return logs;
+}
+/** Cambia un log y vuelve a sellar a Sentinel (como si Sentinel hubiera revisado ESE paquete). */
+function mutate(change: Record<string, string | undefined>, head = HEAD): Record<string, string | undefined> {
+  const logs: Record<string, string | undefined> = { ...pack(head), ...change };
+  delete logs.sentinel;
+  logs.sentinel = sealSentinel(head, logs, SENTINEL_PASS);
+  return logs;
+}
+const decide = (logs: Record<string, string | undefined>, head = HEAD) => decideDelivery({ head, root: ROOT, logs, dispatchText: DISPATCH });
 const dirs: string[] = [];
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
 
-describe("decisión de entrega", () => {
-  test("todo correcto y Sentinel PASS → READY", () => {
-    const d = decideDelivery(HEAD, good(), "PASS");
-    expect(d.ready).toBe(true);
-    expect(d.reasons).toEqual([]);
+describe("una sola definición de los comandos: el bloque de /dispatch", () => {
+  test("de él salen los cinco gates obligatorios, con su carpeta", () => {
+    expect([...REQUIRED_GATE_NAMES].every((n) => SPECS.has(n))).toBe(true);
+    expect(SPECS.get("tsc-engine")).toMatchObject({ cwd: "apps/engine", command: "bunx tsc --noEmit" });
+    expect(SPECS.get("tsc-web")).toMatchObject({ cwd: "apps/web", command: "bunx tsc --noEmit" });
+    expect(SPECS.get("lint")).toMatchObject({ cwd: "apps/web", command: "bun run lint" });
+    expect(SPECS.get("test")).toMatchObject({ cwd: "", command: "bun run test" });
   });
-  test("typecheck fallido (engine o web) → NOT_READY aunque Sentinel dé PASS", () => {
-    for (const gate of ["tsc-engine", "tsc-web"]) {
-      const d = decideDelivery(HEAD, { ...good(), [gate]: log("bunx tsc --noEmit", 2, "error TS2322\n") }, "PASS");
+  test("el paquete real incluye los logs de cierre que el decisor exige", () => {
+    for (const n of ["sha-final", "status-final"]) expect(SPECS.has(n)).toBe(true);
+    for (const n of PACKAGE_LOGS) expect(SPECS.has(n) || ["diff", "diff-local", "diff-nuevos"].includes(n)).toBe(true);
+  });
+  test("si /dispatch cambia el comando de un gate, el decisor exige el nuevo (no queda una copia vieja)", () => {
+    const cambiado = DISPATCH.replace("gate test bun run test", "gate test bun run test:ci");
+    const d = decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: cambiado });
+    expect(d.ready).toBe(false);
+    expect(d.gates.test).toBe("WRONG_COMMAND");
+  });
+  test("un /dispatch sin algún gate obligatorio no permite READY", () => {
+    expect(decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: "" }).ready).toBe(false);
+  });
+});
+
+describe("decisión de entrega", () => {
+  test("todo correcto y Sentinel verificado → READY", () => {
+    const d = decide(pack());
+    expect(d.reasons).toEqual([]);
+    expect(d.ready).toBe(true);
+    expect(d.sentinel).toBe("PASS");
+  });
+  test("typecheck o lint fallidos → NOT_READY aunque Sentinel dé PASS", () => {
+    for (const g of ["tsc-engine", "tsc-web", "lint", "test", "simplicity"]) {
+      const d = decide(mutate({ [g]: at(g, 2, "error\n") }));
       expect(d.sentinel).toBe("PASS");
       expect(d.ready).toBe(false);
-      expect(d.gates[gate]).toBe("FAIL");
+      expect(d.gates[g]).toBe("FAIL");
     }
   });
-  test("lint fallido → NOT_READY aunque Sentinel dé PASS", () => {
-    const d = decideDelivery(HEAD, { ...good(), lint: log("bun run lint", 1, "1 error\n") }, "PASS");
+  test("evidencia ausente de cualquier gate o de cualquier log de cierre → NOT_READY", () => {
+    for (const g of REQUIRED_GATE_NAMES) expect(decide(mutate({ [g]: undefined })).gates[g]).toBe("MISSING");
+    for (const n of ["sha", "sha-final", "status", "status-final", "diff-local"]) expect(decide(mutate({ [n]: undefined })).ready).toBe(false);
+  });
+  test("log con cwd incorrecto → NOT_READY", () => {
+    const d = decide(mutate({ lint: log(`${ROOT}/apps/engine`, "bun run lint", 0) }));
+    expect(d.gates.lint).toBe("WRONG_CWD");
     expect(d.ready).toBe(false);
-    expect(d.gates.lint).toBe("FAIL");
+    expect(decide(mutate({ test: log(`${ROOT}/apps/web`, "bun run test", 0) })).gates.test).toBe("WRONG_CWD");
   });
-  test("evidencia ausente de cualquier comprobación obligatoria → NOT_READY", () => {
-    for (const gate of Object.keys(REQUIRED_GATES)) {
-      const logs: Record<string, string | undefined> = { ...good() };
-      delete logs[gate];
-      const d = decideDelivery(HEAD, logs, "PASS");
+  test("logs intercambiados entre gates (mismo comando, otra carpeta) → NOT_READY", () => {
+    const d = decide(mutate({ "tsc-engine": at("tsc-web"), "tsc-web": at("tsc-engine") }));
+    expect(d.gates["tsc-engine"]).toBe("WRONG_CWD");
+    expect(d.gates["tsc-web"]).toBe("WRONG_CWD");
+    expect(d.ready).toBe(false);
+    expect(decide(mutate({ "tsc-web": at("tsc-engine") })).ready).toBe(false);
+  });
+  test("la misma carpeta con otra escritura de la ruta (Git Bash vs Windows) sí vale", () => {
+    expect(normalizePath("/d/Proyecto/apps/web/")).toBe(normalizePath("D:\\proyecto\\apps\\web"));
+    const win = (n: string) => at(n).replace(ROOT, "D:\\proyecto").replace(/apps\/(web|engine)/, "apps\\$1");
+    expect(decide(mutate({ lint: win("lint") })).gates.lint).toBe("PASS");
+  });
+  test("árbol sucio antes o después de los gates, o cambios sin confirmar → NOT_READY", () => {
+    for (const n of ["status", "status-final"]) {
+      const d = decide(mutate({ [n]: log(ROOT, "git status --short -uall", 0, " M apps/engine/src/x.ts\n") }));
       expect(d.ready).toBe(false);
-      expect(d.gates[gate]).toBe("MISSING");
+      expect(d.reasons.join(" ")).toContain("árbol sucio");
     }
-    expect(decideDelivery(HEAD, { ...good(), sha: undefined }, "PASS").ready).toBe(false);
-  });
-  test("evidencia de otro HEAD (obsoleta) → NOT_READY, aunque todo diga exit=0", () => {
-    const d = decideDelivery(HEAD, good(OLD), "PASS");
+    const d = decide(mutate({ "diff-local": log(ROOT, "git diff HEAD", 0, "diff --git a/x b/x\n+cambio\n") }));
     expect(d.ready).toBe(false);
     expect(Object.values(d.gates).every((s) => s === "STALE")).toBe(true);
   });
+  test("evidencia de otro HEAD, o un HEAD que se movió durante los gates → NOT_READY", () => {
+    expect(decide(pack(OTHER), HEAD).ready).toBe(false);
+    const movido = decide(mutate({ "sha-final": SHA(OTHER) }));
+    expect(movido.ready).toBe(false);
+    expect(movido.reasons.join(" ")).toContain("sha-final.log");
+    expect(decide(pack(), "abc").ready).toBe(false);
+  });
   test("log cortado (sin exit=) o de otro comando no cuenta", () => {
-    expect(decideDelivery(HEAD, { ...good(), lint: "cwd: /repo\n$ bun run lint\nsalida a medias" }, "PASS").gates.lint).toBe("FAIL");
-    const d = decideDelivery(HEAD, { ...good(), lint: log("echo listo", 0) }, "PASS");
-    expect(d.gates.lint).toBe("WRONG_COMMAND");
+    expect(decide(mutate({ lint: `cwd: ${ROOT}/apps/web\n$ bun run lint\nsalida a medias` })).gates.lint).toBe("FAIL");
+    expect(decide(mutate({ lint: log(`${ROOT}/apps/web`, "echo listo", 0) })).gates.lint).toBe("WRONG_COMMAND");
+  });
+});
+
+describe("Sentinel con procedencia, separado del resultado global", () => {
+  test("PASS sin procedencia (sin sentinel.log, o texto suelto sin sello) → NOT_READY", () => {
+    const sin: Record<string, string | undefined> = { ...pack() };
+    delete sin.sentinel;
+    expect(decide(sin).ready).toBe(false);
+    expect(decide(sin).sentinel).toBe("SIN_PROCEDENCIA");
+    expect(decide({ ...sin, sentinel: SENTINEL_PASS }).ready).toBe(false);
+    expect(decide({ ...sin, sentinel: `head: ${HEAD}\n---\n${SENTINEL_PASS}` }).sentinel).toBe("SIN_PROCEDENCIA");
+  });
+  test("PASS sellado a otro HEAD → NOT_READY", () => {
+    const logs = pack();
+    logs.sentinel = sealSentinel(OTHER, logs, SENTINEL_PASS);
+    const d = decide(logs);
+    expect(d.sentinel).toBe("OTRO_HEAD");
     expect(d.ready).toBe(false);
   });
-  test("Sentinel distinto de PASS no permite READY aunque todo pase; los dos resultados son independientes", () => {
-    for (const v of ["FAIL", "BLOCKED", "NOT_VERIFIED", ""]) expect(decideDelivery(HEAD, good(), v).ready).toBe(false);
-    const d = decideDelivery(HEAD, { ...good(), lint: log("bun run lint", 1) }, "PASS");
-    expect(d.sentinel).toBe("PASS");
+  test("PASS de un paquete que luego cambió → NOT_READY", () => {
+    const logs = pack();
+    logs.diff = log(ROOT, "git diff base...HEAD", 0, "diff --git a/y b/y\n+otro cambio\n");
+    const d = decide(logs);
+    expect(d.sentinel).toBe("OTRO_PAQUETE");
+    expect(d.ready).toBe(false);
+  });
+  test("veredicto distinto de PASS, o sin veredicto, no permite READY aunque todo lo demás pase", () => {
+    for (const v of ["FAIL", "BLOCKED", "NOT_VERIFIED"]) {
+      const logs = mutate({});
+      logs.sentinel = sealSentinel(HEAD, logs, `{"veredicto": "${v}"}`);
+      expect(decide(logs).ready).toBe(false);
+    }
+    const logs = mutate({});
+    logs.sentinel = sealSentinel(HEAD, logs, "todo bien, listo");
+    expect(decide(logs).sentinel).toBe("SIN_VEREDICTO");
+    expect(decide(logs).ready).toBe(false);
+  });
+  test("los dos resultados son independientes: Sentinel PASS no salva un gate rojo, ni gates verdes un Sentinel FAIL", () => {
+    expect(decide(mutate({ lint: at("lint", 1) })).ready).toBe(false);
+    const logs = mutate({});
+    logs.sentinel = sealSentinel(HEAD, logs, '{"veredicto": "FAIL"}');
+    const d = decide(logs);
+    expect(Object.values(d.gates).every((s) => s === "PASS")).toBe(true);
     expect(d.ready).toBe(false);
   });
 });
 
-describe("mecanismo real: la CLI sobre carpeta de evidencia", () => {
-  function run(logs: Record<string, string>, head: string, sentinel: string): { code: number; out: any } {
+describe("mecanismo real: la CLI sobre una carpeta de evidencia", () => {
+  const script = join(import.meta.dir, "delivery-verdict.ts");
+  function folder(logs: Record<string, string | undefined>): string {
     const dir = mkdtempSync(join(tmpdir(), "d2k-deliv-"));
     dirs.push(dir);
-    for (const [n, t] of Object.entries(logs)) writeFileSync(join(dir, `${n}.log`), t);
-    const r = Bun.spawnSync(["bun", join(import.meta.dir, "delivery-verdict.ts"), dir, head, sentinel], { stdout: "pipe", stderr: "pipe" });
-    return { code: r.exitCode, out: JSON.parse(r.stdout.toString()) };
+    for (const [n, t] of Object.entries(logs)) if (t !== undefined) writeFileSync(join(dir, `${n}.log`), t);
+    return dir;
   }
-  test("READY → exit 0; typecheck rojo, lint rojo, ausente y obsoleta → exit 1, con Sentinel PASS", () => {
-    expect(run(good(), HEAD, "PASS")).toMatchObject({ code: 0, out: { resultado: "READY" } });
-    expect(run({ ...good(), "tsc-web": log("bunx tsc --noEmit", 2) }, HEAD, "PASS")).toMatchObject({ code: 1, out: { resultado: "NOT_READY" } });
-    expect(run({ ...good(), lint: log("bun run lint", 1) }, HEAD, "PASS").code).toBe(1);
-    const { lint: _omit, ...sinLint } = good();
-    expect(run(sinLint, HEAD, "PASS").code).toBe(1);
-    expect(run(good(OLD), HEAD, "PASS").code).toBe(1);
+  // El decisor lee el /dispatch de la raíz que se le da: una raíz desechable con una copia del real.
+  function rootWithDispatch(): string {
+    const root = mkdtempSync(join(tmpdir(), "d2k-root-"));
+    dirs.push(root);
+    mkdirSync(join(root, ".claude", "skills", "dispatch"), { recursive: true });
+    writeFileSync(join(root, ".claude", "skills", "dispatch", "SKILL.md"), DISPATCH);
+    return root;
+  }
+  const run = (args: string[]) => Bun.spawnSync(["bun", script, ...args], { stdout: "pipe", stderr: "pipe" });
+  test("READY → exit 0; gate rojo, árbol sucio, Sentinel de otro HEAD → exit 1", () => {
+    const root = rootWithDispatch();
+    // Reubica los logs a la raíz desechable y vuelve a sellar a Sentinel (con su HEAD original) sobre el paquete reubicado.
+    const rootLogs = (logs: Record<string, string | undefined>) => {
+      const moved: Record<string, string | undefined> = Object.fromEntries(
+        Object.entries(logs).filter(([k]) => k !== "sentinel").map(([k, v]) => [k, v?.replaceAll(ROOT, root.replace(/\\/g, "/"))]),
+      );
+      const sealedHead = /^head: ([0-9a-f]{40})/.exec(logs.sentinel ?? "")?.[1] ?? HEAD;
+      return { ...moved, sentinel: sealSentinel(sealedHead, moved, SENTINEL_PASS) };
+    };
+    const ok = run([folder(rootLogs(pack())), HEAD, root]);
+    expect(ok.exitCode).toBe(0);
+    expect(JSON.parse(ok.stdout.toString()).resultado).toBe("READY");
+    expect(run([folder(rootLogs(mutate({ lint: at("lint", 1) }))), HEAD, root]).exitCode).toBe(1);
+    expect(run([folder(rootLogs(mutate({ status: log(ROOT, "git status --short -uall", 0, "?? x\n") }))), HEAD, root]).exitCode).toBe(1);
+    const otro = pack();
+    otro.sentinel = sealSentinel(OTHER, otro, SENTINEL_PASS);
+    expect(run([folder(rootLogs(otro)), HEAD, root]).exitCode).toBe(1);
   });
-  test("sin argumentos → exit 2", () => {
-    expect(Bun.spawnSync(["bun", join(import.meta.dir, "delivery-verdict.ts")], { stdout: "pipe", stderr: "pipe" }).exitCode).toBe(2);
+  test("`seal` escribe sentinel.log atado al HEAD y al paquete; si un log cambia después, deja de valer", () => {
+    const root = rootWithDispatch();
+    const base: Record<string, string | undefined> = Object.fromEntries(
+      Object.entries(pack()).filter(([k]) => k !== "sentinel").map(([k, v]) => [k, v.replaceAll(ROOT, root.replace(/\\/g, "/"))]),
+    );
+    const dir = folder(base);
+    const raw = join(dir, "..", `sentinel-raw-${Date.now()}.txt`);
+    writeFileSync(raw, SENTINEL_PASS);
+    dirs.push(raw);
+    expect(run(["seal", dir, HEAD, raw]).exitCode).toBe(0);
+    expect(run([dir, HEAD, root]).exitCode).toBe(0);
+    writeFileSync(join(dir, "diff.log"), log(root, "git diff base...HEAD", 0, "diff --git a/z b/z\n+distinto\n"));
+    const after = run([dir, HEAD, root]);
+    expect(after.exitCode).toBe(1);
+    expect(JSON.parse(after.stdout.toString()).sentinel).toBe("OTRO_PAQUETE");
+  });
+  test("sin argumentos, o carpeta inexistente → exit 2", () => {
+    expect(run([]).exitCode).toBe(2);
+    expect(run(["/no/existe", HEAD]).exitCode).toBe(2);
   });
 });

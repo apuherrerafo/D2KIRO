@@ -79,7 +79,7 @@ Warden, Sentinel y Tracer tienen sólo Read, Glob y Grep (TSK-261) y `@redteam` 
 ```bash
 E="$(git rev-parse --show-toplevel)/.local/evidencia/TSK-XXX"; mkdir -p "$E"; rm -f "$E"/*.log   # un log viejo con exit=0 no puede pasar por actual
 BASE=origin/master   # lo que se revisa: rama destino del ticket; en /castoff, el último commit desplegado
-gate() { local n="$1"; shift; { echo "cwd: $(pwd)"; echo "\$ $*"; "$@"; echo "exit=$?"; } > "$E/$n.log" 2>&1; tail -n 1 "$E/$n.log"; }
+gate() { local n="$1"; shift; { echo "cwd: $(pwd -W 2>/dev/null || pwd)"; echo "\$ $*"; "$@"; echo "exit=$?"; } > "$E/$n.log" 2>&1; tail -n 1 "$E/$n.log"; }
 gate sha git rev-parse HEAD
 gate status git status --short -uall
 gate diff git diff "$BASE...HEAD"
@@ -91,11 +91,13 @@ gate test bun run test
 ( cd apps/web && gate tsc-web bunx tsc --noEmit )
 ( cd apps/web && gate lint bun run lint )
 gate simplicity bash scripts/verify-simplicity.sh
+gate sha-final git rev-parse HEAD
+gate status-final git status --short -uall
 ```
 
 La suite tarda varios minutos (timeout largo o segundo plano); si después cambia el diff, se repite el bloque. Cada `.log` queda con carpeta, comando, salida literal y `exit=` (código de salida). En el prompt van las **rutas absolutas** de esos archivos (`.local/` está ignorado por git: Glob/Grep pueden no listarlos, Read sí los abre).
 
-**Decisión de entrega:** `bun scripts/agents/delivery-verdict.ts <carpeta> <HEAD> <veredicto-de-Sentinel>` lee estos logs y devuelve `READY` sólo si `test`, `tsc-engine`, `tsc-web`, `lint` y `simplicity` pasan con `exit=0` para ese HEAD y Sentinel dio `PASS`. Es lo que usa `/castoff`; un veredicto de revisor nunca sustituye esas salidas.
+**Decisión de entrega:** `bun scripts/agents/delivery-verdict.ts <carpeta> <HEAD>` lee estos logs y devuelve `READY` sólo si `test`, `tsc-engine`, `tsc-web`, `lint` y `simplicity` pasan con `exit=0`, con el comando y la carpeta que define este bloque (no una copia), `sha.log` y `sha-final.log` iguales al HEAD, el árbol limpio antes y después (`status`, `diff-local`, `status-final` vacíos) y el veredicto de Sentinel `PASS` sellado a ese HEAD y a este paquete. Tras recibir la respuesta de Sentinel, el coordinador la guarda literal en un archivo y corre `bun scripts/agents/delivery-verdict.ts seal <carpeta> <HEAD> <archivo>`; si después cambia cualquier log, el sello deja de valer. Es lo que usa `/castoff`; un veredicto de revisor nunca sustituye esas salidas.
 
 **Qué es el cambio:** la unión de `diff`, `diff-local` y `diff-nuevos` (contenido de cada archivo sin seguimiento declarado en `NUEVOS`); basta con que uno traiga contenido, así que un cambio de sólo archivos nuevos es revisable. Con los tres vacíos no hay nada revisable: `BLOCKED` (base equivocada), nunca PASS. Un archivo nuevo del cambio listado en `status` sin su contenido en `diff-nuevos` es `BLOCKED`; si es binario y no se puede leer, `NOT_VERIFIED`. Los archivos sin seguimiento ajenos al cambio se señalan al revisor como ajenos; el log no se recorta.
 
