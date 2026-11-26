@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test as bunTest } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -18,6 +18,12 @@ import {
 // el tablero (hub.ts) y el gate verify-simplicity.sh, sobre fixtures en directorios temporales.
 // No prueba el juicio de un modelo (clasificar una petición ambigua, invocar a Tracer): eso es
 // NOT_TESTED y se declara así en docs/agents/orchestration-behavior-eval.md.
+
+// Cada prueba de este archivo arranca procesos externos (bash, git, bun, python): en Windows una sola
+// cuesta 3-4,3 s aisladas y los 5 s por defecto de Bun no dejan margen bajo la carga del pre-push.
+// El timeout se fija por prueba, sólo aquí; no se toca el timeout global de Bun.
+const EXTERNAL_PROCESS_TIMEOUT_MS = 30_000;
+const test = (name: string, fn: () => void | Promise<void>): void => bunTest(name, fn, EXTERNAL_PROCESS_TIMEOUT_MS);
 
 const REPO = join(import.meta.dir, "..", "..");
 const GUARD = "pretooluse-edit-guard.sh";
