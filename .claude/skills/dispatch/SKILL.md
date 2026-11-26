@@ -95,6 +95,8 @@ gate simplicity bash scripts/verify-simplicity.sh
 
 La suite tarda varios minutos (timeout largo o segundo plano); si después cambia el diff, se repite el bloque. Cada `.log` queda con carpeta, comando, salida literal y `exit=` (código de salida). En el prompt van las **rutas absolutas** de esos archivos (`.local/` está ignorado por git: Glob/Grep pueden no listarlos, Read sí los abre).
 
+**Decisión de entrega:** `bun scripts/agents/delivery-verdict.ts <carpeta> <HEAD> <veredicto-de-Sentinel>` lee estos logs y devuelve `READY` sólo si `test`, `tsc-engine`, `tsc-web`, `lint` y `simplicity` pasan con `exit=0` para ese HEAD y Sentinel dio `PASS`. Es lo que usa `/castoff`; un veredicto de revisor nunca sustituye esas salidas.
+
 **Qué es el cambio:** la unión de `diff`, `diff-local` y `diff-nuevos` (contenido de cada archivo sin seguimiento declarado en `NUEVOS`); basta con que uno traiga contenido, así que un cambio de sólo archivos nuevos es revisable. Con los tres vacíos no hay nada revisable: `BLOCKED` (base equivocada), nunca PASS. Un archivo nuevo del cambio listado en `status` sin su contenido en `diff-nuevos` es `BLOCKED`; si es binario y no se puede leer, `NOT_VERIFIED`. Los archivos sin seguimiento ajenos al cambio se señalan al revisor como ajenos; el log no se recorta.
 
 **`NUEVOS`:** se llena leyendo `status`; nunca con todo lo que haya. El rechazo de rutas sensibles es una lista de nombres: no detecta un secreto dentro de un archivo normal, ni cubre lo ya agregado con `git add` o confirmado (eso sale en `diff-local` o `diff`). Antes de entregar el paquete, el coordinador comprueba que no lleve secretos ni material privado.

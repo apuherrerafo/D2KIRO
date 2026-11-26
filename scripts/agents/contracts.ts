@@ -293,6 +293,10 @@ export function checkWardenScope(text: string): string[] {
 }
 
 // castoff sólo continúa con PASS:un `BLOCKED`/`NOT_VERIFIED` de Sentinel no puede colarse por "no es FAIL".
+export function checkCastoffDelivery(text: string): string[] {
+  return /scripts\/agents\/delivery-verdict\.ts/.test(text) && /`NOT_READY` aunque Sentinel/.test(text) ? [] : ["castoff: no decide la entrega con delivery-verdict.ts"];
+}
+
 export function checkCastoffGate(text: string): string[] {
   return /distinto de `"PASS"`[^\n]*DETENTE/.test(text) ? [] : ["castoff: no detiene ante un veredicto de Sentinel distinto de PASS"];
 }

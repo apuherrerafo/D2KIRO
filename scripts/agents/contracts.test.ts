@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  AGENT_ENTRIES, checkWardenScope, WARDEN_SCOPE_CLAUSES, checkAgent,checkAgentEntries, checkAgentsMdRules, checkCastoffGate, parseAgent, checkRedteamEvidence, checkReviewerAlias, READ_ONLY_AGENT_HEADERS, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, checkSkillTools, parseFrontmatter,
+  AGENT_ENTRIES, checkCastoffDelivery, checkWardenScope, WARDEN_SCOPE_CLAUSES, checkAgent,checkAgentEntries, checkAgentsMdRules, checkCastoffGate, parseAgent, checkRedteamEvidence, checkReviewerAlias, READ_ONLY_AGENT_HEADERS, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, checkSkillTools, parseFrontmatter,
 } from "./contracts";
 
 const YAML = ["tiers:", "  e:", "    modelo_actual: claude-sonnet-5", "    usado_en:", "      - .claude/agents/a.md"].join("\n");
@@ -245,6 +245,10 @@ describe("contratos sobre el repo real", () => {
     }
   });
 
+  test("castoff decide la entrega con el decisor ejecutable (contrato de texto; el mecanismo se prueba en delivery-verdict.test.ts)", () => {
+    expect(checkCastoffDelivery(read(".claude/skills/castoff/SKILL.md"))).toEqual([]);
+    expect(checkCastoffDelivery("Si Sentinel da PASS, continúa")).toHaveLength(1);
+  });
   test("castoff sólo continúa con PASS de Sentinel", () => {
     expect(checkCastoffGate(read(".claude/skills/castoff/SKILL.md"))).toEqual([]);
   });
