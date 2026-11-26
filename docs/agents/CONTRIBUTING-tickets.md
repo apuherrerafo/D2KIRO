@@ -17,6 +17,7 @@ created_at: YYYY-MM-DD
 write_scope: ["glob/**", "archivo.ts"]   # opcional; ver abajo
 blocked_by: ["TSK-XXX"]                    # opcional
 implements: ["R1-2", "R3-13"]              # opcional; IDs de docs/research/ que este ticket entrega
+base_ref: origin/release/mvp-beta          # opcional; rama destino de la entrega (sin declarar: origin/master)
 ---
 ```
 
@@ -30,6 +31,13 @@ línea: `assigned_tool: codex  # nota` cuenta como `claude-code`.
 
 Si `docs/agents/tasks/` falta o no se puede recorrer entera, el hook y el gate bloquean (vacía es válida). Se
 restaura desde git; el hook no permite recrearla con `Edit`/`Write`.
+
+## `base_ref`
+
+Rama remota contra la que `delivery-verdict.ts` mide la entrega. Valores admitidos (`BASE_REFS` en
+`scripts/hooks/_hook_lib.py`): `origin/master` y `origin/release/mvp-beta`; sin declarar, `origin/master`. Una línea,
+sin comentario ni repetición, o la ficha es inválida. En una ficha en `doing` no se puede dar, cambiar ni quitar con
+`Edit`/`Write`. El decisor lee la ficha ya confirmada y exige que forme parte del cambio que se entrega.
 
 ## `write_scope`
 

@@ -18,7 +18,10 @@ const at = (name: string, exit = 0, out = "") => {
 };
 const SHA = (h: string) => log(ROOT, "git rev-parse HEAD", 0, `${h}\n`);
 const CLEAN = (cmd: string) => log(ROOT, cmd, 0);
-const DIFF = (h: string, out = "diff --git a/x b/x\n+x\n", exit = 0, root = ROOT) => log(root, `git diff base...${h}`, exit, out);
+const X_DIFF = "diff --git a/x b/x\n+x\n";
+const DIFF = (h: string, out = X_DIFF, exit = 0, root = ROOT) => log(root, `git diff base...${h}`, exit, out);
+/** Lo que `authorizedChange` obtendría de git y la ficha (esa comprobación real se prueba en delivery-base.test.ts). */
+const CHANGE = { ref: "base", diff: X_DIFF };
 const SENTINEL_PASS = '```json\n{ "veredicto": "PASS", "bloqueante": false, "hallazgos": [], "evidencia_solicitada": [] }\n```';
 
 /** Paquete completo y correcto para `head`, con Sentinel sellado. */
@@ -43,7 +46,8 @@ function mutate(change: Record<string, string | undefined>, head = HEAD): Record
   logs.sentinel = sealSentinel(head, logs, SENTINEL_PASS);
   return logs;
 }
-const decide = (logs: Record<string, string | undefined>, head = HEAD) => decideDelivery({ head, root: ROOT, logs, dispatchText: DISPATCH });
+const decide = (logs: Record<string, string | undefined>, head = HEAD) =>
+  decideDelivery({ head, root: ROOT, logs, dispatchText: DISPATCH, change: CHANGE });
 const dirs: string[] = [];
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
 
@@ -61,12 +65,12 @@ describe("una sola definición de los comandos: el bloque de /dispatch", () => {
   });
   test("si /dispatch cambia el comando de un gate, el decisor exige el nuevo (no queda una copia vieja)", () => {
     const cambiado = DISPATCH.replace("gate test bun run test", "gate test bun run test:ci");
-    const d = decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: cambiado });
+    const d = decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: cambiado, change: CHANGE });
     expect(d.ready).toBe(false);
     expect(d.gates.test).toBe("WRONG_COMMAND");
   });
   test("un /dispatch sin algún gate obligatorio no permite READY", () => {
-    expect(decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: "" }).ready).toBe(false);
+    expect(decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: "", change: CHANGE }).ready).toBe(false);
   });
 });
 
@@ -174,58 +178,72 @@ describe("Sentinel con procedencia, separado del resultado global", () => {
   });
 });
 
+// Repo desechable con el /dispatch real, una base en `origin/master` y un cambio que incluye su ficha TSK-900.
+function repo() {
+  const dir = mkdtempSync(join(tmpdir(), "d2k-root-"));
+  dirs.push(dir);
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_")));
+  const git = (...args: string[]) => {
+    const r = Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: dir, env, stdout: "pipe", stderr: "pipe" });
+    if (r.exitCode !== 0) throw new Error(r.stderr.toString());
+    return r.stdout.toString();
+  };
+  git("init", "-q", "-b", "main");
+  mkdirSync(join(dir, ".claude", "skills", "dispatch"), { recursive: true });
+  writeFileSync(join(dir, ".claude", "skills", "dispatch", "SKILL.md"), DISPATCH);
+  git("add", "-A");
+  git("commit", "-q", "-m", "base");
+  git("update-ref", "refs/remotes/origin/master", "HEAD");
+  mkdirSync(join(dir, "docs", "agents", "tasks"), { recursive: true });
+  writeFileSync(join(dir, "docs", "agents", "tasks", "TSK-900.md"), "---\nid: TSK-900\nstate: done\n---\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "cambio");
+  const head = git("rev-parse", "HEAD").trim();
+  const root = git("rev-parse", "--show-toplevel").trim();
+  const diff = log(ROOT, `git diff origin/master...${head}`, 0, git("diff", `origin/master...${head}`));
+  /** Paquete de ese HEAD reubicado a la raíz desechable, con Sentinel sellado a `sealedHead`. */
+  const logs = (change: Record<string, string> = {}, sealedHead = head) => {
+    const all: Record<string, string> = { ...pack(head), diff, ...change };
+    delete all.sentinel;
+    const moved = Object.fromEntries(Object.entries(all).map(([k, v]) => [k, v.replaceAll(ROOT, root)]));
+    return { ...moved, sentinel: sealSentinel(sealedHead, moved, SENTINEL_PASS) };
+  };
+  return { root, head, logs };
+}
 describe("mecanismo real: la CLI sobre una carpeta de evidencia", () => {
   const script = join(import.meta.dir, "delivery-verdict.ts");
   function folder(logs: Record<string, string | undefined>): string {
-    const dir = mkdtempSync(join(tmpdir(), "d2k-deliv-"));
-    dirs.push(dir);
+    const base = mkdtempSync(join(tmpdir(), "d2k-deliv-"));
+    dirs.push(base);
+    const dir = join(base, "TSK-900");
+    mkdirSync(dir);
     for (const [n, t] of Object.entries(logs)) if (t !== undefined) writeFileSync(join(dir, `${n}.log`), t);
     return dir;
   }
-  // El decisor lee el /dispatch de la raíz que se le da: una raíz desechable con una copia del real.
-  function rootWithDispatch(): string {
-    const root = mkdtempSync(join(tmpdir(), "d2k-root-"));
-    dirs.push(root);
-    mkdirSync(join(root, ".claude", "skills", "dispatch"), { recursive: true });
-    writeFileSync(join(root, ".claude", "skills", "dispatch", "SKILL.md"), DISPATCH);
-    return root;
-  }
   const run = (args: string[]) => Bun.spawnSync(["bun", script, ...args], { stdout: "pipe", stderr: "pipe" });
   test("READY → exit 0; gate rojo, árbol sucio, Sentinel de otro HEAD → exit 1", () => {
-    const root = rootWithDispatch();
-    // Reubica los logs a la raíz desechable y vuelve a sellar a Sentinel (con su HEAD original) sobre el paquete reubicado.
-    const rootLogs = (logs: Record<string, string | undefined>) => {
-      const moved: Record<string, string | undefined> = Object.fromEntries(
-        Object.entries(logs).filter(([k]) => k !== "sentinel").map(([k, v]) => [k, v?.replaceAll(ROOT, root.replace(/\\/g, "/"))]),
-      );
-      const sealedHead = /^head: ([0-9a-f]{40})/.exec(logs.sentinel ?? "")?.[1] ?? HEAD;
-      return { ...moved, sentinel: sealSentinel(sealedHead, moved, SENTINEL_PASS) };
-    };
-    const ok = run([folder(rootLogs(pack())), HEAD, root]);
+    const { root, head, logs } = repo();
+    const ok = run([folder(logs()), head, root]);
+    expect(JSON.parse(ok.stdout.toString()).reasons).toEqual([]);
     expect(ok.exitCode).toBe(0);
     expect(JSON.parse(ok.stdout.toString()).resultado).toBe("READY");
-    expect(run([folder(rootLogs(mutate({ lint: at("lint", 1) }))), HEAD, root]).exitCode).toBe(1);
-    expect(run([folder(rootLogs(mutate({ status: log(ROOT, "git status --short -uall", 0, "?? x\n") }))), HEAD, root]).exitCode).toBe(1);
-    const otro = pack();
-    otro.sentinel = sealSentinel(OTHER, otro, SENTINEL_PASS);
-    expect(run([folder(rootLogs(otro)), HEAD, root]).exitCode).toBe(1);
-  });
+    expect(run([folder(logs({ lint: at("lint", 1) })), head, root]).exitCode).toBe(1);
+    expect(run([folder(logs({ status: log(ROOT, "git status --short -uall", 0, "?? x\n") })), head, root]).exitCode).toBe(1);
+    expect(run([folder(logs({}, OTHER)), head, root]).exitCode).toBe(1);
+  }, 60_000);
   test("`seal` escribe sentinel.log atado al HEAD y al paquete; si un log cambia después, deja de valer", () => {
-    const root = rootWithDispatch();
-    const base: Record<string, string | undefined> = Object.fromEntries(
-      Object.entries(pack()).filter(([k]) => k !== "sentinel").map(([k, v]) => [k, v.replaceAll(ROOT, root.replace(/\\/g, "/"))]),
-    );
+    const { root, head, logs } = repo();
+    const base: Record<string, string | undefined> = { ...logs(), sentinel: undefined };
     const dir = folder(base);
     const raw = join(dir, "..", `sentinel-raw-${Date.now()}.txt`);
     writeFileSync(raw, SENTINEL_PASS);
-    dirs.push(raw);
-    expect(run(["seal", dir, HEAD, raw]).exitCode).toBe(0);
-    expect(run([dir, HEAD, root]).exitCode).toBe(0);
-    writeFileSync(join(dir, "diff.log"), log(root, "git diff base...HEAD", 0, "diff --git a/z b/z\n+distinto\n"));
-    const after = run([dir, HEAD, root]);
+    expect(run(["seal", dir, head, raw]).exitCode).toBe(0);
+    expect(run([dir, head, root]).exitCode).toBe(0);
+    writeFileSync(join(dir, "diff.log"), log(root, `git diff origin/master...${head}`, 0, "diff --git a/z b/z\n+distinto\n"));
+    const after = run([dir, head, root]);
     expect(after.exitCode).toBe(1);
     expect(JSON.parse(after.stdout.toString()).sentinel).toBe("OTRO_PAQUETE");
-  });
+  }, 60_000);
   test("sin argumentos, o carpeta inexistente → exit 2", () => {
     expect(run([]).exitCode).toBe(2);
     expect(run(["/no/existe", HEAD]).exitCode).toBe(2);
@@ -300,15 +318,22 @@ describe("diff.log: sin evidencia del cambio no hay READY", () => {
     rejected("");
     rejected(DIFF(HEAD, "todo bien\n"));
   });
-  test("un diff legítimamente vacío (comando correcto, exit=0) sí vale", () => {
-    const d = decide(mutate({ diff: DIFF(HEAD, "") }));
-    expect(d.reasons).toEqual([]);
-    expect(d.ready).toBe(true);
+  test("un diff vacío (comando correcto, exit=0) → NOT_READY, aunque git también lo dé vacío", () => {
+    rejected(DIFF(HEAD, ""));
+    const d = decideDelivery({ head: HEAD, root: ROOT, logs: mutate({ diff: DIFF(HEAD, "") }), dispatchText: DISPATCH, change: { ref: "base", diff: "" } });
+    expect(d.ready).toBe(false);
+    expect(d.reasons.join(" ")).toContain("vacío");
+  });
+  test("sin base autorizada, o con otra salida que la de git → NOT_READY", () => {
+    const d = decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: DISPATCH, change: { problem: "sin ficha" } });
+    expect(d.ready).toBe(false);
+    expect(d.reasons.join(" ")).toContain("sin ficha");
+    rejected(DIFF(HEAD, "diff --git a/x b/x\n+otra cosa\n"));
   });
   test("el comando exigido sale de /dispatch, no de una copia", () => {
     const cambiado = DISPATCH.replace('gate diff git diff "$BASE', 'gate diff git diff --binary "$BASE');
     expect(cambiado).not.toBe(DISPATCH);
-    expect(decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: cambiado }).ready).toBe(false);
+    expect(decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: cambiado, change: CHANGE }).ready).toBe(false);
   });
 });
 
@@ -354,33 +379,34 @@ describe("el veredicto de Sentinel es la respuesta entera, estructurada y sin am
 describe("la CLI real: seal y decisión de punta a punta", () => {
   const script = join(import.meta.dir, "delivery-verdict.ts");
   function runCase(change: Record<string, string | undefined>, answer: string) {
-    const root = mkdtempSync(join(tmpdir(), "d2k-cli-root-"));
-    const dir = mkdtempSync(join(tmpdir(), "d2k-cli-pack-"));
-    dirs.push(root, dir);
-    mkdirSync(join(root, ".claude", "skills", "dispatch"), { recursive: true });
-    writeFileSync(join(root, ".claude", "skills", "dispatch", "SKILL.md"), DISPATCH);
-    const logs: Record<string, string | undefined> = { ...pack(), ...change };
-    delete logs.sentinel;
-    for (const [n, t] of Object.entries(logs)) if (t !== undefined) writeFileSync(join(dir, `${n}.log`), t.replaceAll(ROOT, root.replace(/\\/g, "/")));
+    const { root, head, logs: paquete } = repo();
+    const base = mkdtempSync(join(tmpdir(), "d2k-cli-pack-"));
+    dirs.push(base);
+    const dir = join(base, "TSK-900");
+    mkdirSync(dir);
+    const logs: Record<string, string | undefined> = { ...paquete(), sentinel: undefined };
+    for (const [n, t] of Object.entries(change)) logs[n] = t?.replaceAll(ROOT, root).replaceAll(HEAD, head);
+    for (const [n, t] of Object.entries(logs)) if (t !== undefined) writeFileSync(join(dir, `${n}.log`), t);
     const raw = join(dir, "sentinel-raw.txt");
     writeFileSync(raw, answer);
     const run = (args: string[]) => Bun.spawnSync(["bun", script, ...args], { stdout: "pipe", stderr: "pipe" });
-    expect(run(["seal", dir, HEAD, raw]).exitCode).toBe(0);
-    const out = run([dir, HEAD, root]);
+    expect(run(["seal", dir, head, raw]).exitCode).toBe(0);
+    const out = run([dir, head, root]);
     return { exit: out.exitCode, json: JSON.parse(out.stdout.toString()) as { resultado: string; reasons: string[] } };
   }
-  test("diff con contenido y diff vacío → READY", () => {
-    for (const change of [{}, { diff: DIFF(HEAD, "") }]) {
-      const r = runCase(change, SENTINEL_PASS);
-      expect(r.json.reasons).toEqual([]);
-      expect(r.exit).toBe(0);
-    }
-  }, 30_000);
+  test("diff real con contenido → READY; el mismo paquete con diff vacío → NOT_READY", () => {
+    const ok = runCase({}, SENTINEL_PASS);
+    expect(ok.json.reasons).toEqual([]);
+    expect(ok.exit).toBe(0);
+    const empty = runCase({ diff: log(ROOT, `git diff origin/master...${HEAD}`, 0) }, SENTINEL_PASS);
+    expect(empty.json.resultado).toBe("NOT_READY");
+    expect(empty.exit).toBe(1);
+  }, 60_000);
   test("diff ausente, fallido u obsoleto, o PASS ambiguo → NOT_READY", () => {
     const casos: [Record<string, string | undefined>, string][] = [
       [{ diff: undefined }, SENTINEL_PASS],
-      [{ diff: DIFF(HEAD, "fatal\n", 128) }, SENTINEL_PASS],
-      [{ diff: DIFF(OTHER) }, SENTINEL_PASS],
+      [{ diff: log(ROOT, `git diff origin/master...${HEAD}`, 128, "fatal\n") }, SENTINEL_PASS],
+      [{ diff: log(ROOT, `git diff origin/master...${OTHER}`, 0, X_DIFF) }, SENTINEL_PASS],
       [{}, `Ejemplo: {"veredicto": "PASS"}\n{"veredicto":"FAIL",}`],
     ];
     for (const [change, answer] of casos) {
@@ -388,5 +414,5 @@ describe("la CLI real: seal y decisión de punta a punta", () => {
       expect(r.json.resultado).toBe("NOT_READY");
       expect(r.exit).toBe(1);
     }
-  }, 60_000);
+  }, 90_000);
 });

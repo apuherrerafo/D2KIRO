@@ -2,18 +2,20 @@
 // (`gate()` deja en cada log: `cwd:`, `$ comando`, salida y `exit=N`). El veredicto de Sentinel es una entrada
 // SEPARADA y debe llegar sellado (`sentinel.log`) al HEAD y al contenido exacto del paquete: un PASS tecleado, viejo o de
 // otro HEAD no habilita READY. Los comandos y carpetas de cada comprobación salen del propio bloque de /dispatch (una
-// sola definición), no de una copia aquí.
+// sola definición), no de una copia aquí. La base del diff la fija la ficha de la tarea (`base_ref`, o `origin/master`)
+// y se comprueba contra git: `diff.log` debe traer exactamente ese diff, y no puede estar vacío.
 //
 // Límite honesto: son archivos de texto del propio coordinador; esto detecta error, obsolescencia y confusión, no un
 // coordinador que falsifique todo. La fuente independiente es CI.
 //
 // Uso:  bun scripts/agents/delivery-verdict.ts <carpeta> <HEAD> [raíz]            decide (exit 0 READY, 1 NOT_READY)
+//       (`<carpeta>` se llama como la ficha de la tarea: `.local/evidencia/TSK-N`)
 //       bun scripts/agents/delivery-verdict.ts seal <carpeta> <HEAD> <salida-de-sentinel.txt>   escribe sentinel.log
 // Código 2 = uso incorrecto.
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 export type GateState = "PASS" | "FAIL" | "MISSING" | "STALE" | "WRONG_COMMAND" | "WRONG_CWD";
 
@@ -22,6 +24,11 @@ export const REQUIRED_GATE_NAMES = ["test", "tsc-engine", "tsc-web", "lint", "si
 export const PACKAGE_LOGS = [
   "sha", "status", "diff", "diff-local", "diff-nuevos", ...REQUIRED_GATE_NAMES, "sha-final", "status-final",
 ] as const;
+
+export const DEFAULT_BASE_REF = "origin/master";
+
+/** El cambio según git: la referencia que autoriza la ficha y su diff contra el HEAD, o por qué no hay ninguna. */
+export type Change = { ref: string; diff: string } | { problem: string };
 
 export interface GateSpec {
   name: string;
@@ -57,6 +64,7 @@ export interface DecisionInput {
   root: string;
   logs: Record<string, string | undefined>;
   dispatchText: string;
+  change: Change; // de `authorizedChange` (git y la ficha), nunca de los logs
 }
 
 interface ParsedLog {
@@ -141,31 +149,33 @@ export function verdictOf(raw: string): string {
   return typeof verdict === "string" && VERDICTS.includes(verdict) ? verdict : "SIN_VEREDICTO";
 }
 
-// `gate diff git diff "$BASE...$(git rev-parse HEAD)"`: en el log bash ya expandió la base elegida y el SHA revisado.
-function isDiffCommand(spec: string, command: string, head: string): boolean {
+// `gate diff git diff "$BASE...$(git rev-parse HEAD)"`: en el log bash ya expandió la base y el SHA revisado.
+function isDiffCommand(spec: string, command: string, ref: string, head: string): boolean {
   const [prefix, tail] = spec.replaceAll('"', "").split("$BASE");
-  const suffix = `...${head}`;
-  if (tail !== "...$(git rev-parse HEAD)" || !command.startsWith(prefix) || !command.endsWith(suffix)) return false;
-  return /^[^-\s]\S*$/.test(command.slice(prefix.length, -suffix.length));
+  return tail === "...$(git rev-parse HEAD)" && command === `${prefix}${ref}...${head}`;
 }
 
-/** Motivo por el que `diff.log` no es evidencia del cambio, o `null`. Un diff vacío de una ejecución correcta sí lo es. */
-function diffProblem(text: string | undefined, spec: GateSpec | undefined, root: string, head: string): string | null {
+const comparable = (diff: string): string => diff.replace(/\r\n/g, "\n").trimEnd();
+
+/** Motivo por el que `diff.log` no es evidencia del cambio, o `null`. Un diff vacío nunca lo es. */
+function diffProblem(text: string | undefined, spec: GateSpec | undefined, root: string, head: string, change: Change): string | null {
   if (text === undefined) return "falta diff.log: no hay evidencia del cambio";
+  if ("problem" in change) return `diff.log: no hay base autorizada (${change.problem})`;
   const lines = text.replace(/\r\n/g, "\n").trimEnd().split("\n");
   if (!lines[0]?.startsWith("cwd: ") || !lines[1]?.startsWith("$ ")) return "diff.log sin la cabecera `cwd:` y `$ comando`";
   const log = parseLog(text);
-  if (!spec || !isDiffCommand(spec.command, log.command, head) || normalizePath(log.cwd) !== normalizePath(root)) {
-    return "diff.log: comando o carpeta distintos de los que define /dispatch para este HEAD";
+  if (!spec || !isDiffCommand(spec.command, log.command, change.ref, head) || normalizePath(log.cwd) !== normalizePath(root)) {
+    return `diff.log: comando o carpeta distintos de los que exige /dispatch para este HEAD contra ${change.ref}`;
   }
   if (log.exit !== 0) return `diff.log incompleto o fallido (exit=${log.exit ?? "?"})`;
   const output = lines.slice(2, -1).join("\n");
-  if (output.trim() !== "" && !/^diff --git /m.test(output)) return "diff.log: la salida no es un diff";
+  if (comparable(change.diff) === "") return `diff.log: el diff contra ${change.ref} está vacío; no hay cambio que entregar`;
+  if (comparable(output) !== comparable(change.diff)) return `diff.log: la salida no es el diff que da git contra ${change.ref}`;
   return null;
 }
 
 export function decideDelivery(input: DecisionInput): Decision {
-  const { head, root, logs, dispatchText } = input;
+  const { head, root, logs, dispatchText, change } = input;
   const reasons: string[] = [];
   const gates: Record<string, GateState> = {};
   const validHead = /^[0-9a-f]{40}$/.test(head);
@@ -217,7 +227,7 @@ export function decideDelivery(input: DecisionInput): Decision {
   }
 
   // El contenido del cambio, atado a este HEAD por el propio comando.
-  const diffError = diffProblem(logs.diff, specs.get("diff"), root, head);
+  const diffError = diffProblem(logs.diff, specs.get("diff"), root, head, change);
   if (diffError !== null) reasons.push(diffError);
 
   // 2) Cada comprobación obligatoria: mismo comando y carpeta que define /dispatch, con exit=0.
@@ -273,6 +283,46 @@ export function readLogs(dir: string): Record<string, string | undefined> {
   return out;
 }
 
+// Sin las variables GIT_* que exporta un hook: mandarían sobre `cwd`.
+function capture(command: string[], cwd: string): string | null {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_")));
+  const r = Bun.spawnSync(command, { cwd, env, stdout: "pipe", stderr: "pipe" });
+  return r.exitCode === 0 ? r.stdout.toString() : null;
+}
+
+type ContractTicket = { file: string; problem: string; fields: Record<string, string> };
+
+/**
+ * La referencia sale de la ficha (leída con el mismo parser que el hook y el gate, sin cambios pendientes) y se resuelve
+ * como rama remota: ni un SHA, ni `HEAD`, ni una rama local con el mismo nombre. La ficha debe ser parte del cambio,
+ * para que no se pueda tomar prestada la `base_ref` de otra tarea.
+ */
+export function authorizedChange(root: string, ticketId: string, head: string): Change {
+  const no = (problem: string): Change => ({ problem });
+  if (!/^TSK-\d+$/.test(ticketId)) return no(`la carpeta de evidencia debe llamarse como la ficha de la tarea (TSK-N), no "${ticketId}"`);
+  if (!/^[0-9a-f]{40}$/.test(head)) return no("HEAD no es un SHA completo");
+  const git = (...args: string[]) => capture(["git", ...args], root);
+  if (git("rev-parse", "HEAD")?.trim() !== head) return no("el HEAD del repo no es el HEAD pedido");
+  const tasks = "docs/agents/tasks";
+  if (git("status", "--porcelain", "--untracked-files=all", "--", tasks) !== "") return no("hay fichas con cambios sin commit");
+  const contract = join(import.meta.dir, "..", "hooks", "ticket_contract.py");
+  const listed = capture(["python3", "-B", contract, "list", tasks], root);
+  if (listed === null) return no("no se pudo leer el contrato de fichas");
+  const matches = (JSON.parse(listed) as ContractTicket[]).filter((t) => basename(t.file) === `${ticketId}.md`);
+  const ticket = matches.length === 1 ? matches[0] : undefined;
+  if (!ticket || ticket.problem || ticket.fields.id !== ticketId) return no(`sin una única ficha válida ${ticketId}`);
+  const ref = ticket.fields.base_ref ?? DEFAULT_BASE_REF;
+  const full = `refs/remotes/${ref}`;
+  if (git("rev-parse", "--verify", "--quiet", `${full}^{commit}`) === null) return no(`${ref} no existe en este repo (falta fetch)`);
+  const diff = git("diff", `${full}...${head}`);
+  const names = git("diff", "--name-only", "--no-renames", `${full}...${head}`);
+  if (diff === null || names === null) return no(`git no pudo comparar ${ref} con el HEAD`);
+  if (comparable(diff) !== "" && !names.split("\n").includes(`${tasks}/${ticket.file}`)) {
+    return no(`la ficha ${ticketId} no forma parte del cambio contra ${ref}`);
+  }
+  return { ref, diff };
+}
+
 function gitRoot(): string {
   const r = Bun.spawnSync(["git", "rev-parse", "--show-toplevel"], { stdout: "pipe", stderr: "pipe" });
   return r.exitCode === 0 ? r.stdout.toString().trim() : "";
@@ -296,7 +346,8 @@ if (import.meta.main) {
   const root = rootArg ?? gitRoot();
   const skill = join(root, ".claude", "skills", "dispatch", "SKILL.md");
   const dispatchText = existsSync(skill) ? readFileSync(skill, "utf8") : "";
-  const decision = decideDelivery({ head, root, logs: readLogs(dir), dispatchText });
+  const change = authorizedChange(root, basename(resolve(dir)), head);
+  const decision = decideDelivery({ head, root, logs: readLogs(dir), dispatchText, change });
   console.log(JSON.stringify({ resultado: decision.ready ? "READY" : "NOT_READY", ...decision }, null, 2));
   process.exit(decision.ready ? 0 : 1);
 }
