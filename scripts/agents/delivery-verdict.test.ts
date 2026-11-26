@@ -230,3 +230,47 @@ describe("mecanismo real: la CLI sobre una carpeta de evidencia", () => {
     expect(run(["/no/existe", HEAD]).exitCode).toBe(2);
   });
 });
+
+describe("el veredicto de Sentinel sale del JSON final, no de cualquier texto citado", () => {
+  const sealWith = (raw: string) => {
+    const logs = mutate({});
+    logs.sentinel = sealSentinel(HEAD, logs, raw);
+    return decide(logs);
+  };
+  const FAIL_JSON = '```json\n{ "veredicto": "FAIL", "bloqueante": true, "hallazgos": ["hay un secreto"], "evidencia_solicitada": [] }\n```';
+  test("un FAIL con texto posterior que cita un PASS sigue siendo FAIL", () => {
+    const d = sealWith(`${FAIL_JSON}\nNota: el diff contiene la cadena "veredicto": "PASS" en una prueba.`);
+    expect(d.sentinel).toBe("FAIL");
+    expect(d.ready).toBe(false);
+  });
+  test("un hallazgo que cita un veredicto dentro de su texto no cambia el del JSON", () => {
+    const raw = '{ "veredicto": "FAIL", "bloqueante": true, "hallazgos": ["la prueba usa \\"veredicto\\": \\"PASS\\" de ejemplo"], "evidencia_solicitada": [] }';
+    expect(sealWith(raw).sentinel).toBe("FAIL");
+  });
+  test("el eco del esquema de salida (`\"veredicto\": \"PASS\" | \"FAIL\"`) no es un PASS", () => {
+    const d = sealWith('Formato: { "veredicto": "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" }');
+    expect(d.sentinel).toBe("SIN_VEREDICTO");
+    expect(d.ready).toBe(false);
+  });
+  test("dos objetos finales contradictorios no permiten READY; uno solo y válido sí", () => {
+    const dos = sealWith(`${SENTINEL_PASS}\n${FAIL_JSON}`);
+    expect(dos.ready).toBe(false);
+    expect(sealWith(SENTINEL_PASS).ready).toBe(true);
+  });
+  test("un veredicto fuera del vocabulario cerrado no cuenta", () => {
+    expect(sealWith('{ "veredicto": "APPROVED" }').sentinel).toBe("SIN_VEREDICTO");
+  });
+});
+
+describe("los logs del snapshot también deben ser los de /dispatch", () => {
+  test("un status vacío de otro comando o de otra carpeta no cuenta como árbol limpio", () => {
+    for (const n of ["status", "status-final", "diff-local", "sha", "sha-final"]) {
+      const otroComando = n.startsWith("sha") ? log(ROOT, "echo", 0, `${HEAD}\n`) : log(ROOT, "echo", 0);
+      expect(decide(mutate({ [n]: otroComando })).ready).toBe(false);
+      const otraCarpeta = n.startsWith("sha") ? log("/d/otro", "git rev-parse HEAD", 0, `${HEAD}\n`) : log("/d/otro", SPECS.get(n)!.command, 0);
+      const d = decide(mutate({ [n]: otraCarpeta }));
+      expect(d.ready).toBe(false);
+      expect(d.reasons.join(" ")).toContain("distintos de los que define /dispatch");
+    }
+  });
+});

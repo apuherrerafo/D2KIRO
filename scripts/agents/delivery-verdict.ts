@@ -114,8 +114,48 @@ function sentinelVerdict(logs: Record<string, string | undefined>, head: string,
     reasons.push("el veredicto de Sentinel es de otro paquete de evidencia (el contenido cambió después de revisarlo)");
     return "OTRO_PAQUETE";
   }
-  const verdicts = [...m[3].matchAll(/"veredicto"\s*:\s*"(PASS|FAIL|BLOCKED|NOT_VERIFIED)"/g)].map((x) => x[1]);
-  return verdicts[verdicts.length - 1] ?? "SIN_VEREDICTO";
+  return verdictOf(m[3]);
+}
+
+const VERDICTS = ["PASS", "FAIL", "BLOCKED", "NOT_VERIFIED"];
+
+/** Objetos JSON completos de nivel superior dentro de un texto libre (respeta cadenas y escapes). */
+function topLevelObjects(text: string): unknown[] {
+  const out: unknown[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (c === "\\") i++;
+      else if (c === '"') inString = false;
+    } else if (c === '"' && depth > 0) {
+      inString = true;
+    } else if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}" && depth > 0) {
+      depth--;
+      if (depth === 0) {
+        try {
+          out.push(JSON.parse(text.slice(start, i + 1)));
+        } catch {
+          // no era JSON: se ignora
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** El veredicto es la clave `veredicto` de un objeto JSON de nivel superior; texto citado o ecos del esquema no cuentan. */
+export function verdictOf(raw: string): string {
+  const found = topLevelObjects(raw)
+    .map((o) => (o && typeof o === "object" ? (o as Record<string, unknown>).veredicto : undefined))
+    .filter((v): v is string => typeof v === "string" && VERDICTS.includes(v));
+  if (found.length === 0) return "SIN_VEREDICTO";
+  return new Set(found).size === 1 ? found[0] : "VEREDICTOS_CONTRADICTORIOS";
 }
 
 export function decideDelivery(input: DecisionInput): Decision {
@@ -123,6 +163,12 @@ export function decideDelivery(input: DecisionInput): Decision {
   const reasons: string[] = [];
   const gates: Record<string, GateState> = {};
   const validHead = /^[0-9a-f]{40}$/.test(head);
+  const specs = new Map(parseDispatchGates(dispatchText).map((s) => [s.name, s]));
+  // Mismo comando y carpeta que /dispatch también para los logs del snapshot (un `echo` vacío no es un árbol limpio).
+  const sameAsDispatch = (name: string, log: ParsedLog): boolean => {
+    const spec = specs.get(name);
+    return !!spec && log.command === spec.command && normalizePath(log.cwd) === normalizePath(spec.cwd ? `${root}/${spec.cwd}` : root);
+  };
 
   // 1) El árbol es exactamente el HEAD: sha antes y después de los gates, y estado limpio antes y después.
   let snapshotOk = validHead;
@@ -136,7 +182,10 @@ export function decideDelivery(input: DecisionInput): Decision {
     }
     const log = parseLog(text);
     const found = /^[0-9a-f]{40}$/m.exec(log.output)?.[0];
-    if (log.exit !== 0 || found !== head) {
+    if (!sameAsDispatch(name, log)) {
+      snapshotOk = false;
+      reasons.push(`${name}.log: comando o carpeta distintos de los que define /dispatch`);
+    } else if (log.exit !== 0 || found !== head) {
       snapshotOk = false;
       reasons.push(`${name}.log: ${found ?? "sin SHA"} no es el HEAD ${head} (evidencia obsoleta o el HEAD se movió)`);
     }
@@ -149,7 +198,10 @@ export function decideDelivery(input: DecisionInput): Decision {
       continue;
     }
     const log = parseLog(text);
-    if (log.exit !== 0) {
+    if (!sameAsDispatch(name, log)) {
+      snapshotOk = false;
+      reasons.push(`${name}.log: comando o carpeta distintos de los que define /dispatch`);
+    } else if (log.exit !== 0) {
       snapshotOk = false;
       reasons.push(`${name}.log incompleto (exit=${log.exit ?? "?"})`);
     } else if (log.output !== "") {
@@ -159,7 +211,6 @@ export function decideDelivery(input: DecisionInput): Decision {
   }
 
   // 2) Cada comprobación obligatoria: mismo comando y carpeta que define /dispatch, con exit=0.
-  const specs = new Map(parseDispatchGates(dispatchText).map((s) => [s.name, s]));
   for (const name of REQUIRED_GATE_NAMES) {
     const spec = specs.get(name);
     if (!spec) {
