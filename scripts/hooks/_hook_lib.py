@@ -379,11 +379,8 @@ _KEY_LINE = re.compile(r"""(["']?)([A-Za-z_][A-Za-z0-9_-]*)\1[ \t]*:(.*)""")
 # Lista cerrada: las claves que usan las fichas reales. Una clave nueva se añade aquí, a propósito.
 TICKET_KEYS = frozenset({
     "id", "title", "state", "moscow", "attempts", "preferred_tool", "assigned_tool", "created_at", "write_scope",
-    "blocked_by", "implements", "spec", "spec_section", "simplicity_exception", "exception_reason", "base_ref",
+    "blocked_by", "implements", "spec", "spec_section", "simplicity_exception", "exception_reason",
 })
-# Ramas destino que una ficha puede declarar como base de su entrega (lista cerrada). Sin `base_ref`, el decisor usa
-# `origin/master` (scripts/agents/delivery-verdict.ts).
-BASE_REFS = ("origin/master", "origin/release/mvp-beta")
 _BLOCK_SCALAR = re.compile(r"[>|][+-]?[0-9]?[+-]?(?:[ \t]+#.*)?")
 _LIST_ITEM = re.compile(r"[ \t]+-[ \t]+(?!.*:(?:[ \t]|$)).*")  # elemento escalar: sin `clave:` dentro
 _BODY_SCOPE = re.compile(r"""["']?write[-_]?scopes?["']?[ \t]*:""", re.IGNORECASE)
@@ -461,20 +458,6 @@ def _parse_write_scope(lines: list[str]) -> tuple[tuple[str, ...], str]:
     return (), f"'write_scope' no es una lista no vacía de globs en una línea: {raw!r}"
 
 
-def _parse_base_ref(lines: list[str]) -> tuple[str, str]:
-    """(base_ref, problema). Sin declaración -> ("", ""). Nunca se ignora una declaración mal escrita."""
-    found = _key_values(lines, "base_ref")
-    if not found:
-        return "", ""
-    if len(found) > 1:
-        return "", "'base_ref' repetido"
-    raw, continues = found[0]
-    value = _unquote(raw)
-    if continues or value not in BASE_REFS:
-        return "", f"'base_ref' no es una de {', '.join(BASE_REFS)}: {raw!r}"
-    return value, ""
-
-
 def _key_problem(lines: list[str]) -> str:
     """Primera clave desconocida o continuación no admitida, o "". `lines` ya pasó el chequeo estructural."""
     block = ""  # qué continuación admite la clave abierta: "text", "list" o ninguna
@@ -534,10 +517,6 @@ def parse_ticket_text(path: Path, text: str) -> Ticket:
         return invalid(f"'state' con valor no admitido: {raw!r}", fields)
     scope, problem = _parse_write_scope(lines)
     problem = problem or _key_problem(lines)
-    base_ref, base_problem = _parse_base_ref(lines)
-    problem = problem or base_problem
-    if base_ref:
-        fields["base_ref"] = base_ref  # también si la clave va entre comillas
     body = text.lstrip(_BOM).split("\n")[len(lines) + 2:]
     if not problem and any(_BODY_SCOPE.match(line) for line in body):
         problem = "'write_scope' declarado en el cuerpo; sólo vale en la cabecera"
@@ -594,8 +573,7 @@ def _edited_texts(text: str, tool: str, tool_input: dict) -> list[str] | None:
 def governance_problem(ticket: Ticket, tool: str, tool_input: dict) -> str:
     """Por qué esta edición de una ficha en `doing` no se admite, o "" si conserva su gobierno.
 
-    No se puede cambiar `write_scope` ni `base_ref`; con alcance declarado, tampoco sacarla de `doing` ni cambiar de
-    herramienta.
+    No se puede cambiar `write_scope`; con alcance declarado, tampoco sacarla de `doing` ni cambiar de herramienta.
     Cualquier resultado que no se pueda reconstruir o que sea inválido se rechaza.
     """
     try:
@@ -611,8 +589,6 @@ def governance_problem(ticket: Ticket, tool: str, tool_input: dict) -> str:
             return f"la ficha quedaría inválida: {after.problem}"
         if after.scope != ticket.scope:
             return "cambia 'write_scope'"
-        if after.fields.get("base_ref") != ticket.fields.get("base_ref"):
-            return "cambia 'base_ref'"
         if ticket.scope and (after.state != "doing" or after.tool != "claude-code"):
             return "cambia 'state' o 'assigned_tool' y dejaría sin efecto el alcance"
     return ""

@@ -83,7 +83,6 @@ test("las 16 claves en uso, entrecomilladas o con bloques, siguen siendo válida
       "spec: docs/specs/SPEC.md",
       'spec_section: "15"',
       'write_scope: ["apps/**"]',
-      'base_ref: "origin/release/mvp-beta"',
       "---",
       "",
     ].join("\n"),
@@ -165,28 +164,6 @@ test("ficha sin write_scope: no puede darse uno (autorizaría data/curated/), pe
   expect(await own(swap("state: doing", 'state: doing\nwrite_scope: ["data/curated/**"]'))).toBe(2);
   expect(await own(swap("state: doing", "state: review"))).toBe(0);
   expect(await own(swap("pendiente", "hecho"))).toBe(0);
-});
-
-// ---------- base_ref: la referencia de entrega ----------
-
-for (const line of ["base_ref: HEAD", "base_ref: origin/otra", "base_ref:", "base_ref: origin/master # x", "base_ref: origin/master\nbase_ref: origin/master"]) {
-  test(`${JSON.stringify(line)}: ficha inválida para el hook y el gate`, async () => {
-    put(`---\nid: TSK-1\nstate: doing\n${line}\n---\n`);
-    expect(await outside()).toBe(2);
-    expect(check()).toBe(1);
-  });
-}
-
-test("ficha en doing: no puede darse, cambiar ni quitarse `base_ref`", async () => {
-  const declared = SCOPED.replace("id: TSK-1", "id: TSK-1\nbase_ref: origin/release/mvp-beta");
-  put(declared);
-  expect(await own(swap("pendiente", "hecho"))).toBe(0);
-  expect(await own(swap("base_ref: origin/release/mvp-beta", "base_ref: origin/master"))).toBe(2);
-  expect(await own(swap("base_ref: origin/release/mvp-beta\n", ""))).toBe(2);
-  for (const content of [SCOPED, UNSCOPED]) {
-    put(content);
-    expect(await own(swap("id: TSK-1", "id: TSK-1\nbase_ref: origin/release/mvp-beta"))).toBe(2);
-  }
 });
 
 // ---------- finales de línea: el guard debe leer el resultado igual que se leerá del disco (CR aislado) ----------
