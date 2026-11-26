@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decideDelivery, normalizePath, PACKAGE_LOGS, parseDispatchGates, REQUIRED_GATE_NAMES, sealSentinel } from "./delivery-verdict";
+import { decideDelivery, normalizePath, PACKAGE_LOGS, parseDispatchGates, REQUIRED_GATE_NAMES, sealSentinel, verdictOf } from "./delivery-verdict";
 
 // El bloque de /dispatch es la ÚNICA definición de los comandos: aquí se lee el real, así que si alguien cambia un
 // comando allí, estas pruebas cruzan el cambio con el decisor. Los logs son fixtures inline con el formato real de `gate()`.
@@ -18,6 +18,7 @@ const at = (name: string, exit = 0, out = "") => {
 };
 const SHA = (h: string) => log(ROOT, "git rev-parse HEAD", 0, `${h}\n`);
 const CLEAN = (cmd: string) => log(ROOT, cmd, 0);
+const DIFF = (h: string, out = "diff --git a/x b/x\n+x\n", exit = 0, root = ROOT) => log(root, `git diff base...${h}`, exit, out);
 const SENTINEL_PASS = '```json\n{ "veredicto": "PASS", "bloqueante": false, "hallazgos": [], "evidencia_solicitada": [] }\n```';
 
 /** Paquete completo y correcto para `head`, con Sentinel sellado. */
@@ -25,7 +26,7 @@ function pack(head = HEAD, sentinel = SENTINEL_PASS): Record<string, string> {
   const logs: Record<string, string> = {
     sha: SHA(head),
     status: CLEAN("git status --short -uall"),
-    diff: log(ROOT, "git diff base...HEAD", 0, "diff --git a/x b/x\n+x\n"),
+    diff: DIFF(head),
     "diff-local": CLEAN("git diff HEAD"),
     "diff-nuevos": CLEAN("bash -c ..."),
     ...Object.fromEntries(REQUIRED_GATE_NAMES.map((n) => [n, at(n)])),
@@ -238,9 +239,9 @@ describe("el veredicto de Sentinel sale del JSON final, no de cualquier texto ci
     return decide(logs);
   };
   const FAIL_JSON = '```json\n{ "veredicto": "FAIL", "bloqueante": true, "hallazgos": ["hay un secreto"], "evidencia_solicitada": [] }\n```';
-  test("un FAIL con texto posterior que cita un PASS sigue siendo FAIL", () => {
+  test("un FAIL con texto posterior que cita un PASS no es un veredicto, y no hay READY", () => {
     const d = sealWith(`${FAIL_JSON}\nNota: el diff contiene la cadena "veredicto": "PASS" en una prueba.`);
-    expect(d.sentinel).toBe("FAIL");
+    expect(d.sentinel).toBe("SIN_VEREDICTO");
     expect(d.ready).toBe(false);
   });
   test("un hallazgo que cita un veredicto dentro de su texto no cambia el del JSON", () => {
@@ -273,4 +274,119 @@ describe("los logs del snapshot también deben ser los de /dispatch", () => {
       expect(d.reasons.join(" ")).toContain("distintos de los que define /dispatch");
     }
   });
+});
+
+describe("diff.log: sin evidencia del cambio no hay READY", () => {
+  const rejected = (diff: string | undefined) => {
+    const d = decide(mutate({ diff }));
+    expect(d.sentinel).toBe("PASS");
+    expect(Object.values(d.gates).every((s) => s === "PASS")).toBe(true);
+    expect(d.ready).toBe(false);
+    expect(d.reasons.join(" ")).toContain("diff.log");
+  };
+  test("ausente → NOT_READY", () => rejected(undefined));
+  test("ejecución fallida → NOT_READY", () => rejected(DIFF(HEAD, "fatal: bad revision\n", 128)));
+  test("cortado, sin exit= → NOT_READY", () => rejected(`cwd: ${ROOT}\n$ git diff base...${HEAD}\ndiff --git a/x b/x\n`));
+  test("de otro HEAD → NOT_READY", () => rejected(DIFF(OTHER)));
+  test("sin atar a un SHA (`...HEAD` literal) → NOT_READY", () => rejected(log(ROOT, "git diff base...HEAD", 0, "diff --git a/x b/x\n+x\n")));
+  test("otro comando, opciones añadidas o base que es una opción → NOT_READY", () => {
+    for (const cmd of ["echo", `git diff --stat base...${HEAD}`, `git diff --stat...${HEAD}`, `git diff base...${HEAD} -- x`, `git diff base..${HEAD}`]) rejected(log(ROOT, cmd, 0));
+  });
+  test("otra carpeta → NOT_READY", () => rejected(DIFF(HEAD, "", 0, "/d/otro")));
+  test("estructura inválida: sin cabecera, o salida que no es un diff → NOT_READY", () => {
+    rejected(`$ git diff base...${HEAD}\ncwd: ${ROOT}\nexit=0\n`);
+    rejected(`basura\n${DIFF(HEAD, "")}`);
+    rejected("exit=0\n");
+    rejected("");
+    rejected(DIFF(HEAD, "todo bien\n"));
+  });
+  test("un diff legítimamente vacío (comando correcto, exit=0) sí vale", () => {
+    const d = decide(mutate({ diff: DIFF(HEAD, "") }));
+    expect(d.reasons).toEqual([]);
+    expect(d.ready).toBe(true);
+  });
+  test("el comando exigido sale de /dispatch, no de una copia", () => {
+    const cambiado = DISPATCH.replace('gate diff git diff "$BASE', 'gate diff git diff --binary "$BASE');
+    expect(cambiado).not.toBe(DISPATCH);
+    expect(decideDelivery({ head: HEAD, root: ROOT, logs: pack(), dispatchText: cambiado }).ready).toBe(false);
+  });
+});
+
+describe("el veredicto de Sentinel es la respuesta entera, estructurada y sin ambigüedad", () => {
+  const P = '{ "veredicto": "PASS" }';
+  const rechazadas: [string, string][] = [
+    ["cita de bloque", `> ${P}`],
+    ["PASS citado en una explicación", `No puedo dar ${P} sin el diff.`],
+    ["ejemplo en un bloque tras texto", `Ejemplo de respuesta:\n\`\`\`json\n${P}\n\`\`\``],
+    ["texto después del bloque", `\`\`\`json\n${P}\n\`\`\`\nEn realidad falta evidencia.`],
+    ["cita PASS y FAIL mal formado", `Ejemplo: ${P}\n{"veredicto":"FAIL","hallazgos":["x"],}`],
+    ["cita PASS y veredicto fuera de vocabulario", `${P}\n{"veredicto":"REJECTED"}`],
+    ["JSON con coma sobrante", '{ "veredicto": "PASS", }'],
+    ["dos bloques", `\`\`\`json\n${P}\n\`\`\`\n\`\`\`json\n${P}\n\`\`\``],
+    ["dos objetos iguales", `${P}\n${P}`],
+    ["clave repetida", '{ "veredicto": "FAIL", "veredicto": "PASS" }'],
+    ["clave repetida con escape", '{ "veredicto": "FAIL", "veredict\\u006f": "PASS" }'],
+    ["anidado como ejemplo", `{ "ejemplo": ${P} }`],
+    ["dentro de una lista", `[${P}]`],
+    ["segundo veredicto anidado", '{ "veredicto": "PASS", "hallazgos": [{ "veredicto": "FAIL" }] }'],
+    ["bloque sin cerrar", `\`\`\`json\n${P}`],
+  ];
+  test.each(rechazadas)("%s → no es PASS y no hay READY", (_nombre, raw) => {
+    expect(verdictOf(raw)).not.toBe("PASS");
+    const logs = mutate({});
+    logs.sentinel = sealSentinel(HEAD, logs, raw);
+    expect(decide(logs).ready).toBe(false);
+  });
+  test.each([
+    ["JSON solo", P],
+    ["bloque json", SENTINEL_PASS],
+    ["bloque sin lenguaje y CRLF", `\r\n\`\`\`\r\n${P}\r\n\`\`\`\r\n`],
+    ["texto citado dentro de un hallazgo", '{ "veredicto": "PASS", "hallazgos": ["la prueba cita \\"veredicto\\": \\"FAIL\\""] }'],
+  ])("%s → PASS", (_nombre, raw) => {
+    expect(verdictOf(raw)).toBe("PASS");
+  });
+  test("Sentinel declara que su respuesta es sólo el JSON", () => {
+    const sentinel = readFileSync(join(import.meta.dir, "..", "..", ".claude", "agents", "sentinel.md"), "utf8");
+    expect(sentinel).toContain("Tu respuesta completa es sólo ese bloque JSON");
+  });
+});
+
+describe("la CLI real: seal y decisión de punta a punta", () => {
+  const script = join(import.meta.dir, "delivery-verdict.ts");
+  function runCase(change: Record<string, string | undefined>, answer: string) {
+    const root = mkdtempSync(join(tmpdir(), "d2k-cli-root-"));
+    const dir = mkdtempSync(join(tmpdir(), "d2k-cli-pack-"));
+    dirs.push(root, dir);
+    mkdirSync(join(root, ".claude", "skills", "dispatch"), { recursive: true });
+    writeFileSync(join(root, ".claude", "skills", "dispatch", "SKILL.md"), DISPATCH);
+    const logs: Record<string, string | undefined> = { ...pack(), ...change };
+    delete logs.sentinel;
+    for (const [n, t] of Object.entries(logs)) if (t !== undefined) writeFileSync(join(dir, `${n}.log`), t.replaceAll(ROOT, root.replace(/\\/g, "/")));
+    const raw = join(dir, "sentinel-raw.txt");
+    writeFileSync(raw, answer);
+    const run = (args: string[]) => Bun.spawnSync(["bun", script, ...args], { stdout: "pipe", stderr: "pipe" });
+    expect(run(["seal", dir, HEAD, raw]).exitCode).toBe(0);
+    const out = run([dir, HEAD, root]);
+    return { exit: out.exitCode, json: JSON.parse(out.stdout.toString()) as { resultado: string; reasons: string[] } };
+  }
+  test("diff con contenido y diff vacío → READY", () => {
+    for (const change of [{}, { diff: DIFF(HEAD, "") }]) {
+      const r = runCase(change, SENTINEL_PASS);
+      expect(r.json.reasons).toEqual([]);
+      expect(r.exit).toBe(0);
+    }
+  }, 30_000);
+  test("diff ausente, fallido u obsoleto, o PASS ambiguo → NOT_READY", () => {
+    const casos: [Record<string, string | undefined>, string][] = [
+      [{ diff: undefined }, SENTINEL_PASS],
+      [{ diff: DIFF(HEAD, "fatal\n", 128) }, SENTINEL_PASS],
+      [{ diff: DIFF(OTHER) }, SENTINEL_PASS],
+      [{}, `Ejemplo: {"veredicto": "PASS"}\n{"veredicto":"FAIL",}`],
+    ];
+    for (const [change, answer] of casos) {
+      const r = runCase(change, answer);
+      expect(r.json.resultado).toBe("NOT_READY");
+      expect(r.exit).toBe(1);
+    }
+  }, 60_000);
 });

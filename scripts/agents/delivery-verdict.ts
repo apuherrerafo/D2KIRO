@@ -119,43 +119,49 @@ function sentinelVerdict(logs: Record<string, string | undefined>, head: string,
 
 const VERDICTS = ["PASS", "FAIL", "BLOCKED", "NOT_VERIFIED"];
 
-/** Objetos JSON completos de nivel superior dentro de un texto libre (respeta cadenas y escapes). */
-function topLevelObjects(text: string): unknown[] {
-  const out: unknown[] = [];
-  let depth = 0;
-  let start = -1;
-  let inString = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inString) {
-      if (c === "\\") i++;
-      else if (c === '"') inString = false;
-    } else if (c === '"' && depth > 0) {
-      inString = true;
-    } else if (c === "{") {
-      if (depth === 0) start = i;
-      depth++;
-    } else if (c === "}" && depth > 0) {
-      depth--;
-      if (depth === 0) {
-        try {
-          out.push(JSON.parse(text.slice(start, i + 1)));
-        } catch {
-          // no era JSON: se ignora
-        }
-      }
-    }
+/**
+ * El veredicto es la respuesta ENTERA de Sentinel: un objeto JSON, solo o dentro de un único bloque ```json, con una sola
+ * clave `veredicto`. Texto alrededor (citas, ejemplos, explicaciones), JSON mal formado o claves repetidas no son un
+ * veredicto: aquí nunca se busca un PASS dentro de texto libre.
+ */
+export function verdictOf(raw: string): string {
+  const text = raw.replace(/\r\n/g, "\n").trim();
+  const body = /^```(?:json)?\n([\s\S]*)\n```$/.exec(text)?.[1] ?? text;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return "SIN_VEREDICTO";
   }
-  return out;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "SIN_VEREDICTO";
+  // `JSON.parse` se queda en silencio con la última clave repetida: se cuentan las claves en el texto (ya es JSON válido).
+  const keys = [...body.matchAll(/("(?:[^"\\]|\\.)*")(\s*:)?/g)].filter((m) => m[2] !== undefined && JSON.parse(m[1]) === "veredicto");
+  if (keys.length > 1) return "VEREDICTOS_CONTRADICTORIOS";
+  const verdict = (parsed as Record<string, unknown>).veredicto;
+  return typeof verdict === "string" && VERDICTS.includes(verdict) ? verdict : "SIN_VEREDICTO";
 }
 
-/** El veredicto es la clave `veredicto` de un objeto JSON de nivel superior; texto citado o ecos del esquema no cuentan. */
-export function verdictOf(raw: string): string {
-  const found = topLevelObjects(raw)
-    .map((o) => (o && typeof o === "object" ? (o as Record<string, unknown>).veredicto : undefined))
-    .filter((v): v is string => typeof v === "string" && VERDICTS.includes(v));
-  if (found.length === 0) return "SIN_VEREDICTO";
-  return new Set(found).size === 1 ? found[0] : "VEREDICTOS_CONTRADICTORIOS";
+// `gate diff git diff "$BASE...$(git rev-parse HEAD)"`: en el log bash ya expandió la base elegida y el SHA revisado.
+function isDiffCommand(spec: string, command: string, head: string): boolean {
+  const [prefix, tail] = spec.replaceAll('"', "").split("$BASE");
+  const suffix = `...${head}`;
+  if (tail !== "...$(git rev-parse HEAD)" || !command.startsWith(prefix) || !command.endsWith(suffix)) return false;
+  return /^[^-\s]\S*$/.test(command.slice(prefix.length, -suffix.length));
+}
+
+/** Motivo por el que `diff.log` no es evidencia del cambio, o `null`. Un diff vacío de una ejecución correcta sí lo es. */
+function diffProblem(text: string | undefined, spec: GateSpec | undefined, root: string, head: string): string | null {
+  if (text === undefined) return "falta diff.log: no hay evidencia del cambio";
+  const lines = text.replace(/\r\n/g, "\n").trimEnd().split("\n");
+  if (!lines[0]?.startsWith("cwd: ") || !lines[1]?.startsWith("$ ")) return "diff.log sin la cabecera `cwd:` y `$ comando`";
+  const log = parseLog(text);
+  if (!spec || !isDiffCommand(spec.command, log.command, head) || normalizePath(log.cwd) !== normalizePath(root)) {
+    return "diff.log: comando o carpeta distintos de los que define /dispatch para este HEAD";
+  }
+  if (log.exit !== 0) return `diff.log incompleto o fallido (exit=${log.exit ?? "?"})`;
+  const output = lines.slice(2, -1).join("\n");
+  if (output.trim() !== "" && !/^diff --git /m.test(output)) return "diff.log: la salida no es un diff";
+  return null;
 }
 
 export function decideDelivery(input: DecisionInput): Decision {
@@ -210,6 +216,10 @@ export function decideDelivery(input: DecisionInput): Decision {
     }
   }
 
+  // El contenido del cambio, atado a este HEAD por el propio comando.
+  const diffError = diffProblem(logs.diff, specs.get("diff"), root, head);
+  if (diffError !== null) reasons.push(diffError);
+
   // 2) Cada comprobación obligatoria: mismo comando y carpeta que define /dispatch, con exit=0.
   for (const name of REQUIRED_GATE_NAMES) {
     const spec = specs.get(name);
@@ -250,7 +260,7 @@ export function decideDelivery(input: DecisionInput): Decision {
     reasons.push(`Sentinel no dio PASS (${sentinel})`);
   }
 
-  const allPass = snapshotOk && Object.values(gates).every((s) => s === "PASS");
+  const allPass = snapshotOk && diffError === null && Object.values(gates).every((s) => s === "PASS");
   return { ready: allPass && sentinel === "PASS", sentinel, gates, reasons };
 }
 

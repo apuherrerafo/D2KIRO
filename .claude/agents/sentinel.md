@@ -57,6 +57,8 @@ No uses una checklist de conformidad genérica y ruidosa. Traza los **límites d
 ## OUTPUT
 **Sin paquete de evidencia el veredicto es `BLOCKED`, aunque el código te parezca correcto** y aunque creas que no
 hace falta ejecutar nada. `PASS` exige haber abierto el contenido del cambio (no vacío) y las salidas con `exit=0`.
+Tu respuesta completa es sólo ese bloque JSON, sin texto antes ni después: lo que quieras explicar va en `hallazgos`.
+Cualquier otra forma no cuenta como veredicto.
 ```json
 {
   "veredicto": "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED",
