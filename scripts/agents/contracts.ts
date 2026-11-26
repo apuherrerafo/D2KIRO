@@ -274,7 +274,25 @@ export function checkCoordinationWorkflow(dispatchText: string): string[] {
   return COORDINATION_CLAUSES.filter(([, re]) => !re.test(dispatchText)).map(([n]) => `dispatch: falta cláusula "${n}"`);
 }
 
-// castoff sólo continúa con PASS: un `BLOCKED`/`NOT_VERIFIED` de Sentinel no puede colarse por "no es FAIL".
+// Warden juzga ALCANCE (write_scope de las fichas), nunca cantidad de archivos: CLAUDE.md no admite límites por tamaño.
+export const WARDEN_SCOPE_CLAUSES: [string, RegExp][] = [
+  ["declara que no hay límite por cantidad", /no hay límite de archivos ni de líneas/],
+  ["lee el write_scope de las fichas", /Lee tú mismo el `write_scope` de cada ficha del cambio/],
+  ["cubre diff, diff-local y diff-nuevos", /cada archivo de `diff`, `diff-local` y `diff-nuevos`/],
+  ["fuera de alcance es FAIL", /fuera de todo `write_scope`[^\n]*`FAIL`/],
+  ["sin alcance declarado es NOT_VERIFIED", /Sin `write_scope` declarado[^\n]*`NOT_VERIFIED`/],
+  ["una ampliación de alcance se reporta", /amplía un `write_scope`[^\n]*hallazgos/],
+];
+
+export function checkWardenScope(text: string): string[] {
+  const errs = WARDEN_SCOPE_CLAUSES.filter(([, re]) => !re.test(text)).map(([n]) => `warden: falta cláusula "${n}"`);
+  if (/(más de|máximo|hasta|more than)\s+(de\s+)?\d+\s+(archivos|files)/i.test(text)) {
+    errs.push("warden: limita la cantidad de archivos (contradice CLAUDE.md)");
+  }
+  return errs;
+}
+
+// castoff sólo continúa con PASS:un `BLOCKED`/`NOT_VERIFIED` de Sentinel no puede colarse por "no es FAIL".
 export function checkCastoffGate(text: string): string[] {
   return /distinto de `"PASS"`[^\n]*DETENTE/.test(text) ? [] : ["castoff: no detiene ante un veredicto de Sentinel distinto de PASS"];
 }

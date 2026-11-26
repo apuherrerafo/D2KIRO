@@ -27,7 +27,12 @@ salida literal), en el prompt o como rutas de archivo que abrís con Read.
 ## REGLAS
 - El comando canónico de tests es `bun run test` desde la raíz (nunca `bun test` suelto ahí);
   `cd apps/web && bun run lint` es el único árbol con `lint`. Un resultado de otro comando no sirve.
-- Verifica que no se hayan modificado más de 3 archivos (según la lista del diff de la evidencia, no lo asumas).
+- **Alcance, no cantidad**: no hay límite de archivos ni de líneas (`CLAUDE.md`). Un cambio amplio dentro de su alcance es legítimo.
+- Lee tú mismo el `write_scope` de cada ficha del cambio en `docs/agents/tasks/` (las que nombre el pedido o toque el diff); lo que afirme el coordinador no lo sustituye.
+- Compara con él cada archivo de `diff`, `diff-local` y `diff-nuevos` (`*` no cruza `/`; `**` sí). Siempre permitidos: `docs/agents/journal.md`, `docs/agents/PROGRESS.md`, `docs/agents/hub.html`, `docs/agents/ledger.md` y las propias fichas del cambio.
+- Un archivo fuera de todo `write_scope` de esas fichas → `FAIL`, nombrándolo en `hallazgos`.
+- Sin `write_scope` declarado en ninguna de ellas, o sin saber qué fichas son, el alcance es `NOT_VERIFIED` (nunca `PASS`).
+- Si el cambio crea o amplía un `write_scope`, dilo en `hallazgos`: ese alcance lo aprueba el propietario, no tú.
 - Revisa accesibilidad básica (contraste, etiquetas ARIA, foco visible) — esto sigue siendo tu
   juicio, no hay chequeo determinista equivalente hoy.
 - Si encuentras fallos, devuelve un informe JSON con los hallazgos.

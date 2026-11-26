@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  AGENT_ENTRIES, checkAgent, checkAgentEntries, checkAgentsMdRules, checkCastoffGate, parseAgent, checkRedteamEvidence, checkReviewerAlias, READ_ONLY_AGENT_HEADERS, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, checkSkillTools, parseFrontmatter,
+  AGENT_ENTRIES, checkWardenScope, WARDEN_SCOPE_CLAUSES, checkAgent,checkAgentEntries, checkAgentsMdRules, checkCastoffGate, parseAgent, checkRedteamEvidence, checkReviewerAlias, READ_ONLY_AGENT_HEADERS, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, checkSkillTools, parseFrontmatter,
 } from "./contracts";
 
 const YAML = ["tiers:", "  e:", "    modelo_actual: claude-sonnet-5", "    usado_en:", "      - .claude/agents/a.md"].join("\n");
@@ -227,6 +227,21 @@ describe("contratos sobre el repo real", () => {
   test("los revisores con veredicto PASS lo condicionan siempre al paquete de evidencia", () => {
     for (const agent of ["warden", "sentinel"]) {
       expect(read(`.claude/agents/${agent}.md`)).toMatch(/Sin paquete de evidencia el veredicto es `BLOCKED`, aunque el código/);
+    }
+  });
+
+  // El límite de archivos contradecía CLAUDE.md y hacía fallar cualquier cambio amplio legítimo (Warden real: FAIL sobre
+  // 32 archivos). Lo que se juzga es el alcance declarado en las fichas. Contrato de TEXTO, no prueba que se obedezca.
+  test("warden juzga el alcance declarado en las fichas, no la cantidad de archivos", () => {
+    expect(checkWardenScope(read(".claude/agents/warden.md"))).toEqual([]);
+  });
+  test("warden con límite de archivos, o sin alguna cláusula de alcance, se rechaza", () => {
+    const text = read(".claude/agents/warden.md");
+    for (const limit of ["no se hayan modificado más de 3 archivos", "máximo 5 archivos", "hasta 10 archivos", "no more than 3 files"]) {
+      expect(checkWardenScope(`${text}\n- Verifica que ${limit}.`).join(" ")).toContain("cantidad");
+    }
+    for (const [, clause] of WARDEN_SCOPE_CLAUSES) {
+      expect(checkWardenScope(text.replace(clause, "")).length).toBeGreaterThan(0);
     }
   });
 
