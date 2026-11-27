@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { decideDelivery, DELIVERY_BRANCH, type Gate, GATES, isGateDefinition } from "./delivery-verdict";
@@ -216,6 +216,77 @@ describe("hallazgo 3: quien cambia la definición de las comprobaciones no obtie
       expect(isGateDefinition(path)).toBe(true);
     }
     for (const path of ["apps/engine/src/signals/mix.ts", "docs/agents/journal.md", "apps/web/next.config.ts"]) expect(isGateDefinition(path)).toBe(false);
+  });
+});
+
+describe("simplicidad sobre árbol limpio: mira el cambio entregado, no el diff sin commitear", () => {
+  const REAL = join(import.meta.dir, "..");
+  const SIMPLICITY = GATES.filter((g) => g.name === "simplicity");
+
+  /** Repo con el gate de simplicidad real publicado en la base, y encima el cambio que se entrega. */
+  function conGateReal(cambio: (root: string) => void) {
+    const { root } = repo();
+    for (const path of ["verify-simplicity.sh", "hooks/ticket_contract.py", "hooks/_hook_lib.py"]) {
+      put(root, `scripts/${path}`, readFileSync(join(REAL, path), "utf8"));
+    }
+    put(root, "package.json", readFileSync(join(REAL, "..", "package.json"), "utf8"));
+    put(root, "docs/agents/journal.md", "- primera\n- segunda\n");
+    put(root, ".gitignore", ".local/\n__pycache__/\n");
+    put(root, "docs/agents/tasks/TSK-269.md", readFileSync(join(REAL, "..", "docs/agents/tasks/TSK-269.md"), "utf8"));
+    commit(root, "gate real");
+    git(root, "push", "-q", "origin", `HEAD:refs/heads/${DELIVERY_BRANCH}`);
+    cambio(root);
+    return decideDelivery(root, commit(root, "cambio"), SIMPLICITY);
+  }
+
+  // El literal se arma al ejecutar para que este archivo no dispare el propio gate.
+  const SECRETO = `const api_key = ${JSON.stringify("abcd1234efgh5678")};\n`;
+  const violaciones: [string, (root: string) => void][] = [
+    ["secreto ya commiteado", (root) => put(root, "clave.ts", SECRETO)],
+    ["línea borrada del journal", (root) => put(root, "docs/agents/journal.md", "- primera\n")],
+    ["dependencia de producción sin marca", (root) => put(root, "apps/engine/package.json", '{\n  "dependencies": {\n    "x": "1.0.0"\n  }\n}\n')],
+  ];
+
+  test("un cambio limpio pasa", () => {
+    expect(conGateReal((root) => put(root, "limpio.ts", "export {};\n")).gates.simplicity).toBe("PASS");
+  }, TIMEOUT);
+
+  // La dependencia toca un package.json: el decisor la corta antes, como definición.
+  test.each(violaciones.slice(0, 2))("%s → NOT_READY", (_nombre, cambio) => {
+    const d = conGateReal(cambio);
+    expect(d.gates.simplicity).toBe("FAIL");
+    expect(d.resultado).toBe("NOT_READY");
+  }, TIMEOUT);
+
+  test("una VERIFY_DIFF_BASE heredada no llega a las comprobaciones; la de simplicidad es la base publicada", () => {
+    const { root, base, head } = repo();
+    const ve = (esperado: string, baseEnv?: string): Gate => ({
+      ...doing(`process.exit(process.env.VERIFY_DIFF_BASE === ${esperado} ? 0 : 1)`),
+      baseEnv,
+    });
+    const previa = process.env.VERIFY_DIFF_BASE;
+    process.env.VERIFY_DIFF_BASE = head;
+    try {
+      expect(decide(root, head, [ve("undefined")]).resultado).toBe("READY");
+      expect(decide(root, head, [ve(JSON.stringify(base), "VERIFY_DIFF_BASE")]).resultado).toBe("READY");
+    } finally {
+      if (previa === undefined) delete process.env.VERIFY_DIFF_BASE;
+      else process.env.VERIFY_DIFF_BASE = previa;
+    }
+  }, TIMEOUT);
+
+  test("una base que no es un commit hace fallar el gate en vez de revisar nada", () => {
+    const r = Bun.spawnSync(["bash", "scripts/verify-simplicity.sh"], {
+      cwd: join(REAL, ".."), env: { ...ENV, VERIFY_DIFF_BASE: "no-existe" }, stdout: "pipe", stderr: "pipe",
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stdout.toString()).toContain("VERIFY_DIFF_BASE");
+  }, TIMEOUT);
+});
+
+describe("lo que cambia qué mira un gate también es definición", () => {
+  test.each(["scripts/hooks/ticket_contract.py", "scripts/hooks/_hook_lib.py", "scripts/hooks/re.py", ".gitattributes", "apps/web/.gitattributes"])("%s", (path) => {
+    expect(isGateDefinition(path)).toBe(true);
   });
 });
 

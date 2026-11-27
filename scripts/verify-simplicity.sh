@@ -70,7 +70,16 @@ EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 # siempre daría vacío y el gate pasaría en falso sin revisar nada del PR. Ahí la base correcta es
 # el merge-base con la rama destino (GITHUB_BASE_REF, solo presente en eventos pull_request) o,
 # en un push directo a la rama por defecto, el commit anterior (HEAD~1).
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+#
+# Base explícita (VERIFY_DIFF_BASE): la fija el decisor de entrega, que exige árbol limpio y por tanto necesita
+# comparar el cambio ya commiteado contra la base publicada. Manda sobre las otras dos. Si está definida y no
+# nombra un commit, falla: un diff contra una base inexistente sale vacío y no revisaría nada.
+if [ -n "${VERIFY_DIFF_BASE+x}" ]; then
+  if ! DIFF_BASE=$(git rev-parse --verify -q "${VERIFY_DIFF_BASE}^{commit}"); then
+    echo "❌ ERROR: VERIFY_DIFF_BASE no nombra un commit de este repo: '${VERIFY_DIFF_BASE}'."
+    exit 1
+  fi
+elif [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   if [ -n "${GITHUB_BASE_REF:-}" ]; then
     # fetch-depth:100 (ver .github/workflows/ci.yml) alcanza para un PR normal; si la rama base
     # se movió más de 100 commits desde que se abrió el PR, el fetch dirigido de abajo lo resuelve

@@ -21,6 +21,7 @@ export interface Gate {
   name: string;
   cwd: string; // relativo a la raíz del repo; "" = la raíz
   command: string[];
+  baseEnv?: string; // variable por la que la comprobación recibe el commit base publicado
 }
 
 // `bun x` y no `bunx`: en Windows `bunx` puede ser un script de shell que no se puede lanzar como proceso.
@@ -29,13 +30,16 @@ export const GATES: readonly Gate[] = [
   { name: "tsc-engine", cwd: "apps/engine", command: ["bun", "x", "tsc", "--noEmit"] },
   { name: "tsc-web", cwd: "apps/web", command: ["bun", "x", "tsc", "--noEmit"] },
   { name: "lint", cwd: "apps/web", command: ["bun", "run", "lint"] },
-  { name: "simplicity", cwd: "", command: ["bash", "scripts/verify-simplicity.sh"] },
+  // Sin la base, sobre un árbol limpio su diff local sale vacío: secretos, dependencias y journal no se mirarían.
+  { name: "simplicity", cwd: "", command: ["bash", "scripts/verify-simplicity.sh"], baseEnv: "VERIFY_DIFF_BASE" },
 ];
 
 /** Archivos que deciden QUÉ ejecutan esas comprobaciones: este decisor, el gate de simplicidad y su configuración. */
 const DEFINITIONS = [
   /^scripts\/agents\/delivery-verdict[^/]*$/i,
   /^scripts\/verify-[^/]*\.sh$/i,
+  /^scripts\/hooks\//i, // el gate de simplicidad ejecuta Python de esa carpeta
+  /(^|\/)\.gitattributes$/i, // puede volver binario un archivo y esconderlo de `git diff`
   /(^|\/)(package\.json|bunfig\.toml|tsconfig[^/]*\.json|eslint\.config\.[^/]+|\.eslintrc[^/]*)$/i,
 ];
 
@@ -55,7 +59,8 @@ const SCOPE = "comprobación local de este HEAD; no autoriza merge ni deploy (es
 // Sin las variables GIT_* que exporta un hook (mandarían sobre `cwd`) y sin refs de reemplazo.
 function environment(): Record<string, string | undefined> {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_")));
-  return { ...env, GIT_NO_REPLACE_OBJECTS: "1" };
+  // VERIFY_DIFF_BASE heredada no vale: la base la fija este decisor, y sólo para quien la declara en `baseEnv`.
+  return { ...env, GIT_NO_REPLACE_OBJECTS: "1", VERIFY_DIFF_BASE: undefined };
 }
 
 function git(root: string, ...args: string[]): string | null {
@@ -92,9 +97,10 @@ function inspect(root: string, head: string): { base: string | null; problem: st
   return { base, problem: null };
 }
 
-function passes(root: string, gate: Gate): boolean {
+function passes(root: string, gate: Gate, base: string): boolean {
   try {
-    const r = Bun.spawnSync(gate.command, { cwd: join(root, gate.cwd), env: environment(), stdout: "pipe", stderr: "pipe" });
+    const env = gate.baseEnv ? { ...environment(), [gate.baseEnv]: base } : environment();
+    const r = Bun.spawnSync(gate.command, { cwd: join(root, gate.cwd), env, stdout: "pipe", stderr: "pipe" });
     if (r.exitCode === 0) return true;
     const tail = `${r.stdout.toString()}${r.stderr.toString()}`.trimEnd().split("\n").slice(-30).join("\n");
     console.error(`--- ${gate.name}: exit=${r.exitCode}\n${tail}`);
@@ -113,7 +119,7 @@ export function decideDelivery(root: string, head: string, gates: readonly Gate[
   else if (gates.length === 0) reasons.push("no hay comprobaciones que ejecutar");
   else {
     for (const gate of gates) {
-      results[gate.name] = passes(root, gate) ? "PASS" : "FAIL";
+      results[gate.name] = passes(root, gate, before.base!) ? "PASS" : "FAIL";
       if (results[gate.name] === "FAIL") reasons.push(`${gate.name}: falló`);
     }
     // Justo antes de responder: ni el árbol ni la base pueden haberse movido mientras corrían.
