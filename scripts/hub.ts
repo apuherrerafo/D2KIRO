@@ -182,11 +182,11 @@ function render(
     const cards = items.map((t) => `
         <div class="card ${t.attempts >= 3 ? "card-warn" : ""} ${needsHuman ? "card-needs-human" : ""}">${needsHuman ? `
           <div class="human-flag">🟡 necesita tu decisión</div>` : ""}
-          <div class="card-id">${t.id}</div>
-          <div class="card-title">${t.title}</div>
+          <div class="card-id">${escapeHtml(t.id)}</div>
+          <div class="card-title">${escapeHtml(t.title)}</div>
           <div class="card-meta">
-            <span class="tag tag-${t.moscow}">${t.moscow}</span>
-            <span class="tag tag-tool">${t.tool}</span>${t.attempts > 0 ? `
+            <span class="tag tag-${escapeHtml(t.moscow)}">${escapeHtml(t.moscow)}</span>
+            <span class="tag tag-tool">${escapeHtml(t.tool)}</span>${t.attempts > 0 ? `
             <span class="tag tag-attempts">intentos: ${t.attempts}</span>` : ""}
           </div>
         </div>`).join("");
@@ -202,7 +202,7 @@ function render(
   const doingByTool = new Map<string, number>();
   for (const t of tasks.filter((x) => x.state === "doing")) doingByTool.set(t.wipTool, (doingByTool.get(t.wipTool) ?? 0) + 1);
   const wipWarning = [...doingByTool].filter(([, n]) => n > 1)
-    .map(([tool, n]) => `<div class="wip-alert">⚠️ WIP=${n} en ${tool}, debería ser máximo 1 por herramienta</div>`).join("");
+    .map(([tool, n]) => `<div class="wip-alert">⚠️ WIP=${n} en ${escapeHtml(tool)}, debería ser máximo 1 por herramienta</div>`).join("");
 
   const ticketWarning = tasks.filter((t) => t.problem)
     .map((t) => `<div class="ficha-alert">⚠️ Ficha inválida ${escapeHtml(t.file)}: ${escapeHtml(t.problem)}</div>`).join("");
@@ -220,7 +220,7 @@ function render(
         const successRate = s.total ? Math.round((s.ok / s.total) * 100) : 0;
         return `
         <div class="stat-row">
-          <div class="stat-name">${tool}</div>
+          <div class="stat-name">${escapeHtml(tool)}</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:${pct}%"></div></div>
           <div class="stat-nums">${s.total}× · ${successRate}% ok ${s.blocked ? `· ${s.blocked} bloqueado` : ""} ${s.fail ? `· ${s.fail} falló` : ""}</div>
         </div>`;
@@ -232,15 +232,15 @@ function render(
         <div class="feed-card">
           <div class="feed-icon">${RESULT_ICON[e.result] ?? "•"}</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>${e.tool}</strong> <span class="feed-ticket">${e.ticket}</span> <span class="feed-ts">${e.ts}</span></div>
-            <div class="feed-note">${e.note || e.result}</div>
+            <div class="feed-top"><strong>${escapeHtml(e.tool)}</strong> <span class="feed-ticket">${escapeHtml(e.ticket)}</span> <span class="feed-ts">${escapeHtml(e.ts)}</span></div>
+            <div class="feed-note">${escapeHtml(e.note || e.result)}</div>
           </div>
         </div>`).join("")
-    : (journal.rawLines.slice(-12).reverse().map((l) => `<div class="activity-line">${l}</div>`).join("") ||
+    : (journal.rawLines.slice(-12).reverse().map((l) => `<div class="activity-line">${escapeHtml(l)}</div>`).join("") ||
        '<div class="empty">Sin actividad todavía.</div>');
 
   const suggestions = evolveReport
-    ? `<div class="suggestions">${evolveReport.split("\n").map((l) => `<div>${l}</div>`).join("")}</div>`
+    ? `<div class="suggestions">${evolveReport.split("\n").map((l) => `<div>${escapeHtml(l)}</div>`).join("")}</div>`
     : '<div class="empty">Corre <code>/evolve</code> para generar sugerencias — se muestran aquí automáticamente.</div>';
 
   return `<!doctype html>
@@ -299,7 +299,7 @@ function render(
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper">${stepper}</div>
-  <div class="next-step">📍 Siguiente paso: ${progress.siguiente || "corre /kickoff para empezar"}</div>
+  <div class="next-step">📍 Siguiente paso: ${escapeHtml(progress.siguiente || "corre /kickoff para empezar")}</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">${ARCH_MAP}</div>

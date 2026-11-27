@@ -24,11 +24,14 @@ export interface Gate {
   baseEnv?: string; // variable por la que la comprobación recibe el commit base publicado
 }
 
+// `--incremental false`: con `incremental` en el tsconfig, `tsc --noEmit` deja un .tsbuildinfo en el árbol que se juzga.
+const TSC = ["bun", "x", "tsc", "--noEmit", "--incremental", "false"];
+
 // `bun x` y no `bunx`: en Windows `bunx` puede ser un script de shell que no se puede lanzar como proceso.
 export const GATES: readonly Gate[] = [
   { name: "test", cwd: "", command: ["bun", "run", "test"] },
-  { name: "tsc-engine", cwd: "apps/engine", command: ["bun", "x", "tsc", "--noEmit"] },
-  { name: "tsc-web", cwd: "apps/web", command: ["bun", "x", "tsc", "--noEmit"] },
+  { name: "tsc-engine", cwd: "apps/engine", command: TSC },
+  { name: "tsc-web", cwd: "apps/web", command: TSC },
   { name: "lint", cwd: "apps/web", command: ["bun", "run", "lint"] },
   // Sin la base, sobre un árbol limpio su diff local sale vacío: secretos, dependencias y journal no se mirarían.
   { name: "simplicity", cwd: "", command: ["bash", "scripts/verify-simplicity.sh"], baseEnv: "VERIFY_DIFF_BASE" },

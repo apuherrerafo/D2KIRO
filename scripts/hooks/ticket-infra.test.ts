@@ -104,3 +104,26 @@ test("una subcarpeta que no se puede listar no se salta en silencio", () => {
   const res = Bun.spawnSync(["python3", "-B", "-c", script, HOOKS_DIR, tasks]);
   expect(res.exitCode).toBe(7);
 });
+
+test("tablero: el texto de fichas, journal, PROGRESS y evolve se escapa en el HTML", async () => {
+  mkdirSync(tasks);
+  const marca = (n: string) => `<img src=x onerror=${n}>`;
+  writeFileSync(join(tasks, "TSK-3.md"), `---\nid: "TSK-3${marca("a")}"\ntitle: "${marca("b")}"\nstate: ready\nmoscow: "${marca("c")}"\npreferred_tool: "${marca("d")}"\n---\n`);
+  const agents = join(fam.main, "docs", "agents");
+  writeFileSync(join(agents, "PROGRESS.md"), `## FASE ACTUAL\nx\n\n## SIGUIENTE PASO\n${marca("e")}\n\n## HISTORIAL\n`);
+  writeFileSync(join(agents, "journal.md"), `- [${marca("f")}] tool:${marca("g").replaceAll(" ", "_")} ticket:T result:ok — ${marca("h")}\n`);
+  writeFileSync(join(agents, "evolve-report.md"), `${marca("i")}\n`);
+  const run = Bun.spawnSync(["bun", join(HOOKS_DIR, "..", "hub.ts")], { cwd: fam.main });
+  expect(run.exitCode).toBe(0);
+  const html = await Bun.file(join(agents, "hub.html")).text();
+  expect(html).not.toContain("<img");
+  expect(html).toContain("&lt;img src=x onerror=b&gt;");
+});
+
+test("tablero: sin eventos estructurados, las líneas crudas del journal también se escapan", async () => {
+  mkdirSync(tasks);
+  const agents = join(fam.main, "docs", "agents");
+  writeFileSync(join(agents, "journal.md"), "- libre <img src=x>\n");
+  expect(Bun.spawnSync(["bun", join(HOOKS_DIR, "..", "hub.ts")], { cwd: fam.main }).exitCode).toBe(0);
+  expect(await Bun.file(join(agents, "hub.html")).text()).not.toContain("<img");
+});

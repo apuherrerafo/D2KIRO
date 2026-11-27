@@ -114,6 +114,19 @@ describe("entrega legítima, con la CLI y las comprobaciones de producción", ()
   }, TIMEOUT);
 });
 
+describe("los tsc no escriben en el árbol que juzgan", () => {
+  test("un tsconfig incremental sin *.tsbuildinfo ignorado sigue dando READY", () => {
+    const { root } = repo();
+    const incremental = TSCONFIG.replace('"noEmit": true', '"noEmit": true, "incremental": true');
+    put(root, "apps/web/tsconfig.json", incremental);
+    commit(root, "incremental");
+    git(root, "push", "-q", "origin", `HEAD:refs/heads/${DELIVERY_BRANCH}`);
+    put(root, "tercero.ts", "export const C = 3;\n");
+    const d = decideDelivery(root, commit(root, "cambio"), GATES.filter((g) => g.name === "tsc-web"));
+    expect(d.reasons).toEqual([]);
+  }, TIMEOUT);
+});
+
 describe("hallazgo 1: la base es la publicada, no una que se declare", () => {
   test("referencias locales falsificadas no recortan el cambio", () => {
     const { root, base, middle, head } = repo();
