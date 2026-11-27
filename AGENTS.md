@@ -27,6 +27,24 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
   no escribe en `journal.md` ni conoce las skills de este ecosistema (por diseño, ver `CLAUDE.md`
   tabla "HERRAMIENTA POR TAREA"), pero puede necesitar leer el formato al revisar un diff.
 
+## Quién lee qué (entrada compartida: este archivo)
+
+| Proveedor | Instrucciones | Skills / agentes / hooks de `.claude/` |
+|---|---|---|
+| Claude Code | `CLAUDE.md` + `.claude/rules/` | Sí (hooks de `.claude/settings.json` sólo gobiernan a Claude) |
+| Codex | `AGENTS.md` (probado: lo carga; no carga `.claude/skills`, sólo `.agents/skills`, que no existe aquí) | No |
+| Gemini CLI | `.gemini/settings.json` (`context.fileName: ["AGENTS.md"]`, unidades A+B, PR #172). **NOT_TESTED** | No |
+
+Lo común a los tres vive en git y GitHub: `ci.yml` y la protección de rama de `release/mvp-beta`.
+`.husky/pre-push` es además una barrera **local**: sólo corre si ese clon o worktree tiene los hooks activos
+(`sh scripts/install-git-hooks.sh` una vez por clon, o el `prepare` de husky al instalar dependencias en la raíz;
+con husky, un worktree nuevo no los tiene hasta instalar) y se puede saltar (`git push --no-verify`).
+Son capas complementarias; los hooks de Claude son una capa extra.
+
+**La protección de rama NO está en el repo**: es configuración de GitHub y puede cambiar sin dejar
+rastro en un commit. No la des por hecha; mídela antes de apoyarte en ella con
+`gh api repos/apuherrerafo/D2KIRO/branches/release%2Fmvp-beta/protection`.
+
 ## Cómo correr las pruebas
 
 El comando canónico es `bun run test` desde la raíz (nunca `bun test` a secas ahí — contamina los
