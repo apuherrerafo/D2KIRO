@@ -1,0 +1,24 @@
+No hardcoded secrets found in the diff. I've now read all 16 chunks and the key implementation files in full. Writing up the final verdict.
+
+---
+
+Revisión interna de Claude, no independiente del autor: comparto modelo con quien escribió el código.
+
+Base: `05cb456d372a91624bdb58698e40b21c66f86c64`
+Head revisado: `8d2701080dac267d7cfe4c60cb883dedf11bed71`
+
+1. BAJA — docs/agents/readonly-guard-hardening.md / scripts/hooks/readonly-agent-guard.py: el guard de solo lectura (warden/sentinel/tracer) sigue sin cubrir confidencialidad: `Read`/`Glob`/`Grep` pueden abrir `.env` y otros secretos del repo; sólo se bloquea `Bash`/`PowerShell`. El propio PR lo declara explícitamente como riesgo residual no resuelto (§13, punto 1) y no propone `permissions.deny` como cambio aplicado (queda como propuesta no aplicada).
+   No es una regresión de este PR — es un límite preexistente, ya documentado con honestidad, y no se presenta como control resuelto en ningún sitio nuevo del diff. Comprobado solo leyendo el código y la documentación (scripts/hooks/readonly-agent-guard.py:1-60, docs/agents/readonly-guard-hardening.md §13).
+
+2. BAJA — docs/agents/CONTRIBUTING-tickets.md / scripts/hooks/write-scope-guard.py: `write_scope` sigue siendo, por diseño explícito del propietario, un control preventivo contra errores accidentales y no una frontera de seguridad: no cubre escrituras por `Bash`/`PowerShell`/MCP ni otros procesos. Correctamente documentado como tal en el propio diff ("Qué es y qué no es", TSK-268) y no se presenta en ningún texto nuevo como garantía más fuerte de lo que es.
+   Comprobado solo leyendo el código (scripts/hooks/write-scope-guard.py, scripts/hooks/_hook_lib.py) y la documentación.
+
+El resto del diff es coherente con lo que declara: es casi en su totalidad tooling interno de gobierno de agentes de Claude Code (prompts de `.claude/agents`, `.claude/skills`, hooks en Python/TS, tests, documentación de proceso) y no código de aplicación con superficie externa (sin SSRF, SQL, plantillas de usuario, ni manejo de PII de usuarios finales). El cambio más próximo a una vulnerabilidad real de software es la corrección de un XSS almacenado en `scripts/hub.ts` (el tablero HTML generado a partir de `journal.md`/fichas/`evolve-report.md` no escapaba el contenido; ahora usa `escapeHtml` de forma consistente en todos los puntos de interpolación que revisé: ids, títulos, moscow, tool, alertas de ficha/WIP, pasos de progreso, filas de estadísticas, feed de actividad, líneas crudas del journal y sugerencias de `/evolve`) — es una mejora, no un hallazgo nuevo. No encontré secretos nuevos en el diff (sólo un literal de prueba, construido en tiempo de ejecución a propósito para no disparar el propio gate de secretos, claramente ficticio). No hay cambios a workflows de GitHub Actions, `pull_request_target`, ni acciones sin fijar por SHA en este diff (ningún archivo de `.github/` aparece en `changed-files.txt`).
+
+Cobertura:
+- Tramos leídos completos: part-00 a part-15 (los 16, de inicio a fin de cada uno).
+- Archivos revisados a fondo (contenido + diff): `scripts/hooks/_hook_lib.py`, `scripts/hooks/write-scope-guard.py`, `scripts/hooks/data-boundary-guard.py`, `scripts/hooks/readonly-agent-guard.py`, `scripts/hooks/pretooluse-guard.sh`, `scripts/hooks/ticket_contract.py`, `scripts/hub.ts` (diff y archivo completo en `head/`), `scripts/verify-simplicity.sh`, `scripts/agents/contracts.ts`, `scripts/agents/delivery-verdict.ts`, además de la documentación de seguridad (`docs/agents/readonly-guard-hardening.md`, `docs/agents/CONTRIBUTING-tickets.md`, `docs/agents/agent-guardrails.md`) y los prompts de agentes/skills relevantes (`sentinel.md`, `warden.md`, `tracer.md`, `redteam/SKILL.md`, `castoff/SKILL.md`, `dispatch/SKILL.md`).
+- Archivos revisados solo vía el diff (sin abrir el árbol completo en `head/`): el resto de los `*.test.ts` (contracts.test.ts, delivery-verdict.test.ts, evidence-package.test.ts, orchestration-behavior.test.ts, hook-guards.test.ts, scope-contract.test.ts, skill-tickets.test.ts, ticket-infra.test.ts, edit-guard-worktree.test.ts, readonly-agent-guard.test.ts), los `docs/agents/tasks/TSK-*.md` nuevos, y el resto de los `.claude/` markdown (chronicle.md, artisan.md referencias, onboarding/SKILL.md, root-cause/SKILL.md, rulebook/SKILL.md, helm/SKILL.md, context7.md, review.md), AGENTS.md, ARQUITECTURA.md, GUIA-DE-USO.md, `.gemini/settings.json`.
+- No leí nada fuera de la carpeta de revisión indicada.
+
+Veredicto: APROBADO CON OBSERVACIONES

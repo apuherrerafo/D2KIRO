@@ -1,0 +1,25 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "gpt-6.1-terra"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "6b820db08ef00aad3c2fae67165e2605d2593f44",
+  "diffSha256": "c03c426769cb8aa7c08e5f5e5e810e20cd889126bc9637d6ceba8fd313d07742",
+  "rawOutput": {
+    "file": "docs/reviews/6b820db0-openai.raw.txt",
+    "sha256": "3edf465fdb2c7734a85df19d3347c07811ceb31ab55d78a88877db5dca8eb88c"
+  },
+  "findings": [
+    {
+      "severity": "ALTA",
+      "file": "scripts/agents/delivery-verdict.ts",
+      "summary": "El decisor puede autorizar la entrega con un diff vacío respecto de una base equivocada.",
+      "disposition": "fixed",
+      "fixedIn": "f619c845e331dda8546f54883e9d4903183e3de5"
+    }
+  ],
+  "verdict": "RECHAZADO"
+}

@@ -1,0 +1,31 @@
+# Revisión interna — no independiente
+
+Esta es una revisión **interna** de Claude con contexto nuevo sobre el diff indicado. No soy independiente del autor: comparto modelo con quien escribió este código. Revisé únicamente el diff `BASE..HEAD` (16 tramos, 60 archivos) con Read/Grep/Glob, sin ejecutar nada del PR; las afirmaciones del propio diff sobre pruebas corridas con binarios reales ("probado con el binario 2.1.329", resultados de `bun test`, etc.) las doy como **NOT_VERIFIED** por mi parte — solo comprobé consistencia estática leyendo el código.
+
+- **Base:** `05cb456d372a91624bdb58698e40b21c66f86c64`
+- **Head revisado:** `8d2701080dac267d7cfe4c60cb883dedf11bed71`
+
+**Nota de alcance:** este diff no toca `apps/engine` ni `apps/web`; es exclusivamente el ecosistema de agentes/hooks/docs de Claude Code (`.claude/`, `scripts/agents`, `scripts/hooks`, `docs/agents`). Por eso no hay hallazgos sobre "contratos entre apps/engine y apps/web" ni "espejos de tipos": no aplican a este cambio.
+
+## Hallazgos
+
+1. MEDIA — scripts/hub.ts: `escapeHtml` no escapa comillas simples (`'`), sólo `&`, `<`, `>`, `"`.
+   Lectura del código: `scripts/hub.ts` función `escapeHtml` (añadida en este diff para cerrar el XSS reportado en el journal del 2026-11-26: "el tablero escapa todo texto de fichas, journal, PROGRESS y evolve"). Hoy no es explotable porque el template genera siempre atributos con comillas dobles (`class="..."`, confirmado con Grep sin resultados para `class='`/`href='`/`src='`/`style='` en el archivo), pero es una función de defensa explícitamente motivada por seguridad (texto de fichas/journal viene de contenido que, en teoría, un ticket hostil podría controlar) y queda incompleta frente al estándar habitual de escape HTML (`'` → `&#39;`). Un cambio futuro al template que use comillas simples en un atributo reabriría el XSS que esta misma tarea cerró. Comprobado solo leyendo el código, no ejecuté el hub.
+
+2. MEDIA — `.claude/agents/{sentinel,warden,tracer}.md` + `scripts/agents/contracts.ts`: el contrato "sin evidencia nunca hay PASS" es sólo texto de prompt, verificado por un test que únicamente comprueba que la cadena exista en el Markdown.
+   Lectura del código: `checkReadOnlyAgent` en `scripts/agents/contracts.ts` sólo exige `/NOT_VERIFIED/` y `/BLOCKED/` en el texto del agente; el test "los revisores con veredicto PASS lo condicionan siempre al paquete de evidencia" (`contracts.test.ts`) hace un `toMatch` de una frase fija contra el Markdown — no hay ningún mecanismo determinista que impida que el modelo emita `PASS` sin evidencia. El propio `docs/agents/readonly-guard-hardening.md` §13.5 reconoce que esta redacción ya falló una vez ("Sentinel dio PASS una vez sin evidencia sobre un cambio sano") y la respuesta fue "se endureció" el texto — es decir, el mismo tipo de parche (prosa más estricta) que ya falló antes. Es la pieza que decide si algo se bloquea antes de un deploy; que descanse enteramente en cumplimiento probabilístico del modelo, con un candado de prueba que sólo verifica la presencia de la frase, es un punto único de falla ya demostrado en este mismo repo. Autodivulgado por el propio PR, pero sigue siendo el riesgo estructural central de todo el mecanismo de `BLOCKED`/`NOT_VERIFIED`.
+
+3. BAJA — `scripts/hooks/readonly-agent-guard.py` + `docs/agents/readonly-guard-hardening.md` §13.1: Warden/Sentinel/Tracer conservan `Read`, `Glob`, `Grep` sin ninguna restricción de confidencialidad sobre `.env`/secretos.
+   Lectura del código: el guard de esta PR sólo niega `Bash`/`PowerShell` por identidad; no hay `permissions.deny` aplicado (la propuesta de §9/§13 queda explícitamente "NO aplicada"). Un agente de "solo lectura" puede seguir leyendo `.env`, claves, etc., con sus herramientas permitidas. Ya está autodivulgado como "NO resuelta" en el propio documento; lo señalo porque sigue sin mitigación en este HEAD a pesar de todo el endurecimiento del resto del guard.
+
+4. BAJA — `scripts/agents/contracts.ts` `checkSkillTools`/`checkReviewerAlias`: el bloqueo de escritura de `@redteam`/`/review` sólo cubre herramientas nativas, no MCP ni `WebFetch`/`WebSearch`.
+   Lectura del código: `READ_ONLY_SKILL_DISALLOWED` = `Write, Edit, MultiEdit, NotebookEdit, Bash, PowerShell, Agent`. No incluye herramientas MCP ni WebFetch/WebSearch, que podrían enviar contenido leído (código con secretos, por ejemplo) fuera del entorno durante una revisión. Autodivulgado como límite aceptado en TSK-260 ("Aceptado, no cubierto"), lo repito porque es una vía de exfiltración real que no cambia con este diff.
+
+## Cobertura
+
+- **Tramos leídos (completos):** part-00 a part-15 (los 16, hasta la última línea de cada uno).
+- **Archivos revisados a fondo (lectura de lógica, no sólo diff superficial):** `scripts/hooks/_hook_lib.py` (parser único de fichas, `governance_problem`, `_edited_texts`), `scripts/hooks/write-scope-guard.py`, `scripts/hooks/data-boundary-guard.py`, `scripts/hooks/readonly-agent-guard.py`, `scripts/hooks/pretooluse-guard.sh`, `scripts/hooks/ticket_contract.py`, `scripts/agents/contracts.ts` y su test, `scripts/agents/delivery-verdict.ts` y su test, `scripts/hub.ts`, `scripts/verify-simplicity.sh`, `.claude/agents/{sentinel,tracer,warden}.md`, `.claude/skills/{dispatch,castoff,redteam,root-cause,helm,onboarding,rulebook}/SKILL.md`, `.claude/commands/review.md`, `AGENTS.md`, `ARQUITECTURA.md`, `docs/agents/CONTRIBUTING-tickets.md`, `docs/agents/readonly-guard-hardening.md`.
+- **Archivos leídos pero sólo a nivel de contenido/consistencia documental (sin ejecutar nada de lo que describen):** todas las fichas `docs/agents/tasks/TSK-25{2,6,7,8}.md`, `TSK-26{0,1,2,3,4,5,6,8,9}.md`, `TSK-270.md`, `docs/agents/journal.md`, `docs/agents/orchestration-behavior-eval.md`, `docs/agents/process.md`, `docs/agents/harness-matrix.md`, `docs/agents/agent-guardrails.md`, `docs/agents/models.yaml`, `GUIA-DE-USO.md`, `.gemini/settings.json`, y los archivos de prueba (`*.test.ts`) — leídos para entender qué casos cubren, no ejecutados.
+- **No revisado:** nada quedó fuera de los 16 tramos entregados; no hay archivos del `changed-files.txt` que no aparecieran en el diff leído.
+
+Veredicto: APROBADO CON OBSERVACIONES
