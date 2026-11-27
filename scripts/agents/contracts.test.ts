@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   AGENT_ENTRIES, checkCastoffDelivery, checkWardenScope, WARDEN_SCOPE_CLAUSES, checkAgent,checkAgentEntries, checkAgentsMdRules, checkCastoffGate, parseAgent, checkRedteamEvidence, checkReviewerAlias, READ_ONLY_AGENT_HEADERS, checkCoordinationWorkflow, checkGeminiAdapter, checkModelsYaml, checkRootCauseRegression, checkJournalPolicy, checkPaths, checkSkillTools, parseFrontmatter,
@@ -299,4 +300,32 @@ ${body}`;
       .map((f) => f.replace(/\.md$/, ""));
     expect(checkAgentsMdRules(read("AGENTS.md"), withPaths)).toEqual([]);
   });
+});
+
+// Revisión externa sobre cc868549: un cambio preparado para commit y luego restaurado en el árbol no salía en ningún diff.
+test("paquete de evidencia: lo preparado en el índice sale aunque el árbol de trabajo vuelva a HEAD", () => {
+  const line = read(".claude/skills/dispatch/SKILL.md").split(/\r?\n/).find((l) => l.startsWith("gate diff-local "));
+  const command = (line ?? "").slice("gate diff-local ".length);
+  const dir = mkdtempSync(join(tmpdir(), "d2k-staged-"));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_")));
+  const sh = (script: string) => Bun.spawnSync(["bash", "-c", script], { cwd: dir, env, stdout: "pipe", stderr: "pipe" });
+  const file = join(dir, "a.txt");
+  try {
+    sh("git init -q && git config core.autocrlf false");
+    writeFileSync(file, "ORIGINAL\n");
+    sh("git add a.txt && git -c user.name=t -c user.email=t@t commit -q -m base");
+    expect(sh(command).stdout.toString()).toBe("");
+    writeFileSync(file, "PREPARADO\n");
+    sh("git add a.txt");
+    writeFileSync(file, "ORIGINAL\n");
+    const staged = sh(command);
+    expect(staged.exitCode).toBe(0);
+    expect(staged.stdout.toString()).toContain("+PREPARADO");
+    writeFileSync(file, "SIN_PREPARAR\n");
+    const both = sh(command).stdout.toString();
+    expect(both).toContain("+PREPARADO");
+    expect(both).toContain("+SIN_PREPARAR");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -83,7 +83,7 @@ gate() { local n="$1"; shift; { echo "cwd: $(pwd -W 2>/dev/null || pwd)"; echo "
 gate sha git rev-parse HEAD
 gate status git status --short -uall
 gate diff git diff "$BASE...$(git rev-parse HEAD)"
-gate diff-local git diff HEAD
+gate diff-local bash -c 'git diff --cached && git diff HEAD'   # lo preparado (`git add`) y el árbol: uno solo puede salir vacío
 NUEVOS=()   # archivos sin seguimiento que SON parte del cambio, uno por uno (ruta desde la raíz). Por defecto, ninguno
 gate diff-nuevos bash -c 'cd "$(git rev-parse --show-toplevel)" || exit 2; for f in "$@"; do case "/$(printf %s "$f" | tr "[:upper:]" "[:lower:]")" in */.env.example) ;; */.env|*/.env.*|*.pem|*.key|*.p12|*.pfx|*.sqlite*|*.db|*/id_rsa*|*/id_ed25519*|*/auth.json|*/credentials*.json|*/private/*|*/.local/*|*/.qa-auth/*) echo "rechazado (ruta sensible): $f"; exit 3;; esac; [ -f "$f" ] && [ ! -L "$f" ] && [ "$(git --literal-pathspecs ls-files --others --exclude-standard -z -- "$f" | tr -d "\0")" = "$f" ] || { echo "rechazado (no es un archivo sin seguimiento y no ignorado): $f"; exit 3; }; git diff --no-index --no-ext-diff --no-textconv --binary -- /dev/null "$f"; [ "$?" -le 1 ] || exit 2; done' diff-nuevos "${NUEVOS[@]}"
 gate test bun run test
