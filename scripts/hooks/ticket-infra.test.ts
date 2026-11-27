@@ -128,6 +128,15 @@ test("tablero: sin eventos estructurados, las líneas crudas del journal tambié
   expect(await Bun.file(join(agents, "hub.html")).text()).not.toContain("<img");
 });
 
+test("tablero: la comilla simple también se escapa", async () => {
+  mkdirSync(tasks);
+  writeFileSync(join(tasks, "TSK-5.md"), `---\nid: TSK-5\ntitle: "x' onmouseover='alert(1)"\nstate: ready\n---\n`);
+  expect(Bun.spawnSync(["bun", join(HOOKS_DIR, "..", "hub.ts")], { cwd: fam.main }).exitCode).toBe(0);
+  const html = await Bun.file(join(fam.main, "docs", "agents", "hub.html")).text();
+  expect(html).not.toContain("x' onmouseover='");
+  expect(html).toContain("x&#39; onmouseover=&#39;alert(1)");
+});
+
 test("tablero: las claves entrecomilladas o con espacio antes de ':' se muestran igual que se gobiernan", () => {
   mkdirSync(tasks);
   writeFileSync(join(tasks, "TSK-4.md"), `---\n"id": TSK-4\ntitle : "Tarea"\n"state": doing\n'moscow' : must\n"assigned_tool": codex\n---\n`);
