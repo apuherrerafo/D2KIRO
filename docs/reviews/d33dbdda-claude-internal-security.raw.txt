@@ -1,0 +1,38 @@
+REVISOR INTERNO (no independiente del autor — comparto modelo con quien escribió este código; esta es una segunda pasada de atención, no una auditoría de un tercero real).
+
+SHA head revisado: d33dbdda02c9875eed1be5042a4a35fa14b3e16b
+SHA base: 32cd2502cdfe7566b97b60b5b7104395a8527ead
+
+Qué leí de verdad:
+- diff.patch completo (931 líneas, 14 archivos) — leído íntegro en dos pasadas (líneas 1-739 y 740-931), no por chunks.
+- changed-files.txt (14 archivos: .github/workflows/ci.yml, AGENTS.md, docs/agents/engineering-reliability-phase1.md, docs/agents/journal.md, docs/agents/reliability-phase2.md, docs/agents/repo-only-ecosystem.md, docs/agents/tasks/TSK-253.md, docs/agents/tasks/TSK-255.md, docs/agents/tasks/TSK-259.md, docs/release-protection.md, scripts/agents/claude-repo-only.sh, scripts/agents/shadowing.test.ts, scripts/agents/shadowing.ts, scripts/ci/ci-needs-semantics.test.ts).
+- head/.github/workflows/ci.yml completo (334 líneas) para ver el job `r1-certification` en su contexto completo (permisos, `on:`, resto de jobs).
+- head/.claude/settings.json completo.
+- evidencia/exits.txt, evidencia/code-identical.log (vacío — confirma que ningún archivo de código de `apps/` cambió en esta unidad), evidencia/doc-only-delta.log, evidencia/verify-simplicity-ci.log (tail), evidencia/c-tests.log (tail).
+- Listado de contexto-master/ (release-gate.yml, docs/reviews/POLICY.md, policy.json) y de head/ — no abiertos íntegros porque son contexto de solo lectura no modificado por este diff (release-gate.yml no está en changed-files.txt).
+
+Qué quedó parcial o sin leer:
+- head/.husky/pre-push, head/package.json, head/scripts/install-git-hooks.sh — listados pero no abiertos línea por línea (no aparecen en changed-files.txt ni en el diff; son contexto citado por AGENTS.md, no código que este PR modifique).
+- evidencia/reutilizada-3a48c0ef/*.log — sólo listados, no abiertos (declarados como evidencia "reutilizada", no generados por este paquete).
+- contexto-master/.github/workflows/release-gate.yml y docs/reviews/POLICY.md — no abiertos íntegros; no forman parte del diff de esta unidad.
+- No ejecuté nada del PR ni de los scripts (`claude-repo-only.sh`, `shadowing.ts`) — solo lectura estática del código y de las pruebas que los ejercitan.
+
+Hallazgos:
+
+1. BAJA — .github/workflows/ci.yml: las acciones de terceros que participan de los pasos nuevos/tocados (`actions/checkout@v4`, `oven-sh/setup-bun@v2`) siguen fijadas por tag, no por SHA.
+    No es una regresión de este diff: esas líneas `uses:` no están en el parche (son contexto sin cambiar, preexistentes desde antes de 32cd2502). La lista de verificación de esta pasada la pide igual, así que la anoto como observación de alcance amplio, no como hallazgo de este cambio puntual.
+
+2. BAJA — scripts/agents/shadowing.ts / claude-repo-only.sh: herramienta de desarrollador local (invoca `~/.claude`, `CLAUDE_CONFIG_DIR`, el propio HOME), nunca importada desde `apps/engine` ni `apps/web`, nunca referenciada desde `.github/workflows/ci.yml`. No cruza ningún trust boundary de producción (no toca SQLite, red, ni el motor). Su propio archivo de prueba (`shadowing.test.ts`) ya ejercita en rojo→verde los vectores de abuso obvios para un lanzador de shell (CDPATH exportado, `.env`/`bunfig.toml` del directorio actual, `--setting-sources` del invocador, directorio personal no inspeccionable) — es un diseño que ya incorporó casos de abuso, no uno que los ignoró. Lo marco BAJA solo porque sigue siendo superficie nueva de ejecución de shell, aunque acotada a la máquina del desarrollador.
+
+Sin hallazgos ALTA ni BLOQUEANTE. Verificado explícitamente y sin evidencia de violación:
+- Sin inyección de shell explotable desde input externo: `claude-repo-only.sh` pasa argumentos vía array a `exec`, sin `eval` ni interpolación de string; `ci-needs-semantics.test.ts` ejecuta fragmentos de `bash -c` extraídos del propio `ci.yml` del repo (no de un PR externo en el sentido de datos no controlados por quien ya puede editar CI) — mismo nivel de confianza que ya existe hoy para quien puede editar `ci.yml`.
+- Sin SSRF, sin SQL (el diff no toca Drizzle/SQLite).
+- Sin secretos en el diff (grep de patrones `api_key|secret|password|token` con valor literal: sin coincidencias).
+- Sin PII: grep de `account_id|accountId|steam32|SteamID` en el diff: sin coincidencias. Ningún log/journal/ticket de este diff menciona una cuenta Steam.
+- Sin `pull_request_target` con checkout de código del PR: `ci.yml` usa `on: push / pull_request` normales; `release-gate.yml` (el único archivo del repo con `pull_request_target`) no está en este diff, es solo contexto de lectura en `contexto-master/`.
+- Sin permisos nuevos de workflow: el diff no agrega ni modifica ningún bloque `permissions:`, ni agrega ninguna acción de terceros nueva (`uses:`) — solo agrega dos pasos `run:` con variables de entorno controladas (`needs.*.result`, `steps.r1.outcome`, valores enum de GitHub, nunca texto arbitrario interpolado directo en el cuerpo de `run:`, que es justamente el patrón correcto para evitar script injection vía `${{ }}`).
+- Falsificación de checks: el propósito explícito y verificado de este diff es CERRAR ese vector (un check requerido que queda `skipped` cuenta como aprobado en GitHub) agregando `if: always()` + un paso guardia que exige `success` literal en los tres `needs` + un paso final que exige `success` en `verify:r1`. Es un endurecimiento, no una introducción de riesgo. `code-identical.log` (vacío) confirma que ningún archivo bajo `apps/engine/src/**` ni `apps/web/**` cambió en esta unidad — cero riesgo de tocar `signals/`, `127.0.0.1`, el token `x-capture-token`, o cualquier otro invariante de `apps/engine`.
+
+Nota de independencia: esta revisión comparte modelo y buena parte del marco mental con quien generó el código (Claude Code, mismo proyecto). No sustituye una revisión externa real (Codex u otro revisor humano/independiente) que el propio ticket TSK-259 declara pendiente ("ci.yml es ruta crítica: exige revisor externo", "NOT_TESTED en GitHub real").
+
+Veredicto: APROBADO CON OBSERVACIONES

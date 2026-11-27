@@ -224,9 +224,9 @@ jobs:
   # ---------------------------------------------------------------------------
   # R1 S7 -- single certification decision for the R1 program (protocol kernel,
   # Ranked AP + Captain's Mode, RecommendationSet/v2, S6 opponent intelligence).
-  # `needs:` on the three jobs above is deliberate REUSE, not redundancy: this
-  # job only starts once software correctness (test), the simplicity/security
-  # gate, and the engine quality gate have already passed elsewhere in this same
+  # `needs:` on the three jobs above is deliberate REUSE, not redundancy: the
+  # first step refuses to go on unless software correctness (test), the simplicity/
+  # security gate, and the engine quality gate all succeeded elsewhere in this same
   # workflow run -- it does not re-decide any of those three, it only adds the
   # R1-specific categorized breakdown (AP/CM/recommendation-legality/hidden-info/
   # role/S6/adapter-parity) and writes the reproducible certification artifact.
@@ -235,8 +235,22 @@ jobs:
   r1-certification:
     name: r1-certification (verify:r1)
     needs: [test, verify-simplicity, intelligence-ci]
+    # TSK-259: invariante -- este check requerido sólo termina en success si sus `needs` y `verify:r1` terminaron en success.
+    # `always()` porque GitHub documenta que un check requerido OMITIDO cuenta como satisfecho; el primer y el último paso
+    # convierten cualquier otro caso (need roto, cancelación) en un fallo.
+    if: ${{ always() }}
     runs-on: ubuntu-24.04 # mismo motivo que el job `test` (better-sqlite3 sin node-gyp en 26.04)
     steps:
+      - name: Refuse to certify unless every needed job succeeded
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          SIMPLICITY_RESULT: ${{ needs.verify-simplicity.result }}
+          INTELLIGENCE_RESULT: ${{ needs.intelligence-ci.result }}
+        run: |
+          for r in "$TEST_RESULT" "$SIMPLICITY_RESULT" "$INTELLIGENCE_RESULT"; do
+            [ "$r" = "success" ] || { echo "needs no exitosos: test=$TEST_RESULT verify-simplicity=$SIMPLICITY_RESULT intelligence-ci=$INTELLIGENCE_RESULT"; exit 1; }
+          done
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -278,11 +292,20 @@ jobs:
       # playwright.config.ts inherit it; it is created first because run.ts opens runtime.log
       # before prepareLocalRuntime(). On success run.ts deletes it, as before.
       - name: R1 certification -- verify:r1
+        id: r1
         env:
           E2E_RUNTIME_DIR: ${{ runner.temp }}/d2kiro-e2e-runtime
         run: |
           mkdir -p "$E2E_RUNTIME_DIR"
           bun run verify:r1 -- --reuse-foundation --machine-only
+
+      # Último control: corre también si el workflow se cancela. Nunca quitarle el `if:`.
+      - name: Require R1 execution
+        if: ${{ always() }}
+        env:
+          R1_OUTCOME: ${{ steps.r1.outcome }}
+        run: |
+          [ "$R1_OUTCOME" = "success" ] || { echo "verify:r1 no termino en success: outcome=$R1_OUTCOME"; exit 1; }
 
       # runtime.log holds the Playwright list-reporter output (project, spec, test, assertion);
       # test-results/ holds traces/screenshots. Secrets there are random per run and the account is
