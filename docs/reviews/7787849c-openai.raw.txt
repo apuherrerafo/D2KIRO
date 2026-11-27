@@ -1,0 +1,55 @@
+Soy Codex, revisor externo a Claude.
+
+Head revisado: `7787849ca422779f452809d3d13787e9b58da31e`  
+Base: `05cb456d372a91624bdb58698e40b21c66f86c64`
+
+1. ALTA — scripts/agents/delivery-verdict.ts: la base elegida mediante la ficha puede omitir parte del cambio y aun así producir `READY`.
+   Si el autor confirma una ficha con una de las dos bases permitidas, y esa referencia apunta a un ancestro cercano anterior a la ficha, el diff puede contener la ficha y los últimos commits, pero omitir commits anteriores que también se entregarían; el decisor sólo compara contra esa referencia local y exige que la ficha aparezca en el resultado (`scripts/agents/delivery-verdict.ts:314`). Comprobado solo leyendo el código.
+
+2. ALTA — scripts/agents/delivery-verdict.ts: el sello no acredita que Sentinel haya leído el diff completo ni que haya emitido el veredicto.
+   Con un paquete completo y un archivo que contenga `{"veredicto":"PASS"}`, el coordinador puede generar un sello válido; la decisión comprueba el hash del paquete y el JSON, pero no las lecturas ni la identidad de quien respondió (`scripts/agents/delivery-verdict.ts:94`, `scripts/agents/delivery-verdict.ts:101`, `scripts/agents/delivery-verdict.ts:105`). Un Sentinel que lea 3723 de 5744 líneas y declare cobertura completa puede pasar igual. Comprobado solo leyendo el código.
+
+3. ALTA — scripts/agents/delivery-verdict.ts: los comandos de los gates se toman del mismo cambio que pretenden verificar.
+   Si el PR cambia `gate test bun run test` por `gate test echo ok` en el bloque de `/dispatch`, un log de `echo ok` con salida cero coincide con la nueva especificación y cuenta como prueba aprobada; lo mismo aplica a los otros gates (`scripts/agents/delivery-verdict.ts:40`, `scripts/agents/delivery-verdict.ts:182`, `scripts/agents/delivery-verdict.ts:234`). Comprobado solo leyendo el código.
+
+4. MEDIA — scripts/agents/delivery-verdict.ts: la decisión puede usar un estado limpio obsoleto cuando el árbol ya cambió.
+   Tras generar y sellar logs limpios, modificar un archivo fuera de `docs/agents/tasks/` sin cambiar el commit deja intactos los logs y el SHA; la comprobación directa de Git sólo consulta cambios pendientes en las fichas, por lo que el decisor todavía puede devolver `READY` (`scripts/agents/delivery-verdict.ts:190`, `scripts/agents/delivery-verdict.ts:305`). Comprobado solo leyendo el código.
+
+### Fallo previo
+
+Fallo previo: RESUELTO PARCIALMENTE — El caso literal base = HEAD, una base distinta de la declarada y un `diff.log` vacío, ausente o distinto del diff calculado se rechazan (`scripts/agents/delivery-verdict.ts:161`, `scripts/agents/delivery-verdict.ts:172`). También se exige la ficha dentro del cambio. Sin embargo, la ficha puede elegir una de las dos bases admitidas y la referencia remota local puede apuntar a un ancestro cercano: con diff no vacío y ficha incluida, no se detecta que falta parte del cambio (`scripts/agents/delivery-verdict.ts:314`). El árbol limpio de los logs tampoco garantiza que siga limpio al decidir.
+
+### Focos
+
+1. **Procedencia de `base_ref`.** Lo escribe quien crea o modifica la ficha; el hook impide cambiarlo mediante herramientas de edición mientras la ficha gobernada está en `doing`, pero no controla shell, otras herramientas ni la elección antes de ese estado (`scripts/hooks/_hook_lib.py:594`, `docs/agents/CONTRIBUTING-tickets.md:35`). El decisor lee la ficha confirmada, admite dos nombres de rama y contrasta el diff con la referencia remota *local*. No verifica que esa rama sea el destino autorizado ni que esté actualizada.
+
+2. **Sellos del coordinador.** El hash detecta cambios posteriores en los logs incluidos y vincula el texto guardado a un SHA declarado. No es una firma: cualquiera con acceso a los archivos y al comando `seal` puede fabricar o volver a sellar el paquete y un `PASS`. No prueba ejecución real, identidad del revisor, entrega efectiva del paquete ni cobertura de lectura (`scripts/agents/delivery-verdict.ts:94`, `scripts/agents/delivery-verdict.ts:340`).
+
+3. **Cobertura de Sentinel.** Ningún mecanismo leído detecta o impide la declaración falsa del caso indicado: la igualdad del diff con Git comprueba el archivo, no cuánto leyó Sentinel. La instrucción de que `PASS` exige abrir el contenido (`.claude/agents/sentinel.md:58`) es una obligación para el modelo, no una comprobación ejecutable; asimismo, la referencia a un paquete «que revisó» en `scripts/agents/delivery-verdict.ts:100` atribuye al sello más de lo que demuestra. El propio informe reconoce que estas reglas son instrucciones y que el coordinador puede aportar evidencia fabricada (`docs/agents/readonly-guard-hardening.md:196`).
+
+### Cobertura
+
+Se leyó completo el diff distribuido en los 16 tramos, uno por comando y en orden. No se ejecutó código del PR ni se usó la red. No se recalculó el SHA-256 indicado por el operador.
+
+part-00: completo  
+part-01: completo  
+part-02: completo  
+part-03: completo  
+part-04: completo  
+part-05: completo  
+part-06: completo  
+part-07: completo  
+part-08: completo  
+part-09: completo  
+part-10: completo  
+part-11: completo  
+part-12: completo  
+part-13: completo  
+part-14: completo  
+part-15: completo  
+
+Archivos revisados a fondo **en sus cambios**: `scripts/agents/delivery-verdict.ts`, sus dos archivos de pruebas, `.claude/skills/dispatch/SKILL.md`, `.claude/skills/castoff/SKILL.md`, `.claude/agents/sentinel.md`, `scripts/hooks/_hook_lib.py` y `scripts/hooks/write-scope-guard.py`. Se contrastaron fragmentos de esos archivos con `head/`.
+
+Los demás archivos modificados se leyeron en los tramos del diff; sus contenidos completos en `head/` no se revisaron. La cobertura del diff no equivale a una auditoría completa de los archivos sin cambios ni del repositorio entero.
+
+Veredicto: RECHAZADO

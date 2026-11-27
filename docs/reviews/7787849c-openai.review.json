@@ -1,0 +1,46 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "gpt-6.1-terra"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "7787849ca422779f452809d3d13787e9b58da31e",
+  "diffSha256": "41eb20e4fc2de50d91f93acc56fa822ffec9f6ff1133fe67d298c0874f560357",
+  "rawOutput": {
+    "file": "docs/reviews/7787849c-openai.raw.txt",
+    "sha256": "c88b11f13df21d5dd22f82357aef2031daa4e253557e1a0fd8bb7a1ec75e85c2"
+  },
+  "findings": [
+    {
+      "severity": "ALTA",
+      "file": "scripts/agents/delivery-verdict.ts",
+      "summary": "la base elegida mediante la ficha puede omitir parte del cambio y aun así producir `READY`.",
+      "disposition": "fixed",
+      "fixedIn": "f619c845e331dda8546f54883e9d4903183e3de5"
+    },
+    {
+      "severity": "ALTA",
+      "file": "scripts/agents/delivery-verdict.ts",
+      "summary": "el sello no acredita que Sentinel haya leído el diff completo ni que haya emitido el veredicto.",
+      "disposition": "fixed",
+      "fixedIn": "f619c845e331dda8546f54883e9d4903183e3de5"
+    },
+    {
+      "severity": "ALTA",
+      "file": "scripts/agents/delivery-verdict.ts",
+      "summary": "los comandos de los gates se toman del mismo cambio que pretenden verificar.",
+      "disposition": "fixed",
+      "fixedIn": "f619c845e331dda8546f54883e9d4903183e3de5"
+    },
+    {
+      "severity": "MEDIA",
+      "file": "scripts/agents/delivery-verdict.ts",
+      "summary": "la decisión puede usar un estado limpio obsoleto cuando el árbol ya cambió.",
+      "disposition": "fixed",
+      "fixedIn": "f619c845e331dda8546f54883e9d4903183e3de5"
+    }
+  ],
+  "verdict": "RECHAZADO"
+}

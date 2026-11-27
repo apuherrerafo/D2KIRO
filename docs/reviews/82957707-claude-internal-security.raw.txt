@@ -1,0 +1,34 @@
+# Revisión interna — no independiente
+
+Soy un revisor **interno** de Claude con contexto nuevo sobre este diff. No soy independiente del autor: comparto modelo con quien escribió el código revisado. No he ejecutado nada del PR; todo lo siguiente es lectura estática de `BASE..HEAD`.
+
+- **Base:** `05cb456d372a91624bdb58698e40b21c66f86c64`
+- **Head revisado:** `82957707b2c5b85fda3c34961d3b299a681b52d7`
+
+**Nota de alcance:** este diff no toca `apps/engine` ni `apps/web` (ni `.github/workflows/`); es exclusivamente el ecosistema de agentes/hooks/docs de Claude Code (`.claude/`, `scripts/agents`, `scripts/hooks`, `docs/agents`, `docs/reviews`). Por eso no aplican los puntos del checklist sobre SSRF, SQL crudo, plantillas, CORS, `pull_request_target` o acciones sin fijar por SHA: no hay superficie de ese tipo en el cambio.
+
+## Hallazgos
+
+1. MEDIA — scripts/agents/contracts.ts / .claude/agents/{sentinel,warden,tracer}.md: el control "sin evidencia nunca hay PASS" sigue siendo prosa de prompt, verificada sólo por un test que comprueba que una frase fija exista en el Markdown.
+   `checkReadOnlyAgent` (`scripts/agents/contracts.ts`) sólo exige `/NOT_VERIFIED/` y `/BLOCKED/` en el texto; no hay mecanismo determinista que impida que el modelo emita `PASS` sin evidencia, y el propio repositorio documenta (`docs/agents/readonly-guard-hardening.md` §13, `TSK-261`) que Sentinel ya dio `PASS` una vez sin salidas de prueba. Mitigado en esta misma PR en el camino de entrega (`scripts/agents/delivery-verdict.ts` ya no deja que el `PASS` de Sentinel habilite `READY`: ejecuta los gates él mismo), pero Sentinel sigue siendo el único freno fuera de ese decisor. Comprobado solo leyendo el código (`contracts.ts`, `sentinel.md`, `delivery-verdict.ts`); riesgo ya autodivulgado por el propio PR como aceptado por el propietario.
+
+2. BAJA — scripts/hooks/readonly-agent-guard.py: los revisores de solo lectura (`warden`, `sentinel`, `tracer`) conservan `Read`, `Glob`, `Grep` sin ninguna restricción de confidencialidad; el guard sólo niega `Bash`/`PowerShell`, así que pueden leer `.env` u otros secretos del repo.
+   Confirmado leyendo `scripts/hooks/readonly-agent-guard.py` (líneas 1-60): sólo bloquea `tool_name in ("Bash","PowerShell")` para esas identidades. Riesgo ya documentado como "NO resuelta" (`readonly-guard-hardening.md` §9/§13) y aceptado explícitamente por el propietario el 2026-11-26 con seguimiento en el issue #173; no corregido en este HEAD.
+
+3. BAJA — scripts/agents/contracts.ts (`checkSkillTools`/`checkReviewerAlias`) y `.claude/skills/redteam/SKILL.md`: `disallowed-tools` del revisor sólo cubre `Write, Edit, MultiEdit, NotebookEdit, Bash, PowerShell, Agent`; no cubre herramientas MCP ni `WebFetch`/`WebSearch`, vía de exfiltración de contenido leído durante una revisión (p. ej. código con secretos).
+   Comprobado leyendo `READ_ONLY_SKILL_DISALLOWED` en `contracts.ts`. Aceptado por el propietario el 2026-11-26 como riesgo residual, seguimiento en el issue #174; no corregido.
+
+4. BAJA — docs/agents/CONTRIBUTING-tickets.md / scripts/hooks/write-scope-guard.py: por diseño explícito (TSK-268), `write_scope` es un control preventivo contra errores, no una frontera de seguridad: no cubre escrituras por `Bash`/`PowerShell`/MCP ni otros procesos fuera de `Edit`/`Write`/`MultiEdit`/`NotebookEdit`.
+   Documentado honestamente en el propio diff ("Qué es y qué no es", `CONTRIBUTING-tickets.md`) y no se presenta en ningún texto nuevo como garantía más fuerte de lo que es; informativo, no un defecto nuevo. Comprobado leyendo `write-scope-guard.py`/`_hook_lib.py`.
+
+**Confirmación positiva (falsificación de checks, el riesgo más serio del historial de este PR):** `scripts/agents/delivery-verdict.ts` en este HEAD ya no lee logs ni "sellos" escritos por el coordinador — `decideDelivery()`/`inspect()`/`passes()` ejecutan `git` y los cinco gates directamente, comparan contra la punta de `release/mvp-beta` consultada en vivo (`git ls-remote origin`), exigen árbol limpio antes y después, y dan `NOT_READY` si el cambio toca la definición de las comprobaciones (`isGateDefinition`). No queda ningún subcomando `seal` ni lectura de `.local/evidencia/*.log` en la ruta de decisión (verificado leyendo el archivo completo, 153 líneas, y `delivery-verdict.test.ts`). Esto corresponde a los hallazgos ALTA de Codex sobre `6b820db0`/`7787849c`/`97aaaf4d`, todos marcados `"disposition": "fixed"` en `docs/reviews/*.review.json`, y lo confirmé por lectura directa del código resultante, no solo por la palabra del propio diff. No encontré secretos reales en el diff (el único literal de `delivery-verdict.test.ts` es ficticio, construido en tiempo de ejecución a propósito) ni PII (el cambio no toca rutas de usuario/Steam32/accountId).
+
+## Cobertura
+
+- **Tramos leídos completos:** `part-00` a `part-15` (los 16, confirmados línea por línea con conteo de líneas en los dos últimos) y `ev-00`, `ev-01`.
+- **Archivos revisados a fondo (lógica, no sólo el hunk):** `scripts/hooks/_hook_lib.py` (parser único de fichas, `governance_problem`, `_edited_texts`), `scripts/hooks/write-scope-guard.py`, `scripts/hooks/data-boundary-guard.py`, `scripts/hooks/readonly-agent-guard.py` (+ `.test.ts`), `scripts/hooks/pretooluse-guard.sh`, `scripts/hooks/ticket_contract.py`, `scripts/agents/contracts.ts` (+ `.test.ts`), `scripts/agents/delivery-verdict.ts` (+ `.test.ts`), `scripts/hub.ts`, `scripts/verify-simplicity.sh`, `.claude/agents/{sentinel,tracer,warden}.md`, `.claude/skills/{dispatch,castoff,redteam,root-cause,helm,onboarding,rulebook}/SKILL.md`, `.claude/commands/review.md`, `AGENTS.md`, `ARQUITECTURA.md`, `docs/agents/CONTRIBUTING-tickets.md`, `docs/agents/readonly-guard-hardening.md`, `docs/reviews/*`.
+- **Verificado además contra el árbol final en `head/`** (no sólo el diff): `scripts/hub.ts` (`escapeHtml` escapa `'` → `&#39;`) y `scripts/verify-simplicity.sh` (`VERIFY_DIFF_BASE`/`diff_text()` presentes).
+- **Leídos pero sólo a nivel de consistencia documental, sin ejecutar nada:** todas las fichas nuevas `docs/agents/tasks/TSK-25{2,6,7,8}.md`, `TSK-26{0,1,2,3,4,5,6,8,9}.md`, `TSK-270.md`; `docs/agents/journal.md`, `docs/agents/orchestration-behavior-eval.md`, `docs/agents/process.md`, `docs/agents/harness-matrix.md`, `docs/agents/agent-guardrails.md`, `docs/agents/models.yaml`, `GUIA-DE-USO.md`, `.gemini/settings.json`, y el resto de archivos `*.test.ts` (leídos para entender casos, no ejecutados).
+- **No revisado:** el resto del árbol en `head/` fuera del diff (p. ej. `apps/engine`, `apps/web`, `.github/workflows/`) — no aplica porque `changed-files.txt` no los incluye y no forman parte del cambio `BASE..HEAD`.
+
+Veredicto: APROBADO CON OBSERVACIONES

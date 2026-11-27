@@ -33,7 +33,7 @@ Context7 = MCP para recuperar documentación de librería **al día**. Privilegi
 ## Alcance por agente (privilegio mínimo — R3-14 "Capability does not imply availability")
 - **Artisan** (UI): tiene `mcp__context7` en su `tools:` — construye pantallas con Next/React/
   Tailwind/shadcn y necesita la API vigente.
-- **Warden / Chronicle / Tracer / Sentinel**: NO lo tienen. Ejecutan pruebas, documentan o
+- **Warden / Chronicle / Tracer / Sentinel**: NO lo tienen. Revisan, documentan o
   analizan — no escriben integración contra librerías.
 - La sesión principal lo tiene disponible para el paso `/rulebook`.
 - Cuando la Fase 9.0 formalice el roster de agentes (informe #3), el futuro

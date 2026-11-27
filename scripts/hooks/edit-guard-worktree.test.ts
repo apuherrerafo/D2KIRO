@@ -1,10 +1,11 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type HookOptions,
   type RepoFamily,
   clearTickets,
+  bodyEditPayload,
   editPayload,
   makeRepoFamily,
   removeRepoFamily,
@@ -26,7 +27,7 @@ function session(cwd: string, projectDir: string | null = fam.main): HookOptions
 }
 
 async function edit(file: string, opts: HookOptions, tool = "Edit"): Promise<number> {
-  return (await runHook(GUARD, editPayload(file, opts.cwd, tool), opts)).code;
+  return (await runHook(GUARD, bodyEditPayload(file, opts.cwd, tool), opts)).code;
 }
 
 beforeAll(() => {
@@ -161,6 +162,112 @@ test("fail-closed: dos tickets de Claude en doing y alguno con write_scope (alca
   ticket(fam.main, "TSK-960.md", { id: "TSK-960", state: "doing", write_scope: '["eval/**"]' });
   ticket(fam.main, "TSK-961.md", { id: "TSK-961", state: "doing" });
   expect(await edit(join(fam.main, "eval", "x.json"), session(fam.main))).toBe(2);
+});
+
+// ---------- excepción "la ficha en doing puede editarse a sí misma": ruta completa, no nombre (TSK-264) ----------
+
+// Distintas formas de escribir la misma ruta dentro de `main`. `\` también se colapsa en Linux (native_path).
+const SPELLINGS: Array<[string, (parts: string[]) => string]> = [
+  ["absoluta", (parts) => join(fam.main, ...parts)],
+  ["relativa", (parts) => parts.join("/")],
+  ["con barras invertidas", (parts) => parts.join("\\")],
+  ["con '..'", (parts) => ["apps", "..", ...parts].join("/")],
+];
+
+function subfolderTicket(): void {
+  mkdirSync(join(fam.main, "docs", "agents", "tasks", "sub"), { recursive: true });
+  ticket(fam.main, "sub/TSK-963.md", { id: "TSK-963", state: "doing", write_scope: '["eval/**"]' });
+}
+
+for (const [label, spell] of SPELLINGS) {
+  const at = (...parts: string[]): Promise<number> =>
+    edit(spell(["docs", "agents", "tasks", ...parts]), session(fam.main));
+
+  test(`ficha en subcarpeta (ruta ${label}): se edita a sí misma`, async () => {
+    subfolderTicket();
+    expect(await at("sub", "TSK-963.md")).toBe(0);
+  });
+
+  test(`ficha en subcarpeta (ruta ${label}): no habilita a sus homónimas`, async () => {
+    subfolderTicket();
+    expect(await at("TSK-963.md")).toBe(2);
+    expect(await at("otra", "TSK-963.md")).toBe(2);
+    expect(await at("sub", "..", "TSK-963.md")).toBe(2);
+  });
+}
+
+test("ficha en la raíz de tasks/: se edita a sí misma y una homónima en subcarpeta no pasa", async () => {
+  ticket(fam.main, "TSK-964.md", { id: "TSK-964", state: "doing", write_scope: '["eval/**"]' });
+  const tasks = join(fam.main, "docs", "agents", "tasks");
+  expect(await edit(join(tasks, "TSK-964.md"), session(fam.main))).toBe(0);
+  expect(await edit(join(tasks, "sub", "TSK-964.md"), session(fam.main))).toBe(2);
+});
+
+// ---------- write_scope falla cerrado (TSK-265): toda declaración se cumple o invalida la ficha ----------
+
+function scopedTicket(header: string[], eol = "\n"): void {
+  const dir = join(fam.main, "docs", "agents", "tasks");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "TSK-980.md"), ["---", "id: TSK-980", "state: doing", ...header, "---", "", "cuerpo", ""].join(eol));
+}
+
+const verdicts = async (): Promise<{ inside: number; outside: number; self: number }> => ({
+  inside: await edit(join(fam.main, "eval", "x.json"), session(fam.main)),
+  outside: await edit(join(fam.main, "apps", "x.ts"), session(fam.main)),
+  self: await edit(join(fam.main, "docs", "agents", "tasks", "TSK-980.md"), session(fam.main)),
+});
+
+const VALID_SCOPE: Array<[string, string[], string?]> = [
+  ["canónica", ['write_scope: ["eval/**"]']],
+  ["clave entre comillas dobles", ['"write_scope": ["eval/**"]']],
+  ["clave entre comillas simples", ["'write_scope': [\"eval/**\"]"]],
+  ["espacio antes de ':'", ['write_scope : ["eval/**"]']],
+  ["sin espacio tras ':'", ['write_scope:["eval/**"]']],
+  ["globs entre comillas simples", ["write_scope: ['eval/**', 'docs/x.md']"]],
+  ["comentario al final", ['write_scope: ["eval/**"] # sólo eval']],
+  ["CRLF", ['write_scope: ["eval/**"]'], "\r\n"],
+];
+
+for (const [label, header, eol] of VALID_SCOPE) {
+  test(`write_scope ${label}: se cumple (dentro pasa, fuera se bloquea)`, async () => {
+    scopedTicket(header, eol);
+    expect(await verdicts()).toEqual({ inside: 0, outside: 2, self: 0 });
+  });
+}
+
+const INVALID_SCOPE: Array<[string, string[]]> = [
+  ["repetida", ['write_scope: ["eval/**"]', 'write_scope: ["apps/**"]']],
+  ["repetida con otra grafía", ['write_scope: ["eval/**"]', '"write_scope": ["apps/**"]']],
+  ["en varias líneas", ["write_scope:", '  - "eval/**"']],
+  ["lista partida", ['write_scope: ["eval/**",', '  "apps/**"]']],
+  ["lista en columna 0", ["write_scope:", '- "eval/**"']],
+  ["vacía", ["write_scope:"]],
+  ["lista vacía", ["write_scope: []"]],
+  ["null", ["write_scope: null"]],
+  ["texto suelto", ["write_scope: eval/**"]],
+  ["globs sin comillas", ["write_scope: [eval/**]"]],
+  ["lista sin cerrar", ['write_scope: ["eval/**"']],
+  ["coma sobrante", ['write_scope: ["eval/**",]']],
+  ["texto tras la lista", ['write_scope: ["eval/**"] "apps/**"']],
+  ["elemento no texto", ["write_scope: [1]"]],
+  ["glob en blanco", ['write_scope: ["eval/**", " "]']],
+  ["indentada bajo otra clave", ["meta:", '  write_scope: ["eval/**"]']],
+  ["mayúsculas", ['Write_Scope: ["eval/**"]']],
+  ["con guion", ['write-scope: ["eval/**"]']],
+  ["sin separador", ['writescope: ["eval/**"]']],
+  ["en plural", ['write_scopes: ["eval/**"]']],
+];
+
+for (const [label, header] of INVALID_SCOPE) {
+  test(`write_scope ${label}: ficha inválida, no se escribe ni dentro ni fuera (sólo reparar)`, async () => {
+    scopedTicket(header);
+    expect(await verdicts()).toEqual({ inside: 2, outside: 2, self: 0 });
+  });
+}
+
+test("write_scope ausente sigue sin restringir (retrocompatible)", async () => {
+  scopedTicket(['title: "habla de write_scope: sólo en el título"']);
+  expect(await verdicts()).toEqual({ inside: 0, outside: 0, self: 0 });
 });
 
 test("un ticket de otra herramienta (codex) no encierra a Claude Code", async () => {

@@ -1,0 +1,35 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code 2.1.304 (-p, safe-mode, restricted, Read/Grep/Glob)",
+    "model": "claude-sonnet-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "8d2701080dac267d7cfe4c60cb883dedf11bed71",
+  "diffSha256": "ee9f0c233f0d7201aeed8a67a096d1d5e2460a9c34cc389914959b7ac2dd6661",
+  "rawOutput": {
+    "file": "docs/reviews/8d270108-claude-internal-security.raw.txt",
+    "sha256": "7d9ff0ab133ab4e7194db0b4b6523b2ddcdd12f4267af6ecb06673b25b094d6d"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "docs/agents/readonly-guard-hardening.md",
+      "summary": "el guard de solo lectura (warden/sentinel/tracer) sigue sin cubrir confidencialidad: `Read`/`Glob`/`Grep` pueden abrir `.env` y otros secretos del repo; sólo se bloquea `Bash`/`PowerShell`. El propio PR lo declara explícitamente como riesgo residual no resuelto (§13, punto 1) y no propone `permissions.deny` como cambio aplicado (queda como propuesta no aplicada).",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido. Mismo riesgo de lectura de secretos que senala la otra pasada; seguimiento en el issue #173."
+    },
+    {
+      "severity": "BAJA",
+      "file": "docs/agents/CONTRIBUTING-tickets.md",
+      "summary": "`write_scope` sigue siendo, por diseño explícito del propietario, un control preventivo contra errores accidentales y no una frontera de seguridad: no cubre escrituras por `Bash`/`PowerShell`/MCP ni otros procesos. Correctamente documentado como tal en el propio diff (\"Qué es y qué no es\", TSK-268) y no se presenta en ningún texto nuevo como garantía más fuerte de lo que es.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido. write_scope esta declarado como control preventivo contra errores accidentales, no como frontera de seguridad."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

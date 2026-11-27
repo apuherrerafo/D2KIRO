@@ -1,5 +1,10 @@
 # Harness Responsibility Matrix + Taxonomía sin solapamiento
 
+> **Documento histórico (R0.4, Task 23).** Es un snapshot: varias rutas que cita (`.claude/rules/fase-9.md`,
+> `scripts/verify-claude-md-split.sh`, `docs/rules-archive/engine.md`) ya no existen tras `TSK-218`/R0.4 Task 24.
+> No se reescribe; para el estado vigente ver `AGENTS.md`, `docs/agents/agent-guardrails.md` y
+> `scripts/agents/contracts.test.ts`.
+
 > **Spec:** `.kiro/specs/r0-engineering-baseline-recovery/` — R0.4 Harness Truth, **Task 23**.
 > **Requisitos:** 4.2 (taxonomía sin solape), 4.3 (matriz de veredictos), 4.3 c1.
 > **Fuente de diseño:** `design.md` §4.4 (Taxonomía del harness, Reconciliation Procedure, Harness
@@ -143,7 +148,8 @@ La clasificación usa **dos ejes distintos**:
    `TASK COMPLETION`, `PRE-PUSH`, `PR/CI`, `INTELLIGENCE CI`, invocación manual). Responde *cuándo y
    desde dónde corre*. No convierte al artefacto invocado en otro tipo de mecanismo.
 
-Ejemplo vinculante: `write-scope-guard.py` tiene **Primary = PERMISSION** (implementa el límite duro)
+Ejemplo vinculante: `write-scope-guard.py` tiene **Primary = PERMISSION** (bloquea `Edit`/`Write` fuera de alcance;
+es preventivo contra errores, **no una frontera de seguridad**: ver `CONTRIBUTING-tickets.md`)
 y **Invoked by = HOOK / PreToolUse**. No tiene ownership primario simultáneo `PERMISSION` y `HOOK`.
 De igual forma, `verify-simplicity.sh` tiene **Primary = HOOK** (gate determinista) y puede ser
 invocado en capas PostToolUse, commit-gate o CI sin adquirir tres categorías primarias.
@@ -155,7 +161,7 @@ invocado en capas PostToolUse, commit-gate o CI sin adquirir tres categorías pr
 | **SKILL** | Procedimiento reutilizable, invocado **bajo demanda**. | No se carga en cada turno. No impone una restricción (eso es RULE/PERMISSION). No corre como gate obligatorio. | `.claude/skills/*` (25). |
 | **AGENT / SUBAGENT** | Especialista que se beneficia de **contexto aislado**; interpreta, sintetiza, redacta. | **Nunca es dueño de un chequeo determinista** que puede vivir en código (HOOK/CI/TEST, P2). Declara solo las `tools` que necesita (mínimo privilegio). | `.claude/agents/*` (7; `chronicle`, `sentinel`, `data-stat-engineer`, `evaluation-engineer` bien acotados). |
 | **HOOK** | Automatización **determinista** atada a un evento (PreToolUse / PostToolUse / SubagentStop / git). | Un solo nivel de la arquitectura de verificación §3.2. **Sin efectos colaterales en el nivel barato** (AFTER EDIT). No es juicio de LLM. | `.claude/settings.json` hooks + `scripts/hooks/*` + `verify-simplicity.sh`. |
-| **PERMISSION** | Límite duro de seguridad / acceso / write-scope. **Bloquea**, no es checklist. | No pondera; falla cerrado ante ambigüedad. No se implementa como prosa a un agente. | `write-scope-guard.py`, `data-boundary-guard.py`, `tools:` por agente, `.claude/settings.json`. |
+| **PERMISSION** | Límite de acceso aplicado por la herramienta. **Bloquea**, no es checklist. El `write_scope` no es frontera de seguridad (sólo cubre `Edit`/`Write`). | No pondera; falla cerrado ante ambigüedad. No se implementa como prosa a un agente. | `write-scope-guard.py`, `data-boundary-guard.py`, `tools:` por agente, `.claude/settings.json`. |
 | **SPEC** | Intención + diseño + tareas de **un** cambio concreto. | Una spec no es fuente de verdad permanente (eso es ADR/RULE tras cerrarse). | `.kiro/specs/*`. |
 | **ADR** | Decisión arquitectónica **y su porqué**. Inmutable salvo ADR que la supersede. | No es contrato de fase (eso es SPEC). No es restricción operativa suelta (eso es RULE). | `docs/adr/ADR-00{1..5}`. |
 | **TEST** | Evidencia determinista de **correctitud de software**. | **Separado de EVAL.** No mide calidad de inteligencia de drafting. | `**/*.test.ts`, `bun run test`, `bun test` por raíz en CI. |

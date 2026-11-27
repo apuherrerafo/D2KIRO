@@ -74,12 +74,16 @@ export function makeRepoFamily(): RepoFamily {
   for (const d of [outside, fakeHome, fakeTmp]) mkdirSync(d, { recursive: true });
   const scratchWorktree = join(fakeTmp, "claude", "proj", "session", "scratchpad", "wt");
   git(["worktree", "add", "-q", "-b", "scratch", scratchWorktree], main);
+  // Todo worktree del proyecto trae su carpeta de fichas; sin ella el guard bloquea (TSK-266).
+  for (const wt of [main, linked, nested, scratchWorktree, foreign]) mkdirSync(tasksDir(wt), { recursive: true });
   return { base, main, linked, nested, foreign, outside, fakeHome, fakeTmp, scratchWorktree };
 }
 
 export function removeRepoFamily(fam: RepoFamily): void {
   rmSync(fam.base, { recursive: true, force: true });
 }
+
+const tasksDir = (worktree: string): string => join(worktree, "docs", "agents", "tasks");
 
 export function slash(path: string): string {
   return path.replaceAll("\\", "/");
@@ -97,7 +101,10 @@ export function ticket(worktree: string, name: string, frontmatter: Record<strin
 }
 
 export function clearTickets(...worktrees: string[]): void {
-  for (const wt of worktrees) rmSync(join(wt, "docs", "agents", "tasks"), { recursive: true, force: true });
+  for (const wt of worktrees) {
+    rmSync(tasksDir(wt), { recursive: true, force: true });
+    mkdirSync(tasksDir(wt), { recursive: true });
+  }
 }
 
 export interface HookRun {
@@ -142,6 +149,15 @@ export async function runHook(script: string, payload: unknown, opts: HookOption
 export function editPayload(filePath: string, cwd: string, tool = "Edit"): Record<string, unknown> {
   const key = tool === "NotebookEdit" ? "notebook_path" : "file_path";
   return { hook_event_name: "PreToolUse", tool_name: tool, tool_input: { [key]: filePath }, cwd };
+}
+
+/** Una edición real del cuerpo de las fichas de fixture. Desde TSK-268 la ficha en doing exige ver el cambio. */
+export const BODY_EDIT = { old_string: "cuerpo", new_string: "cuerpo editado" };
+
+export function bodyEditPayload(filePath: string, cwd: string, tool = "Edit"): Record<string, unknown> {
+  const payload = editPayload(filePath, cwd, tool);
+  if (tool === "Edit") Object.assign(payload.tool_input as Record<string, unknown>, BODY_EDIT);
+  return payload;
 }
 
 export function bashPayload(command: string, cwd: string, tool = "Bash"): Record<string, unknown> {

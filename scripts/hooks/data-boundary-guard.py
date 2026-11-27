@@ -26,11 +26,11 @@ from _hook_lib import (  # noqa: E402
     EditTarget,
     GuardBlocked,
     claude_doing_tickets,
+    invalid_tickets,
     matches_any,
     parse_payload,
-    parse_scope_list,
-    read_frontmatter_field,
     read_stdin,
+    read_write_scope,
     resolve_edit_target,
 )
 
@@ -45,9 +45,17 @@ def check(target: EditTarget) -> str | None:
     if os.environ.get("D2K_CURATE") == "1":
         return None  # override humano explícito
 
+    broken = invalid_tickets(target.tasks_dir)
+    if broken:  # con una ficha ilegible no se sabe qué está en doing: ninguna otra autoriza
+        detail = "".join(f"  {t.path.name}: {t.problem}\n" for t in broken)
+        return (
+            f"Bloqueado por data-boundary-guard: '{rel}' es curación humana (data/curated/, ADR-003) y hay fichas "
+            f"inválidas.\n{detail}  Corrige la cabecera de esas fichas y vuelve a intentar.\n"
+        )
+
     tickets = claude_doing_tickets(target.tasks_dir)
     if len(tickets) == 1:
-        globs = parse_scope_list(read_frontmatter_field(tickets[0], "write_scope"))
+        globs = read_write_scope(tickets[0])
         curated_globs = [g for g in globs if g.startswith(CURATED_PREFIX) or g.startswith("data/curated")]
         if curated_globs and matches_any(rel, curated_globs):
             return None  # el ticket lo autoriza explícitamente

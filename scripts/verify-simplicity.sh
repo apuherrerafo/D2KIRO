@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ERRORS=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🦴 Verificando reglas del proyecto..."
 
@@ -69,7 +70,16 @@ EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 # siempre daría vacío y el gate pasaría en falso sin revisar nada del PR. Ahí la base correcta es
 # el merge-base con la rama destino (GITHUB_BASE_REF, solo presente en eventos pull_request) o,
 # en un push directo a la rama por defecto, el commit anterior (HEAD~1).
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+#
+# Base explícita (VERIFY_DIFF_BASE): la fija el decisor de entrega, que exige árbol limpio y por tanto necesita
+# comparar el cambio ya commiteado contra la base publicada. Manda sobre las otras dos. Si está definida y no
+# nombra un commit, falla: un diff contra una base inexistente sale vacío y no revisaría nada.
+if [ -n "${VERIFY_DIFF_BASE+x}" ]; then
+  if ! DIFF_BASE=$(git rev-parse --verify -q "${VERIFY_DIFF_BASE}^{commit}"); then
+    echo "❌ ERROR: VERIFY_DIFF_BASE no nombra un commit de este repo: '${VERIFY_DIFF_BASE}'."
+    exit 1
+  fi
+elif [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   if [ -n "${GITHUB_BASE_REF:-}" ]; then
     # fetch-depth:100 (ver .github/workflows/ci.yml) alcanza para un PR normal; si la rama base
     # se movió más de 100 commits desde que se abrió el PR, el fetch dirigido de abajo lo resuelve
@@ -96,6 +106,12 @@ else
   DIFF_BASE="$EMPTY_TREE"
 fi
 
+# Diff que se puede LEER aunque git llame binario a un archivo (un byte NUL, UTF-16) o la configuración pinte color o
+# use un driver externo: sin esto las líneas añadidas o borradas no aparecen y las secciones 1, 2 y 4 no miran nada.
+diff_text() {
+  git diff --text --no-color --no-ext-diff --no-textconv --ignore-cr-at-eol "$@" 2>/dev/null | tr -d '\000'
+}
+
 # --- 1. Dependencias nuevas de PRODUCCIÓN ("dependencies") ---
 # Governance 2.0 (2026-08-24): devDependencies queda con bypass total (tooling de infraestructura
 # rutinaria del stack Bun -- typescript, better-sqlite3, etc. -- no exige /gear-up/@depcheck ni
@@ -106,7 +122,7 @@ fi
 # (apps/*/package.json), más el root nuevo (better-sqlite3/scripts del pipeline pro-drafter).
 PACKAGE_JSON_FILES=$(git ls-files -- '*/package.json' 'package.json' 2>/dev/null | grep -v node_modules) || true
 for pkg in $PACKAGE_JSON_FILES; do
-  if git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | \
+  if diff_text --cached "$DIFF_BASE" -- "$pkg" | \
      awk '
        /^\+\+\+/ {next}
        /"devDependencies"[[:space:]]*:/ {in_block=1; is_prod=0; next}
@@ -115,7 +131,7 @@ for pkg in $PACKAGE_JSON_FILES; do
        in_block && /^[^+-]*}/ {in_block=0}
        END {exit !found}
      '; then
-    if ! git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | grep -q '// ALLOWED'; then
+    if ! diff_text --cached "$DIFF_BASE" -- "$pkg" | grep -a '// ALLOWED' >/dev/null; then
       echo "❌ ERROR: Nueva(s) dependencia(s) de PRODUCCIÓN detectada(s) en $pkg sin marcar // ALLOWED."
       echo "   Pasa por /gear-up o @depcheck antes de continuar."
       ERRORS=$((ERRORS + 1))
@@ -131,7 +147,7 @@ SECRET_PATTERN='(api[_-]?key|password|secret|token)\s*[:=]\s*["'"'"'][A-Za-z0-9_
 # --ignore-cr-at-eol: un archivo que cambia de LF a CRLF (editores/herramientas de Windows) hace que
 # git marque TODAS sus líneas como -/+; sin el flag, el historial viejo reaparece como "añadido" y
 # dispara este patrón en falso. Una línea con contenido nuevo sigue apareciendo como '+'.
-TRACKED_SECRET_HIT=$(git diff --ignore-cr-at-eol "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | grep -Eio "$SECRET_PATTERN") || true
+TRACKED_SECRET_HIT=$(diff_text "$DIFF_BASE" | LC_ALL=C grep -a -E '^\+' | LC_ALL=C grep -a -Eio "$SECRET_PATTERN") || true
 UNTRACKED_ALL_FILES=$(git ls-files --others --exclude-standard 2>/dev/null) || true
 UNTRACKED_SECRET_FILES=""
 if [ -n "$UNTRACKED_ALL_FILES" ]; then
@@ -144,20 +160,15 @@ if [ -n "$TRACKED_SECRET_HIT" ] || [ -n "$UNTRACKED_SECRET_FILES" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# --- 3. WIP = 1 POR HERRAMIENTA (no global) — permite paralelismo real entre claude-code/codex/kiro-nativo/hermes-vps ---
-# Tanto el primer grep (sin tickets en 'doing') como el segundo (ninguno de ese tool_val) pueden
-# legítimamente no encontrar nada y salir con status 1 — bajo `set -euo pipefail` cualquiera de
-# los dos aborta el script entero en silencio. `|| true` sobre la asignación completa (no solo
-# sobre un comando suelto del pipe) neutraliza esto sin importar cuál de los greps fue el que no
-# encontró coincidencias; `${DOING_COUNT:-0}` cubre el caso borde de que la sustitución quede vacía.
-for tool_val in claude-code codex kiro-nativo hermes-vps; do
-  DOING_COUNT=$(grep -rl "^state: doing" docs/agents/tasks/ 2>/dev/null | xargs -r grep -l "^assigned_tool: $tool_val" 2>/dev/null | wc -l | tr -d ' ') || true
-  DOING_COUNT=${DOING_COUNT:-0}
-  if [ "$DOING_COUNT" -gt 1 ]; then
-    echo "❌ ERROR: $DOING_COUNT tareas en 'doing' asignadas a '$tool_val'. Máximo permitido: 1 por herramienta (regla WIP=1 por ejecutor)."
-    ERRORS=$((ERRORS + 1))
-  fi
-done
+# --- 3. Fichas válidas y WIP = 1 POR HERRAMIENTA (no global) — permite paralelismo entre claude-code/codex/kiro-nativo/hermes-vps ---
+# El gate no lee fichas por su cuenta: usa el mismo parser que el hook y el tablero (TSK-263,
+# scripts/hooks/_hook_lib.py). Una ficha inválida es violación: nunca esconde un doing. Si el contrato no se
+# puede ejecutar (sin python3, script ausente), falla cerrado.
+if ! TICKET_ERRORS=$(python3 -B "$SCRIPT_DIR/hooks/ticket_contract.py" check docs/agents/tasks 2>&1); then
+  echo "❌ ERROR: el contrato de fichas (docs/agents/tasks) no se cumple:"
+  printf '%s\n' "$TICKET_ERRORS" | sed 's/^/   - /'
+  ERRORS=$((ERRORS + 1))
+fi
 
 # --- 4. journal*.md (incluidas particiones mensuales archivadas) y ledger.md deben ser append-only ---
 # La lista sale de la BASE (ls-tree), no del disco: si el archivo se borra entero, un glob sobre el
@@ -165,9 +176,9 @@ done
 APPEND_ONLY_FILES=$(git ls-tree -r --name-only "$DIFF_BASE" -- docs/agents 2>/dev/null | grep -E '^docs/agents/(journal[^/]*\.md|ledger\.md)$') || true
 for f in $APPEND_ONLY_FILES; do
   # --ignore-cr-at-eol: ver sección 2. Una línea realmente borrada/editada sigue contando.
-  # --numstat (columna 2 = líneas borradas) en vez de grep '^-[^-]': toda entrada del journal empieza
-  # con "- [", su borrado se ve como "-- [" y ese grep nunca lo detectaba.
-  DELETED_LINES=$(git diff --ignore-cr-at-eol --numstat "$DIFF_BASE" -- "$f" 2>/dev/null | awk '{d+=$2} END {print d+0}')
+  # Se cuentan las líneas "-" de dentro de los hunks: toda entrada empieza con "- [" y su borrado se ve como "-- [";
+  # `--numstat` no sirve porque da "-" (cero) en cuanto git llama binario al archivo.
+  DELETED_LINES=$(diff_text -U0 "$DIFF_BASE" -- "$f" | LC_ALL=C awk '/^@@/ {h=1; next} h && /^-/ {d++} END {print d+0}')
   if [ "${DELETED_LINES:-0}" -gt 0 ]; then
     echo "❌ ERROR: $f tiene líneas eliminadas. Es append-only — nunca se reescribe."
     ERRORS=$((ERRORS + 1))
@@ -209,11 +220,12 @@ fi
 # durante semanas por esto. `next.config.ts` y `app/healthz/` quedan fuera: corren en el servidor.
 # Un default guardado por `process.env` en la misma línea sí se admite: es el escape para el WS,
 # que Next rewrites no puede proxear y que en producción se fija con NEXT_PUBLIC_ENGINE_WS_URL.
+# `-a` en los tres filtros: con un byte NUL, el grep de Linux manda "binary file matches" a stderr y no imprime la línea.
 LOOPBACK_HIT=$(git ls-files -- 'apps/web/features/*' 'apps/web/lib/*' 'apps/web/components/*' 2>/dev/null \
   | grep -v '\.test\.' \
-  | xargs -r grep -nE '(127\.0\.0\.1|//localhost)' 2>/dev/null \
-  | grep -v 'process\.env' \
-  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)') || true
+  | xargs -r env LC_ALL=C grep -anE '(127\.0\.0\.1|//localhost)' 2>/dev/null \
+  | LC_ALL=C grep -av 'process\.env' \
+  | LC_ALL=C grep -avE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)') || true
 if [ -n "$LOOPBACK_HIT" ]; then
   echo "❌ ERROR: literal de loopback (127.0.0.1 / localhost) bajo apps/web/{features,lib,components} -- ese código corre en el NAVEGADOR y debe ir por el proxy '/engine' (ENGINE_HTTP_BASE_URL)."
   echo "   Si es un default de desarrollo, guárdalo con 'process.env.<VAR> ?? ...' en la misma línea."

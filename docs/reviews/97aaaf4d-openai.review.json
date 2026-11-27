@@ -1,0 +1,32 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "gpt-6.1-terra"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "97aaaf4d8a2431a0a92a5b69aca703e75640b165",
+  "diffSha256": "88ad5adcc7fa7126ce6397f230f9bb979de2348cb285844bff6c2b8867f5e378",
+  "rawOutput": {
+    "file": "docs/reviews/97aaaf4d-openai.raw.txt",
+    "sha256": "2d7b342aee818d6c7f37fdd5512c501bb41a32438a69a29d156f7c110350de9a"
+  },
+  "findings": [
+    {
+      "severity": "ALTA",
+      "file": "scripts/agents/delivery-verdict.ts",
+      "summary": "el decisor puede devolver `READY` sin que simplicidad detecte un secreto confirmado en un archivo que Git clasifica como binario.",
+      "disposition": "fixed",
+      "fixedIn": "8d2701080dac267d7cfe4c60cb883dedf11bed71"
+    },
+    {
+      "severity": "MEDIA",
+      "file": "scripts/hooks/_hook_lib.py",
+      "summary": "el parser acepta claves entrecomilladas o con espacio antes de `:`, pero omite esos campos al mostrarlos en el tablero.",
+      "disposition": "fixed",
+      "fixedIn": "d7386f64774544b9042d6eb5b16fc1fb8cdfbde1"
+    }
+  ],
+  "verdict": "RECHAZADO"
+}

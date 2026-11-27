@@ -333,21 +333,6 @@ def glob_to_regex(glob: str) -> re.Pattern[str]:
     return re.compile(out + "$")
 
 
-def parse_scope_list(raw: str) -> list[str]:
-    """`write_scope: ["a/**", "b.ts"]` -> ['a/**', 'b.ts']. Tolera comillas simples."""
-    raw = raw.strip()
-    if not raw:
-        return []
-    try:
-        val = json.loads(raw.replace("'", '"'))
-        if isinstance(val, list):
-            return [str(x) for x in val]
-    except Exception:
-        pass
-    inner = raw.strip("[]")
-    return [x.strip().strip("'\"") for x in inner.split(",") if x.strip()]
-
-
 def matches_any(rel_path: str, globs: list[str]) -> bool:
     # Candado OS-independiente (CP6): `matches_any` opera SIEMPRE sobre el formato
     # canónico con `/`. Un separador de Windows aquí significa que la normalización
@@ -362,32 +347,310 @@ def matches_any(rel_path: str, globs: list[str]) -> bool:
 
 
 # ---------- tickets ----------
+# CONTRATO ÚNICO de ficha (TSK-263). Lo usan el hook (importando este módulo), el gate y el tablero
+# (a través de `ticket_contract.py`): si el contrato cambia, cambia aquí. (`scripts/sync-context.ts` mira
+# fichas por su cuenta sólo para avisar; no decide permisos, WIP ni tablero.)
+#
+# - Cabecera: la primera línea (tras un BOM opcional) es `---` y la cierra la primera línea `---` siguiente.
+# - Cada línea de la cabecera es `clave:` (columna 0) o una continuación indentada de la anterior. Sin líneas
+#   en blanco, comentarios sueltos ni texto: así una ficha sin cierre no toma una raya `---` del cuerpo.
+# - `state`: exactamente una clave, en la cabecera, con su valor en la misma línea y dentro de `STATES`.
+#   El cuerpo nunca aporta estado ni permisos.
+# - Claves: sólo las de `TICKET_KEYS`. Una continuación indentada sólo vale como texto de un bloque (`>`, `|`) o como
+#   elemento escalar de una lista bajo una clave sin valor. Clave desconocida o continuación de otra forma: INVÁLIDA.
+# - Una línea del cuerpo en la columna 0 que declare `write_scope`: INVÁLIDA (no concede ni se ignora en silencio).
+# - Todo esto es un control preventivo contra errores, no una frontera frente a un proceso malicioso
+#   (límites en `docs/agents/CONTRIBUTING-tickets.md`).
+# - Cabecera ausente, vacía, sin cierre o con otra línea, `state` ausente, repetido, multilínea o desconocido: ficha
+#   INVÁLIDA. No se adivina qué quiso decir; cada consumidor la rechaza.
+# - `write_scope`: ausente, o UNA declaración en una línea con una lista no vacía de globs entre comillas. La clave
+#   admite comillas y espacio antes de `:` (como `state`). Repetido, multilínea, vacío, otra forma de valor o una clave
+#   parecida mal escrita o indentada: ficha INVÁLIDA. Nunca se interpreta como "sin alcance".
+# - `assigned_tool`: ambiguo (ausente, repetido, en bloque) o no reconocido = claude-code. Un valor en línea seguido
+#   de una continuación suelta invalida la ficha (TSK-268).
+# - Carpeta de fichas inexistente o que no se puede recorrer entera: `GuardBlocked` (nunca "cero fichas").
 
-def _ticket_text(ticket: Path) -> str:
+STATES = ("backlog", "ready", "doing", "review", "blocked", "done")
+_BOM = chr(0xFEFF)  # BOM de editor: se tolera al inicio de la ficha
+# Herramientas que NO son Claude Code. Lista cerrada: lo que no esté aquí gobierna a Claude (TSK-256).
+OTHER_TOOLS = frozenset({"codex", "kiro-nativo", "hermes-vps"})
+_DELIMITER = re.compile(r"---[ \t]*")
+_KEY_LINE = re.compile(r"""(["']?)([A-Za-z_][A-Za-z0-9_-]*)\1[ \t]*:(.*)""")
+# Lista cerrada: las claves que usan las fichas reales. Una clave nueva se añade aquí, a propósito.
+TICKET_KEYS = frozenset({
+    "id", "title", "state", "moscow", "attempts", "preferred_tool", "assigned_tool", "created_at", "write_scope",
+    "blocked_by", "implements", "spec", "spec_section", "simplicity_exception", "exception_reason",
+})
+_BLOCK_SCALAR = re.compile(r"[>|][+-]?[0-9]?[+-]?(?:[ \t]+#.*)?")
+_LIST_ITEM = re.compile(r"[ \t]+-[ \t]+(?!.*:(?:[ \t]|$)).*")  # elemento escalar: sin `clave:` dentro
+_BODY_SCOPE = re.compile(r"""["']?write[-_]?scopes?["']?[ \t]*:""", re.IGNORECASE)
+
+
+# Cualquier línea que pretenda declarar `write_scope`, esté bien escrita o no.
+_SCOPE_LOOKALIKE = re.compile(r"""[ \t]*(?:-[ \t]+)?["']?write[-_]?scopes?["']?[ \t]*:""", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class Ticket:
+    path: Path
+    fields: dict  # claves de primer nivel de la cabecera, valor sin comillas (para mostrar)
+    state: str  # uno de STATES; "" si la ficha es inválida
+    tool: str  # "claude-code" o una de OTHER_TOOLS
+    problem: str  # "" si la ficha es válida
+    scope: tuple[str, ...] = ()  # globs de `write_scope`; vacío = no declara
+
+
+def frontmatter_lines(text: str) -> list[str] | None:
+    """Líneas de la cabecera, o None si no abre en la primera línea o no cierra."""
+    lines = [line.rstrip("\r") for line in text.lstrip(_BOM).split("\n")]
+    if not _DELIMITER.fullmatch(lines[0]):
+        return None
+    for i in range(1, len(lines)):
+        if _DELIMITER.fullmatch(lines[i]):
+            return lines[1:i]
+    return None
+
+
+def _unquote(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        return value[1:-1]
+    return value
+
+
+def _key_values(lines: list[str], key: str) -> list[tuple[str, bool]]:
+    """(valor crudo, ¿continúa en la línea siguiente?) por cada aparición de `key` en la columna 0."""
+    pattern = re.compile(rf"""(?:{key}|"{key}"|'{key}')[ \t]*:(.*)""")
+    found = []
+    for i, line in enumerate(lines):
+        match = pattern.fullmatch(line)
+        if not match:
+            continue
+        continues = i + 1 < len(lines) and lines[i + 1].startswith((" ", "\t"))
+        found.append((match.group(1).strip(), continues))
+    return found
+
+
+def _parse_write_scope(lines: list[str]) -> tuple[tuple[str, ...], str]:
+    """(globs, problema). Sin declaración -> ((), "")."""
+    found = _key_values(lines, "write_scope")
+    if sum(1 for line in lines if _SCOPE_LOOKALIKE.match(line)) != len(found):
+        return (), "clave parecida a 'write_scope' mal escrita o indentada"
+    if not found:
+        return (), ""
+    if len(found) > 1:
+        return (), "'write_scope' repetido"
+    raw, continues = found[0]
+    if continues:
+        return (), "'write_scope' ocupa más de una línea"
+    for candidate in (raw, raw.replace("'", '"')):  # se toleran globs entre comillas simples
+        try:
+            value, end = json.JSONDecoder().raw_decode(candidate)
+        except ValueError:
+            continue
+        if (
+            re.fullmatch(r"(?:[ \t]+#.*)?", candidate[end:])
+            and isinstance(value, list)
+            and value
+            and all(isinstance(glob, str) and glob.strip() for glob in value)
+        ):
+            return tuple(value), ""
+        break
+    return (), f"'write_scope' no es una lista no vacía de globs en una línea: {raw!r}"
+
+
+def _key_problem(lines: list[str]) -> str:
+    """Primera clave desconocida o continuación no admitida, o "". `lines` ya pasó el chequeo estructural."""
+    block = ""  # qué continuación admite la clave abierta: "text", "list" o ninguna
+    for i, line in enumerate(lines):
+        if line.startswith((" ", "\t")):
+            if block == "text" or (block == "list" and _LIST_ITEM.fullmatch(line)):
+                continue
+            return f"la línea {i + 2} es una continuación no admitida (¿clave indentada?)"
+        match = _KEY_LINE.fullmatch(line)
+        key, value = match.group(2), match.group(3).strip()
+        if key not in TICKET_KEYS:
+            return f"clave desconocida en la cabecera: {key!r}"
+        if _BLOCK_SCALAR.fullmatch(value):
+            block = "text"
+        else:
+            block = "list" if not value or value.startswith("#") else ""
+    return ""
+
+
+def _universal_newlines(text: str) -> str:
+    """CRLF y CR aislado -> LF, igual que `read_text`: lo que se predice se lee como lo que quedará en disco."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def parse_ticket_text(path: Path, text: str) -> Ticket:
+    def invalid(problem: str, fields: dict | None = None) -> Ticket:
+        return Ticket(path, fields or {}, "", "claude-code", problem)
+
+    text = _universal_newlines(text)
+    lines = frontmatter_lines(text)
+    if lines is None:
+        return invalid("sin cabecera '---' en la primera línea o sin cierre")
+    for i, line in enumerate(lines):
+        indented = i > 0 and line.startswith((" ", "\t")) and line.strip()
+        if not indented and not _KEY_LINE.fullmatch(line):
+            return invalid(f"la línea {i + 2} no es 'clave:' ni continuación indentada (¿falta el cierre de la cabecera?)")
+    fields = {}
+    for line in lines:
+        # Misma forma de clave que gobierna (`_KEY_LINE`, columna 0): el tablero muestra lo que decide el alcance.
+        match = None if line.startswith((" ", "\t")) else _KEY_LINE.fullmatch(line)
+        if match:
+            fields[match.group(2)] = _unquote(match.group(3).strip())
+
+    tools = _key_values(lines, "assigned_tool")
+    tool = ""
+    if len(tools) == 1 and not tools[0][1]:
+        tool = _unquote(tools[0][0])
+    tool = tool if tool in OTHER_TOOLS else "claude-code"
+
+    states = _key_values(lines, "state")
+    if len(states) != 1:
+        return invalid("falta 'state' en la cabecera" if not states else "'state' repetido", fields)
+    raw, continues = states[0]
+    if continues:
+        return invalid("'state' ocupa más de una línea", fields)
+    state = _unquote(re.sub(r"[ \t]+#.*$", "", raw))
+    if state not in STATES:
+        return invalid(f"'state' con valor no admitido: {raw!r}", fields)
+    scope, problem = _parse_write_scope(lines)
+    problem = problem or _key_problem(lines)
+    body = text.lstrip(_BOM).split("\n")[len(lines) + 2:]
+    if not problem and any(_BODY_SCOPE.match(line) for line in body):
+        problem = "'write_scope' declarado en el cuerpo; sólo vale en la cabecera"
+    if problem:
+        return invalid(problem, fields)
+    return Ticket(path, fields, state, tool, "", scope)
+
+
+# ---------- gobierno de la ficha en doing ----------
+
+def _edited_texts(text: str, tool: str, tool_input: dict) -> list[str] | None:
+    """Contenidos que podrían quedar tras la herramienta, o None si no se puede saber."""
+
+    lf = _universal_newlines
+
+    if tool == "Write":
+        content = tool_input.get("content")
+        return [lf(content)] if isinstance(content, str) else None
+    if tool == "Edit":
+        edits = [tool_input]
+    elif tool == "MultiEdit":
+        edits = tool_input.get("edits")
+    else:
+        return None
+    if not isinstance(edits, list) or not edits:
+        return None
+    # `Edit` conserva un CR suelto y el parser lo lee como salto: sobre un texto así (en disco o dejado por un paso
+    # anterior de MultiEdit) no se sabe dónde sustituirá la herramienta, así que no se predice.
+    lone_cr = "\r" in text.replace("\r\n", "\n")
+    results = [lf(text)]
+    for edit in edits:
+        if lone_cr or not isinstance(edit, dict):
+            return None
+        old, new = edit.get("old_string"), edit.get("new_string")
+        if not isinstance(old, str) or not isinstance(new, str) or not old:
+            return None
+        lone_cr = "\r" in new.replace("\r\n", "\n")
+        old, new = lf(old), lf(new)
+        following = []
+        for current in results:
+            count = current.count(old)
+            if count == 0 or (count > 1 and edit.get("replace_all") is not True):
+                return None
+            following.append(current.replace(old, new))
+            # Al borrar, `Edit` puede llevarse también el salto de línea siguiente: se evalúan las dos formas.
+            if not new and not old.endswith("\n") and old + "\n" in current:
+                following.append(current.replace(old + "\n", ""))
+        if len(following) > 64:
+            return None
+        results = following
+    return results
+
+
+def governance_problem(ticket: Ticket, tool: str, tool_input: dict) -> str:
+    """Por qué esta edición de una ficha en `doing` no se admite, o "" si conserva su gobierno.
+
+    No se puede cambiar `write_scope`; con alcance declarado, tampoco sacarla de `doing` ni cambiar de herramienta.
+    Cualquier resultado que no se pueda reconstruir o que sea inválido se rechaza.
+    """
     try:
-        return ticket.read_text(encoding="utf-8")
+        text = ticket.path.read_bytes().decode("utf-8")  # sin traducir saltos: hay que ver un CR suelto
     except (OSError, UnicodeDecodeError) as exc:
-        raise GuardBlocked(f"no se pudo leer el ticket {ticket.name}: {exc}") from None
+        raise GuardBlocked(f"no se pudo leer el ticket {ticket.path.name}: {exc}") from None
+    results = _edited_texts(text, tool, tool_input)
+    if results is None:
+        return "no se puede reconstruir el resultado de la edición (usa Edit con texto exacto o Write; con CR suelto, Write)"
+    for result in results:
+        after = parse_ticket_text(ticket.path, result)
+        if after.problem:
+            return f"la ficha quedaría inválida: {after.problem}"
+        if after.scope != ticket.scope:
+            return "cambia 'write_scope'"
+        if ticket.scope and (after.state != "doing" or after.tool != "claude-code"):
+            return "cambia 'state' o 'assigned_tool' y dejaría sin efecto el alcance"
+    return ""
+
+
+def _ticket_paths(tasks_dir: Path) -> list[Path]:
+    """Los `.md` bajo `tasks_dir`. Si la carpeta falta o no se puede recorrer ENTERA, bloquea.
+
+    "No veo ninguna ficha" no es "no hay restricciones". Una carpeta vacía sí es válida.
+    """
+
+    def fail(reason: object) -> None:
+        raise GuardBlocked(f"carpeta de fichas no utilizable ({tasks_dir}): {reason}") from None
+
+    found: list[Path] = []
+    try:
+        if not tasks_dir.is_dir():
+            fail("no existe o no es una carpeta; restáurala desde git")
+        for folder, subfolders, files in os.walk(tasks_dir, onerror=fail):
+            for name in subfolders:
+                if os.path.islink(os.path.join(folder, name)):  # os.walk no la recorrería
+                    fail(f"subcarpeta enlazada sin recorrer: {name}")
+            found += [Path(folder) / name for name in files if Path(name).suffix.lower() == ".md"]
+    except OSError as exc:
+        fail(exc)
+    return sorted(found)
+
+
+def load_tickets(tasks_dir: Path) -> list[Ticket]:
+    """Todas las fichas: cualquier `.md` bajo `tasks_dir`, también en subcarpetas."""
+    tickets = []
+    for path in _ticket_paths(tasks_dir):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            tickets.append(Ticket(path, {}, "", "claude-code", f"ilegible: {exc}"))
+            continue
+        tickets.append(parse_ticket_text(path, text))
+    return tickets
 
 
 def claude_doing_tickets(tasks_dir: Path) -> list[Path]:
-    """Tickets en `state: doing` que gobiernan a ESTA sesión, leídos del worktree de la sesión.
+    """Fichas válidas en `doing` que gobiernan a ESTA sesión, leídas del worktree de la sesión.
 
-    Un ticket con `assigned_tool` de otra herramienta (codex, kiro-nativo, hermes-vps) no
-    encierra a Claude Code: WIP=1 es por herramienta. Sin `assigned_tool` -> aplica.
+    WIP=1 es por herramienta: sólo `OTHER_TOOLS` exactas dejan de encerrar a Claude Code. Las fichas
+    inválidas no salen de aquí; `write-scope-guard` las rechaza aparte (`invalid_tickets`).
     """
-    hits = []
-    for p in sorted(tasks_dir.glob("TSK-*.md")):
-        text = _ticket_text(p)
-        if not re.search(r"^state:\s*doing\s*$", text, re.M):
-            continue
-        tool = re.search(r"^assigned_tool:\s*(.*)$", text, re.M)
-        if tool and tool.group(1).strip().strip("'\"") not in ("", "claude-code"):
-            continue
-        hits.append(p)
-    return hits
+    return [t.path for t in load_tickets(tasks_dir) if t.state == "doing" and t.tool == "claude-code"]
 
 
-def read_frontmatter_field(ticket: Path, field: str) -> str:
-    m = re.search(rf"^{re.escape(field)}:\s*(.*)$", _ticket_text(ticket), re.M)
-    return m.group(1).strip() if m else ""
+def invalid_tickets(tasks_dir: Path) -> list[Ticket]:
+    return [t for t in load_tickets(tasks_dir) if t.problem]
+
+
+def read_write_scope(ticket: Path) -> list[str]:
+    """Globs de la ficha según el contrato único; [] = no declara. Ilegible o inválida -> bloquea."""
+    try:
+        content = ticket.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise GuardBlocked(f"no se pudo leer el ticket {ticket.name}: {exc}") from None
+    parsed = parse_ticket_text(ticket, content)
+    if parsed.problem:
+        raise GuardBlocked(f"ficha inválida {ticket.name}: {parsed.problem}")
+    return list(parsed.scope)

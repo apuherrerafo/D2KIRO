@@ -1,0 +1,41 @@
+# Revisión interna — no independiente
+
+Soy una revisión **interna** de Claude con contexto nuevo sobre el diff indicado. No soy independiente del autor: comparto modelo con quien escribió este código y con las dos pasadas internas anteriores (`8d270108-claude-internal-*`) que ya están en `docs/reviews/` de este mismo diff. No ejecuté nada del PR (sin Bash disponible): todo lo de abajo es lectura de código.
+
+- **Base:** `05cb456d372a91624bdb58698e40b21c66f86c64`
+- **Head revisado:** `82957707b2c5b85fda3c34961d3b299a681b52d7`
+
+**Nota de alcance:** el diff no toca `apps/engine` ni `apps/web` (confirmado con `Grep "apps/" changed-files.txt` → sin resultados). Es exclusivamente el ecosistema de agentes/hooks/docs de Claude Code. Por eso no hay hallazgos sobre "contratos entre apps/engine y apps/web" ni "espejos de tipos": no aplican a este cambio.
+
+No recalculé el SHA-256 del diff (no tengo herramienta de hash disponible con Read/Grep/Glob); confío en el valor dado por el verificador.
+
+## Hallazgos
+
+1. MEDIA — scripts/agents/contracts.ts, .claude/agents/{sentinel,warden,tracer}.md: el contrato "sin paquete de evidencia nunca hay `PASS`" sigue siendo sólo texto de prompt; `checkReadOnlyAgent` únicamente exige que las cadenas `/NOT_VERIFIED/` y `/BLOCKED/` aparezcan en el Markdown, y el test "los revisores con veredicto PASS lo condicionan siempre al paquete de evidencia" (`contracts.test.ts`) hace un `toMatch` de una frase fija, no comprueba cumplimiento real.
+   Comprobado leyendo `scripts/agents/contracts.ts` (`checkReadOnlyAgent`) y `contracts.test.ts`. Es el mismo hallazgo que ya reportó la pasada interna sobre `8d270108` (disposition "accepted"); en este HEAD el impacto está parcialmente mitigado porque `delivery-verdict.ts` ya no lee el veredicto de Sentinel para decidir `READY` (lo retiró TSK-270: "Retirados el sello, la lectura de logs, la lectura del veredicto de Sentinel"), así que un `PASS` fabricado de Sentinel ya no puede autorizar una entrega por sí solo — sólo puede frenar `castoff` en el paso 1. Sigue siendo el punto único de falla para ese paso, ya demostrado una vez en este mismo repo (journal evt-20261124-920: "Sentinel dio PASS una vez sin evidencia").
+
+2. BAJA — scripts/hooks/readonly-agent-guard.py: Warden/Sentinel/Tracer conservan `Read`, `Glob`, `Grep` sin ninguna restricción de confidencialidad sobre `.env`/secretos del repo.
+   Comprobado leyendo `readonly-agent-guard.py` (sólo niega `Bash`/`PowerShell` por identidad) y `docs/agents/readonly-guard-hardening.md` §13, donde el propio PR lo declara "NO resuelta" (la propuesta de `permissions.deny` queda "NO aplicada"). Mismo hallazgo ya aceptado por el propietario en la pasada sobre `8d270108` (seguimiento #173); confirmo que sigue igual en este HEAD.
+
+3. BAJA — scripts/agents/contracts.ts (`READ_ONLY_SKILL_DISALLOWED`): el bloqueo de escritura de `@redteam`/`/review` sólo cubre herramientas nativas (`Write, Edit, MultiEdit, NotebookEdit, Bash, PowerShell, Agent`), no MCP ni `WebFetch`/`WebSearch`, que podrían sacar contenido leído durante una revisión fuera del entorno.
+   Comprobado leyendo `scripts/agents/contracts.ts`. Mismo hallazgo ya aceptado por el propietario sobre `8d270108` (seguimiento #174); confirmo que sigue igual en este HEAD.
+
+4. BAJA — docs/agents/tasks/TSK-270.md, docs/agents/tasks/TSK-261.md: el `write_scope` y el texto de "Estado" de estas fichas citan `scripts/agents/delivery-base.test.ts` ("Funciona: `delivery-base.test.ts` en rojo antes (13 de 15) y verde después (15/15)"), pero ese archivo no existe en este HEAD (`head/scripts/agents/` sólo contiene `contracts.ts`, `contracts.test.ts`, `delivery-verdict.ts`, `delivery-verdict.test.ts`, `evidence-package.test.ts`, `orchestration-behavior.test.ts`).
+   Comprobado con Glob sobre `head/scripts/agents/*` y lectura de ambas fichas. Los casos que describía ese archivo (base publicada vs. declarada) sí están presentes, consolidados en la sección "hallazgo 1" de `delivery-verdict.test.ts` que leí completa — no es una regresión funcional, es una referencia de documentación/`write_scope` a un archivo que ya no existe con ese nombre, y podría confundir a quien intente reproducir la evidencia citada literalmente.
+
+## Lectura dirigida sin hallazgo
+
+Tracé con detalle (sin ejecutar) los siguientes mecanismos centrales de este diff y no encontré defectos nuevos:
+- `scripts/agents/delivery-verdict.ts` (`inspect`, `decideDelivery`, `passes`, `environment`): orden de comprobaciones (árbol limpio → base publicada vía `ls-remote` → ancestría → definición de gates → binarios), manejo de `assume-unchanged`/`skip-worktree`, re-chequeo posterior a los gates. Coincide con lo que prueban `delivery-verdict.test.ts` (que leí completo).
+- `scripts/hooks/_hook_lib.py` (`parse_ticket_text`, `_key_problem`, `_parse_write_scope`, `governance_problem`, `_edited_texts`): el parser único de fichas y el candado de autogobierno de la ficha en `doing`. Los casos borde de YAML entrecomillado/CRLF/BOM/comentarios que recorrí coinciden con el comportamiento esperado por `scope-contract.test.ts` y `orchestration-behavior.test.ts`.
+- `scripts/verify-simplicity.sh` (`diff_text`, detección de secretos/journal borrado/loopback con `grep -a`): el forzado a texto (`--text`) y el filtrado de NUL evita que un archivo "binario" (byte NUL, UTF-16, color forzado) esconda secretos o borrados del journal; no detecté un caso no cubierto por las pruebas de `delivery-verdict.test.ts` (sección "simplicidad sobre árbol limpio").
+- `scripts/hub.ts`: el único punto de entrada de datos no confiables al HTML (fichas, journal, PROGRESS, evolve) pasa por `escapeHtml`, que en este HEAD ya escapa también `'` (a diferencia del hallazgo MEDIA que sí tenía la pasada sobre `8d270108`, aquí ya corregido — confirmado leyendo la función completa en `part-15.patch`).
+
+## Cobertura
+
+- **Tramos leídos (completos):** `part-00` a `part-15` (los 16) y `ev-00`, `ev-01` (los 2), de inicio a fin de cada uno (con relectura por `offset` donde la primera pasada se recortó).
+- **Archivos revisados a fondo (lógica, no sólo el diff):** `scripts/hooks/_hook_lib.py`, `scripts/hooks/write-scope-guard.py`, `scripts/hooks/data-boundary-guard.py` (contrastado también contra `head/`), `scripts/hooks/readonly-agent-guard.py`, `scripts/hooks/pretooluse-guard.sh`, `scripts/hooks/ticket_contract.py`, `scripts/agents/contracts.ts` + su test, `scripts/agents/delivery-verdict.ts` + su test, `scripts/hub.ts`, `scripts/verify-simplicity.sh`, `.claude/agents/{sentinel,tracer,warden}.md`, `.claude/skills/{dispatch,castoff,redteam,root-cause}/SKILL.md`, `docs/agents/CONTRIBUTING-tickets.md`, `docs/agents/models.yaml` (contrastado contra `head/.claude/agents/*.md`).
+- **Archivos leídos sólo como documentación/consistencia (sin ejecutar lo que describen):** todas las fichas `docs/agents/tasks/TSK-25{2,6,7,8}.md`, `TSK-26{0,1,2,3,4,5,6,8,9}.md`, `TSK-270.md`, `docs/agents/journal.md`, `docs/agents/orchestration-behavior-eval.md`, `docs/agents/process.md`, `docs/agents/harness-matrix.md`, `docs/agents/agent-guardrails.md`, `docs/agents/readonly-guard-hardening.md`, `AGENTS.md`, `ARQUITECTURA.md`, `GUIA-DE-USO.md`, `.gemini/settings.json`, y los `*.test.ts` restantes (`edit-guard-worktree.test.ts`, `hook-guards.test.ts`, `scope-contract.test.ts`, `skill-tickets.test.ts`, `ticket-infra.test.ts`, `orchestration-behavior.test.ts`, `evidence-package.test.ts`) — leídos para entender qué casos cubren, no ejecutados.
+- **No revisado fuera de los tramos:** no abrí archivos de `head/` que no aparecieran en el diff (fuera del alcance de esta pasada); no comparé contra memoria ni otros worktrees.
+
+Veredicto: APROBADO CON OBSERVACIONES

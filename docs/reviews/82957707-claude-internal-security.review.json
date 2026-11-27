@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code 2.1.304 (-p, safe-mode, restricted, Read/Grep/Glob)",
+    "model": "claude-sonnet-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "82957707b2c5b85fda3c34961d3b299a681b52d7",
+  "diffSha256": "13d27fd4c62fb5f4a042cc4fb264f87c4e46e5e30f85dfdc8f29bd3705664269",
+  "rawOutput": {
+    "file": "docs/reviews/82957707-claude-internal-security.raw.txt",
+    "sha256": "2b57e6c4450c2888b36c0fcf086d8bab5a2e64aba9973347bdc6229651f480c3"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "scripts/agents/contracts.ts",
+      "summary": "el control \"sin evidencia nunca hay PASS\" sigue siendo prosa de prompt, verificada sólo por un test que comprueba que una frase fija exista en el Markdown.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido; mismo hallazgo ya aceptado. La regla ya no decide el READY del decisor: Sentinel solo puede frenar una entrega, no autorizarla."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/hooks/readonly-agent-guard.py",
+      "summary": "los revisores de solo lectura (`warden`, `sentinel`, `tracer`) conservan `Read`, `Glob`, `Grep` sin ninguna restricción de confidencialidad; el guard sólo niega `Bash`/`PowerShell`, así que pueden leer `.env` u otros secretos del repo.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido; mismo hallazgo ya aceptado. Lectura de secretos por los revisores de solo lectura; seguimiento en el issue #173."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/agents/contracts.ts",
+      "summary": "`disallowed-tools` del revisor sólo cubre `Write, Edit, MultiEdit, NotebookEdit, Bash, PowerShell, Agent`; no cubre herramientas MCP ni `WebFetch`/`WebSearch`, vía de exfiltración de contenido leído durante una revisión (p. ej. código con secretos).",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido; mismo hallazgo ya aceptado. Herramientas externas disponibles para los revisores sin escritura; seguimiento en el issue #174."
+    },
+    {
+      "severity": "BAJA",
+      "file": "docs/agents/CONTRIBUTING-tickets.md",
+      "summary": "por diseño explícito (TSK-268), `write_scope` es un control preventivo contra errores, no una frontera de seguridad: no cubre escrituras por `Bash`/`PowerShell`/MCP ni otros procesos fuera de `Edit`/`Write`/`MultiEdit`/`NotebookEdit`.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido; mismo hallazgo ya aceptado. write_scope esta declarado como control preventivo contra errores accidentales, no como frontera de seguridad."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

@@ -9,7 +9,7 @@
 ## 1. Filosofía de diseño
 
 - **Minimalismo extremo**: cero dependencias innecesarias, una responsabilidad por skill/agente.
-- **Reglas verificables por script, no solo por prosa**: los límites duros (archivos, líneas, WIP, secretos) viven en `scripts/verify-simplicity.sh`, no solo en instrucciones de texto que un LLM podría no seguir.
+- **Reglas verificables por script, no solo por prosa**: los límites duros (WIP, secretos, dependencias, archivos append-only) viven en `scripts/verify-simplicity.sh`, no solo en instrucciones de texto que un LLM podría no seguir. No hay límite por número de archivos ni de líneas.
 - **Adopción graduada, no anticipada**: herramientas más pesadas (design system propio, grafo de código externo) se activan solo cuando el proyecto demuestra necesitarlas, no por adelantado.
 - **Costo de modelo proporcional al riesgo/frecuencia**: el modelo más caro se usa una sola vez, en el momento de mayor apalancamiento; todo lo de alta frecuencia usa el modelo estándar.
 - **Portabilidad sin sobre-prometer**: se documenta explícitamente qué funciona igual entre Kiro/Claude Code/Codex y qué no, en vez de asumir compatibilidad universal.
@@ -33,11 +33,11 @@
 
 | Agente | Modelo | Rol | Tools | Por qué existe como agente separado (no como skill) |
 |---|---|---|---|---|
-| **Warden** | `claude-sonnet-5` | Revisa: pruebas, linters, límites | Read, Glob, Grep, Bash | Necesita ejecutar comandos de verificación de forma aislada del hilo de ejecución |
+| **Warden** | `claude-sonnet-5` | Revisa: pruebas, linters, límites | Read, Glob, Grep | Interpreta la evidencia de los gates (la produce el coordinador) con contexto propio |
 | **Artisan** | `claude-sonnet-5` | Ejecuta: interfaces y sistema de diseño | Read, Write, Edit, Glob, Grep | Especialización de dominio (UI) que se beneficia de contexto propio |
 | **Chronicle** | `claude-haiku-4-5-20251001` | Documenta: memoria, specs, ledger | Read, Write, Edit, Glob, Grep | Tarea de alto volumen y bajo riesgo — modelo barato adrede |
-| **Tracer** | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Grep, Bash | Se activa solo tras 3 fallos — necesita una mirada sin el sesgo de quien escribió el código que falló |
-| **Sentinel** | `claude-sonnet-5` | Gate de seguridad, bloqueante, pre-deploy | Read, Grep, Bash | **Decisión de diseño explícita**: separado de quien genera el código, siguiendo el patrón de "guardrail en modelo distinto al que responde" — un mismo hilo autovigilándose rinde peor que una segunda pasada independiente |
+| **Tracer** | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Glob, Grep | Se activa solo tras 3 fallos — necesita una mirada sin el sesgo de quien escribió el código que falló |
+| **Sentinel** | `claude-sonnet-5` | Gate de seguridad, bloqueante, pre-deploy | Read, Glob, Grep | **Decisión de diseño explícita**: separado de quien genera el código, siguiendo el patrón de "guardrail en modelo distinto al que responde" — un mismo hilo autovigilándose rinde peor que una segunda pasada independiente |
 
 **Por qué solo 5 y no más** (rechazado explícitamente: un agente por "rol de oficina"): cada sub-agente cuesta aislamiento de contexto real — pierde la conversación en curso, hay que re-explicarle, y hay riesgo de enrutamiento incorrecto. Se añade un agente solo cuando el aislamiento aporta algo que el hilo principal no puede dar (una segunda mirada sin sesgo, un modelo de costo distinto). El resto de "roles de oficina" (PM, arquitecto, investigador) son **skills** que corren en el hilo principal, no agentes.
 
@@ -153,7 +153,7 @@ Kiro tiene su propio flujo nativo (`requirements.md → design.md → tasks.md`,
 - **`docs/agents/PROGRESS.md`**: fase actual + siguiente paso exacto (herramienta + modelo) — el archivo que hace posible que `/compass` funcione incluso si el avance ocurrió en Kiro nativo o Codex, no solo en Claude Code.
 - **`docs/agents/CHECKPOINT.json`**: estado efímero (cwd, comando de test, PID de servidor, hash de commit) — separado de `journal.md` a propósito. `journal.md` cuenta la historia; esto es lo que un script necesita para rehidratar el entorno sin que el LLM tenga que inferirlo de prosa. Se sobreescribe en cada handoff, no es append-only.
 - **`docs/agents/models.yaml`**: checklist central de qué archivos tocar cuando un modelo cambia de nombre. No es indirección real — Claude Code no soporta variables en el campo `model:` de un sub-agente — es documentación de los puntos de contacto, no una solución automática.
-- **Partición de `journal.md`**: al superar ~500 entradas, se archiva como `journal-YYYY-MM.md` y se empieza uno nuevo. `hub.ts` lee todos los `journal*.md` juntos para las estadísticas, así que no se pierde historial. Cada línea incluye `event:` (ID único) y `schema:v1` (versión de formato), retrocompatible si el formato cambia después.
+- **`journal.md` no se parte ni se archiva**: es un solo archivo append-only, aunque crezca; `verify-simplicity.sh` bloquea cualquier diff que le borre líneas. Cambiar esa política es decisión del usuario y exige actualizar antes el gate. Cada línea incluye `event:` (ID único) y `schema:v1` (versión de formato), retrocompatible si el formato cambia después.
 - **`docs/agents/hub.html`** (generado por `bun scripts/hub.ts`): vista unificada con:
   1. Mapa de arquitectura **estático** (SVG hecho a mano, sin librerías de grafos) — cómo se conectan skills y agentes.
   2. Kanban de tareas, con bandera "🟡 necesita tu decisión" en `review`/`blocked`.
@@ -161,7 +161,7 @@ Kiro tiene su propio flujo nativo (`requirements.md → design.md → tasks.md`,
   4. Feed de actividad estilo cards (no lista plana).
   5. Sugerencias de `/evolve` (lee `docs/agents/evolve-report.md`).
 
-**Human-in-the-loop real**: cuando `@redteam` rechaza o Sentinel bloquea un deploy, el ticket pasa a `state: blocked` automáticamente — **no reintenta solo**. Aparece marcado en el HUB. Ese es el punto de intervención: el humano decide reintentar, cambiar de enfoque, o descartar.
+**Human-in-the-loop real**: cuando `@redteam` rechaza o Sentinel bloquea un deploy, el ticket debe pasar a `state: blocked` y **no se reintenta solo**. El cambio no es automático: los revisores no escriben; el coordinador lo gestiona y, si la ficha está en `doing` con `write_scope`, lo hace el propietario a mano (ver «Cambio de estado» en `.claude/skills/dispatch/SKILL.md`). Aparece marcado en el HUB cuando ese estado está guardado en la ficha. Ese es el punto de intervención: el humano decide reintentar, cambiar de enfoque, o descartar.
 
 ---
 
@@ -186,10 +186,10 @@ Kiro tiene su propio flujo nativo (`requirements.md → design.md → tasks.md`,
 
 - **Trust-boundary/abuse-path lens** en `/pre-flight` (diseño) y Sentinel (ejecución, cada deploy) — no una checklist genérica, sino trazar cada cruce de confianza y pensar en abuso deliberado, no solo error accidental.
 - **Gate bloqueante, no ponderado**: en `@redteam`, la seguridad se evalúa antes que cualquier otra dimensión y rechaza de inmediato si falla — no se promedia con "simplicidad" o "nomenclatura".
-- **Mínimo privilegio en dos capas**: por agente (`tools:` en el frontmatter) y por skill (`allowed-tools:`, mecanismo del estándar oficial de Agent Skills que no se estaba usando al principio).
+- **Mínimo privilegio en dos capas**: por agente (`tools:` en el frontmatter) y por skill (`allowed-tools:`, que **pre-aprueba** permisos por un turno pero **no restringe**: no es una capa de control ejecutable; lo que restringe en un skill es `disallowed-tools`, ver TSK-260).
 - **Secretos**: solo variables de entorno; cualquier literal sospechoso en el diff es FAIL automático, verificado tanto por script (`verify-simplicity.sh`) como por Sentinel.
 - **Sentinel corre en Sonnet siempre** (no Opus) — se decidió explícitamente no escalar el modelo de seguridad porque el volumen (cada deploy) no lo justifica, y porque si el diseño inicial fue sólido, esto es verificar contra lo ya decidido, no re-razonar desde cero.
-- **Independencia real, no solo "segunda pasada"**: Sentinel recibe el diff, no la conversación completa (evita heredar el marco mental de quien generó el código), y opera con presunción de inseguro — el veredicto por defecto es FAIL salvo que se aporte evidencia concreta de que no es explotable.
+- **Independencia real, no solo "segunda pasada"**: Sentinel recibe el diff, no la conversación completa (evita heredar el marco mental de quien generó el código), y opera con presunción de inseguro: sin evidencia concreta no hay PASS. Un defecto demostrado es FAIL; si falta evidencia o algo no se puede comprobar, BLOCKED o NOT_VERIFIED (`.claude/agents/sentinel.md`).
 - **Gates específicos del stack (Bun+HTMX+SQLite+Drizzle)**, añadidos tras revisión externa: migraciones destructivas de Drizzle sin `rollback.sql` en el mismo commit, SQL crudo vía `db.execute(sql\`...\`)` con interpolación, XSS vía fragmentos HTML de HTMX sin sanear, CORS con wildcard en producción. Y en `@redteam` (Standards, no bloqueante): N+1 queries de Drizzle dentro de loops, valores de UI hardcodeados fuera de `tokens.css`.
 - **Seguridad operacional de Hermes/VPS** (`/nightwatch`): usuario Linux exclusivo sin sudo, worktree aislado, límites duros de recursos y duración, cero acceso a secretos de producción, comandos/directorios explícitamente permitidos, salida solo como commit/patch revisable (nunca push directo ni deploy), kill switch, log completo de comandos y archivos modificados. Es la única pieza que corre desatendida — el hueco más serio que señaló la revisión externa.
 

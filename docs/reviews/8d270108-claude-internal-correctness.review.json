@@ -1,0 +1,49 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code 2.1.304 (-p, safe-mode, restricted, Read/Grep/Glob)",
+    "model": "claude-sonnet-5",
+    "promptId": "correctness",
+    "promptSha256": "0dd144ed2966b24d407722f4f42d1e46e0f20e77cbc89e11f2e77d43e0bf322c",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "8d2701080dac267d7cfe4c60cb883dedf11bed71",
+  "diffSha256": "ee9f0c233f0d7201aeed8a67a096d1d5e2460a9c34cc389914959b7ac2dd6661",
+  "rawOutput": {
+    "file": "docs/reviews/8d270108-claude-internal-correctness.raw.txt",
+    "sha256": "16f9006908990039bfb43e0ecb6babc56d573c0ab15a6fb6c4f21e2ca6425dbd"
+  },
+  "findings": [
+    {
+      "severity": "MEDIA",
+      "file": "scripts/hub.ts",
+      "summary": "`escapeHtml` no escapa comillas simples (`'`), sólo `&`, `<`, `>`, `\"`.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido. Sin impacto hoy: no hay atributos con comilla simple en el tablero local; la correccion de una linea va en otro PR."
+    },
+    {
+      "severity": "MEDIA",
+      "file": "scripts/agents/contracts.ts",
+      "summary": "el contrato \"sin evidencia nunca hay PASS\" es sólo texto de prompt, verificado por un test que únicamente comprueba que la cadena exista en el Markdown.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido. La regla ya no decide el READY del decisor: Sentinel solo puede frenar una entrega, no autorizarla."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/hooks/readonly-agent-guard.py",
+      "summary": "Warden/Sentinel/Tracer conservan `Read`, `Glob`, `Grep` sin ninguna restricción de confidencialidad sobre `.env`/secretos.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido. Lectura de secretos por los revisores de solo lectura; seguimiento en el issue #173."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/agents/contracts.ts",
+      "summary": "el bloqueo de escritura de `@redteam`/`/review` sólo cubre herramientas nativas, no MCP ni `WebFetch`/`WebSearch`.",
+      "disposition": "accepted",
+      "reason": "Riesgo residual aceptado por el propietario (2026-11-26), NO corregido. Herramientas externas disponibles para los revisores sin escritura; seguimiento en el issue #174."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}
