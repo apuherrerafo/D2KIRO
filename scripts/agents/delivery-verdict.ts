@@ -97,6 +97,13 @@ function inspect(root: string, head: string): { base: string | null; problem: st
   if (touched.length > 0) {
     return no(`el cambio toca la definición de las comprobaciones y no se puede juzgar localmente: ${touched.join(", ")}`, base);
   }
+  // `--numstat` marca con "-" lo que git llama binario. Un comprimido no lo puede revisar ningún `grep`: borrar vale.
+  const stats = git(root, "diff", "--numstat", "--no-renames", "--diff-filter=d", "-z", base, head);
+  if (stats === null) return no("git no pudo clasificar el contenido del cambio", base);
+  const binary = stats.split("\0").filter((entry) => entry.startsWith("-\t-\t")).map((entry) => entry.slice(4));
+  if (binary.length > 0) {
+    return no(`el cambio añade o modifica archivos binarios, cuyo contenido no se puede revisar: ${binary.join(", ")}`, base);
+  }
   return { base, problem: null };
 }
 

@@ -248,8 +248,14 @@ describe("simplicidad sobre árbol limpio: mira el cambio entregado, no el diff 
     put(root, "docs/agents/tasks/TSK-269.md", readFileSync(join(REAL, "..", "docs/agents/tasks/TSK-269.md"), "utf8"));
     commit(root, "gate real");
     git(root, "push", "-q", "origin", `HEAD:refs/heads/${DELIVERY_BRANCH}`);
+    const base = git(root, "rev-parse", "HEAD");
     cambio(root);
-    return decideDelivery(root, commit(root, "cambio"), SIMPLICITY);
+    const decision = decideDelivery(root, commit(root, "cambio"), SIMPLICITY);
+    /** El gate solo, como lo corren CI o el decisor: contra la base publicada. */
+    const gate = () => Bun.spawnSync(["bash", "scripts/verify-simplicity.sh"], {
+      cwd: root, env: { ...ENV, VERIFY_DIFF_BASE: base }, stdout: "pipe", stderr: "pipe",
+    }).exitCode;
+    return { ...decision, root, gate };
   }
 
   // El literal se arma al ejecutar para que este archivo no dispare el propio gate.
@@ -279,10 +285,33 @@ describe("simplicidad sobre árbol limpio: mira el cambio entregado, no el diff 
   ];
 
   // La dependencia toca un package.json: el decisor la corta antes, como definición.
-  test.each([...violaciones.slice(0, 2), ...escondidas])("%s → NOT_READY", (_nombre, cambio) => {
+  test.each(violaciones.slice(0, 2))("%s → NOT_READY", (_nombre, cambio) => {
     const d = conGateReal(cambio);
     expect(d.gates.simplicity).toBe("FAIL");
     expect(d.resultado).toBe("NOT_READY");
+  }, TIMEOUT);
+
+  test.each(escondidas)("%s → el gate falla y la entrega es NOT_READY", (_nombre, cambio) => {
+    const d = conGateReal(cambio);
+    expect(d.gate()).toBe(1);
+    expect(d.resultado).toBe("NOT_READY");
+  }, TIMEOUT);
+
+  // Comprimido, el secreto no es legible para ningún `grep`: quien no puede revisar el contenido no dice READY.
+  test("un secreto dentro de un archivo comprimido → NOT_READY por binario", () => {
+    const d = conGateReal((root) => writeFileSync(join(root, "datos.gz"), Bun.gzipSync(SECRETO.repeat(20))));
+    expectNotReady(d, "binarios");
+    expectNotReady(d, "datos.gz");
+    expect(d.gates.simplicity).toBe("NOT_RUN");
+  }, TIMEOUT);
+
+  test("borrar un binario ya publicado no bloquea: no entra contenido sin revisar", () => {
+    const { root } = repo();
+    put(root, "logo.bin", "\u0000\u0001");
+    commit(root, "binario publicado");
+    git(root, "push", "-q", "origin", `HEAD:refs/heads/${DELIVERY_BRANCH}`);
+    unlinkSync(join(root, "logo.bin"));
+    expect(decide(root, commit(root, "se borra")).reasons).toEqual([]);
   }, TIMEOUT);
 
   test("una VERIFY_DIFF_BASE heredada no llega a las comprobaciones; la de simplicidad es la base publicada", () => {
