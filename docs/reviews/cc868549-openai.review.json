@@ -1,0 +1,25 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "gpt-6.1-terra"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "cc868549881fdce7c5798e614da1e6c3a05b559a",
+  "diffSha256": "d38d460405a97ce15a809e67993742b9ececbf26df72c7c8a61dc5f3696775be",
+  "rawOutput": {
+    "file": "docs/reviews/cc868549-openai.raw.txt",
+    "sha256": "e0689e2315810d039b7a783752ac63b6b8caea22aa225550b45068898d5f0008"
+  },
+  "findings": [
+    {
+      "severity": "ALTA",
+      "file": ".claude/skills/dispatch/SKILL.md",
+      "summary": "el paquete de evidencia puede omitir un cambio preparado para commit.",
+      "disposition": "fixed",
+      "fixedIn": "82957707b2c5b85fda3c34961d3b299a681b52d7"
+    }
+  ],
+  "verdict": "RECHAZADO"
+}

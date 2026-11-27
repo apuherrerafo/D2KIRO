@@ -1,0 +1,34 @@
+Soy Codex, revisor externo a Claude.
+
+Head revisado: `cc868549881fdce7c5798e614da1e6c3a05b559a`  
+Base: `05cb456d372a91624bdb58698e40b21c66f86c64`
+
+1. ALTA — .claude/skills/dispatch/SKILL.md: el paquete de evidencia puede omitir un cambio preparado para commit.
+   Si un archivo rastreado contiene `A` en HEAD, se prepara una versión `B` con `git add` y después se restaura `A` en el árbol de trabajo, `git diff HEAD` queda vacío aunque el índice conserve `B`. El paquete captura ese comando en `.claude/skills/dispatch/SKILL.md:86`, pero no captura por separado `git diff --cached`; una revisión basada en el paquete puede omitir lo que entrará en el commit. Comprobado solo leyendo el código; no ejecuté el PR.
+
+### Cobertura
+
+- part-00: completo
+- part-01: completo
+- part-02: completo
+- part-03: completo
+- part-04: completo
+- part-05: completo
+- part-06: completo
+- part-07: completo
+- part-08: completo
+- part-09: completo
+- part-10: completo
+- part-11: completo
+- part-12: completo
+- part-13: completo
+- part-14: completo
+- part-15: completo
+- ev-00: completo
+- ev-01: completo
+
+Revisé a fondo los cambios del decisor de entrega, el parser de fichas, los hooks de alcance y solo lectura, el paquete de evidencia, el tablero y el gate de simplicidad. Leí completos en el head `scripts/agents/delivery-verdict.ts` y `scripts/verify-simplicity.sh`, y contrasté parcialmente `.claude/skills/dispatch/SKILL.md`.
+
+Los demás archivos se revisaron mediante los tramos del diff; no leí completos sus contenidos preexistentes en el head. Los 11 registros de revisiones anteriores se leyeron como material del cambio, sin adoptar sus veredictos. No ejecuté código del PR ni recalculé los hashes proporcionados.
+
+Veredicto: RECHAZADO

@@ -1,0 +1,37 @@
+Soy Codex, revisor externo a Claude.
+
+Head revisado: `82957707b2c5b85fda3c34961d3b299a681b52d7`  
+Base: `05cb456d372a91624bdb58698e40b21c66f86c64`
+
+1. BAJA — docs/reviews/97aaaf4d-openai.review.json: el registro referencia una salida cruda que no está disponible en el árbol entregado.
+   Al intentar consultar `rawOutput.file`, la ruta `docs/reviews/97aaaf4d-openai.raw.txt` no existe; por ello no se puede cotejar el texto ni verificar su hash con el material versionado (`docs/reviews/97aaaf4d-openai.review.json:11`). La ficha indica que la salida se conserva solo en local (`docs/agents/tasks/TSK-270.md:65`). Comprobado mediante lectura y comprobación de existencia.
+
+2. BAJA — docs/reviews/8d270108-claude-internal-correctness.review.json: la disposición del primer hallazgo quedó desactualizada.
+   El registro dice que el escape de comillas simples no se corrigió y que iría en otro PR (`docs/reviews/8d270108-claude-internal-correctness.review.json:24`), pero el head ya lo incluye (`scripts/hub.ts:42`) y la ficha confirma su corrección (`docs/agents/tasks/TSK-270.md:64`). Comprobado solo leyendo el código y los registros.
+
+### Cobertura
+
+part-00: completo  
+part-01: completo  
+part-02: completo  
+part-03: completo  
+part-04: completo  
+part-05: completo  
+part-06: completo  
+part-07: completo  
+part-08: completo  
+part-09: completo  
+part-10: completo  
+part-11: completo  
+part-12: completo  
+part-13: completo  
+part-14: completo  
+part-15: completo  
+ev-00: completo  
+ev-01: completo
+
+Revisé a fondo **los cambios** del decisor de entrega, el contrato de fichas, los guards de escritura y de agentes, el paquete de evidencia, el tablero y el gate de simplicidad: `scripts/agents/delivery-verdict.ts`, `scripts/hooks/_hook_lib.py`, `scripts/hooks/write-scope-guard.py`, `scripts/hooks/data-boundary-guard.py`, `scripts/hooks/readonly-agent-guard.py`, `scripts/hooks/ticket_contract.py`, `scripts/hub.ts`, `scripts/verify-simplicity.sh` y `.claude/skills/dispatch/SKILL.md`. También revisé los registros de `docs/reviews/` entregados.
+
+Los demás archivos modificados se leyeron a través de los tramos; no leí completos sus contenidos en `head/`. No ejecuté código del PR ni usé la red. No recalculé los hashes indicados.
+
+Veredicto: APROBADO CON OBSERVACIONES

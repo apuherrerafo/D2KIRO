@@ -1,0 +1,17 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "gpt-6.1-terra"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "444392597c337796b337a01238f358c160b11d13",
+  "diffSha256": "e4d57a0d3334c33dcae8f937d64cd6239a139b29a9ce4ca6d679ede7f6c31dce",
+  "rawOutput": {
+    "file": "docs/reviews/44439259-openai.raw.txt",
+    "sha256": "84bae4728d805359d68827a60a6ebd407cc34602f5f20787b9777c7c049d439c"
+  },
+  "findings": [],
+  "verdict": "RECHAZADO"
+}

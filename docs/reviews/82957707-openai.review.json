@@ -1,0 +1,32 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "openai",
+    "tool": "codex-cli 0.159.0",
+    "model": "gpt-6.1-terra"
+  },
+  "reviewedBase": "05cb456d372a91624bdb58698e40b21c66f86c64",
+  "reviewedHead": "82957707b2c5b85fda3c34961d3b299a681b52d7",
+  "diffSha256": "13d27fd4c62fb5f4a042cc4fb264f87c4e46e5e30f85dfdc8f29bd3705664269",
+  "rawOutput": {
+    "file": "docs/reviews/82957707-openai.raw.txt",
+    "sha256": "34216eeffd5a4099b0efa71273beb2dcbcee797d0a89c46c64c1fb34c0c0a24b"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": "docs/reviews/97aaaf4d-openai.review.json",
+      "summary": "el registro referencia una salida cruda que no está disponible en el árbol entregado.",
+      "disposition": "accepted",
+      "reason": "Aceptada por el propietario (2026-11-26) como no bloqueante, NO corregida. La salida cruda de esa ronda anterior se conserva solo en local porque cita un secreto ficticio; su SHA-256 consta en el registro y en TSK-270."
+    },
+    {
+      "severity": "BAJA",
+      "file": "docs/reviews/8d270108-claude-internal-correctness.review.json",
+      "summary": "la disposición del primer hallazgo quedó desactualizada.",
+      "disposition": "accepted",
+      "reason": "Aceptada por el propietario (2026-11-26) como no bloqueante, NO corregida. Registro historico de la decision tomada sobre 8d270108; no se reescribe. La correccion posterior de la comilla simple consta en TSK-270 y en el codigo."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}

@@ -1,0 +1,31 @@
+Soy Codex, revisor externo a Claude.
+
+Head revisado: `444392597c337796b337a01238f358c160b11d13`  
+Base: `05cb456d372a91624bdb58698e40b21c66f86c64`
+
+No identifiqué hallazgos reproducibles en el material leído. La comprobación fue estática: no ejecuté código del PR ni usé la red.
+
+### Cobertura
+
+part-00: completo  
+part-01: completo  
+part-02: completo  
+part-03: completo  
+part-04: completo  
+part-05: completo  
+part-06: completo  
+part-07: completo  
+part-08: completo  
+part-09: completo  
+part-10: completo  
+part-11: completo  
+part-12: completo  
+part-13: completo  
+part-14: completo  
+part-15: completo
+
+Revisé a fondo los cambios del decisor de entrega, el parser de fichas, los hooks de alcance y de solo lectura, `verify-simplicity.sh`, el tablero y sus pruebas, además de las instrucciones modificadas para revisores y coordinación. Contrasté fragmentos del decisor y de `verify-simplicity.sh` con el árbol de `head`.
+
+Los demás archivos visibles en los tramos se revisaron solo mediante su diff. Los once archivos de `docs/reviews/` enumerados en `changed-files.txt` no aparecen en los tramos y no los leí, conforme a la instrucción de no buscar revisiones previas. Por esa diferencia, no puedo afirmar cobertura de los 71 archivos listados ni verificar el SHA-256 declarado del diff completo.
+
+Veredicto: RECHAZADO
