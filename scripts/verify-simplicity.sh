@@ -220,11 +220,12 @@ fi
 # durante semanas por esto. `next.config.ts` y `app/healthz/` quedan fuera: corren en el servidor.
 # Un default guardado por `process.env` en la misma línea sí se admite: es el escape para el WS,
 # que Next rewrites no puede proxear y que en producción se fija con NEXT_PUBLIC_ENGINE_WS_URL.
+# `-a` en los tres filtros: con un byte NUL, el grep de Linux manda "binary file matches" a stderr y no imprime la línea.
 LOOPBACK_HIT=$(git ls-files -- 'apps/web/features/*' 'apps/web/lib/*' 'apps/web/components/*' 2>/dev/null \
   | grep -v '\.test\.' \
-  | xargs -r grep -nE '(127\.0\.0\.1|//localhost)' 2>/dev/null \
-  | grep -v 'process\.env' \
-  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)') || true
+  | xargs -r env LC_ALL=C grep -anE '(127\.0\.0\.1|//localhost)' 2>/dev/null \
+  | LC_ALL=C grep -av 'process\.env' \
+  | LC_ALL=C grep -avE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)') || true
 if [ -n "$LOOPBACK_HIT" ]; then
   echo "❌ ERROR: literal de loopback (127.0.0.1 / localhost) bajo apps/web/{features,lib,components} -- ese código corre en el NAVEGADOR y debe ir por el proxy '/engine' (ENGINE_HTTP_BASE_URL)."
   echo "   Si es un default de desarrollo, guárdalo con 'process.env.<VAR> ?? ...' en la misma línea."

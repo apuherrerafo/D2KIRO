@@ -278,6 +278,8 @@ describe("simplicidad sobre árbol limpio: mira el cambio entregado, no el diff 
     ["secreto en un archivo UTF-16", enUtf16],
     ["línea borrada de un journal vuelto binario", (root) => put(root, "docs/agents/journal.md", "- primera\n\u0000\n")],
     ["loopback en un archivo binario de apps/web", (root) => put(root, "apps/web/lib/u.ts", `\u0000\n${loopback}`)],
+    // El NUL en la propia línea llega a los filtros siguientes de la tubería: también leen texto.
+    ["loopback en la misma línea que el byte NUL", (root) => put(root, "apps/web/lib/n.ts", `\u0000${loopback}`)],
     ["color forzado en la configuración de git", (root) => {
       git(root, "config", "color.diff", "always");
       put(root, "color.ts", SECRETO);
