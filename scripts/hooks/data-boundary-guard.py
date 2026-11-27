@@ -26,6 +26,7 @@ from _hook_lib import (  # noqa: E402
     EditTarget,
     GuardBlocked,
     claude_doing_tickets,
+    invalid_tickets,
     matches_any,
     parse_payload,
     read_stdin,
@@ -43,6 +44,14 @@ def check(target: EditTarget) -> str | None:
 
     if os.environ.get("D2K_CURATE") == "1":
         return None  # override humano explícito
+
+    broken = invalid_tickets(target.tasks_dir)
+    if broken:  # con una ficha ilegible no se sabe qué está en doing: ninguna otra autoriza
+        detail = "".join(f"  {t.path.name}: {t.problem}\n" for t in broken)
+        return (
+            f"Bloqueado por data-boundary-guard: '{rel}' es curación humana (data/curated/, ADR-003) y hay fichas "
+            f"inválidas.\n{detail}  Corrige la cabecera de esas fichas y vuelve a intentar.\n"
+        )
 
     tickets = claude_doing_tickets(target.tasks_dir)
     if len(tickets) == 1:

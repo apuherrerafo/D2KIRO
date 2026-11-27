@@ -269,3 +269,13 @@ test("ambos guardias ignoran tool calls que no son Edit/Write", async () => {
   });
   expect(await proc.exited).toBe(0);
 });
+
+test("data-boundary: con una ficha inválida no se confía en la autorización de otra, y se nombra", async () => {
+  ticket("TSK-960.md", { id: "TSK-960", state: "doing", write_scope: '["data/curated/**"]' });
+  expect(await runGuard("data-boundary-guard", join(REPO, "data/curated/hero-x.json"))).toBe(0);
+  rawTicket("TSK-961.md", "sin cabecera");
+  expect(await runGuard("data-boundary-guard", join(REPO, "data/curated/hero-x.json"))).toBe(2);
+  expect(await runGuard("data-boundary-guard", join(REPO, "data/generated/x.json"))).toBe(0);
+  rmSync(join(tasksDir, "TSK-960.md"));
+  rmSync(join(tasksDir, "TSK-961.md"));
+});

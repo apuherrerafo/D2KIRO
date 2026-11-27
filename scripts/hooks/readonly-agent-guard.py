@@ -28,7 +28,10 @@ def agent_name(payload: dict) -> str | None:
         return None
     if not isinstance(raw, str):
         raise GuardBlocked("`agent_type` no es texto: no se puede saber quién llama")
-    return raw.strip().lower()
+    name = raw.strip().lower()
+    if not name and payload.get("agent_id") is not None:
+        raise GuardBlocked("subagente con `agent_type` vacío: no se puede saber si es de sólo lectura")
+    return name or None
 
 
 def main() -> int:

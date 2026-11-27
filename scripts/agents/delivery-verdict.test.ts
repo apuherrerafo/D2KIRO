@@ -264,8 +264,22 @@ describe("simplicidad sobre árbol limpio: mira el cambio entregado, no el diff 
     expect(conGateReal((root) => put(root, "limpio.ts", "export {};\n")).gates.simplicity).toBe("PASS");
   }, TIMEOUT);
 
+  // Un byte NUL hace que git llame binario al archivo: sin `--text` no hay líneas que revisar.
+  const enUtf16 = (root: string) => writeFileSync(join(root, "ancho.ts"), Buffer.from(`﻿${SECRETO}`, "utf16le"));
+  const loopback = `export const U = "http://${["127", "0", "0", "1"].join(".")}:4000";\n`;
+  const escondidas: [string, (root: string) => void][] = [
+    ["secreto en un archivo que git llama binario", (root) => put(root, "bin.ts", `\u0000\n${SECRETO}`)],
+    ["secreto en un archivo UTF-16", enUtf16],
+    ["línea borrada de un journal vuelto binario", (root) => put(root, "docs/agents/journal.md", "- primera\n\u0000\n")],
+    ["loopback en un archivo binario de apps/web", (root) => put(root, "apps/web/lib/u.ts", `\u0000\n${loopback}`)],
+    ["color forzado en la configuración de git", (root) => {
+      git(root, "config", "color.diff", "always");
+      put(root, "color.ts", SECRETO);
+    }],
+  ];
+
   // La dependencia toca un package.json: el decisor la corta antes, como definición.
-  test.each(violaciones.slice(0, 2))("%s → NOT_READY", (_nombre, cambio) => {
+  test.each([...violaciones.slice(0, 2), ...escondidas])("%s → NOT_READY", (_nombre, cambio) => {
     const d = conGateReal(cambio);
     expect(d.gates.simplicity).toBe("FAIL");
     expect(d.resultado).toBe("NOT_READY");

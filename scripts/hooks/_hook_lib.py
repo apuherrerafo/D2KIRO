@@ -496,9 +496,10 @@ def parse_ticket_text(path: Path, text: str) -> Ticket:
             return invalid(f"la línea {i + 2} no es 'clave:' ni continuación indentada (¿falta el cierre de la cabecera?)")
     fields = {}
     for line in lines:
-        match = re.fullmatch(r"([A-Za-z_]+):(.*)", line)
+        # Misma forma de clave que gobierna (`_KEY_LINE`, columna 0): el tablero muestra lo que decide el alcance.
+        match = None if line.startswith((" ", "\t")) else _KEY_LINE.fullmatch(line)
         if match:
-            fields[match.group(1)] = _unquote(match.group(2).strip())
+            fields[match.group(2)] = _unquote(match.group(3).strip())
 
     tools = _key_values(lines, "assigned_tool")
     tool = ""

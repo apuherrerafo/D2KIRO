@@ -127,3 +127,11 @@ test("tablero: sin eventos estructurados, las líneas crudas del journal tambié
   expect(Bun.spawnSync(["bun", join(HOOKS_DIR, "..", "hub.ts")], { cwd: fam.main }).exitCode).toBe(0);
   expect(await Bun.file(join(agents, "hub.html")).text()).not.toContain("<img");
 });
+
+test("tablero: las claves entrecomilladas o con espacio antes de ':' se muestran igual que se gobiernan", () => {
+  mkdirSync(tasks);
+  writeFileSync(join(tasks, "TSK-4.md"), `---\n"id": TSK-4\ntitle : "Tarea"\n"state": doing\n'moscow' : must\n"assigned_tool": codex\n---\n`);
+  const [t] = JSON.parse(contract("list").out);
+  expect(t).toMatchObject({ state: "doing", wipTool: "codex", problem: "" });
+  expect(t.fields).toMatchObject({ id: "TSK-4", title: "Tarea", moscow: "must", assigned_tool: "codex" });
+});

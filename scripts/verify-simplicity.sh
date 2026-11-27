@@ -106,6 +106,12 @@ else
   DIFF_BASE="$EMPTY_TREE"
 fi
 
+# Diff que se puede LEER aunque git llame binario a un archivo (un byte NUL, UTF-16) o la configuración pinte color o
+# use un driver externo: sin esto las líneas añadidas o borradas no aparecen y las secciones 1, 2 y 4 no miran nada.
+diff_text() {
+  git diff --text --no-color --no-ext-diff --no-textconv --ignore-cr-at-eol "$@" 2>/dev/null | tr -d '\000'
+}
+
 # --- 1. Dependencias nuevas de PRODUCCIÓN ("dependencies") ---
 # Governance 2.0 (2026-08-24): devDependencies queda con bypass total (tooling de infraestructura
 # rutinaria del stack Bun -- typescript, better-sqlite3, etc. -- no exige /gear-up/@depcheck ni
@@ -116,7 +122,7 @@ fi
 # (apps/*/package.json), más el root nuevo (better-sqlite3/scripts del pipeline pro-drafter).
 PACKAGE_JSON_FILES=$(git ls-files -- '*/package.json' 'package.json' 2>/dev/null | grep -v node_modules) || true
 for pkg in $PACKAGE_JSON_FILES; do
-  if git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | \
+  if diff_text --cached "$DIFF_BASE" -- "$pkg" | \
      awk '
        /^\+\+\+/ {next}
        /"devDependencies"[[:space:]]*:/ {in_block=1; is_prod=0; next}
@@ -125,7 +131,7 @@ for pkg in $PACKAGE_JSON_FILES; do
        in_block && /^[^+-]*}/ {in_block=0}
        END {exit !found}
      '; then
-    if ! git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | grep -q '// ALLOWED'; then
+    if ! diff_text --cached "$DIFF_BASE" -- "$pkg" | grep -a '// ALLOWED' >/dev/null; then
       echo "❌ ERROR: Nueva(s) dependencia(s) de PRODUCCIÓN detectada(s) en $pkg sin marcar // ALLOWED."
       echo "   Pasa por /gear-up o @depcheck antes de continuar."
       ERRORS=$((ERRORS + 1))
@@ -141,7 +147,7 @@ SECRET_PATTERN='(api[_-]?key|password|secret|token)\s*[:=]\s*["'"'"'][A-Za-z0-9_
 # --ignore-cr-at-eol: un archivo que cambia de LF a CRLF (editores/herramientas de Windows) hace que
 # git marque TODAS sus líneas como -/+; sin el flag, el historial viejo reaparece como "añadido" y
 # dispara este patrón en falso. Una línea con contenido nuevo sigue apareciendo como '+'.
-TRACKED_SECRET_HIT=$(git diff --ignore-cr-at-eol "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | grep -Eio "$SECRET_PATTERN") || true
+TRACKED_SECRET_HIT=$(diff_text "$DIFF_BASE" | LC_ALL=C grep -a -E '^\+' | LC_ALL=C grep -a -Eio "$SECRET_PATTERN") || true
 UNTRACKED_ALL_FILES=$(git ls-files --others --exclude-standard 2>/dev/null) || true
 UNTRACKED_SECRET_FILES=""
 if [ -n "$UNTRACKED_ALL_FILES" ]; then
@@ -170,9 +176,9 @@ fi
 APPEND_ONLY_FILES=$(git ls-tree -r --name-only "$DIFF_BASE" -- docs/agents 2>/dev/null | grep -E '^docs/agents/(journal[^/]*\.md|ledger\.md)$') || true
 for f in $APPEND_ONLY_FILES; do
   # --ignore-cr-at-eol: ver sección 2. Una línea realmente borrada/editada sigue contando.
-  # --numstat (columna 2 = líneas borradas) en vez de grep '^-[^-]': toda entrada del journal empieza
-  # con "- [", su borrado se ve como "-- [" y ese grep nunca lo detectaba.
-  DELETED_LINES=$(git diff --ignore-cr-at-eol --numstat "$DIFF_BASE" -- "$f" 2>/dev/null | awk '{d+=$2} END {print d+0}')
+  # Se cuentan las líneas "-" de dentro de los hunks: toda entrada empieza con "- [" y su borrado se ve como "-- [";
+  # `--numstat` no sirve porque da "-" (cero) en cuanto git llama binario al archivo.
+  DELETED_LINES=$(diff_text -U0 "$DIFF_BASE" -- "$f" | LC_ALL=C awk '/^@@/ {h=1; next} h && /^-/ {d++} END {print d+0}')
   if [ "${DELETED_LINES:-0}" -gt 0 ]; then
     echo "❌ ERROR: $f tiene líneas eliminadas. Es append-only — nunca se reescribe."
     ERRORS=$((ERRORS + 1))

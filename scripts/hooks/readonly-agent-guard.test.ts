@@ -89,6 +89,13 @@ describe("fallo cerrado", () => {
     const res = await guard({ tool_name: "Bash", tool_input: { command: "git status" }, agent_id: "a1" });
     expect(res.code).toBe(2);
   });
+  test("subagente (agent_id) con agent_type vacío o en blanco -> bloquea", async () => {
+    for (const agentType of ["", "  "]) {
+      const res = await guard({ tool_name: "Bash", tool_input: { command: "git status" }, agent_type: agentType, agent_id: "a1" });
+      expect(res.code).toBe(2);
+    }
+    expect((await guard({ tool_name: "Bash", tool_input: { command: "git status" }, agent_type: "" })).code).toBe(0);
+  });
   test("agent_type que no es texto -> bloquea (no se puede saber quién llama)", async () => {
     const res = await guard({ tool_name: "Bash", tool_input: { command: "echo x > f" }, agent_type: 7 });
     expect(res.code).toBe(2);
