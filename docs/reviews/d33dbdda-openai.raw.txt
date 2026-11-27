@@ -1,0 +1,23 @@
+Soy Codex, revisor externo a Claude.
+
+Head revisado: `d33dbdda02c9875eed1be5042a4a35fa14b3e16b`  
+Base: `32cd2502cdfe7566b97b60b5b7104395a8527ead`
+
+No encontré defectos concretos y reproducibles en los cambios revisados. La cancelación de GitHub Actions no está verificada en GitHub real: la evidencia local contiene una simulación y no sustituye esa comprobación. La revisión se realizó solo mediante lectura, sin ejecutar código del PR ni usar la red.
+
+### Cobertura
+
+part-00: completo  
+part-01: completo  
+part-02: completo  
+part-03: completo  
+part-04: completo  
+part-05: completo  
+part-06: completo  
+part-07: completo
+
+Revisé a fondo los cambios del workflow de CI, el lanzador, `shadowing.ts`, sus pruebas y la prueba de semántica de CI; también leí el workflow completo y la política efectiva incluida en `contexto-master/`. Leí completos los archivos nuevos de documentación mediante el diff y las líneas añadidas a `journal.md`.
+
+Leí parcialmente `AGENTS.md` y `docs/release-protection.md` en cuanto al diff; además leí completo `AGENTS.md` en el head. El histórico completo de `journal.md` no estaba incluido. Consulté los estados de evidencia y confirmé que `code-identical.log` está vacío y figura con salida 0. No verifiqué independientemente el SHA-256 del diff.
+
+Veredicto: APROBADO

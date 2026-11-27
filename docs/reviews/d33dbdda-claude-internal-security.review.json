@@ -1,0 +1,35 @@
+{
+  "schema": "review-evidence/v1",
+  "reviewer": {
+    "provider": "claude-internal",
+    "tool": "claude-code",
+    "model": "claude-sonnet-5",
+    "promptId": "security",
+    "promptSha256": "c5100f75db4dc63494f333cb82962bb06d90a36deedba962d406a980256b07ea",
+    "isolation": "fresh-context"
+  },
+  "reviewedBase": "32cd2502cdfe7566b97b60b5b7104395a8527ead",
+  "reviewedHead": "d33dbdda02c9875eed1be5042a4a35fa14b3e16b",
+  "diffSha256": "3fd7af56c880778b8e0e0cfb9ce619f7bc7fedc1a27329ee6dc89bc4ec5894cc",
+  "rawOutput": {
+    "file": "docs/reviews/d33dbdda-claude-internal-security.raw.txt",
+    "sha256": "73957dea4d326d8abe545a1689bc1a02db7564a06b0f402335478a1e2ea53841"
+  },
+  "findings": [
+    {
+      "severity": "BAJA",
+      "file": ".github/workflows/ci.yml",
+      "summary": "las acciones de terceros que participan de los pasos nuevos/tocados (`actions/checkout@v4`, `oven-sh/setup-bun@v2`) siguen fijadas por tag, no por SHA.",
+      "disposition": "rejected",
+      "reason": "Disposicion registrada por el agente que publica, no por el propietario; no es una aceptacion de riesgo. NO corregido: el propio revisor indica que las lineas uses por tag son anteriores a la base y no estan en este diff."
+    },
+    {
+      "severity": "BAJA",
+      "file": "scripts/agents/shadowing.ts",
+      "summary": "herramienta de desarrollador local (invoca `~/.claude`, `CLAUDE_CONFIG_DIR`, el propio HOME), nunca importada desde `apps/engine` ni `apps/web`, nunca referenciada desde `.github/workflows/ci.yml`. No cruza ningún trust boundary de producción (no toca SQLite, red, ni el motor). Su propio archivo de prueba (`shadowing.test.ts`) ya ejercita en rojo→verde los vectores de abuso obvios para un lanzador de shell (CDPATH exportado, `.env`/`bunfig.toml` del directorio actual, `--setting-sources` del invocador, directorio personal no inspeccionable) — es un diseño que ya incorporó casos de abuso, no uno que los ignoró. Lo marco BAJA solo porque sigue siendo superficie nueva de ejecución de shell, aunque acotada a la máquina del desarrollador.",
+      "disposition": "rejected",
+      "reason": "Disposicion registrada por el agente que publica, no por el propietario; no es una aceptacion de riesgo. Sin cambio: el revisor no describe un defecto reproducible; anota que el lanzador es superficie de shell nueva, local al desarrollador y cubierta por pruebas."
+    }
+  ],
+  "verdict": "APROBADO CON OBSERVACIONES"
+}
