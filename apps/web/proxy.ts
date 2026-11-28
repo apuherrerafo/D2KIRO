@@ -84,5 +84,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|favicon.ico).*)"],
+  // Las dos rutas de la waitlist que reciben cuerpo quedan fuera: por el proxy, Next copia en memoria hasta 10 MB y no entrega la
+  // petición hasta recibirla entera, antes del tope de 8 KB del handler. Son públicas y se protegen solas, así que aquí no pierden
+  // ningún control; cualquier control nuevo de este archivo NO corre para ellas. El `$` deja la exclusión exacta.
+  matcher: ["/((?!_next/static|favicon.ico|api/waitlist$|api/waitlist/confirm$).*)"],
 };

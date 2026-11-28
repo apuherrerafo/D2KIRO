@@ -10,7 +10,7 @@ import { POST as confirmRoute } from "./app/api/waitlist/confirm/route";
 import { POST as signupRoute } from "./app/api/waitlist/route";
 import { isAccountAllowedNow, isSessionStillAllowed } from "./lib/beta-access";
 import { getSession, renewSessionIfNeeded, sessionOptions } from "./lib/session";
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
 
 // Estar en la waitlist (verificado o no) no da acceso al coach: se prueba contra el proxy, el token del motor y el login de Steam.
 
@@ -138,5 +138,45 @@ describe("la waitlist no concede acceso", () => {
       isAllowed: (accountId) => isSessionStillAllowed(accountId),
     });
     expect((await engineToken()).status).toBe(403);
+  });
+});
+
+// Next copia en memoria (hasta 10 MB) el cuerpo de toda petición que pasa por el proxy, y no la entrega a la ruta hasta recibirlo
+// entero: el tope de 8 KB del handler solo vale si sus dos rutas quedan fuera del matcher.
+// El compilador de matchers de Next corre en un proceso aparte: importarlo aquí deja sin AsyncLocalStorage al resto de la corrida.
+const MATCH_SCRIPT = `
+require("next/dist/server/node-environment-baseline");
+const { unstable_doesMiddlewareMatch } = require("next/experimental/testing/server");
+const [matcher, urls] = JSON.parse(process.argv[1]);
+console.log(JSON.stringify(urls.map((url) => unstable_doesMiddlewareMatch({ config: { matcher }, url }))));
+`;
+
+function proxyRunsFor(paths: string[]): Array<[string, boolean]> {
+  const input = JSON.stringify([config.matcher, paths.map((path) => `${ORIGIN}${path}`)]);
+  const child = Bun.spawnSync([process.execPath, "-e", MATCH_SCRIPT, input], { cwd: import.meta.dir });
+  if (child.exitCode !== 0) throw new Error(child.stderr.toString());
+  const results = JSON.parse(child.stdout.toString()) as boolean[];
+  return paths.map((path, index) => [path, results[index]]);
+}
+
+describe("qué pasa por el proxy", () => {
+  test("las dos rutas que reciben el cuerpo de la waitlist quedan fuera, también con parámetros", () => {
+    const paths = ["/api/waitlist", "/api/waitlist/confirm", "/api/waitlist?x=1", "/api/waitlist/confirm?x=1"];
+    expect(proxyRunsFor(paths)).toEqual(paths.map((path) => [path, false]));
+  });
+
+  test("la exclusión es exacta: todo lo cerrado sigue pasando por el proxy", () => {
+    const paths = [
+      ...COACH_PATHS,
+      "/api/waitlistx", "/api/waitlist-admin", "/api/waitlist/confirmx", "/api/waitlist/confirm-all", "/api/waitlist/export/confirm",
+      "/api/waitlist.json", "/api/waitlist/confirm.json", "/api/waitlist.rsc", "/api/waitlist/%63onfirm", "/API/WAITLIST", "/x/api/waitlist",
+      "/engine/api/waitlist", "/api/Waitlist/confirm",
+    ];
+    expect(proxyRunsFor(paths)).toEqual(paths.map((path) => [path, true]));
+  });
+
+  test("las rutas con cuerpos grandes y el corte de /_next/image siguen pasando por el proxy", () => {
+    const paths = ["/api/feedback", "/api/feedback-admin/export", "/api/live/gsi/abc", "/api/live/visual/abc", "/api/auth/access-request", "/api/beta-admin", "/waitlist", "/waitlist/confirm", "/", "/_next/image"];
+    expect(proxyRunsFor(paths)).toEqual(paths.map((path) => [path, true]));
   });
 });
