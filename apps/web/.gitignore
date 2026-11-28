@@ -39,3 +39,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /storybook-static/
+
+# Datos locales con información personal (invitaciones, feedback, waitlist): nunca se versionan.
+/data/

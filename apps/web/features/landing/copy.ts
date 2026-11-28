@@ -58,12 +58,13 @@ export const PROPOSITION = {
   ],
 } as const;
 
-/** The closing block. The door in is the real one: Steam sign-in. No email list, no sign-up form. */
+/** The closing block. The door in is the real one: Steam sign-in. Without an invitation, the waitlist is one link away. */
 export const ENTRY = {
   kicker: "Private beta",
   title: "Take it into your next draft.",
   lede: "D2KIRO sees the draft, remembers how you play and shows why a call moved. You sign in with your Steam account: your pool and your teams are saved to it.",
   note: "Access is by invitation while the beta lasts.",
+  waitlist: "Not invited yet? Join the waitlist",
 } as const;
 
 export const FOOTER = {

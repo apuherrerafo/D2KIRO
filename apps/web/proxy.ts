@@ -15,8 +15,12 @@ const VISUAL_INGEST_PREFIX = "/api/live/visual/";
 // `/api/live/companion-installer` (the personal download) still needs a session.
 const COMPANION_INGEST_PREFIX = "/api/live/companion/";
 
+// Waitlist: las dos pantallas y las dos rutas que cualquiera puede usar sin cuenta. Lista exacta (no prefijo): lo que se agregue debajo de
+// ellas exige sesión. Ninguna crea sesión, así que estar en la waitlist no abre nada de lo demás.
+const WAITLIST_PUBLIC_PATHS: ReadonlySet<string> = new Set(["/waitlist", "/waitlist/confirm", "/api/waitlist", "/api/waitlist/confirm"]);
+
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
+  return WAITLIST_PUBLIC_PATHS.has(pathname) || pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

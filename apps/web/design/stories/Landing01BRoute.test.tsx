@@ -2,7 +2,7 @@ import "@/test-support/happy-dom";
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LandingPage } from "@/features/landing";
 import { ENTRY_PATH } from "@/features/landing/components/EntrySection";
@@ -61,14 +61,19 @@ describe("Landing metadata", () => {
 });
 
 describe("Landing entry", () => {
-  it("every call to action goes to the real Steam sign-in; no dead waitlist remains", () => {
+  it("every call to action goes to the real Steam sign-in; the only other door is one link to the real waitlist", () => {
     expect(ENTRY_PATH).toBe("/login");
     for (const file of ["components/LandingHero.tsx", "components/LandingNav.tsx", "components/EntrySection.tsx"]) {
       expect(readFileSync(join(webRoot, "features", "landing", file), "utf8")).toContain("ENTRY_PATH");
     }
     const screen = render(<LandingPage motionMode="reduced" />);
     const text = screen.getByTestId("landing-01b").textContent ?? "";
-    expect(/waitlist|lista de espera|nothing you type here/i.test(text)).toBe(false);
+    expect(/nothing you type here/i.test(text)).toBe(false);
     expect(text).toContain("Sign in with Steam");
+    // No muerto: el enlace apunta a una ruta que existe, y la portada sigue sin pedir ningún dato.
+    const links = screen.getByTestId("landing-01b").querySelectorAll('a[href="/waitlist"]');
+    expect(links).toHaveLength(1);
+    expect(existsSync(join(webRoot, "app", "waitlist", "page.tsx"))).toBe(true);
+    expect(screen.getByTestId("landing-01b").querySelectorAll("form, input")).toHaveLength(0);
   });
 });
