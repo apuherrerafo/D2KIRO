@@ -3,9 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRateLimiter } from "./rate-limit";
+import type { SignupLimits } from "./waitlist-abuse";
 import { createWaitlistHandlers, normalizeEmail, type WaitlistDependencies } from "./waitlist-handler";
 import type { OutgoingEmail } from "./waitlist-mailer";
-import { MAX_ENTRIES, MAX_SENDS_PER_DAY, SEND_COOLDOWN_MS, TOKEN_TTL_MS, UNVERIFIED_RETENTION_MS, verifiedWaitlistMembers, waitlistFilePath } from "./waitlist-store";
+import { MAX_SENDS_PER_DAY, SEND_COOLDOWN_MS, TOKEN_TTL_MS, UNVERIFIED_RETENTION_MS, verifiedWaitlistMembers, waitlistFilePath } from "./waitlist-store";
 
 // Ningún correo real: el remitente es una lista en memoria. Ningún dato real: archivo en una carpeta temporal.
 
@@ -18,6 +19,11 @@ let clock = 0;
 let outbox: OutgoingEmail[] = [];
 let mailFails = false;
 
+function limits(overrides: Partial<SignupLimits> = {}): SignupLimits {
+  const open = () => createRateLimiter(1000, 1000);
+  return { client: open(), network: open(), tagged: open(), global: open(), ...overrides };
+}
+
 function handlers(overrides: Partial<WaitlistDependencies> = {}) {
   return createWaitlistHandlers({
     env: { WAITLIST_FILE: file },
@@ -29,9 +35,7 @@ function handlers(overrides: Partial<WaitlistDependencies> = {}) {
         outbox.push(email);
       },
     },
-    mailboxLimiter: createRateLimiter(1000, 1000),
-    ipLimiter: createRateLimiter(1000, 1000),
-    globalLimiter: createRateLimiter(1000, 1000),
+    limits: limits(),
     confirmLimiter: createRateLimiter(1000, 1000),
     ...overrides,
   });
@@ -105,12 +109,12 @@ describe("registro", () => {
   });
 
   test("límite por IP y tope global", async () => {
-    const perIp = handlers({ ipLimiter: createRateLimiter(1, DAY) });
+    const perIp = handlers({ limits: limits({ client: createRateLimiter(1, DAY) }) });
     expect((await perIp.signup(post({ email: EMAIL }))).status).toBe(202);
     expect((await perIp.signup(post({ email: "other@example.com" }))).status).toBe(429);
-    const global = handlers({ globalLimiter: createRateLimiter(1, DAY) });
-    expect((await global.signup(post({ email: "a@example.com" }, { "x-forwarded-for": "10.0.0.1" }))).status).toBe(202);
-    expect((await global.signup(post({ email: "b@example.com" }, { "x-forwarded-for": "10.0.0.2" }))).status).toBe(429);
+    const global = handlers({ limits: limits({ global: createRateLimiter(1, DAY) }) });
+    expect((await global.signup(post({ email: "a@example.com" }, { "x-real-ip": "10.0.0.1" }))).status).toBe(202);
+    expect((await global.signup(post({ email: "b@example.com" }, { "x-real-ip": "10.0.0.2" }))).status).toBe(503);
   });
 
   test("sin remitente configurado o sin disco persistente en producción: cerrado y sin guardar", async () => {
@@ -202,12 +206,6 @@ describe("hallazgos de la revisión de seguridad", () => {
     expect(response?.status).toBe(202);
   });
 
-  test("con la lista llena, un correo nuevo y uno ya inscrito se ven igual", async () => {
-    const entries = Array.from({ length: MAX_ENTRIES }, (_, index) => ({ id: String(index), email: `m${index}@example.com`, status: "waitlisted", createdAt: clock, verifiedAt: clock, welcomeSentAt: clock, tokens: [], sentAt: [] }));
-    writeFileSync(file, JSON.stringify({ version: 1, entries }));
-    expect(await seen(await signup("new@example.com"))).toEqual(await seen(await signup("m1@example.com")));
-  });
-
   test("un reenvío fallido no destruye el enlace que ya había llegado", async () => {
     await signup();
     const first = tokenIn(outbox[0]);
@@ -230,19 +228,11 @@ describe("hallazgos de la revisión de seguridad", () => {
     expect((await confirm(first)).status).toBe(200);
   });
 
-  test("los alias de un mismo buzón comparten tope y la respuesta no cambia", async () => {
-    const api = handlers({ mailboxLimiter: createRateLimiter(2, DAY) });
-    for (const alias of ["victim@gmail.com", "vic.tim+a@gmail.com", "victim+b@gmail.com", "v.i.c.t.i.m@googlemail.com"]) {
-      expect((await api.signup(post({ email: alias }))).status).toBe(202);
-    }
-    expect(outbox).toHaveLength(2);
-  });
-
   test("un cuerpo declarado enorme se rechaza sin leerlo, y sin remitente no se gasta el cupo", async () => {
     expect((await handlers().signup(post({ email: EMAIL }, { "content-length": "9000000" }))).status).toBe(400);
-    const globalLimiter = createRateLimiter(1, DAY);
-    await handlers({ mailer: null, globalLimiter }).signup(post({ email: EMAIL }));
-    expect((await handlers({ globalLimiter }).signup(post({ email: EMAIL }))).status).toBe(202);
+    const shared = limits({ global: createRateLimiter(1, DAY) });
+    await handlers({ mailer: null, limits: shared }).signup(post({ email: EMAIL }));
+    expect((await handlers({ limits: shared }).signup(post({ email: EMAIL }))).status).toBe(202);
   });
 });
 

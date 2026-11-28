@@ -1,4 +1,4 @@
-export type SignupFailure = "invalid_email" | "rate_limited" | "not_open" | "unavailable" | "network";
+export type SignupFailure = "invalid_email" | "rate_limited" | "busy" | "full" | "not_open" | "unavailable" | "network";
 
 export type ConfirmFailure = "invalid_link" | "expired_link" | "rate_limited" | "unavailable" | "network";
 

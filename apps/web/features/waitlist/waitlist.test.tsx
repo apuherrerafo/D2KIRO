@@ -35,6 +35,18 @@ describe("registro en pantalla", () => {
     expect(calls).toEqual([{ url: "/api/waitlist", body: { email: "fan@example.com", website: "" } }]);
   });
 
+  for (const failure of ["busy", "full", "rate_limited"] as const) {
+    it(`un registro no aceptado (${failure}) no dice «revisa tu correo»`, async () => {
+      reply = () => Response.json({ error: failure }, { status: failure === "rate_limited" ? 429 : 503 });
+      const user = userEvent.setup({ document: window.document });
+      const screen = render(<WaitlistSignupPanel />);
+      await user.type(screen.getByTestId("waitlist-email"), "fan@example.com");
+      await user.click(screen.getByTestId("waitlist-submit"));
+      await waitFor(() => expect(screen.getByTestId("waitlist-signup-error").textContent).toContain(SIGNUP_ERRORS[failure]));
+      expect(screen.queryByTestId("waitlist-signup-done")).toBeNull();
+    });
+  }
+
   it("muestra cada error y deja reintentar", async () => {
     reply = () => Response.json({ error: "unavailable" }, { status: 503 });
     const user = userEvent.setup({ document: window.document });

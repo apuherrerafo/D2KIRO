@@ -1,4 +1,5 @@
-import { createRateLimiter, clientKey, type RateLimiter } from "./rate-limit";
+import { createRateLimiter, type RateLimiter } from "./rate-limit";
+import { clientKeys, createSignupLimits, taggedMailboxKey, type SignupLimits } from "./waitlist-abuse";
 import { alreadyListedEmail, verificationEmail, welcomeEmail } from "./waitlist-emails";
 import type { OutgoingEmail, WaitlistMailer } from "./waitlist-mailer";
 import { confirmToken, keepOnlyToken, markWelcomeSent, planSignup, releaseSend, waitlistFilePath, type ConfirmResult, type SignupPlan } from "./waitlist-store";
@@ -14,22 +15,18 @@ export interface WaitlistDependencies {
   mailer: WaitlistMailer | null;
   /** Trabajo que sigue después de responder (el envío del registro). El servidor es un proceso de vida larga. */
   defer?: (task: () => Promise<void>) => void;
-  mailboxLimiter?: RateLimiter;
   /** Para pruebas: límites propios en lugar de los del proceso. */
-  ipLimiter?: RateLimiter;
-  globalLimiter?: RateLimiter;
+  limits?: SignupLimits;
   confirmLimiter?: RateLimiter;
 }
 
-const sharedIpLimiter = createRateLimiter(5, 10 * 60 * 1000);
-/** Tope total de registros por hora: acota el abuso del proveedor de correo aunque se falsee la IP. */
-const sharedGlobalLimiter = createRateLimiter(100, 60 * 60 * 1000);
+const sharedSignupLimits = createSignupLimits();
 const sharedConfirmLimiter = createRateLimiter(20, 10 * 60 * 1000);
-/** Tope por buzón real: los alias (`+algo`, puntos de Gmail) no multiplican los correos que recibe una persona. */
-const sharedMailboxLimiter = createRateLimiter(5, 60 * 60 * 1000);
 
 const MAX_BODY_CHARS = 2000;
-const EMAIL_PATTERN = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const MAX_BODY_BYTES = MAX_BODY_CHARS * 4;
+/** Parte local: 1 a 64 caracteres, tramos separados por UN punto (ni al principio, ni al final, ni seguidos). */
+const EMAIL_PATTERN = /^(?=[^@]{1,64}@)[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 function json(body: unknown, status = 200): Response {
@@ -42,25 +39,36 @@ export function normalizeEmail(raw: unknown): string | null {
   return email.length <= 254 && EMAIL_PATTERN.test(email) ? email : null;
 }
 
-function mailboxKey(email: string): string {
-  const [local, domain] = email.split("@");
-  const base = local.split("+")[0];
-  if (domain === "gmail.com" || domain === "googlemail.com") return `${base.replaceAll(".", "")}@gmail.com`;
-  return `${base}@${domain}`;
-}
-
 function runDetached(task: () => Promise<void>): void {
   void task();
+}
+
+/** El cuerpo como texto, o null si pasa del tope: se deja de leer ahí, venga o no `content-length`. */
+async function readBoundedText(request: Request): Promise<string | null> {
+  if (request.body === null) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return Buffer.concat(chunks).toString("utf8");
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
 }
 
 /** Mismo origen y JSON (un formulario de otro sitio no puede mandar esto), con cuerpo acotado. */
 async function readBody(request: Request, publicOrigin: string): Promise<Record<string, unknown> | Response> {
   if (request.headers.get("origin") !== new URL(publicOrigin).origin) return json({ error: "forbidden" }, 403);
   if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return json({ error: "bad_request" }, 400);
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_CHARS * 4) return json({ error: "bad_request" }, 400);
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return json({ error: "bad_request" }, 400);
   try {
-    const raw = await request.text();
-    if (raw.length > MAX_BODY_CHARS) return json({ error: "bad_request" }, 400);
+    const raw = await readBoundedText(request);
+    if (raw === null || raw.length > MAX_BODY_CHARS) return json({ error: "bad_request" }, 400);
     const body = JSON.parse(raw) as unknown;
     if (typeof body === "object" && body !== null) return body as Record<string, unknown>;
   } catch {
@@ -77,8 +85,7 @@ function emailFor(plan: Extract<SignupPlan, { id: string }>, to: string, origin:
 }
 
 export function createWaitlistHandlers(dependencies: WaitlistDependencies) {
-  const ipLimiter = dependencies.ipLimiter ?? sharedIpLimiter;
-  const globalLimiter = dependencies.globalLimiter ?? sharedGlobalLimiter;
+  const limits = dependencies.limits ?? sharedSignupLimits;
   const confirmLimiter = dependencies.confirmLimiter ?? sharedConfirmLimiter;
   const file = waitlistFilePath(dependencies.env);
 
@@ -109,6 +116,22 @@ export function createWaitlistHandlers(dependencies: WaitlistDependencies) {
     }
   }
 
+  /**
+   * Por orden: quién pide, su red, las variantes del buzón y, solo para lo que pasó todo eso, el freno global. Ninguna negativa
+   * depende de si el correo está inscrito, y ninguna guarda ni envía nada.
+   */
+  function limitRefusal(headers: Headers, email: string, now: number): Response | null {
+    const { client, network } = clientKeys(headers);
+    const tagged = taggedMailboxKey(email);
+    if (!limits.client.allow(client, now) || !limits.network.allow(network, now)) return json({ error: "rate_limited" }, 429);
+    if (tagged !== null && !limits.tagged.allow(tagged, now)) return json({ error: "rate_limited" }, 429);
+    if (!limits.global.allow("all", now)) {
+      console.error("[waitlist] global signup limit reached");
+      return json({ error: "busy" }, 503);
+    }
+    return null;
+  }
+
   return {
     async signup(request: Request): Promise<Response> {
       const origin = dependencies.publicOrigin;
@@ -122,8 +145,8 @@ export function createWaitlistHandlers(dependencies: WaitlistDependencies) {
       const { mailer } = dependencies;
       if (mailer === null || file === null) return json({ error: "not_open" }, 503);
       const now = dependencies.now();
-      if (!ipLimiter.allow(clientKey(request.headers), now) || !globalLimiter.allow("all", now)) return json({ error: "rate_limited" }, 429);
-      if (!(dependencies.mailboxLimiter ?? sharedMailboxLimiter).allow(mailboxKey(email), now)) return json({ status: "check_inbox" }, 202);
+      const refusal = limitRefusal(request.headers, email, now);
+      if (refusal !== null) return refusal;
 
       let plan: SignupPlan;
       try {
@@ -132,8 +155,11 @@ export function createWaitlistHandlers(dependencies: WaitlistDependencies) {
         console.error("[waitlist] signup not stored");
         return json({ error: "unavailable" }, 503);
       }
-      if (plan.kind === "full") console.error("[waitlist] list is full");
-      if (plan.kind !== "full" && plan.kind !== "skip") {
+      if (plan.kind === "full") {
+        console.error("[waitlist] list is full");
+        return json({ error: "full" }, 503);
+      }
+      if (plan.kind !== "skip") {
         const pending = plan;
         const outgoing = emailFor(pending, email, origin);
         (dependencies.defer ?? runDetached)(() => deliver(file, mailer, pending, outgoing, now));
@@ -147,7 +173,7 @@ export function createWaitlistHandlers(dependencies: WaitlistDependencies) {
       const body = await readBody(request, origin);
       if (body instanceof Response) return body;
       const now = dependencies.now();
-      if (!confirmLimiter.allow(clientKey(request.headers), now)) return json({ error: "rate_limited" }, 429);
+      if (!confirmLimiter.allow(clientKeys(request.headers).client, now)) return json({ error: "rate_limited" }, 429);
       if (typeof body.token !== "string" || !TOKEN_PATTERN.test(body.token)) return json({ error: "invalid_link" }, 400);
 
       let result: ConfirmResult;

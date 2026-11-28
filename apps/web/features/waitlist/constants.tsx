@@ -18,7 +18,9 @@ export const SIGNUP_COPY = {
 
 export const SIGNUP_ERRORS: Record<SignupFailure, string> = {
   invalid_email: "That does not look like an email address. Check it and try again.",
-  rate_limited: "Too many attempts. Wait a few minutes and try again.",
+  rate_limited: "Too many signup attempts. Nothing was sent. Please try again later.",
+  busy: "Signups are paused for a while because of high volume. Nothing was saved or sent. Please try again later.",
+  full: "The waitlist cannot take signups right now. Nothing was saved or sent. Please come back later.",
   not_open: "The waitlist is not open yet. Please come back later.",
   unavailable: "We could not save your signup. Try again in a few minutes.",
   network: "We cannot reach D2KIRO. Check your connection and try again.",

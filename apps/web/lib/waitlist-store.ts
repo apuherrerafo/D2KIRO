@@ -109,11 +109,20 @@ function isAbandoned(entry: WaitlistEntry, now: number): boolean {
   return entry.status === "pending_verification" && now - lastActivity(entry) > UNVERIFIED_RETENTION_MS;
 }
 
-/** Hace sitio para un registro nuevo sacando el pendiente sin actividad hace más tiempo; null si la lista está llena de verificados. */
-function makeRoom(entries: WaitlistEntry[]): WaitlistEntry[] | null {
+/** Se puede soltar para hacer sitio: nunca confirmó y ya no le queda ningún enlace vigente. */
+function isEvictable(entry: WaitlistEntry, now: number): boolean {
+  return entry.status === "pending_verification" && entry.tokens.every((token) => token.expiresAt <= now);
+}
+
+/** Llena y sin nada que soltar. No depende del correo que se pide: así la negativa no dice quién está inscrito. */
+function isAtCapacity(entries: WaitlistEntry[], now: number): boolean {
+  return entries.length >= MAX_ENTRIES && !entries.some((entry) => isEvictable(entry, now));
+}
+
+/** Con la lista llena, saca el registro soltable más antiguo; se llama solo si `isAtCapacity` dio falso. */
+function makeRoom(entries: WaitlistEntry[], now: number): WaitlistEntry[] {
   if (entries.length < MAX_ENTRIES) return entries;
-  const oldest = entries.filter((entry) => entry.status === "pending_verification").sort((a, b) => lastActivity(a) - lastActivity(b))[0];
-  if (oldest === undefined) return null;
+  const oldest = entries.filter((entry) => isEvictable(entry, now)).sort((a, b) => lastActivity(a) - lastActivity(b))[0];
   return entries.filter((entry) => entry !== oldest);
 }
 
@@ -143,11 +152,11 @@ export type SignupPlan =
  */
 export function planSignup(path: string, email: string, now: number): SignupPlan {
   const entries = load(path).filter((entry) => !isAbandoned(entry, now));
+  if (isAtCapacity(entries, now)) return { kind: "full" };
   const existing = entries.find((entry) => entry.email === email);
   if (existing !== undefined && !canSend(existing.sentAt, now)) return { kind: "skip" };
 
-  const others = existing === undefined ? makeRoom(entries) : entries.filter((entry) => entry !== existing);
-  if (others === null) return { kind: "full" };
+  const others = existing === undefined ? makeRoom(entries, now) : entries.filter((entry) => entry !== existing);
   const base: WaitlistEntry = existing ?? { id: randomUUID(), email, status: "pending_verification", createdAt: now, tokens: [], sentAt: [] };
   const sentAt = [...base.sentAt.filter((at) => now - at < DAY_MS), now];
 

@@ -53,8 +53,11 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+// Las rutas reales usan los límites reales: cada petición llega desde su propia dirección.
+let visitors = 0;
 function jsonPost(path: string, body: unknown) {
-  return new Request(`${ORIGIN}${path}`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" }, body: JSON.stringify(body) });
+  visitors += 1;
+  return new Request(`${ORIGIN}${path}`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json", "x-real-ip": `198.51.${visitors}.1` }, body: JSON.stringify(body) });
 }
 
 /** Recorre registro y confirmación con las rutas reales; el único doble es el proveedor de correo. */
